@@ -1,14 +1,16 @@
 const express = require('express');
 const router = express.Router();
+const Joi = require('joi');
 const Project = require('../models/project');
 const db = require('../db');
-const auth = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 const { isAdmin } = require('../middleware/roles');
 const { generateScaffoldsPDF } = require('../lib/pdfGenerator');
 const { generateReportExcel } = require('../lib/excelGenerator');
+const logger = require('../lib/logger');
 
 // GET all projects (for admins) or assigned projects (for technicians)
-router.get('/', auth, async (req, res) => {
+router.get('/', authMiddleware, async (req, res, next) => {
   try {
     let projects;
     if (req.user.role === 'admin') {
@@ -18,13 +20,13 @@ router.get('/', auth, async (req, res) => {
     }
     res.json(projects);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    logger.error(`Error al obtener proyectos: ${err.message}`, err);
+    next(err);
   }
 });
 
 // GET a single project by ID
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', authMiddleware, async (req, res, next) => {
   try {
     const project = await Project.getById(req.params.id);
     if (!project) {
@@ -32,66 +34,96 @@ router.get('/:id', auth, async (req, res) => {
     }
     res.json(project);
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    logger.error(`Error al obtener el proyecto con ID ${req.params.id}: ${err.message}`, err);
+    next(err);
   }
 });
 
 // Apply auth and isAdmin middleware to all routes below
-router.use(auth, isAdmin);
+router.use(authMiddleware, isAdmin);
 
 // GET assigned users for a project
-router.get('/:id/users', async (req, res) => {
+router.get('/:id/users', async (req, res, next) => {
   try {
-    const { rows } = await db.query('SELECT user_id FROM project_users WHERE project_id = $1', [req.params.id]);
-    const userIds = rows.map(row => row.user_id);
+    const { rows } = await db.query('SELECT user_id FROM project_users WHERE project_id = $1', [
+      req.params.id,
+    ]);
+    const userIds = rows.map((row) => row.user_id);
     res.json(userIds); // Devuelve un array de IDs de usuario [1, 2, 3]
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    logger.error(
+      `Error al obtener los usuarios asignados al proyecto con ID ${req.params.id}: ${err.message}`,
+      err,
+    );
+    next(err);
   }
 });
 
+const assignUsersSchema = Joi.object({
+  userIds: Joi.array().items(Joi.number().integer().positive()).required(),
+});
+
 // POST to assign users to a project
-router.post('/:id/users', async (req, res) => {
+router.post('/:id/users', async (req, res, next) => {
   try {
     const projectId = req.params.id;
-    const { userIds } = req.body; // Espera un array de IDs de usuario [1, 2, 3]
+    const { userIds } = await assignUsersSchema.validateAsync(req.body);
 
     await Project.assignUsers(projectId, userIds);
     res.status(200).json({ message: 'Users assigned successfully' });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    if (err.isJoi) {
+      return res.status(400).json({ error: err.details[0].message });
+    }
+    logger.error(
+      `Error al asignar usuarios al proyecto con ID ${req.params.id}: ${err.message}`,
+      err,
+    );
+    next(err);
   }
 });
 
+const projectSchema = Joi.object({
+  client_id: Joi.number().integer().positive().required(),
+  name: Joi.string().trim().min(2).max(100).required(),
+  status: Joi.string().valid('active', 'inactive', 'completed').required(),
+});
+
 // POST a new project
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
   try {
-    const { client_id, name, status } = req.body;
-    const newProject = await Project.create({ client_id, name, status });
+    const validatedData = await projectSchema.validateAsync(req.body);
+    const newProject = await Project.create(validatedData);
     res.status(201).json(newProject);
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    if (err.isJoi) {
+      return res.status(400).json({ error: err.details[0].message });
+    }
+    logger.error(`Error al crear un nuevo proyecto: ${err.message}`, err);
+    next(err);
   }
 });
 
 // PUT to update a project
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req, res, next) => {
   try {
-    const { client_id, name, status } = req.body;
-    const updatedProject = await Project.update(req.params.id, { client_id, name, status });
+    const validatedData = await projectSchema.validateAsync(req.body);
+    const updatedProject = await Project.update(req.params.id, validatedData);
     if (!updatedProject) {
       return res.status(404).json({ message: 'Project not found' });
     }
     res.json(updatedProject);
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    if (err.isJoi) {
+      return res.status(400).json({ error: err.details[0].message });
+    }
+    logger.error(`Error al actualizar el proyecto con ID ${req.params.id}: ${err.message}`, err);
+    next(err);
   }
 });
 
 // DELETE a project
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req, res, next) => {
   try {
     const deletedProject = await Project.delete(req.params.id);
     if (!deletedProject) {
@@ -99,76 +131,63 @@ router.delete('/:id', async (req, res) => {
     }
     res.json({ message: 'Project deleted' });
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    logger.error(`Error al eliminar el proyecto con ID ${req.params.id}: ${err.message}`, err);
+    next(err);
   }
 });
 
-// GET PDF export for a project
-router.get('/:id/export/pdf', async (req, res) => {
+// GET project report as PDF
+router.get('/:id/report/pdf', async (req, res, next) => {
   try {
-    const project = await Project.getById(req.params.id);
+    const projectId = req.params.id;
+    const project = await Project.getById(projectId);
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
+    const { rows: scaffolds } = await db.query('SELECT * FROM scaffolds WHERE project_id = $1', [
+      projectId,
+    ]);
 
-    const { status, startDate, endDate } = req.query;
+    const doc = await generateScaffoldsPDF(project, scaffolds);
 
-    // Obtener los andamios con el nombre del usuario
-    let scaffoldsQuery = `
-      SELECT s.*, u.name as user_name 
-      FROM scaffolds s 
-      JOIN users u ON s.user_id = u.id 
-      WHERE s.project_id = $1`;
-    
-    const queryParams = [req.params.id];
-    let paramIndex = 2;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=reporte_${project.name}.pdf`);
 
-    if (status && status !== 'all') {
-      scaffoldsQuery += ` AND s.status = $${paramIndex++}`;
-      queryParams.push(status);
-    }
-    if (startDate) {
-      scaffoldsQuery += ` AND s.assembly_created_at >= $${paramIndex++}`;
-      queryParams.push(startDate);
-    }
-    if (endDate) {
-      const end = new Date(endDate);
-      end.setDate(end.getDate() + 1);
-      scaffoldsQuery += ` AND s.assembly_created_at < $${paramIndex++}`;
-      queryParams.push(end.toISOString().split('T')[0]);
-    }
-
-    scaffoldsQuery += ` ORDER BY s.assembly_created_at DESC`;
-    const { rows: scaffolds } = await db.query(scaffoldsQuery, queryParams);
-    
-    generateScaffoldsPDF(project, scaffolds, res, { status, startDate, endDate });
-
+    doc.pipe(res);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    logger.error(
+      `Error al generar el reporte en PDF para el proyecto con ID ${req.params.id}: ${err.message}`,
+      err,
+    );
+    next(err);
   }
 });
 
-// GET Excel export for a project
-router.get('/:id/export/excel', async (req, res) => {
+// GET project report as Excel
+router.get('/:id/report/excel', async (req, res, next) => {
   try {
-    const project = await Project.getById(req.params.id);
+    const projectId = req.params.id;
+    const project = await Project.getById(projectId);
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
+    const { rows: scaffolds } = await db.query('SELECT * FROM scaffolds WHERE project_id = $1', [
+      projectId,
+    ]);
 
-    // Obtener los andamios con el nombre del usuario
-    const scaffoldsQuery = `
-      SELECT s.*, u.name as user_name 
-      FROM scaffolds s 
-      JOIN users u ON s.user_id = u.id 
-      WHERE s.project_id = $1 ORDER BY s.assembly_created_at DESC`;
-    const { rows: scaffolds } = await db.query(scaffoldsQuery, [req.params.id]);
-    
-    generateReportExcel(project, scaffolds, res);
+    const buffer = await generateReportExcel(project, scaffolds);
 
+    res.writeHead(200, {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="reporte_${project.name}.xlsx"`,
+    });
+    res.end(buffer);
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    logger.error(
+      `Error al generar el reporte en Excel para el proyecto con ID ${req.params.id}: ${err.message}`,
+      err,
+    );
+    next(err);
   }
 });
 

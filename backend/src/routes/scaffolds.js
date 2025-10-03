@@ -1,22 +1,24 @@
 const express = require('express');
 const router = express.Router();
+const Joi = require('joi');
 const db = require('../db');
-const auth = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 const multer = require('multer');
 const { uploadFile } = require('../lib/googleCloud');
+const logger = require('../lib/logger');
 
 // Multer config for in-memory storage
 const multerStorage = multer.memoryStorage();
 const upload = multer({ storage: multerStorage });
 
-router.use(auth); // Proteger todas las rutas de andamios
+router.use(authMiddleware); // Proteger todas las rutas de andamios
 
 /**
  * @route   GET /api/scaffolds/project/:projectId
  * @desc    Obtener todos los andamios de un proyecto específico
  * @access  Private
  */
-router.get('/project/:projectId', auth, async (req, res) => {
+router.get('/project/:projectId', async (req, res, next) => {
   const { projectId } = req.params;
   try {
     const query = `
@@ -27,9 +29,21 @@ router.get('/project/:projectId', auth, async (req, res) => {
     const { rows } = await db.query(query, [projectId]);
     res.json(rows);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    logger.error(
+      `Error al obtener los andamios del proyecto con ID ${projectId}: ${err.message}`,
+      err,
+    );
+    next(err);
   }
+});
+
+const createScaffoldSchema = Joi.object({
+  project_id: Joi.number().integer().positive().required(),
+  height: Joi.number().positive().required(),
+  width: Joi.number().positive().required(),
+  depth: Joi.number().positive().required(),
+  progress_percentage: Joi.number().integer().min(0).max(100).required(),
+  assembly_notes: Joi.string().trim().allow('').max(1000),
 });
 
 /**
@@ -37,16 +51,25 @@ router.get('/project/:projectId', auth, async (req, res) => {
  * @desc    Crear un nuevo reporte de andamio (montaje)
  * @access  Private (Technician/Admin)
  */
-router.post('/', upload.single('assembly_image'), async (req, res) => {
+router.post('/', upload.single('assembly_image'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'El archivo de imagen es requerido.' });
     }
 
+    const validatedData = await createScaffoldSchema.validateAsync(req.body);
+
     // Subir imagen a GCS
     const imageUrl = await uploadFile(req.file);
 
-    const { project_id, height, width, depth, progress_percentage, assembly_notes } = req.body;
+    const {
+      project_id,
+      height,
+      width,
+      depth,
+      progress_percentage,
+      assembly_notes,
+    } = validatedData;
     const user_id = req.user.id;
 
     // Calcular metros cúbicos
@@ -59,15 +82,32 @@ router.post('/', upload.single('assembly_image'), async (req, res) => {
         ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
     `;
-    const values = [project_id, user_id, height, width, depth, cubic_meters, progress_percentage, assembly_notes, imageUrl];
+    const values = [
+      project_id,
+      user_id,
+      height,
+      width,
+      depth,
+      cubic_meters,
+      progress_percentage,
+      assembly_notes,
+      imageUrl,
+    ];
 
     const { rows } = await db.query(query, values);
 
     res.status(201).json(rows[0]);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    if (err.isJoi) {
+      return res.status(400).json({ error: err.details[0].message });
+    }
+    logger.error(`Error al crear un nuevo andamio: ${err.message}`, err);
+    next(err);
   }
+});
+
+const disassembleScaffoldSchema = Joi.object({
+  disassembly_notes: Joi.string().trim().allow('').max(1000),
 });
 
 /**
@@ -75,16 +115,18 @@ router.post('/', upload.single('assembly_image'), async (req, res) => {
  * @desc    Marcar un andamio como desarmado
  * @access  Private (Technician/Admin)
  */
-router.put('/:id/disassemble', upload.single('disassembly_image'), async (req, res) => {
+router.put('/:id/disassemble', upload.single('disassembly_image'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'La imagen de prueba del desmontaje es requerida.' });
     }
 
+    const validatedData = await disassembleScaffoldSchema.validateAsync(req.body);
+
     // Subir imagen a GCS
     const imageUrl = await uploadFile(req.file);
 
-    const { disassembly_notes } = req.body;
+    const { disassembly_notes } = validatedData;
     const { id } = req.params;
 
     const query = `
@@ -99,10 +141,17 @@ router.put('/:id/disassemble', upload.single('disassembly_image'), async (req, r
     `;
     const { rows } = await db.query(query, [disassembly_notes, imageUrl, id]);
 
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Andamio no encontrado.' });
+    }
+
     res.json(rows[0]);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    if (err.isJoi) {
+      return res.status(400).json({ error: err.details[0].message });
+    }
+    logger.error(`Error al desmontar el andamio con ID ${req.params.id}: ${err.message}`, err);
+    next(err);
   }
 });
 

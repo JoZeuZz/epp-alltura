@@ -123,7 +123,7 @@ npm run dev
 
 Esto ejecutará los siguientes procesos:
 - **API del Backend:** Disponible en `http://localhost:5000`
-- **App del Frontend:** Disponible en `http://localhost:3000`
+- **App del Frontend:** Disponible en `http://localhost:5173` (o el puerto que indique Vite)
 
 Alternativamente, puedes iniciar cada servidor por separado:
 
@@ -134,3 +134,15 @@ npm run start:backend
 # Iniciar solo el frontend (en otra terminal)
 npm run start:frontend
 ```
+
+# Proyecto de Reportabilidad
+
+Este monorepo contiene el frontend y el backend de la aplicación de reportabilidad de Alltura.
+
+## Scripts Disponibles
+
+En el directorio raíz, puedes ejecutar:
+
+### `npm test`
+
+Ejecuta todas las pruebas del frontend y del backend.

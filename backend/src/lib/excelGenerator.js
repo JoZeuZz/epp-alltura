@@ -1,18 +1,8 @@
 const excel = require('exceljs');
 
-async function generateReportExcel(project, scaffolds, res) {
+async function generateReportExcel(project, scaffolds) {
   const workbook = new excel.Workbook();
   const worksheet = workbook.addWorksheet(`Reporte ${project.name}`);
-
-  // Set response headers
-  res.setHeader(
-    'Content-Type',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  );
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename=reporte_${project.name.replace(/\s+/g, '_')}.xlsx`
-  );
 
   // Add columns
   worksheet.columns = [
@@ -45,9 +35,8 @@ async function generateReportExcel(project, scaffolds, res) {
     });
   });
 
-  // Write to response
-  await workbook.xlsx.write(res);
-  res.end();
+  // Return buffer
+  return await workbook.xlsx.writeBuffer();
 }
 
 module.exports = { generateReportExcel };

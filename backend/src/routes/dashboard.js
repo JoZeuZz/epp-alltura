@@ -1,12 +1,11 @@
-
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 const { isAdmin } = require('../middleware/roles');
 const db = require('../db');
 
 // All dashboard routes are protected
-router.use(auth);
+router.use(authMiddleware);
 
 router.use(isAdmin);
 

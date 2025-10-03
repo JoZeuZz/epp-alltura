@@ -19,6 +19,19 @@ const Project = {
     return rows[0];
   },
 
+  async getForUser(userId) {
+    const { rows } = await db.query(
+      `SELECT p.*, c.name as client_name 
+       FROM projects p 
+       JOIN project_users pu ON p.id = pu.project_id 
+       LEFT JOIN clients c ON p.client_id = c.id 
+       WHERE pu.user_id = $1
+       ORDER BY p.created_at DESC`,
+      [userId]
+    );
+    return rows;
+  },
+
   async update(id, { client_id, name, status }) {
     const { rows } = await db.query(
       'UPDATE projects SET client_id = $1, name = $2, status = $3 WHERE id = $4 RETURNING *',

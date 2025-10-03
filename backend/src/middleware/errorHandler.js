@@ -2,6 +2,8 @@
  * Middleware para el manejo centralizado de errores
  */
 
+const logger = require('../lib/logger');
+
 // Middleware para errores de validación
 const handleValidationError = (err) => {
   return {
@@ -30,9 +32,23 @@ const handleAuthError = (err) => {
   };
 };
 
+const standardErrorResponse = (status, message, data = null) => ({
+  success: false,
+  message,
+  data,
+});
+
 // Middleware global de manejo de errores
-const errorHandler = (err, req, res, next) => {
-  console.error('Error:', err);
+const errorHandler = (err, req, res, _next) => {
+  const status = err.statusCode || 500;
+  const message = err.message || 'Error interno del servidor';
+
+  // Loggear el error usando el logger centralizado
+  logger.error(`Error ${status} - ${message}`, {
+    url: req.originalUrl,
+    method: req.method,
+    stack: err.stack,
+  });
 
   // Determinar el tipo de error y manejarlo apropiadamente
   let errorResponse;
@@ -57,10 +73,8 @@ const errorHandler = (err, req, res, next) => {
     console.error('Error crítico:', err);
   }
 
-  res.status(errorResponse.status).json({
-    success: false,
-    ...errorResponse
-  });
+  console.error(err.stack);
+  res.status(status).json(standardErrorResponse(status, message));
 };
 
 module.exports = errorHandler;
