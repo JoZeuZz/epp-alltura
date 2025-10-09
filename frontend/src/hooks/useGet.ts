@@ -1,7 +1,13 @@
 // filepath: src/hooks/useGet.ts
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, UseQueryOptions } from '@tanstack/react-query';
 import { get } from '../services/apiService';
 
-export const useGet = <T>(key: string, url: string, params?: unknown) => {
-  return useQuery<T>({ queryKey: [key, params], queryFn: () => get<T>(url, params) });
+type QueryKey = string | readonly unknown[];
+
+export const useGet = <T>(key: QueryKey, url: string, params?: unknown, options?: Omit<UseQueryOptions<T>, 'queryKey' | 'queryFn'>) => {
+  return useQuery<T>({
+    queryKey: Array.isArray(key) ? key : [key, params],
+    queryFn: () => get<T>(url, params),
+    ...options,
+  });
 };

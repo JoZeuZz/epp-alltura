@@ -18,14 +18,15 @@ const ScaffoldsPage: React.FC = () => {
 
   const { data: projects, isLoading: projectsLoading } = useGet<Project[]>('projects', '/projects');
   const { data: allScaffolds, isLoading: scaffoldsLoading } = useGet<Scaffold[]>(
-    'scaffolds',
+    ['scaffolds', selectedProjectId], // Query key depends on the selected project
     `/scaffolds/project/${selectedProjectId}`,
-    { enabled: !!selectedProjectId },
+    undefined, // No params needed here
+    { enabled: !!selectedProjectId }, // This is a React Query option, not an API param
   );
 
   // Apply filters when filters or allScaffolds change
   useEffect(() => {
-    if (!allScaffolds) {
+    if (!allScaffolds || !selectedProjectId) {
       setScaffolds([]);
       return;
     }

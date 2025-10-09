@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useGet } from '../../hooks/useGet';
-import { usePost, usePut, useDelete } from '../../hooks/useMutate';
+import * as apiHooks from '../../hooks/useMutate';
+import * as apiService from '../../services/apiService';
 import { Client, Project } from '../../types/api';
 import ProjectForm from '../../components/ProjectForm';
 import Modal from '../../components/Modal';
@@ -18,13 +20,21 @@ const ProjectsPage: React.FC = () => {
   const { data: projects, isLoading: projectsLoading } = useGet<Project[]>('projects', '/projects');
   const { data: clients, isLoading: clientsLoading } = useGet<Client[]>('clients', '/clients');
 
-  const createProject = usePost<Project, Partial<Project>>('projects', '/projects');
-  const updateProject = usePut<Project, Project>('projects', '/projects');
-  const deleteProject = useDelete<Project>('projects', '/projects');
-  const assignUsers = usePost<unknown, { projectId: number; userIds: number[] }>(
-    'project-users',
-    '/projects/assign-users',
-  );
+  const queryClient = useQueryClient();
+
+  const createProject = apiHooks.usePost<Project, Partial<Project>>('projects', '/projects');
+  // The data sent to update is not a full Project object.
+  // It's an object with an `id` and the fields to update.
+  type ProjectUpdatePayload = Partial<Omit<Project, 'id'>> & { id: number };
+  const updateProject = apiHooks.usePut<Project, ProjectUpdatePayload>('projects', '/projects');
+  const deleteProject = apiHooks.useDelete<Project>('projects', '/projects');
+
+  const assignUsers = useMutation<unknown, Error, { projectId: number; userIds: number[] }>({
+    mutationFn: ({ projectId, userIds }) => apiService.post(`/projects/${projectId}/users`, { userIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] }); // O una clave más específica si es necesario
+    },
+  });
 
   const handleOpenModal = (project: Project | null = null) => {
     setSelectedProject(project);
@@ -48,8 +58,14 @@ const ProjectsPage: React.FC = () => {
 
   const handleSubmit = async (projectData: Partial<Project>) => {
     try {
-      if (selectedProject) {
-        await updateProject.mutateAsync({ ...selectedProject, ...projectData });
+      if (selectedProject?.id) {
+        const payload = {
+          name: projectData.name || selectedProject.name,
+          client_id: projectData.client_id || selectedProject.client_id,
+          status: projectData.status || selectedProject.status,
+        };
+        // Pass the full object to mutateAsync, the hook will handle separating the id
+        await updateProject.mutateAsync({ id: selectedProject.id, ...payload });
       } else {
         await createProject.mutateAsync(projectData);
       }

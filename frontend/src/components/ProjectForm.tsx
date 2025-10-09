@@ -2,6 +2,13 @@ import { useEffect, FormEvent } from 'react';
 import { Project, Client } from '../types/api';
 import { useForm } from '../hooks/useForm';
 
+// Define the initial state for a new project outside the component.
+// This ensures the object reference is stable across renders.
+const newProjectInitialState = {
+  name: '',
+  client_id: '',
+  status: 'active',
+};
 interface ProjectFormProps {
   project: Project | null;
   clients: Client[];
@@ -10,16 +17,16 @@ interface ProjectFormProps {
 }
 
 export default function ProjectForm({ project, clients, onSubmit, onCancel }: ProjectFormProps) {
-  const { values, handleChange, reset } = useForm({
-    name: project?.name || '',
-    client_id:
-      project?.client_id.toString() || (clients.length > 0 ? clients[0].id.toString() : ''),
-    status: project?.status || 'active',
-  });
+  const initialValues = project
+    ? { name: project.name, client_id: project.client_id.toString(), status: project.status }
+    : { ...newProjectInitialState, client_id: clients.length > 0 ? clients[0].id.toString() : '' };
+
+  const { values, handleChange, reset } = useForm(initialValues);
 
   useEffect(() => {
     reset();
-  }, [project, clients, reset]);
+    // The `reset` and `clients` dependencies can be removed because the logic is now handled by `initialValues`
+  }, [project]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();

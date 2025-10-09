@@ -1,0 +1,132 @@
+2025-10-08 10:48:22 [ERROR]: TypeError: user.comparePassword is not a function
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\auth.js:45:32
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-10-08 10:48:22 [ERROR]: TypeError: user.comparePassword is not a function
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\auth.js:45:32
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-10-08 10:58:04 [ERROR]: TypeError: user.comparePassword is not a function
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\auth.js:45:32
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-10-08 10:58:04 [ERROR]: TypeError: user.comparePassword is not a function
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\auth.js:45:32
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+2025-10-08 12:59:09 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:09 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:09 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:09 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:18 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:18 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:18 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:18 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:20 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:20 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:20 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:20 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:24 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:24 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:24 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:24 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:29 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:29 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:29 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:29 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:31 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:31 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:31 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 12:59:31 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:53 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:53 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:53 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:53 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:53 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:53 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:53 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:53 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:53 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:53 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:53 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:53 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:55 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:55 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:55 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-08 13:00:55 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
+    at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38

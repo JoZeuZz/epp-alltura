@@ -2,6 +2,13 @@ import { useEffect, FormEvent } from 'react';
 import { Client } from '../types/api';
 import { useForm } from '../hooks/useForm';
 
+// Define the initial state for a new client outside the component.
+// This ensures the object reference is stable across renders.
+const newClientInitialState: Omit<Client, 'id'> = {
+  name: '',
+  contact_info: '',
+};
+
 interface ClientFormProps {
   client: Client | null;
   onSubmit: (clientData: Partial<Client>) => void;
@@ -9,14 +16,14 @@ interface ClientFormProps {
 }
 
 export default function ClientForm({ client, onSubmit, onCancel }: ClientFormProps): JSX.Element {
-  const { values, handleChange, reset } = useForm({
-    name: client?.name || '',
-    contact_info: client?.contact_info || '',
-  });
+  // Use the stable initial state object when creating a new client.
+  const { values, handleChange, reset } = useForm(client || newClientInitialState);
 
   useEffect(() => {
+    // This effect now correctly resets the form only when the client prop changes,
+    // or when switching between creating and editing.
     reset();
-  }, [client, reset]);
+  }, [client]); // The `reset` function is now stable thanks to the fix in `useForm`.
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();

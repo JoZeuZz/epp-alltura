@@ -26,8 +26,14 @@ const ClientsPage: React.FC = () => {
 
   const handleSubmit = async (clientData: Partial<Client>) => {
     try {
-      if (selectedClient && clientData.id) {
-        await updateClient.mutateAsync({ ...selectedClient, ...clientData });
+      if (selectedClient?.id) {
+        // Construct the payload with only the fields the backend expects for an update.
+        const payload = {
+          name: clientData.name || selectedClient.name,
+          contact_info: clientData.contact_info || selectedClient.contact_info,
+        };
+        // Pass the full object to mutateAsync, the hook will handle separating the id
+        await updateClient.mutateAsync({ id: selectedClient.id, ...payload });
       } else {
         await createClient.mutateAsync(clientData as Omit<Client, 'id'>);
       }
