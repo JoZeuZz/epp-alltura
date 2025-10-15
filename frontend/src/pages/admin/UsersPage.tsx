@@ -90,7 +90,9 @@ const UsersPage: React.FC = () => {
             {users?.map((user) => (
               <tr key={user.id}>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900 whitespace-no-wrap">{user.name}</p>
+                  <p className="text-gray-900 whitespace-no-wrap">
+                    {`${user.first_name} ${user.last_name}`}
+                  </p>
                 </td>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                   <p className="text-gray-900 whitespace-no-wrap">{user.email}</p>

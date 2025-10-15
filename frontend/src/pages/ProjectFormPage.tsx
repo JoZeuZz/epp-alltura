@@ -187,7 +187,7 @@ const ProjectFormPage: React.FC = () => {
                       onChange={() => handleTechnicianToggle(tech.id)}
                     />
                     <label htmlFor={`tech-${tech.id}`} className="ml-3 block text-sm text-gray-700">
-                      {tech.name}
+                      {`${tech.first_name} ${tech.last_name}`}
                     </label>
                   </div>
                 ))

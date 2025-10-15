@@ -21,9 +21,13 @@ const setupDatabase = async () => {
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
           id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
+          first_name VARCHAR(255) NOT NULL,
+          last_name VARCHAR(255) NOT NULL,
           email VARCHAR(255) UNIQUE NOT NULL,
           password_hash VARCHAR(255) NOT NULL,
+          rut VARCHAR(50),
+          phone_number VARCHAR(50),
+          profile_picture_url VARCHAR(255),
           role VARCHAR(50) NOT NULL CHECK(role IN ('admin', 'technician')),
           created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
@@ -71,6 +75,11 @@ const setupDatabase = async () => {
       );
     `);
 
+    // Add new columns to scaffolds table if they don't exist
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS scaffold_number VARCHAR(255)`);
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS area VARCHAR(255)`);
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS tag VARCHAR(255)`);
+
     // Create project_users join table
     await client.query(`
       CREATE TABLE IF NOT EXISTS project_users (
@@ -83,15 +92,15 @@ const setupDatabase = async () => {
     // Seed test users
     const adminPassword = await bcrypt.hash('password123', 10);
     await client.query(`
-      INSERT INTO users (name, email, password_hash, role)
-      VALUES ('Administrador Alltura', 'admin@alltura.cl', $1, 'admin')
+      INSERT INTO users (first_name, last_name, email, password_hash, role)
+      VALUES ('Administrador', 'Alltura', 'admin@alltura.cl', $1, 'admin')
       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash;
     `, [adminPassword]);
 
     const techPassword = await bcrypt.hash('password123', 10);
     await client.query(`
-      INSERT INTO users (name, email, password_hash, role)
-      VALUES ('Técnico de Campo', 'tech@alltura.cl', $1, 'technician')
+      INSERT INTO users (first_name, last_name, email, password_hash, role)
+      VALUES ('Técnico', 'de Campo', 'tech@alltura.cl', $1, 'technician')
       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash;
     `, [techPassword]);
 

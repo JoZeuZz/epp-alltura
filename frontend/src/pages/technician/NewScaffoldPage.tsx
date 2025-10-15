@@ -7,6 +7,9 @@ import ImageUploadIcon from '../../components/icons/ImageUploadIcon';
 const NewScaffoldPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const [scaffoldNumber, setScaffoldNumber] = useState('');
+  const [area, setArea] = useState('');
+  const [tag, setTag] = useState('');
   const [dimensions, setDimensions] = useState({ height: '', width: '', depth: '' });
   const [cubicMeters, setCubicMeters] = useState<number>(0);
   const [progress, setProgress] = useState(100);
@@ -56,12 +59,17 @@ const NewScaffoldPage: React.FC = () => {
 
     const formData = new FormData();
     formData.append('project_id', projectId!);
+    formData.append('scaffold_number', scaffoldNumber);
+    formData.append('area', area);
+    formData.append('tag', tag);
     formData.append('height', dimensions.height);
     formData.append('width', dimensions.width);
     formData.append('depth', dimensions.depth);
     formData.append('progress_percentage', progress.toString());
     formData.append('assembly_notes', notes);
-    formData.append('assembly_image', image);
+    if (image) {
+      formData.append('assembly_image', image);
+    }
 
     try {
       await createScaffold.mutateAsync(formData);
@@ -117,6 +125,42 @@ const NewScaffoldPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Scaffold Info */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label htmlFor="scaffoldNumber" className="block text-sm font-bold text-gray-700">Nº de Andamio</label>
+            <input
+              type="text"
+              id="scaffoldNumber"
+              value={scaffoldNumber}
+              onChange={(e) => setScaffoldNumber(e.target.value)}
+              className="form-input"
+              placeholder="Ej: 123-A"
+            />
+          </div>
+          <div>
+            <label htmlFor="area" className="block text-sm font-bold text-gray-700">Área</label>
+            <input
+              type="text"
+              id="area"
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+              className="form-input"
+              placeholder="Ej: Sector B"
+            />
+          </div>
+          <div>
+            <label htmlFor="tag" className="block text-sm font-bold text-gray-700">TAG</label>
+            <input
+              type="text"
+              id="tag"
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
+              className="form-input"
+              placeholder="Ej: T-456"
+            />
+          </div>
+        </div>
         {/* Dimensions */}
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-2">Dimensiones (metros)</label>

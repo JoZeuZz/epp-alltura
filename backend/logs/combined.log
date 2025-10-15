@@ -130,3 +130,49 @@
 2025-10-08 13:00:55 [ERROR]: TypeError: Cannot destructure property 'client_id' of 'undefined' as it is undefined.
     at Object.create (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\project.js:4:18)
     at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\projects.js:96:38
+2025-10-14 10:20:17 [ERROR]: Error al crear un nuevo andamio: undefined
+2025-10-14 10:20:17 [ERROR]: Error 500 - Error interno del servidor
+2025-10-14 12:02:07 [ERROR]: Error al crear un nuevo andamio: undefined
+2025-10-14 12:02:07 [ERROR]: Error 500 - Error interno del servidor
+2025-10-14 12:02:28 [ERROR]: Error al crear un nuevo andamio: undefined
+2025-10-14 12:02:28 [ERROR]: Error 500 - Error interno del servidor
+2025-10-14 13:05:13 [ERROR]: error: column "first_name" of relation "users" does not exist
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async User.update (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\user.js:91:22)
+    at async C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\users.js:48:25
+2025-10-14 13:05:13 [ERROR]: error: column "first_name" of relation "users" does not exist
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async User.update (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\user.js:91:22)
+    at async C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\users.js:48:25
+2025-10-14 13:05:45 [ERROR]: error: column "first_name" of relation "users" does not exist
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async User.update (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\user.js:91:22)
+    at async C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\users.js:48:25
+2025-10-14 13:05:45 [ERROR]: error: column "first_name" of relation "users" does not exist
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async User.update (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\user.js:91:22)
+    at async C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\users.js:48:25
+2025-10-14 13:09:31 [ERROR]: error: column "first_name" of relation "users" does not exist
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async User.update (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\user.js:91:22)
+    at async C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\users.js:48:25
+2025-10-14 13:09:31 [ERROR]: error: column "first_name" of relation "users" does not exist
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async User.update (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\user.js:91:22)
+    at async C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\users.js:48:25
+2025-10-14 16:17:26 [ERROR]: error: column "first_name" of relation "users" does not exist
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async User.update (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\user.js:91:22)
+    at async C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\users.js:48:25
+2025-10-14 16:17:26 [ERROR]: error: column "first_name" of relation "users" does not exist
+    at C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async User.update (C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\models\user.js:91:22)
+    at async C:\Users\Legion\Desktop\Ingeniero\Alltura\APPS\Reportabilidad\backend\src\routes\users.js:48:25

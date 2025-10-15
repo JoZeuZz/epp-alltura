@@ -25,7 +25,7 @@ const UserFormPage: React.FC = () => {
 
   useEffect(() => {
     if (isEditing && user) {
-      setName(user.name);
+      setName(`${user.first_name} ${user.last_name}`);
       setEmail(user.email);
       setRole(user.role);
     }
@@ -33,7 +33,11 @@ const UserFormPage: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const userData: Partial<User> = { name, email, role: role as 'admin' | 'technician' };
+    const nameParts = name.split(' ');
+    const first_name = nameParts[0] || '';
+    const last_name = nameParts.slice(1).join(' ') || '';
+
+    const userData: Partial<User> = { first_name, last_name, email, role: role as 'admin' | 'technician' };
     if (password) {
       userData.password = password;
     }
@@ -71,7 +75,7 @@ const UserFormPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-neutral-gray">
-              Nombre
+              Nombre Completo
             </label>
             <div className="mt-1">
               <input

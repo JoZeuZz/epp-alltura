@@ -8,7 +8,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  refreshUserToken: (token: string) => void;
+  refreshUserData: (newUserData: User, token?: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -62,11 +62,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
   };
 
-  const refreshUserToken = (token: string) => {
+  const refreshUserData = (newUserData: User, token?: string) => {
     try {
-      localStorage.setItem('accessToken', token);
-      const decodedUser = jwtDecode<{ user: User }>(token);
-      setUser(decodedUser.user);
+      // If a new token is provided, update it in localStorage
+      if (token) {
+        localStorage.setItem('accessToken', token);
+      }
+      // Update user state with the new data from the API response
+      setUser(newUserData);
     } catch (error) {
       console.error('Failed to refresh token', error);
       logout(); // Fallback to logout on error
@@ -78,7 +81,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loading,
     login,
     logout,
-    refreshUserToken,
+    refreshUserData,
   };
 
   return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;

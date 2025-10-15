@@ -2,11 +2,15 @@
 -- Este script crea todas las tablas necesarias para la aplicación Alltura Reports.
 
 -- Creación de la tabla de usuarios (Actualizado)
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
+    first_name VARCHAR(255) NOT NULL,
+    last_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    rut VARCHAR(50),
+    phone_number VARCHAR(50),
+    profile_picture_url VARCHAR(255),
     role VARCHAR(50) NOT NULL CHECK(role IN ('admin', 'technician')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -32,6 +36,9 @@ CREATE TABLE projects (
 CREATE TABLE scaffolds (
     id SERIAL PRIMARY KEY,
     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    scaffold_number VARCHAR(255),
+    area VARCHAR(255),
+    tag VARCHAR(255),
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     height DECIMAL NOT NULL,
     width DECIMAL NOT NULL,

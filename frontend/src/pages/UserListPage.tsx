@@ -48,7 +48,9 @@ const UserListPage: React.FC = () => {
     if (!users) return [];
     return users.filter(
       (user) =>
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        `${user.first_name} ${user.last_name}`
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }, [users, searchTerm]);
@@ -97,7 +99,9 @@ const UserListPage: React.FC = () => {
           <tbody className="divide-y divide-gray-200">
             {filteredUsers.map((user) => (
               <tr key={user.id}>
-                <td className="px-6 py-4 whitespace-nowrap">{user.name}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  {`${user.first_name} ${user.last_name}`}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap">{user.email}</td>
                 <td className="px-6 py-4 whitespace-nowrap capitalize">{user.role}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-right">

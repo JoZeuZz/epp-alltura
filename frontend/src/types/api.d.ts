@@ -1,13 +1,13 @@
 export interface User {
   id: number;
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
   role: 'admin' | 'technician';
   password?: string;
   created_at: string;
-  birth_date?: string;
   rut?: string;
-  position?: string;
+  phone_number?: string;
   profile_picture_url?: string;
 }
 

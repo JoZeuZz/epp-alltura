@@ -19,7 +19,7 @@ interface Props {
 
 export default function UserForm({ user, onSubmit, onCancel }: Props) {
   const initialValues = user
-    ? { name: user.name, email: user.email, password: '', role: user.role }
+    ? { name: user.first_name + ' ' + user.last_name, email: user.email, password: '', role: user.role }
     : newUserInitialState;
 
   const { values, handleChange, reset } = useForm(initialValues);
@@ -44,7 +44,7 @@ export default function UserForm({ user, onSubmit, onCancel }: Props) {
       return;
     }
     const userData: Partial<User> = {
-      name: values.name,
+      first_name: values.name,
       email: values.email,
       role: values.role as 'admin' | 'technician',
     };

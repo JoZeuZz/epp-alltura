@@ -73,7 +73,7 @@ export default function AssignTechniciansForm({
                 onChange={() => handleCheckboxChange(tech.id)}
                 className="h-5 w-5 rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
               />
-              <span className="text-gray-700">{tech.name}</span>
+              <span className="text-gray-700">{`${tech.first_name} ${tech.last_name}`}</span>
             </label>
           ))
         ) : (

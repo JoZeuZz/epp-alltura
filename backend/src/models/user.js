@@ -2,28 +2,28 @@ const db = require('../db');
 const bcrypt = require('bcrypt');
 
 class User {
-  constructor({ id, name, email, password_hash, role, created_at, first_name, last_name, birth_date, rut, position, profile_picture_url }) {
+  constructor({ id, first_name, last_name, email, password_hash, role, created_at, rut, phone_number, profile_picture_url }) {
     this.id = id;
-    this.name = name;
+    this.first_name = first_name;
+    this.last_name = last_name;
     this.email = email;
     this.password_hash = password_hash;
     this.role = role;
     this.created_at = created_at;
-    this.first_name = first_name;
-    this.last_name = last_name;
-    this.birth_date = birth_date;
     this.rut = rut;
-    this.position = position;
+    this.phone_number = phone_number;
     this.profile_picture_url = profile_picture_url;
   }
 
-  static async create({ name, email, password, role }) {
+  static async create({ first_name, last_name, email, password, role }) {
     const salt = await bcrypt.genSalt(10);
     const password_hash = await bcrypt.hash(password, salt);
 
     const { rows } = await db.query(
-      'INSERT INTO users (name, email, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, name, email, role, created_at',
-      [name, email, password_hash, role]
+      `INSERT INTO users (first_name, last_name, email, password_hash, role) 
+       VALUES ($1, $2, $3, $4, $5) 
+       RETURNING id, first_name, last_name, email, role, created_at`,
+      [first_name, last_name, email, password_hash, role]
     );
     return new User(rows[0]);
   }
@@ -39,7 +39,7 @@ class User {
   }
 
   static async getAll(filters = {}) {
-    let query = 'SELECT id, name, email, role FROM users';
+    let query = 'SELECT id, first_name, last_name, email, role FROM users';
     const queryParams = [];
     
     if (filters.role) {
@@ -47,13 +47,13 @@ class User {
       queryParams.push(filters.role);
     }
     
-    query += ' ORDER BY name';
+    query += ' ORDER BY first_name, last_name';
     
     const { rows } = await db.query(query, queryParams);
     return rows;
   }
 
-  static async update(id, { name, email, role, password, birth_date, rut, position, profile_picture_url }) {
+  static async update(id, { first_name, last_name, email, role, password, rut, phone_number, profile_picture_url }) {
     const fields = [];
     const values = [];
     let query = 'UPDATE users SET ';
@@ -65,12 +65,12 @@ class User {
       }
     };
 
-    addField('name', name);
+    addField('first_name', first_name);
+    addField('last_name', last_name);
     addField('email', email);
     addField('role', role);
-    addField('birth_date', birth_date);
     addField('rut', rut);
-    addField('position', position);
+    addField('phone_number', phone_number);
     addField('profile_picture_url', profile_picture_url);
 
     if (password) {

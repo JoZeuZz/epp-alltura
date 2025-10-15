@@ -50,12 +50,14 @@ router.post('/login', async (req, res, next) => {
     const payload = {
       user: {
         id: user.id,
-        name: `${user.first_name} ${user.last_name}`,
+        first_name: user.first_name,
+        last_name: user.last_name,
         role: user.role,
+        profile_picture_url: user.profile_picture_url,
       },
     };
 
-    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' }, (err, token) => {
+    jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' }, (err, token) => {
       if (err) throw err;
       res.json({ token });
     });

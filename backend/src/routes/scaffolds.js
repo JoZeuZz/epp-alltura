@@ -22,7 +22,7 @@ router.get('/project/:projectId', async (req, res, next) => {
   const { projectId } = req.params;
   try {
     const query = `
-      SELECT s.*, u.name as user_name 
+      SELECT s.*, u.first_name || ' ' || u.last_name as user_name 
       FROM scaffolds s 
       JOIN users u ON s.user_id = u.id 
       WHERE s.project_id = $1 ORDER BY s.assembly_created_at DESC`;
@@ -39,6 +39,9 @@ router.get('/project/:projectId', async (req, res, next) => {
 
 const createScaffoldSchema = Joi.object({
   project_id: Joi.number().integer().positive().required(),
+  scaffold_number: Joi.string().trim().allow('').max(255),
+  area: Joi.string().trim().allow('').max(255),
+  tag: Joi.string().trim().allow('').max(255),
   height: Joi.number().positive().required(),
   width: Joi.number().positive().required(),
   depth: Joi.number().positive().required(),
@@ -64,6 +67,9 @@ router.post('/', upload.single('assembly_image'), async (req, res, next) => {
 
     const {
       project_id,
+      scaffold_number,
+      area,
+      tag,
       height,
       width,
       depth,
@@ -77,14 +83,17 @@ router.post('/', upload.single('assembly_image'), async (req, res, next) => {
 
     const query = `
       INSERT INTO scaffolds 
-        (project_id, user_id, height, width, depth, cubic_meters, progress_percentage, assembly_notes, assembly_image_url)
+        (project_id, user_id, scaffold_number, area, tag, height, width, depth, cubic_meters, progress_percentage, assembly_notes, assembly_image_url)
       VALUES 
-        ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `;
     const values = [
       project_id,
       user_id,
+      scaffold_number,
+      area,
+      tag,
       height,
       width,
       depth,
