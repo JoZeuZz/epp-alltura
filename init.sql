@@ -61,4 +61,13 @@ CREATE TABLE project_users (
     PRIMARY KEY (project_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    subscription_data JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id)
+);
+
 -- La inserción de usuarios se manejará a través del script de setup para asegurar el hasheo correcto de contraseñas.
