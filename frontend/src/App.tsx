@@ -1,36 +1,65 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AppLayout from './layouts/AppLayout';
 import RootRedirect from './components/RootRedirect';
 import LoginPage from './pages/LoginPage';
+
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 import ClientsPage from './pages/admin/ClientsPage';
 import ProjectsPage from './pages/admin/ProjectsPage';
 import UsersPage from './pages/admin/UsersPage';
 import ScaffoldsPage from './pages/admin/ScaffoldsPage';
+
 // Technician Pages
 import TechDashboard from './pages/technician/TechDashboard';
 import ProjectScaffoldsPage from './pages/technician/ProjectScaffoldsPage';
 import NewScaffoldPage from './pages/technician/NewScaffoldPage';
 import DisassembleScaffoldPage from './pages/technician/DisassembleScaffoldPage';
 import HistoryPage from './pages/technician/HistoryPage';
+
 // Shared Pages
 import ProfilePage from './pages/ProfilePage';
 import UserFormPage from './pages/UserFormPage';
 
+// Servicios
+import { notificationService } from './services/notificationService';
+import { performanceService } from './services/performanceService';
+
+const AppContent: React.FC = () => {
+  const { user } = useAuth();
+
+  useEffect(() => {
+    // Inicializar notificaciones push
+    notificationService.initialize();
+    
+    // Inicializar métricas de performance
+    performanceService.initialize();
+    
+    // Por ahora no implementamos geolocalización
+    // if (user?.role === 'technician') {
+    //   navigator.geolocation?.getCurrentPosition(() => {}, () => {});
+    // }
+  }, [user]);
+
+  return null; // Este componente solo maneja efectos
+};
+
 const ProtectedRoutes: React.FC = () => {
   const { user } = useAuth();
+  
   if (!user) {
     return <Navigate to="/login" replace />;
   }
+  
   return <AppLayout />;
 };
 
 function App() {
   return (
     <AuthProvider>
+      <AppContent />
       <Router>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
