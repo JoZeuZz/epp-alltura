@@ -14,6 +14,7 @@ const dashboardRoutes = require('./routes/dashboard');
 const techDashboardRoutes = require('./routes/TechDashboard');
 const notificationRoutes = require('./routes/notifications');
 const healthRoutes = require('./routes/health');
+const { initializeDatabase } = require('./db/initialize');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -58,6 +59,17 @@ app.post('/api/metrics', (req, res) => {
   res.json({ success: true });
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
-});
+// Inicializar base de datos y luego iniciar el servidor
+const startServer = async () => {
+  try {
+    await initializeDatabase();
+    app.listen(PORT, () => {
+      console.log(`Servidor corriendo en puerto ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Error al iniciar el servidor:', error);
+    process.exit(1);
+  }
+};
+
+startServer();

@@ -15,7 +15,9 @@ const checkUser = async () => {
   console.log('Connecting to database to check for admin user...');
   const client = await pool.connect();
   try {
-    const res = await client.query('SELECT id, name, email, role, password_hash FROM users WHERE email = $1', ['admin@alltura.cl']);
+    const res = await client.query(
+      'SELECT id, first_name, last_name, email, role, password_hash FROM users WHERE email = $1',
+      ['admin@alltura.cl']);
     if (res.rows.length > 0) {
       console.log('SUCCESS: User admin@alltura.cl found in database:');
       console.log(res.rows[0]);
