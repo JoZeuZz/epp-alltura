@@ -3,11 +3,15 @@ const db = require('../db');
 const logger = require('./logger');
 
 // Configurar las claves VAPID
-webpush.setVapidDetails(
-  'mailto:contact@alltura.com',
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY
-);
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    'mailto:contact@alltura.com',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+} else {
+  console.warn('VAPID keys not configured. Push notifications will not work.');
+}
 
 class PushNotificationService {
   // Guardar suscripción de usuario

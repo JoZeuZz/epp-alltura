@@ -66,19 +66,20 @@ self.addEventListener('fetch', (event) => {
 async function networkFirstStrategy(request) {
   const cache = await caches.open(RUNTIME_CACHE);
   
-  try {
+  try { 
     const response = await fetch(request);
     
-    if (response.status === 200) {
+    // Solo cachear respuestas exitosas de GET
+    if (response.status === 200 && request.method === 'GET') {
       cache.put(request, response.clone());
     }
     
     return response;
   } catch (error) {
-    const cached = await cache.match(request);
-    
-    if (cached) {
-      return cached;
+    // Solo intentar devolver del caché para GET
+    if (request.method === 'GET') {
+      const cached = await cache.match(request);
+      if (cached) return cached;
     }
     
     // Para POST requests sin caché, guardar en IndexedDB para retry
