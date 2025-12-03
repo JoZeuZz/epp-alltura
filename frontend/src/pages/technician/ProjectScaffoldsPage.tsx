@@ -64,7 +64,13 @@ const ProjectScaffoldsPage: React.FC = () => {
                   className="h-16 w-16 object-cover rounded-md mr-4"
                 />
                 <div>
-                  <p className="font-bold text-dark-blue">{scaffold.cubic_meters} m³</p>
+                  <p className="font-bold text-dark-blue">
+                    {scaffold.scaffold_number && `N° ${scaffold.scaffold_number} - `}
+                    {scaffold.cubic_meters} m³
+                  </p>
+                  {scaffold.area && <p className="text-sm text-neutral-gray">Área: {scaffold.area}</p>}
+                  {scaffold.company_name && <p className="text-sm text-neutral-gray">Solicitante: {scaffold.company_name}</p>}
+                  {scaffold.end_user_name && <p className="text-sm text-neutral-gray">Usuario: {scaffold.end_user_name}</p>}
                   <p className="text-sm text-neutral-gray">
                     Reportado el: {new Date(scaffold.assembly_created_at).toLocaleDateString()}
                   </p>

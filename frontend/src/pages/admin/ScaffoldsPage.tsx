@@ -169,6 +169,36 @@ const ScaffoldsPage: React.FC = () => {
                 className="rounded-lg w-full object-contain max-h-[50vh]"
               />
               <div className="p-4 bg-gray-100 rounded-lg">
+                {selectedScaffold.scaffold_number && (
+                  <p>
+                    <strong>Nº de Andamio:</strong> {selectedScaffold.scaffold_number}
+                  </p>
+                )}
+                {selectedScaffold.area && (
+                  <p>
+                    <strong>Área:</strong> {selectedScaffold.area}
+                  </p>
+                )}
+                {selectedScaffold.tag && (
+                  <p>
+                    <strong>TAG:</strong> {selectedScaffold.tag}
+                  </p>
+                )}
+                {selectedScaffold.company_name && (
+                  <p>
+                    <strong>Solicitante:</strong> {selectedScaffold.company_name}
+                  </p>
+                )}
+                {selectedScaffold.end_user_name && (
+                  <p>
+                    <strong>Usuario:</strong> {selectedScaffold.end_user_name}
+                  </p>
+                )}
+                {selectedScaffold.supervisor_name && (
+                  <p>
+                    <strong>Supervisor:</strong> {selectedScaffold.supervisor_name}
+                  </p>
+                )}
                 <p>
                   <strong>Fecha de Montaje:</strong>{' '}
                   {new Date(selectedScaffold.assembly_created_at).toLocaleString()}

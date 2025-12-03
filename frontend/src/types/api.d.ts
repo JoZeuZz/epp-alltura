@@ -35,6 +35,15 @@ export interface Scaffold {
   assembly_created_at: string;
   status: 'assembled' | 'disassembled';
   project_name?: string;
+  scaffold_number?: string;
+  area?: string;
+  tag?: string;
+  company_id?: number;
+  company_name?: string;
+  supervisor_id?: number;
+  supervisor_name?: string;
+  end_user_id?: number;
+  end_user_name?: string;
   height: number;
   width: number;
   depth: number;
@@ -43,6 +52,41 @@ export interface Scaffold {
   disassembly_image_url?: string;
   disassembled_at?: string;
   disassembly_notes?: string;
+}
+
+export interface Company {
+  id: number;
+  name: string;
+  contact_person?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Supervisor {
+  id: number;
+  first_name: string;
+  last_name: string;
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  rut?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EndUser {
+  id: number;
+  name: string;
+  company_id?: number;
+  company_name?: string;
+  email?: string;
+  phone?: string;
+  department?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 

@@ -68,11 +68,16 @@ const HistoryPage: React.FC = () => {
                   className="h-16 w-16 object-cover rounded-md mr-4"
                 />
                 <div>
-                  <p className="font-bold text-dark-blue">{item.project_name}</p>
+                  <p className="font-bold text-dark-blue">
+                    {item.scaffold_number && `N° ${item.scaffold_number} - `}
+                    {item.project_name}
+                  </p>
                   <p className="text-sm text-neutral-gray">
                     {item.cubic_meters} m³ -{' '}
                     {new Date(item.assembly_created_at).toLocaleDateString()}
                   </p>
+                  {item.company_name && <p className="text-sm text-neutral-gray">Solicitante: {item.company_name}</p>}
+                  {item.end_user_name && <p className="text-sm text-neutral-gray">Usuario: {item.end_user_name}</p>}
                 </div>
               </div>
               <span
@@ -102,6 +107,36 @@ const HistoryPage: React.FC = () => {
                 <p>
                   <strong>Proyecto:</strong> {selectedScaffold.project_name}
                 </p>
+                {selectedScaffold.scaffold_number && (
+                  <p>
+                    <strong>N° de Andamio:</strong> {selectedScaffold.scaffold_number}
+                  </p>
+                )}
+                {selectedScaffold.area && (
+                  <p>
+                    <strong>Área:</strong> {selectedScaffold.area}
+                  </p>
+                )}
+                {selectedScaffold.tag && (
+                  <p>
+                    <strong>TAG:</strong> {selectedScaffold.tag}
+                  </p>
+                )}
+                {selectedScaffold.requestor && (
+                  <p>
+                    <strong>Solicitante:</strong> {selectedScaffold.requestor}
+                  </p>
+                )}
+                {selectedScaffold.end_user && (
+                  <p>
+                    <strong>Usuario:</strong> {selectedScaffold.end_user}
+                  </p>
+                )}
+                {selectedScaffold.supervisor && (
+                  <p>
+                    <strong>Supervisor:</strong> {selectedScaffold.supervisor}
+                  </p>
+                )}
                 <p>
                   <strong>Fecha de Montaje:</strong>{' '}
                   {new Date(selectedScaffold.assembly_created_at).toLocaleString()}

@@ -2,7 +2,7 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
-const logger = require('../lib/logger');
+const { logger } = require('../lib/logger');
 
 const pool = new Pool({
   user: process.env.DB_USER,
@@ -12,7 +12,25 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
+const wait = ms => new Promise(res => setTimeout(res, ms));
+
+const waitForDatabase = async (retries = 20, delay = 2000) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const client = await pool.connect();
+      client.release();
+      return;
+    } catch (err) {
+      const attempt = i + 1;
+      logger.warn(`Attempt ${attempt}/${retries}: cannot connect to DB (${err.code || err}). Retrying in ${delay}ms...`);
+      await wait(delay);
+    }
+  }
+  throw new Error('Timed out waiting for database. Please ensure Postgres is running (eg. `docker-compose up -d`) and that DB_HOST/DB_PORT config is correct.');
+};
+
 const initializeDatabase = async () => {
+  await waitForDatabase();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

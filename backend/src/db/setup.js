@@ -79,6 +79,9 @@ const setupDatabase = async () => {
     await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS scaffold_number VARCHAR(255)`);
     await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS area VARCHAR(255)`);
     await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS tag VARCHAR(255)`);
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS requestor VARCHAR(255)`);
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS end_user VARCHAR(255)`);
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS supervisor VARCHAR(255)`);
 
     // Create project_users join table
     await client.query(`

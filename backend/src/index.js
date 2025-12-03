@@ -14,6 +14,9 @@ const dashboardRoutes = require('./routes/dashboard');
 const techDashboardRoutes = require('./routes/TechDashboard');
 const notificationRoutes = require('./routes/notifications');
 const healthRoutes = require('./routes/health');
+const companyRoutes = require('./routes/companies');
+const supervisorRoutes = require('./routes/supervisors');
+const endUserRoutes = require('./routes/endUsers');
 const { initializeDatabase } = require('./db/initialize');
 
 const app = express();
@@ -49,6 +52,9 @@ app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/tech-dashboard', techDashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/companies', companyRoutes);
+app.use('/api/supervisors', supervisorRoutes);
+app.use('/api/end-users', endUserRoutes);
 app.use('/health', healthRoutes);
 
 // Endpoint para métricas (nuevo endpoint que faltaba)

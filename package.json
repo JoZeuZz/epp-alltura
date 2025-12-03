@@ -5,8 +5,11 @@
   "main": "index.js",
   "scripts": {
     "start:backend": "cd backend && node -r dotenv/config src/index.js",
+    "start:backend:dev": "cd backend && npm run dev",
     "start:frontend": "cd frontend && npm run dev",
-    "dev": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "dev": "concurrently \"npm run start:backend:dev\" \"npm run start:frontend\"",
+    "db:up": "docker-compose up -d",
+    "db:logs": "docker-compose logs -f postgres_db",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "test": "npm-run-all test:backend test:frontend",
     "test:backend": "npm test --prefix backend",

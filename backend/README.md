@@ -51,3 +51,14 @@ Ejecuta ESLint para analizar el código en busca de errores y problemas de estil
 ### `npm run test`
 
 Ejecuta Jest para correr las pruebas unitarias.
+
+---
+
+**Nota sobre la base de datos:**
+Si usas Docker para el entorno local, asegúrate de levantar la base de datos antes de iniciar el backend:
+
+```bash
+docker-compose up -d
+```
+
+Esto levantará un contenedor PostgreSQL y mapeará el puerto `5432` del contenedor al `localhost` del host, por lo que la configuración por defecto (`DB_HOST=localhost`) funcionará. Si prefieres usar una instancia local de PostgreSQL, edita `backend/.env` con tus credenciales y crea la base de datos antes de iniciar el backend.
