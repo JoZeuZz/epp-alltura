@@ -29,7 +29,7 @@ router.get('/summary', async (req, res) => {
       SELECT 
         s.id, s.assembly_created_at as created_at, s.project_id,
         p.name as project_name,
-        u.name as user_name
+        TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) as user_name
       FROM scaffolds s
       JOIN projects p ON s.project_id = p.id
       JOIN users u ON s.user_id = u.id

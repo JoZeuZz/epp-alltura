@@ -88,6 +88,13 @@ npm run install:all
     ```bash
     node backend/src/db/setup.js
     ```
+   
+    Alternativamente, si prefieres usar Docker para levantar PostgreSQL, desde la raíz del proyecto ejecuta:
+
+    ```bash
+    docker-compose up -d
+    ```
+    Esto levantará un contenedor PostgreSQL y mapeará el puerto `5432` del contenedor al `localhost` del host, así tu `DB_HOST=localhost` seguirá funcionando.
 
 ### 4. Configuración de Google Cloud Storage (GCS)
 
@@ -124,6 +131,19 @@ npm run dev
 Esto ejecutará los siguientes procesos:
 - **API del Backend:** Disponible en `http://localhost:5000`
 - **App del Frontend:** Disponible en `http://localhost:5173` (o el puerto que indique Vite)
+
+Antes de ejecutar `npm run dev`, asegúrate de que PostgreSQL esté arriba. Puedes levantarlo via Docker con:
+
+```bash
+npm run db:up
+```
+
+or
+
+```bash
+docker-compose up -d
+```
+
 
 Alternativamente, puedes iniciar cada servidor por separado:
 

@@ -51,34 +51,37 @@ function generateScaffoldsPDF(project, scaffolds, res, filters = {}) {
   doc.fontSize(16).font('Helvetica-Bold').text('Listado de Andamios');
   doc.moveDown();
 
-  const tableTop = doc.y;
-  const itemX = 50;
-  const idX = itemX;
-  const dimensionsX = 150;
-  const volumeX = 280;
-  const userX = 350;
-  const dateX = 450;
-
-  // Encabezados de la tabla
-  doc.fontSize(10).font('Helvetica-Bold');
-  doc.text('ID', idX, tableTop);
-  doc.text('Dimensiones (A x L x P)', dimensionsX, tableTop);
-  doc.text('Volumen (m³)', volumeX, tableTop);
-  doc.text('Técnico', userX, tableTop);
-  doc.text('Fecha Montaje', dateX, tableTop);
-  doc.moveTo(itemX, doc.y).lineTo(550, doc.y).stroke();
-  doc.moveDown(0.5);
-
-  // Filas de la tabla
+  // Listado detallado de andamios
   doc.fontSize(10).font('Helvetica');
-  scaffolds.forEach(scaffold => {
-    const y = doc.y;
-    doc.text(scaffold.id, idX, y);
-    doc.text(`${scaffold.height}x${scaffold.width}x${scaffold.depth}`, dimensionsX, y);
-    doc.text(parseFloat(scaffold.cubic_meters).toFixed(2), volumeX, y);
-    doc.text(scaffold.user_name, userX, y, { width: 100, ellipsis: true });
-    doc.text(new Date(scaffold.assembly_created_at).toLocaleDateString(), dateX, y);
+  scaffolds.forEach((scaffold, index) => {
+    // Añadir nueva página si es necesario
+    if (doc.y > 650) {
+      doc.addPage();
+    }
+
+    doc.fontSize(12).font('Helvetica-Bold').text(`Andamio #${scaffold.id}`);
+    doc.fontSize(10).font('Helvetica');
+    
+    if (scaffold.scaffold_number) doc.text(`Nº de Andamio: ${scaffold.scaffold_number}`);
+    if (scaffold.area) doc.text(`Área: ${scaffold.area}`);
+    if (scaffold.tag) doc.text(`TAG: ${scaffold.tag}`);
+    if (scaffold.company_name) doc.text(`Solicitante: ${scaffold.company_name}`);
+    if (scaffold.end_user_name) doc.text(`Usuario: ${scaffold.end_user_name}`);
+    if (scaffold.supervisor_name) doc.text(`Supervisor: ${scaffold.supervisor_name}`);
+    
+    doc.text(`Dimensiones: ${scaffold.height}m x ${scaffold.width}m x ${scaffold.depth}m`);
+    doc.text(`Volumen: ${parseFloat(scaffold.cubic_meters).toFixed(2)} m³`);
+    doc.text(`Técnico: ${scaffold.user_name}`);
+    doc.text(`Fecha de Montaje: ${new Date(scaffold.assembly_created_at).toLocaleDateString()}`);
+    doc.text(`Progreso: ${scaffold.progress_percentage}%`);
+    
+    if (scaffold.assembly_notes) {
+      doc.text(`Notas: ${scaffold.assembly_notes}`);
+    }
+    
     doc.moveDown(1.5);
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown(1);
   });
 
   // Pie de página

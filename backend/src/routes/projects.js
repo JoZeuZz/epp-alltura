@@ -144,9 +144,21 @@ router.get('/:id/report/pdf', async (req, res, next) => {
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
-    const { rows: scaffolds } = await db.query('SELECT * FROM scaffolds WHERE project_id = $1', [
-      projectId,
-    ]);
+    const { rows: scaffolds } = await db.query(`
+      SELECT 
+        s.*,
+        u.first_name || ' ' || u.last_name as user_name,
+        c.name as company_name,
+        sup.first_name || ' ' || sup.last_name as supervisor_name,
+        eu.name as end_user_name
+      FROM scaffolds s
+      JOIN users u ON s.user_id = u.id
+      LEFT JOIN companies c ON s.company_id = c.id
+      LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
+      LEFT JOIN end_users eu ON s.end_user_id = eu.id
+      WHERE s.project_id = $1
+      ORDER BY s.assembly_created_at DESC
+    `, [projectId]);
 
     const doc = await generateScaffoldsPDF(project, scaffolds);
 
@@ -171,9 +183,21 @@ router.get('/:id/report/excel', async (req, res, next) => {
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
-    const { rows: scaffolds } = await db.query('SELECT * FROM scaffolds WHERE project_id = $1', [
-      projectId,
-    ]);
+    const { rows: scaffolds } = await db.query(`
+      SELECT 
+        s.*,
+        u.first_name || ' ' || u.last_name as user_name,
+        c.name as company_name,
+        sup.first_name || ' ' || sup.last_name as supervisor_name,
+        eu.name as end_user_name
+      FROM scaffolds s
+      JOIN users u ON s.user_id = u.id
+      LEFT JOIN companies c ON s.company_id = c.id
+      LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
+      LEFT JOIN end_users eu ON s.end_user_id = eu.id
+      WHERE s.project_id = $1
+      ORDER BY s.assembly_created_at DESC
+    `, [projectId]);
 
     const buffer = await generateReportExcel(project, scaffolds);
 

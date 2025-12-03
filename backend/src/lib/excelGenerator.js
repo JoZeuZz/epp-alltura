@@ -7,8 +7,14 @@ async function generateReportExcel(project, scaffolds) {
   // Add columns
   worksheet.columns = [
     { header: 'ID Andamio', key: 'id', width: 12 },
+    { header: 'Nº Andamio', key: 'scaffold_number', width: 15 },
+    { header: 'Área', key: 'area', width: 20 },
+    { header: 'TAG', key: 'tag', width: 15 },
+    { header: 'Solicitante', key: 'company_name', width: 25 },
+    { header: 'Usuario', key: 'end_user_name', width: 25 },
+    { header: 'Supervisor', key: 'supervisor_name', width: 25 },
     { header: 'Fecha', key: 'date', width: 15 },
-    { header: 'Usuario', key: 'user', width: 30 },
+    { header: 'Técnico', key: 'user', width: 30 },
     { header: 'Alto (m)', key: 'height', width: 10 },
     { header: 'Ancho (m)', key: 'width', width: 10 },
     { header: 'Prof. (m)', key: 'depth', width: 10 },
@@ -24,6 +30,12 @@ async function generateReportExcel(project, scaffolds) {
   scaffolds.forEach(scaffold => {
     worksheet.addRow({
       id: scaffold.id,
+      scaffold_number: scaffold.scaffold_number || '',
+      area: scaffold.area || '',
+      tag: scaffold.tag || '',
+      company_name: scaffold.company_name || '',
+      end_user_name: scaffold.end_user_name || '',
+      supervisor_name: scaffold.supervisor_name || '',
       date: new Date(scaffold.assembly_created_at),
       user: scaffold.user_name,
       height: parseFloat(scaffold.height),

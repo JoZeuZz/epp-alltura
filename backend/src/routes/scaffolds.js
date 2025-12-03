@@ -22,10 +22,19 @@ router.get('/project/:projectId', async (req, res, next) => {
   const { projectId } = req.params;
   try {
     const query = `
-      SELECT s.*, u.first_name || ' ' || u.last_name as user_name 
+      SELECT 
+        s.*, 
+        u.first_name || ' ' || u.last_name as user_name,
+        c.name as company_name,
+        sup.first_name || ' ' || sup.last_name as supervisor_name,
+        eu.name as end_user_name
       FROM scaffolds s 
       JOIN users u ON s.user_id = u.id 
-      WHERE s.project_id = $1 ORDER BY s.assembly_created_at DESC`;
+      LEFT JOIN companies c ON s.company_id = c.id
+      LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
+      LEFT JOIN end_users eu ON s.end_user_id = eu.id
+      WHERE s.project_id = $1 
+      ORDER BY s.assembly_created_at DESC`;
     const { rows } = await db.query(query, [projectId]);
     res.json(rows);
   } catch (err) {
@@ -42,6 +51,9 @@ const createScaffoldSchema = Joi.object({
   scaffold_number: Joi.string().trim().allow('').max(255),
   area: Joi.string().trim().allow('').max(255),
   tag: Joi.string().trim().allow('').max(255),
+  company_id: Joi.number().integer().positive().allow(null),
+  supervisor_id: Joi.number().integer().positive().allow(null),
+  end_user_id: Joi.number().integer().positive().allow(null),
   height: Joi.number().positive().required(),
   width: Joi.number().positive().required(),
   depth: Joi.number().positive().required(),
@@ -70,6 +82,9 @@ router.post('/', upload.single('assembly_image'), async (req, res, next) => {
       scaffold_number,
       area,
       tag,
+      company_id,
+      supervisor_id,
+      end_user_id,
       height,
       width,
       depth,
@@ -83,9 +98,9 @@ router.post('/', upload.single('assembly_image'), async (req, res, next) => {
 
     const query = `
       INSERT INTO scaffolds 
-        (project_id, user_id, scaffold_number, area, tag, height, width, depth, cubic_meters, progress_percentage, assembly_notes, assembly_image_url)
+        (project_id, user_id, scaffold_number, area, tag, company_id, supervisor_id, end_user_id, height, width, depth, cubic_meters, progress_percentage, assembly_notes, assembly_image_url)
       VALUES 
-        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
       RETURNING *
     `;
     const values = [
@@ -94,6 +109,9 @@ router.post('/', upload.single('assembly_image'), async (req, res, next) => {
       scaffold_number,
       area,
       tag,
+      company_id,
+      supervisor_id,
+      end_user_id,
       height,
       width,
       depth,
@@ -175,9 +193,15 @@ router.get('/my-history', async (req, res) => {
     const query = `
       SELECT 
         s.*, 
-        p.name as project_name 
+        p.name as project_name,
+        c.name as company_name,
+        sup.first_name || ' ' || sup.last_name as supervisor_name,
+        eu.name as end_user_name
       FROM scaffolds s
       JOIN projects p ON s.project_id = p.id
+      LEFT JOIN companies c ON s.company_id = c.id
+      LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
+      LEFT JOIN end_users eu ON s.end_user_id = eu.id
       WHERE s.user_id = $1 
       ORDER BY s.assembly_created_at DESC
     `;
