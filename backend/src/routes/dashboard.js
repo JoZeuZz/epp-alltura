@@ -27,7 +27,7 @@ router.get('/summary', async (req, res) => {
     // Últimos 5 reportes
     const recentReportsRes = await db.query(`
       SELECT 
-        s.id, s.assembly_created_at as created_at, s.project_id,
+        s.id, s.assembly_created_at, s.project_id,
         p.name as project_name,
         TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) as user_name
       FROM scaffolds s

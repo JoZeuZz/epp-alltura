@@ -271,7 +271,7 @@ const AppLayout = () => {
         </header>
 
         {/* --- Main Content --- */}
-        <main className="flex-1 w-full p-6 lg:p-10 overflow-y-auto">
+        <main className="flex-1 w-full p-4 sm:p-6 lg:p-10 overflow-y-auto">
           <Outlet />
         </main>
       </div>

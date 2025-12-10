@@ -6,6 +6,8 @@ const { authMiddleware } = require('../middleware/auth');
 const multer = require('multer');
 const { uploadFile } = require('../lib/googleCloud');
 const { logger } = require('../lib/logger');
+const fs = require('fs').promises;
+const path = require('path');
 
 // Multer config for in-memory storage
 const multerStorage = multer.memoryStorage();
@@ -305,6 +307,72 @@ router.get('/my-history', async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
+  }
+});
+
+/**
+ * @route   DELETE /api/scaffolds/:id
+ * @desc    Eliminar un andamio (solo admin)
+ * @access  Private (Admin)
+ */
+router.delete('/:id', async (req, res, next) => {
+  const { id } = req.params;
+  const { role } = req.user;
+
+  try {
+    // Verificar que solo admins puedan eliminar
+    if (role !== 'admin') {
+      return res.status(403).json({ 
+        message: 'No tienes permisos para eliminar reportes de andamios' 
+      });
+    }
+
+    // Verificar si el andamio existe y obtener las rutas de las imágenes
+    const checkQuery = 'SELECT assembly_image_url, disassembly_image_url FROM scaffolds WHERE id = $1';
+    const { rows } = await db.query(checkQuery, [id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Andamio no encontrado' });
+    }
+
+    const scaffold = rows[0];
+
+    // Función auxiliar para eliminar imagen si existe
+    const deleteImageFile = async (imageUrl) => {
+      if (!imageUrl) return;
+      
+      try {
+        // Extraer el path relativo (quitar /uploads/ del inicio)
+        const relativePath = imageUrl.replace(/^\/uploads\//, '');
+        const fullPath = path.join(__dirname, '../../uploads', relativePath);
+        
+        // Verificar si el archivo existe antes de intentar eliminarlo
+        await fs.access(fullPath);
+        await fs.unlink(fullPath);
+        logger.info(`Imagen eliminada: ${fullPath}`);
+      } catch (err) {
+        // Si el archivo no existe o hay error, solo logueamos pero no fallamos la operación
+        logger.warn(`No se pudo eliminar la imagen ${imageUrl}: ${err.message}`);
+      }
+    };
+
+    // Eliminar las imágenes del servidor
+    await Promise.all([
+      deleteImageFile(scaffold.assembly_image_url),
+      deleteImageFile(scaffold.disassembly_image_url)
+    ]);
+
+    // Eliminar el andamio de la base de datos
+    await db.query('DELETE FROM scaffolds WHERE id = $1', [id]);
+
+    logger.info(`Andamio con ID ${id} eliminado por admin ${req.user.id}`);
+    res.json({ message: 'Reporte de andamio e imágenes eliminadas correctamente' });
+  } catch (err) {
+    logger.error(
+      `Error al eliminar el andamio con ID ${id}: ${err.message}`,
+      err,
+    );
+    next(err);
   }
 });
 
