@@ -36,10 +36,18 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate limiting
+// Rate limiting - Configuración por entorno
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100 // máximo 100 requests por IP
+  max: process.env.NODE_ENV === 'production' ? 200 : 1000, // 200 en producción, 1000 en desarrollo
+  message: 'Demasiadas solicitudes desde esta IP, por favor intenta de nuevo más tarde.',
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  // Skip rate limiting para ciertas rutas si es necesario
+  skip: (req) => {
+    // Puedes agregar excepciones aquí si es necesario
+    return false;
+  }
 });
 app.use(limiter);
 
