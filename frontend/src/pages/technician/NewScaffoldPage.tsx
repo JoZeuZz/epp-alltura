@@ -110,12 +110,12 @@ const NewScaffoldPage: React.FC = () => {
 
   return (
     <div>
-      <button onClick={() => navigate(-1)} className="mb-4 text-primary-blue hover:underline">
+      <button onClick={() => navigate(-1)} className="mb-3 md:mb-4 text-primary-blue hover:underline text-sm md:text-base">
         &larr; Volver al Proyecto
       </button>
-      <h1 className="text-3xl font-bold text-dark-blue mb-6">Nuevo Reporte de Montaje</h1>
+      <h1 className="text-2xl md:text-3xl font-bold text-dark-blue mb-4 md:mb-6">Nuevo Reporte de Montaje</h1>
 
-      <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-lg shadow-md">
+      <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6 bg-white p-4 sm:p-6 md:p-8 rounded-lg shadow-md">
         {/* Image Upload */}
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-2">Foto del Montaje</label>
@@ -153,8 +153,8 @@ const NewScaffoldPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Scaffold Info - Grid responsive: móvil 2 cols, desktop 3 cols */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {/* Scaffold Info - Grid responsive: 1 col en móvil, 2 en tablet, 3 en desktop */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           <div>
             <label htmlFor="scaffoldNumber" className="block text-sm font-bold text-gray-700 mb-2">Nº de Andamio</label>
             <input

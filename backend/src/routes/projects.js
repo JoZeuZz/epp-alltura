@@ -168,7 +168,16 @@ router.get('/:id/report/pdf', async (req, res, next) => {
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
-    const { rows: scaffolds } = await db.query(`
+    
+    // Extraer filtros de query params
+    const filters = {
+      status: req.query.status || 'all',
+      startDate: req.query.startDate || '',
+      endDate: req.query.endDate || ''
+    };
+    
+    // Construir query con filtros
+    let query = `
       SELECT 
         s.*,
         u.first_name || ' ' || u.last_name as user_name,
@@ -181,15 +190,34 @@ router.get('/:id/report/pdf', async (req, res, next) => {
       LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
       LEFT JOIN end_users eu ON s.end_user_id = eu.id
       WHERE s.project_id = $1
-      ORDER BY s.assembly_created_at DESC
-    `, [projectId]);
+    `;
+    
+    const queryParams = [projectId];
+    
+    // Aplicar filtro de estado
+    if (filters.status && filters.status !== 'all') {
+      query += ` AND s.status = $${queryParams.length + 1}`;
+      queryParams.push(filters.status);
+    }
+    
+    // Aplicar filtro de fecha inicial
+    if (filters.startDate) {
+      query += ` AND s.assembly_created_at >= $${queryParams.length + 1}`;
+      queryParams.push(filters.startDate);
+    }
+    
+    // Aplicar filtro de fecha final
+    if (filters.endDate) {
+      query += ` AND s.assembly_created_at <= $${queryParams.length + 1}`;
+      queryParams.push(filters.endDate);
+    }
+    
+    query += ` ORDER BY s.assembly_created_at DESC`;
+    
+    const { rows: scaffolds } = await db.query(query, queryParams);
 
-    const doc = await generateScaffoldsPDF(project, scaffolds);
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=reporte_${project.name}.pdf`);
-
-    doc.pipe(res);
+    // Pasar res y filters a la función
+    generateScaffoldsPDF(project, scaffolds, res, filters);
   } catch (err) {
     logger.error(
       `Error al generar el reporte en PDF para el proyecto con ID ${req.params.id}: ${err.message}`,

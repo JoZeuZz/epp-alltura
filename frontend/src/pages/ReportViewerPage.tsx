@@ -9,6 +9,20 @@ const ReportViewerPage: React.FC = () => {
   const [endDate, setEndDate] = useState('');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
 
+  // Helper para normalizar URLs de imágenes
+  const getImageUrl = (url: string | undefined | null): string => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    return `http://localhost:5000${url}`;
+  };
+
+  // Handle image error
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" font-size="10" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ESin imagen%3C/text%3E%3C/svg%3E';
+  };
+
   const { data: projects } = useGet<Project[]>('projects', '/projects');
   const { data: reports } = useGet<Report[]>(
     `reports-${selectedProjectId}`,
@@ -133,9 +147,10 @@ const ReportViewerPage: React.FC = () => {
                 onClick={() => setSelectedReport(report)}
               >
                 <img
-                  src={report.assembly_image_url}
+                  src={getImageUrl(report.assembly_image_url)}
                   alt="Reporte"
                   className="h-48 w-full object-cover"
+                  onError={handleImageError}
                 />
                 <div className="p-4">
                   <p className="text-lg font-bold text-dark-blue">{report.cubic_meters} m³</p>
@@ -173,9 +188,10 @@ const ReportViewerPage: React.FC = () => {
             <div className="p-4 sm:p-6">
               <h3 className="text-2xl font-bold text-dark-blue mb-4">Detalles del Reporte</h3>
               <img
-                src={selectedReport.assembly_image_url}
+                src={getImageUrl(selectedReport.assembly_image_url)}
                 alt="Reporte Detallado"
                 className="rounded-lg w-full object-contain max-h-[60vh]"
+                onError={handleImageError}
               />
               <div className="mt-4">
                 <p className="mt-2">

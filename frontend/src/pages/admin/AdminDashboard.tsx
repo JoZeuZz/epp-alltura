@@ -20,11 +20,11 @@ const MetricCard: React.FC<{
   to?: string;
 }> = ({ title, value, icon, to = null }) => {
   const content = (
-    <div className="bg-white p-6 rounded-lg shadow-md flex items-center transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-      <div className="mr-4 text-primary-blue">{icon}</div>
-      <div>
-        <h3 className="text-sm font-medium text-neutral-gray">{title}</h3>
-        <p className="text-3xl font-bold text-dark-blue">{value}</p>
+    <div className="bg-white p-4 md:p-6 rounded-lg shadow-md flex items-center transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+      <div className="mr-3 md:mr-4 text-primary-blue flex-shrink-0">{icon}</div>
+      <div className="min-w-0">
+        <h3 className="text-xs md:text-sm font-medium text-neutral-gray truncate">{title}</h3>
+        <p className="text-2xl md:text-3xl font-bold text-dark-blue">{value}</p>
       </div>
     </div>
   );
@@ -36,9 +36,11 @@ const MetricCard: React.FC<{
 };
 
 const RecentReportsTable: React.FC<{ reports: Scaffold[] }> = ({ reports }) => (
-  <div className="bg-white p-6 rounded-lg shadow-md">
-    <h2 className="text-2xl font-bold text-dark-blue mb-4">Últimos Reportes</h2>
-    <div className="overflow-x-auto">
+  <div className="bg-white p-4 md:p-6 rounded-lg shadow-md">
+    <h2 className="text-xl md:text-2xl font-bold text-dark-blue mb-3 md:mb-4">Últimos Reportes</h2>
+    <div className="overflow-x-auto -mx-4 md:mx-0">
+      <div className="inline-block min-w-full align-middle">
+        <div className="overflow-hidden">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
@@ -89,6 +91,8 @@ const RecentReportsTable: React.FC<{ reports: Scaffold[] }> = ({ reports }) => (
           ))}
         </tbody>
       </table>
+        </div>
+      </div>
     </div>
   </div>
 );
@@ -116,10 +120,10 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div>
-      <h1 className="text-4xl font-bold text-dark-blue mb-8">Dashboard</h1>
+      <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-blue mb-4 md:mb-6 lg:mb-8">Dashboard</h1>
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
         <MetricCard
           title="Total m³ Armados"
           value={`${summary?.totalCubicMeters.toLocaleString('de-DE') || 0} m³`}

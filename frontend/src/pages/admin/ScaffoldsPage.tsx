@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 import { useGet } from '../../hooks/useGet';
-import * as api from '../../services/apiService';
 import Modal from '../../components/Modal';
 import ProjectSelector from '../../components/ProjectSelector';
 import ScaffoldFilters from '../../components/ScaffoldFilters';
@@ -11,6 +12,7 @@ import ScaffoldDetailsModal from '../../components/ScaffoldDetailsModal';
 import { Project, Scaffold } from '../../types/api';
 
 const ScaffoldsPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [filters, setFilters] = useState({ status: 'all', startDate: '', endDate: '' });
   const [scaffolds, setScaffolds] = useState<Scaffold[]>([]);
@@ -18,6 +20,7 @@ const ScaffoldsPage: React.FC = () => {
   const [exporting, setExporting] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
 
   const { data: projects, isLoading: projectsLoading } = useGet<Project[]>('projects', '/projects');
   const { data: allScaffolds, isLoading: scaffoldsLoading } = useGet<Scaffold[]>(
@@ -26,6 +29,38 @@ const ScaffoldsPage: React.FC = () => {
     undefined, // No params needed here
     { enabled: !!selectedProjectId }, // This is a React Query option, not an API param
   );
+
+  // Leer parámetros de URL al cargar - establecer el proyecto primero
+  useEffect(() => {
+    const projectIdFromUrl = searchParams.get('projectId');
+    
+    if (projectIdFromUrl && !selectedProjectId) {
+      console.log('Setting project from URL:', projectIdFromUrl);
+      setSelectedProjectId(projectIdFromUrl);
+    }
+  }, [searchParams, selectedProjectId]);
+
+  // Una vez que los scaffolds se cargan, abrir el modal si hay reportId
+  useEffect(() => {
+    if (urlParamsProcessed || !allScaffolds) return;
+    
+    const reportIdFromUrl = searchParams.get('reportId');
+    
+    if (reportIdFromUrl && allScaffolds.length > 0) {
+      console.log('Looking for report:', reportIdFromUrl, 'in', allScaffolds.length, 'scaffolds');
+      const scaffold = allScaffolds.find(s => s.id === parseInt(reportIdFromUrl));
+      
+      if (scaffold) {
+        console.log('Found scaffold, opening modal:', scaffold);
+        setSelectedScaffold(scaffold);
+        setUrlParamsProcessed(true);
+        // Limpiar parámetros después de abrir
+        setTimeout(() => setSearchParams({}), 100);
+      } else {
+        console.log('Scaffold not found with id:', reportIdFromUrl);
+      }
+    }
+  }, [allScaffolds, searchParams, urlParamsProcessed, setSearchParams]);
 
   // Apply filters when filters or allScaffolds change
   useEffect(() => {
@@ -54,23 +89,60 @@ const ScaffoldsPage: React.FC = () => {
     }
 
     setScaffolds(filtered);
-  }, [filters, allScaffolds]);
+  }, [filters, allScaffolds, selectedProjectId]);
 
   const handleCloseModal = () => {
     setSelectedScaffold(null);
+  };
+
+  const handleDeleteScaffold = async (scaffoldId: number) => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      await axios.delete(`/api/scaffolds/${scaffoldId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      toast.success('Reporte eliminado correctamente');
+      
+      // Actualizar la lista local eliminando el andamio
+      setScaffolds(scaffolds.filter(s => s.id !== scaffoldId));
+      
+      // Cerrar el modal
+      setSelectedScaffold(null);
+      
+      // Recargar los datos del servidor
+      window.location.reload();
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.message || 'Error al eliminar el reporte';
+      toast.error(errorMsg);
+      console.error(err);
+    }
   };
 
   const handleExportPDF = async () => {
     if (!selectedProjectId) return;
     setExporting(true);
     try {
-      // Pasar los filtros como query params
-      const params = new URLSearchParams(filters as Record<string, string>).toString();
-      const response = await api.get<Blob>(`/projects/${selectedProjectId}/export/pdf?${params}`, {
-        responseType: 'blob', // Importante para recibir el archivo
-      });
+      // Pasar solo los filtros como query params (sin incluir responseType)
+      const queryParams = new URLSearchParams();
+      if (filters.status) queryParams.append('status', filters.status);
+      if (filters.startDate) queryParams.append('startDate', filters.startDate);
+      if (filters.endDate) queryParams.append('endDate', filters.endDate);
+      
+      const token = localStorage.getItem('accessToken');
+      const response = await axios.get(
+        `/api/projects/${selectedProjectId}/report/pdf?${queryParams.toString()}`, 
+        {
+          responseType: 'blob',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
       // Crear un enlace temporal para descargar el archivo
-      const url = window.URL.createObjectURL(response);
+      const url = window.URL.createObjectURL(response.data);
       const link = document.createElement('a');
       link.href = url;
       const project = projects?.find((p) => p.id.toString() === selectedProjectId);
@@ -96,10 +168,17 @@ const ScaffoldsPage: React.FC = () => {
     if (!selectedProjectId) return;
     setExportingExcel(true);
     try {
-      const response = await api.get<Blob>(`/projects/${selectedProjectId}/export/excel`, {
-        responseType: 'blob',
-      });
-      const url = window.URL.createObjectURL(response);
+      const token = localStorage.getItem('accessToken');
+      const response = await axios.get(
+        `/api/projects/${selectedProjectId}/report/excel`,
+        {
+          responseType: 'blob',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+      const url = window.URL.createObjectURL(response.data);
       const link = document.createElement('a');
       link.href = url;
       const project = projects?.find((p) => p.id.toString() === selectedProjectId);
@@ -125,9 +204,9 @@ const ScaffoldsPage: React.FC = () => {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-dark-blue mb-6">Visualizador de Andamios</h1>
+      <h1 className="text-2xl md:text-3xl font-bold text-dark-blue mb-4 md:mb-6">Visualizador de Andamios</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-4 md:mb-6">
         <div className="md:col-span-1">
           <ProjectSelector
             projects={projects || []}
@@ -140,18 +219,18 @@ const ScaffoldsPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex justify-end space-x-2 mb-4">
+      <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-2 mb-4">
         <button
           onClick={handleExportPDF}
           disabled={!selectedProjectId || exporting}
-          className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 disabled:bg-gray-400"
+          className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 disabled:bg-gray-400 text-sm md:text-base w-full sm:w-auto"
         >
           {exporting ? 'Generando...' : 'Exportar a PDF'}
         </button>
         <button
           onClick={handleExportExcel}
           disabled={!selectedProjectId || exportingExcel}
-          className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 disabled:bg-gray-400"
+          className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 disabled:bg-gray-400 text-sm md:text-base w-full sm:w-auto"
         >
           {exportingExcel ? 'Generando...' : 'Exportar a Excel'}
         </button>
@@ -178,7 +257,13 @@ const ScaffoldsPage: React.FC = () => {
       />
 
       <Modal isOpen={!!selectedScaffold} onClose={handleCloseModal}>
-        {selectedScaffold && <ScaffoldDetailsModal scaffold={selectedScaffold} />}
+        {selectedScaffold && (
+          <ScaffoldDetailsModal 
+            scaffold={selectedScaffold} 
+            onDelete={handleDeleteScaffold}
+            isAdmin={true}
+          />
+        )}
       </Modal>
     </div>
   );

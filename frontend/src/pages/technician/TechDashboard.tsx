@@ -24,33 +24,33 @@ const TechDashboard: React.FC = () => {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-dark-blue mb-6">Mis Proyectos Activos</h1>
+      <h1 className="text-2xl md:text-3xl font-bold text-dark-blue mb-4 md:mb-6">Mis Proyectos Activos</h1>
 
-      <div className="mb-6">
+      <div className="mb-4 md:mb-6">
         <input
           type="text"
-          placeholder="Buscar proyecto por nombre..."
+          placeholder="Buscar proyecto..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+          className="w-full p-3 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
         />
       </div>
 
       {filteredProjects.length === 0 ? (
-        <p className="text-neutral-gray text-center py-8">
+        <p className="text-neutral-gray text-center py-8 text-sm md:text-base">
           {searchTerm
             ? 'No se encontraron proyectos que coincidan con tu búsqueda.'
             : 'No tienes proyectos asignados en este momento.'}
         </p>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {filteredProjects.map((project) => (
             <Link
               to={`/tech/project/${project.id}`}
               key={project.id}
-              className="block p-6 bg-white rounded-lg border border-gray-200 shadow-md hover:bg-gray-100 transition-colors"
+              className="block p-4 md:p-6 bg-white rounded-lg border border-gray-200 shadow-md hover:bg-gray-100 transition-colors"
             >
-              <h5 className="mb-2 text-2xl font-bold tracking-tight text-dark-blue">
+              <h5 className="mb-2 text-xl md:text-2xl font-bold tracking-tight text-dark-blue">
                 {project.name}
               </h5>
               <p className="font-normal text-neutral-gray mb-3">Cliente: {project.client_name}</p>
