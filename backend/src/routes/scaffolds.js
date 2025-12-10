@@ -5,7 +5,7 @@ const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const multer = require('multer');
 const { uploadFile } = require('../lib/googleCloud');
-const logger = require('../lib/logger');
+const { logger } = require('../lib/logger');
 
 // Multer config for in-memory storage
 const multerStorage = multer.memoryStorage();
@@ -47,18 +47,113 @@ router.get('/project/:projectId', async (req, res, next) => {
 });
 
 const createScaffoldSchema = Joi.object({
-  project_id: Joi.number().integer().positive().required(),
-  scaffold_number: Joi.string().trim().allow('').max(255),
-  area: Joi.string().trim().allow('').max(255),
-  tag: Joi.string().trim().allow('').max(255),
-  company_id: Joi.number().integer().positive().allow(null),
-  supervisor_id: Joi.number().integer().positive().allow(null),
-  end_user_id: Joi.number().integer().positive().allow(null),
-  height: Joi.number().positive().required(),
-  width: Joi.number().positive().required(),
-  depth: Joi.number().positive().required(),
-  progress_percentage: Joi.number().integer().min(0).max(100).required(),
-  assembly_notes: Joi.string().trim().allow('').max(1000),
+  project_id: Joi.number()
+    .integer()
+    .positive()
+    .required()
+    .messages({
+      'number.base': 'El ID del proyecto debe ser un número',
+      'number.integer': 'El ID del proyecto debe ser un número entero',
+      'number.positive': 'El ID del proyecto debe ser un número positivo',
+      'any.required': 'El proyecto es obligatorio'
+    }),
+  scaffold_number: Joi.string()
+    .trim()
+    .max(255)
+    .allow('', null)
+    .messages({
+      'string.max': 'El número de andamio no puede exceder 255 caracteres'
+    }),
+  area: Joi.string()
+    .trim()
+    .max(255)
+    .allow('', null)
+    .messages({
+      'string.max': 'El área no puede exceder 255 caracteres'
+    }),
+  tag: Joi.string()
+    .trim()
+    .max(255)
+    .allow('', null)
+    .messages({
+      'string.max': 'El TAG no puede exceder 255 caracteres'
+    }),
+  company_id: Joi.number()
+    .integer()
+    .positive()
+    .allow(null)
+    .messages({
+      'number.base': 'El ID de la empresa debe ser un número',
+      'number.integer': 'El ID de la empresa debe ser un número entero',
+      'number.positive': 'El ID de la empresa debe ser un número positivo'
+    }),
+  supervisor_id: Joi.number()
+    .integer()
+    .positive()
+    .allow(null)
+    .messages({
+      'number.base': 'El ID del supervisor debe ser un número',
+      'number.integer': 'El ID del supervisor debe ser un número entero',
+      'number.positive': 'El ID del supervisor debe ser un número positivo'
+    }),
+  end_user_id: Joi.number()
+    .integer()
+    .positive()
+    .allow(null)
+    .messages({
+      'number.base': 'El ID del usuario final debe ser un número',
+      'number.integer': 'El ID del usuario final debe ser un número entero',
+      'number.positive': 'El ID del usuario final debe ser un número positivo'
+    }),
+  height: Joi.number()
+    .positive()
+    .max(999.99)
+    .required()
+    .messages({
+      'number.base': 'La altura debe ser un número',
+      'number.positive': 'La altura debe ser un número positivo',
+      'number.max': 'La altura no puede exceder 999.99 metros',
+      'any.required': 'La altura es obligatoria'
+    }),
+  width: Joi.number()
+    .positive()
+    .max(999.99)
+    .required()
+    .messages({
+      'number.base': 'El ancho debe ser un número',
+      'number.positive': 'El ancho debe ser un número positivo',
+      'number.max': 'El ancho no puede exceder 999.99 metros',
+      'any.required': 'El ancho es obligatorio'
+    }),
+  depth: Joi.number()
+    .positive()
+    .max(999.99)
+    .required()
+    .messages({
+      'number.base': 'La profundidad debe ser un número',
+      'number.positive': 'La profundidad debe ser un número positivo',
+      'number.max': 'La profundidad no puede exceder 999.99 metros',
+      'any.required': 'La profundidad es obligatoria'
+    }),
+  progress_percentage: Joi.number()
+    .integer()
+    .min(0)
+    .max(100)
+    .required()
+    .messages({
+      'number.base': 'El porcentaje de avance debe ser un número',
+      'number.integer': 'El porcentaje de avance debe ser un número entero',
+      'number.min': 'El porcentaje de avance debe ser al menos 0',
+      'number.max': 'El porcentaje de avance no puede exceder 100',
+      'any.required': 'El porcentaje de avance es obligatorio'
+    }),
+  assembly_notes: Joi.string()
+    .trim()
+    .max(2000)
+    .allow('', null)
+    .messages({
+      'string.max': 'Las notas de montaje no pueden exceder 2000 caracteres'
+    })
 });
 
 /**

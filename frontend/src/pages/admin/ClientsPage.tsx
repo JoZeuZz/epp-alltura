@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 import { useGet } from '../../hooks/useGet';
 import { usePost, usePut, useDelete } from '../../hooks/useMutate';
 import { Client } from '../../types/api';
@@ -27,19 +28,25 @@ const ClientsPage: React.FC = () => {
   const handleSubmit = async (clientData: Partial<Client>) => {
     try {
       if (selectedClient?.id) {
-        // Construct the payload with only the fields the backend expects for an update.
-        const payload = {
+        const updateData: Client = {
+          id: selectedClient.id,
           name: clientData.name || selectedClient.name,
-          contact_info: clientData.contact_info || selectedClient.contact_info,
+          email: clientData.email,
+          phone: clientData.phone,
+          address: clientData.address,
+          specialty: clientData.specialty,
         };
-        // Pass the full object to mutateAsync, the hook will handle separating the id
-        await updateClient.mutateAsync({ id: selectedClient.id, ...payload });
+        await updateClient.mutateAsync(updateData);
+        toast.success('Cliente actualizado correctamente');
       } else {
         await createClient.mutateAsync(clientData as Omit<Client, 'id'>);
+        toast.success('Cliente creado correctamente');
       }
       handleCloseModal();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      const errorMsg = err?.response?.data?.error || 'Error al guardar el cliente';
+      toast.error(errorMsg);
     }
   };
 
@@ -51,8 +58,10 @@ const ClientsPage: React.FC = () => {
     ) {
       try {
         await deleteClient.mutateAsync(clientId);
-      } catch (err) {
-        console.error(err);
+        toast.success('Cliente eliminado correctamente');
+      } catch (err: any) {
+        const errorMsg = err?.response?.data?.error || 'Error al eliminar el cliente';
+        toast.error(errorMsg);
       }
     }
   };
@@ -83,7 +92,16 @@ const ClientsPage: React.FC = () => {
                 Nombre
               </th>
               <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Información de Contacto
+                Email
+              </th>
+              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                Teléfono
+              </th>
+              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                Dirección
+              </th>
+              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                Especialidad
               </th>
               <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Acciones
@@ -97,7 +115,16 @@ const ClientsPage: React.FC = () => {
                   <p className="text-gray-900 whitespace-no-wrap">{client.name}</p>
                 </td>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900 whitespace-no-wrap">{client.contact_info}</p>
+                  <p className="text-gray-900">{client.email || '-'}</p>
+                </td>
+                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                  <p className="text-gray-900 whitespace-no-wrap">{client.phone || '-'}</p>
+                </td>
+                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                  <p className="text-gray-900">{client.address || '-'}</p>
+                </td>
+                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                  <p className="text-gray-900">{client.specialty || '-'}</p>
                 </td>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                   <button

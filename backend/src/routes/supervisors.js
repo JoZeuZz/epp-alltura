@@ -10,11 +10,59 @@ router.use(authMiddleware);
 
 // Esquema de validación con opciones mejoradas
 const supervisorSchema = Joi.object({
-  first_name: Joi.string().trim().required().max(255),
-  last_name: Joi.string().trim().required().max(255),
-  email: Joi.string().email().allow('').max(255),
-  phone: Joi.string().trim().allow('').max(50),
-  rut: Joi.string().trim().allow('').max(50)
+  first_name: Joi.string()
+    .trim()
+    .min(2)
+    .max(255)
+    .required()
+    .pattern(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
+    .messages({
+      'string.empty': 'El nombre es obligatorio',
+      'string.min': 'El nombre debe tener al menos 2 caracteres',
+      'string.max': 'El nombre no puede exceder 255 caracteres',
+      'string.pattern.base': 'El nombre solo puede contener letras',
+      'any.required': 'El nombre es obligatorio'
+    }),
+  last_name: Joi.string()
+    .trim()
+    .min(2)
+    .max(255)
+    .required()
+    .pattern(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
+    .messages({
+      'string.empty': 'El apellido es obligatorio',
+      'string.min': 'El apellido debe tener al menos 2 caracteres',
+      'string.max': 'El apellido no puede exceder 255 caracteres',
+      'string.pattern.base': 'El apellido solo puede contener letras',
+      'any.required': 'El apellido es obligatorio'
+    }),
+  email: Joi.string()
+    .trim()
+    .email({ tlds: { allow: false } })
+    .max(255)
+    .allow('', null)
+    .messages({
+      'string.email': 'Debe proporcionar un email válido',
+      'string.max': 'El email no puede exceder 255 caracteres'
+    }),
+  phone: Joi.string()
+    .trim()
+    .pattern(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/)
+    .max(50)
+    .allow('', null)
+    .messages({
+      'string.pattern.base': 'El formato del teléfono no es válido',
+      'string.max': 'El teléfono no puede exceder 50 caracteres'
+    }),
+  rut: Joi.string()
+    .trim()
+    .pattern(/^[0-9]{1,2}\.[0-9]{3}\.[0-9]{3}-[0-9Kk]$/)
+    .max(50)
+    .allow('', null)
+    .messages({
+      'string.pattern.base': 'El formato del RUT no es válido (ej: 12.345.678-9)',
+      'string.max': 'El RUT no puede exceder 50 caracteres'
+    })
 });
 
 /**

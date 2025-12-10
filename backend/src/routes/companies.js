@@ -10,11 +10,51 @@ router.use(authMiddleware);
 
 // Esquema de validación con opciones mejoradas
 const companySchema = Joi.object({
-  name: Joi.string().trim().required().max(255),
-  contact_person: Joi.string().trim().allow('').max(255),
-  email: Joi.string().email().allow('').max(255),
-  phone: Joi.string().trim().allow('').max(50),
-  address: Joi.string().trim().allow('').max(1000)
+  name: Joi.string()
+    .trim()
+    .min(2)
+    .max(255)
+    .required()
+    .messages({
+      'string.empty': 'El nombre de la empresa es obligatorio',
+      'string.min': 'El nombre debe tener al menos 2 caracteres',
+      'string.max': 'El nombre no puede exceder 255 caracteres',
+      'any.required': 'El nombre de la empresa es obligatorio'
+    }),
+  contact_person: Joi.string()
+    .trim()
+    .min(2)
+    .max(255)
+    .allow('', null)
+    .messages({
+      'string.min': 'El nombre del contacto debe tener al menos 2 caracteres',
+      'string.max': 'El nombre del contacto no puede exceder 255 caracteres'
+    }),
+  email: Joi.string()
+    .trim()
+    .email({ tlds: { allow: false } })
+    .max(255)
+    .allow('', null)
+    .messages({
+      'string.email': 'Debe proporcionar un email válido',
+      'string.max': 'El email no puede exceder 255 caracteres'
+    }),
+  phone: Joi.string()
+    .trim()
+    .pattern(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/)
+    .max(50)
+    .allow('', null)
+    .messages({
+      'string.pattern.base': 'El formato del teléfono no es válido',
+      'string.max': 'El teléfono no puede exceder 50 caracteres'
+    }),
+  address: Joi.string()
+    .trim()
+    .max(1000)
+    .allow('', null)
+    .messages({
+      'string.max': 'La dirección no puede exceder 1000 caracteres'
+    })
 });
 
 /**

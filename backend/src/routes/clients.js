@@ -4,7 +4,7 @@ const Joi = require('joi');
 const Client = require('../models/client');
 const { authMiddleware } = require('../middleware/auth');
 const { isAdmin } = require('../middleware/roles');
-const logger = require('../lib/logger');
+const { logger } = require('../lib/logger');
 
 // Apply auth and isAdmin middleware to all client routes
 router.use(authMiddleware, isAdmin);
@@ -35,8 +35,53 @@ router.get('/:id', async (req, res, next) => {
 });
 
 const clientSchema = Joi.object({
-  name: Joi.string().trim().min(2).max(100).required(),
-  contact_info: Joi.string().trim().allow('').max(255),
+  name: Joi.string()
+    .trim()
+    .min(2)
+    .max(255)
+    .required()
+    .messages({
+      'string.empty': 'El nombre del cliente es obligatorio',
+      'string.min': 'El nombre debe tener al menos 2 caracteres',
+      'string.max': 'El nombre no puede exceder 255 caracteres',
+      'any.required': 'El nombre del cliente es obligatorio'
+    }),
+  email: Joi.string()
+    .trim()
+    .email({ tlds: { allow: false } })
+    .max(255)
+    .allow('', null)
+    .optional()
+    .messages({
+      'string.email': 'Debe proporcionar un email válido',
+      'string.max': 'El email no puede exceder 255 caracteres'
+    }),
+  phone: Joi.string()
+    .trim()
+    .pattern(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/)
+    .max(50)
+    .allow('', null)
+    .optional()
+    .messages({
+      'string.pattern.base': 'El formato del teléfono no es válido',
+      'string.max': 'El teléfono no puede exceder 50 caracteres'
+    }),
+  address: Joi.string()
+    .trim()
+    .max(500)
+    .allow('', null)
+    .optional()
+    .messages({
+      'string.max': 'La dirección no puede exceder 500 caracteres'
+    }),
+  specialty: Joi.string()
+    .trim()
+    .max(255)
+    .allow('', null)
+    .optional()
+    .messages({
+      'string.max': 'La especialidad no puede exceder 255 caracteres'
+    })
 });
 
 // POST a new client

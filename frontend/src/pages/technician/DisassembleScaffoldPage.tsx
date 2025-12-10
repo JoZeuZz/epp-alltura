@@ -1,22 +1,18 @@
 import React, { useState, useRef, ChangeEvent, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { usePut } from '../../hooks/useMutate';
-import { Scaffold } from '../../types/api';
+import toast from 'react-hot-toast';
 import ImageUploadIcon from '../../components/icons/ImageUploadIcon';
+import LoadingOverlay from '../../components/LoadingOverlay';
 
 const DisassembleScaffoldPage: React.FC = () => {
-  const { projectId, scaffoldId } = useParams<{ projectId: string; scaffoldId: string }>();
+  const { scaffoldId } = useParams<{ scaffoldId: string }>();
   const navigate = useNavigate();
   const [notes, setNotes] = useState('');
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const disassembleScaffold = usePut<Scaffold, any>(
-    `scaffold-${scaffoldId}`,
-    `/scaffolds/${scaffoldId}/disassemble`,
-  );
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -42,17 +38,26 @@ const DisassembleScaffoldPage: React.FC = () => {
     }
 
     setError('');
+    setIsSubmitting(true);
 
     const formData = new FormData();
     formData.append('disassembly_notes', notes);
     formData.append('disassembly_image', image);
 
     try {
-      await disassembleScaffold.mutateAsync(formData);
-      navigate(`/tech/project/${projectId}`);
-    } catch (err) {
-      setError('Error al enviar el reporte de desmontaje. Intente de nuevo.');
+      // Usar api.put directamente para enviar FormData correctamente
+      const { put } = await import('../../services/apiService');
+      await put(`/scaffolds/${scaffoldId}/disassemble`, formData);
+      toast.success('¡Andamio desmontado exitosamente!');
+      // Navegar de vuelta usando el historial del navegador
+      navigate(-1);
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.message || 'Error al enviar el reporte de desmontaje. Intente de nuevo.';
+      setError(errorMsg);
+      toast.error(errorMsg);
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -124,13 +129,19 @@ const DisassembleScaffoldPage: React.FC = () => {
         <div className="pt-5">
           <button
             type="submit"
-            disabled={disassembleScaffold.isPending}
+            disabled={isSubmitting}
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-primary-blue hover:bg-blue-700 focus:outline-none disabled:bg-gray-400"
           >
-            {disassembleScaffold.isPending ? 'Confirmando...' : 'Confirmar Desmontaje'}
+            {isSubmitting ? 'Confirmando...' : 'Confirmar Desmontaje'}
           </button>
         </div>
       </form>
+
+      <LoadingOverlay 
+        isOpen={isSubmitting} 
+        message="Registrando desmontaje del andamio..."
+        subMessage="Procesando imagen y actualizando estado"
+      />
     </div>
   );
 };

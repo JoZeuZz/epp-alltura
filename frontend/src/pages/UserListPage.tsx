@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import toast from 'react-hot-toast';
 import { useGet } from '../hooks/useGet';
 import { usePost, usePut, useDelete } from '../hooks/useMutate';
 import { User } from '../types/api';
@@ -29,18 +30,28 @@ const UserListPage: React.FC = () => {
     try {
       if (selectedUser) {
         await updateUser.mutateAsync({ ...selectedUser, ...userData });
+        toast.success('Usuario actualizado correctamente');
       } else {
         await createUser.mutateAsync(userData);
+        toast.success('Usuario creado correctamente');
       }
       handleCloseModal();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      const errorMsg = err?.response?.data?.error || 'Error al guardar el usuario';
+      toast.error(errorMsg);
     }
   };
 
   const handleDelete = async (userId: number) => {
     if (window.confirm('¿Está seguro de que desea eliminar este usuario?')) {
-      await deleteUser.mutateAsync(userId);
+      try {
+        await deleteUser.mutateAsync(userId);
+        toast.success('Usuario eliminado correctamente');
+      } catch (err: any) {
+        const errorMsg = err?.response?.data?.error || 'Error al eliminar el usuario';
+        toast.error(errorMsg);
+      }
     }
   };
 
@@ -103,7 +114,15 @@ const UserListPage: React.FC = () => {
                   {`${user.first_name} ${user.last_name}`}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">{user.email}</td>
-                <td className="px-6 py-4 whitespace-nowrap capitalize">{user.role}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    user.role === 'admin' 
+                      ? 'bg-red-100 text-red-800' 
+                      : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {user.role === 'admin' ? 'Administrador' : 'Técnico'}
+                  </span>
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right">
                   <button
                     onClick={() => handleOpenModal(user)}

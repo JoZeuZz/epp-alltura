@@ -7,7 +7,7 @@ const { authMiddleware } = require('../middleware/auth');
 const { isAdmin } = require('../middleware/roles');
 const { generateScaffoldsPDF } = require('../lib/pdfGenerator');
 const { generateReportExcel } = require('../lib/excelGenerator');
-const logger = require('../lib/logger');
+const { logger } = require('../lib/logger');
 
 // GET all projects (for admins) or assigned projects (for technicians)
 router.get('/', authMiddleware, async (req, res, next) => {
@@ -84,9 +84,33 @@ router.post('/:id/users', async (req, res, next) => {
 });
 
 const projectSchema = Joi.object({
-  client_id: Joi.number().integer().positive().required(),
-  name: Joi.string().trim().min(2).max(100).required(),
-  status: Joi.string().valid('active', 'inactive', 'completed').required(),
+  client_id: Joi.number()
+    .integer()
+    .positive()
+    .required()
+    .messages({
+      'number.base': 'El ID del cliente debe ser un número',
+      'number.integer': 'El ID del cliente debe ser un número entero',
+      'number.positive': 'El ID del cliente debe ser un número positivo',
+      'any.required': 'El cliente es obligatorio'
+    }),
+  name: Joi.string()
+    .trim()
+    .min(3)
+    .max(255)
+    .required()
+    .messages({
+      'string.empty': 'El nombre del proyecto es obligatorio',
+      'string.min': 'El nombre debe tener al menos 3 caracteres',
+      'string.max': 'El nombre no puede exceder 255 caracteres',
+      'any.required': 'El nombre del proyecto es obligatorio'
+    }),
+  status: Joi.string()
+    .valid('active', 'inactive', 'completed')
+    .default('active')
+    .messages({
+      'any.only': 'El estado debe ser active, inactive o completed'
+    })
 });
 
 // POST a new project

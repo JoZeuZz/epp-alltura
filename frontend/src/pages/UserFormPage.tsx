@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useGet } from '../hooks/useGet';
 import { usePost, usePut } from '../hooks/useMutate';
+import { useFormErrors } from '../hooks/useFormErrors';
 import { User } from '../types/api';
 import Spinner from '../components/Spinner';
+import ErrorMessage from '../components/ErrorMessage';
 
 const UserFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +24,8 @@ const UserFormPage: React.FC = () => {
 
   const createUser = usePost<User, Partial<User>>('users', '/users');
   const updateUser = usePut<User, Partial<User> & { id: number }>('users', '/users');
+  
+  const { generalError, handleApiError, clearErrors, getFieldError, clearFieldError } = useFormErrors();
 
   useEffect(() => {
     if (isEditing && user) {
@@ -33,6 +37,8 @@ const UserFormPage: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    clearErrors(); // Limpiar errores previos
+    
     const nameParts = name.split(' ');
     const first_name = nameParts[0] || '';
     const last_name = nameParts.slice(1).join(' ') || '';
@@ -51,9 +57,14 @@ const UserFormPage: React.FC = () => {
         toast.success('Usuario creado con éxito.');
       }
       navigate('/admin/users');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save user', error);
-      toast.error('Error al guardar el usuario.');
+      handleApiError(error);
+      
+      // Toast general solo si no hay errores de campo
+      if (!error?.response?.data?.fieldErrors && !error?.response?.data?.errors) {
+        toast.error(error?.response?.data?.message || 'Error al guardar el usuario.');
+      }
     }
   };
 
@@ -72,20 +83,56 @@ const UserFormPage: React.FC = () => {
       </h1>
 
       <div className="bg-white p-8 rounded-lg shadow-md">
+        {generalError && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded">
+            <p className="text-red-800 font-medium">{generalError}</p>
+          </div>
+        )}
+        
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-neutral-gray">
-              Nombre Completo
+            <label htmlFor="first_name" className="block text-sm font-medium text-neutral-gray">
+              Nombre
             </label>
             <div className="mt-1">
               <input
                 type="text"
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm"
+                id="first_name"
+                value={name.split(' ')[0] || ''}
+                onChange={(e) => {
+                  const lastName = name.split(' ').slice(1).join(' ');
+                  setName(`${e.target.value}${lastName ? ' ' + lastName : ''}`);
+                  clearFieldError('first_name');
+                }}
+                className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm ${
+                  getFieldError('first_name') ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                }`}
                 required
               />
+              <ErrorMessage message={getFieldError('first_name')} />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="last_name" className="block text-sm font-medium text-neutral-gray">
+              Apellido
+            </label>
+            <div className="mt-1">
+              <input
+                type="text"
+                id="last_name"
+                value={name.split(' ').slice(1).join(' ') || ''}
+                onChange={(e) => {
+                  const firstName = name.split(' ')[0] || '';
+                  setName(`${firstName} ${e.target.value}`.trim());
+                  clearFieldError('last_name');
+                }}
+                className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm ${
+                  getFieldError('last_name') ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                }`}
+                required
+              />
+              <ErrorMessage message={getFieldError('last_name')} />
             </div>
           </div>
 
@@ -98,10 +145,16 @@ const UserFormPage: React.FC = () => {
                 type="email"
                 id="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm"
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  clearFieldError('email');
+                }}
+                className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm ${
+                  getFieldError('email') ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                }`}
                 required
               />
+              <ErrorMessage message={getFieldError('email')} />
             </div>
           </div>
 
@@ -114,28 +167,39 @@ const UserFormPage: React.FC = () => {
                 id="role"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm"
+                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm"
               >
                 <option value="technician">Técnico</option>
-                <option value="admin">Admin</option>
+                <option value="admin">Administrador</option>
               </select>
             </div>
           </div>
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-neutral-gray">
-              Contraseña
+              Contraseña {!isEditing && <span className="text-red-500">*</span>}
             </label>
             <div className="mt-1">
               <input
                 type="password"
                 id="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm"
-                placeholder={isEditing ? 'Dejar en blanco para no cambiar' : ''}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  clearFieldError('password');
+                }}
+                className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm ${
+                  getFieldError('password') ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                }`}
+                placeholder={isEditing ? 'Dejar en blanco para no cambiar' : 'Mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número'}
                 required={!isEditing}
               />
+              <ErrorMessage message={getFieldError('password')} />
+              {!isEditing && !getFieldError('password') && (
+                <p className="text-xs text-gray-500 mt-1">
+                  La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.
+                </p>
+              )}
             </div>
           </div>
 

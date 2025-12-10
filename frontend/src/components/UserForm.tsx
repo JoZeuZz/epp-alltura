@@ -6,7 +6,8 @@ import PasswordStrength from './PasswordStrength.tsx';
 // Define the initial state for a new user outside the component.
 // This ensures the object reference is stable across renders.
 const newUserInitialState = {
-  name: '',
+  first_name: '',
+  last_name: '',
   email: '',
   password: '',
   role: 'technician',
@@ -19,7 +20,7 @@ interface Props {
 
 export default function UserForm({ user, onSubmit, onCancel }: Props) {
   const initialValues = user
-    ? { name: user.first_name + ' ' + user.last_name, email: user.email, password: '', role: user.role }
+    ? { first_name: user.first_name, last_name: user.last_name, email: user.email, password: '', role: user.role }
     : newUserInitialState;
 
   const { values, handleChange, reset } = useForm(initialValues);
@@ -35,7 +36,7 @@ export default function UserForm({ user, onSubmit, onCancel }: Props) {
     e.preventDefault();
     setFormError(null); // Limpiar errores previos
 
-    if (!values.name || !values.email || (!isEditing && !values.password)) {
+    if (!values.first_name || !values.last_name || !values.email || (!isEditing && !values.password)) {
       setFormError('Por favor, complete todos los campos obligatorios.');
       return;
     }
@@ -44,7 +45,8 @@ export default function UserForm({ user, onSubmit, onCancel }: Props) {
       return;
     }
     const userData: Partial<User> = {
-      first_name: values.name,
+      first_name: values.first_name,
+      last_name: values.last_name,
       email: values.email,
       role: values.role as 'admin' | 'technician',
     };
@@ -62,14 +64,28 @@ export default function UserForm({ user, onSubmit, onCancel }: Props) {
         </div>
       )}
       <div className="mb-4">
-        <label htmlFor="name" className="block text-gray-700 text-sm font-bold mb-2">
-          Nombre Completo
+        <label htmlFor="first_name" className="block text-gray-700 text-sm font-bold mb-2">
+          Nombre
         </label>
         <input
           type="text"
-          id="name"
-          name="name"
-          value={values.name}
+          id="first_name"
+          name="first_name"
+          value={values.first_name}
+          onChange={handleChange}
+          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+          required
+        />
+      </div>
+      <div className="mb-4">
+        <label htmlFor="last_name" className="block text-gray-700 text-sm font-bold mb-2">
+          Apellido
+        </label>
+        <input
+          type="text"
+          id="last_name"
+          name="last_name"
+          value={values.last_name}
           onChange={handleChange}
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
           required

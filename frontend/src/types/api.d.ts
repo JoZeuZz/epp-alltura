@@ -23,7 +23,10 @@ export interface Project {
 export interface Client {
   id: number;
   name: string;
-  contact_info: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  specialty?: string;
 }
 
 export interface Scaffold {

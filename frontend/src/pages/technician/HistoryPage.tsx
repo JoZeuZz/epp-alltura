@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useGet } from '../../hooks/useGet';
 import { Scaffold } from '../../types/api';
 import Modal from '../../components/Modal';
+import ScaffoldDetailsModal from '../../components/ScaffoldDetailsModal';
 
 const HistoryPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -63,9 +64,14 @@ const HistoryPage: React.FC = () => {
             >
               <div className="flex items-center">
                 <img
-                  src={item.assembly_image_url}
+                  src={item.assembly_image_url.startsWith('http') 
+                    ? item.assembly_image_url 
+                    : `http://localhost:5000${item.assembly_image_url}`}
                   alt={`Andamio ${item.id}`}
                   className="h-16 w-16 object-cover rounded-md mr-4"
+                  onError={(e) => {
+                    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect fill="%23ddd" width="64" height="64"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em" font-size="10"%3ENo img%3C/text%3E%3C/svg%3E';
+                  }}
                 />
                 <div>
                   <p className="font-bold text-dark-blue">
@@ -92,100 +98,7 @@ const HistoryPage: React.FC = () => {
 
       {/* Details Modal */}
       <Modal isOpen={!!selectedScaffold} onClose={handleCloseModal}>
-        {selectedScaffold && (
-          <div>
-            <h2 className="text-2xl font-bold mb-4 text-dark-blue">
-              Detalle del Reporte #{selectedScaffold.id}
-            </h2>
-            <div className="space-y-4">
-              <img
-                src={selectedScaffold.assembly_image_url}
-                alt="Foto de montaje"
-                className="rounded-lg w-full object-contain max-h-[50vh]"
-              />
-              <div className="p-4 bg-light-gray-bg rounded-lg">
-                <p>
-                  <strong>Proyecto:</strong> {selectedScaffold.project_name}
-                </p>
-                {selectedScaffold.scaffold_number && (
-                  <p>
-                    <strong>N° de Andamio:</strong> {selectedScaffold.scaffold_number}
-                  </p>
-                )}
-                {selectedScaffold.area && (
-                  <p>
-                    <strong>Área:</strong> {selectedScaffold.area}
-                  </p>
-                )}
-                {selectedScaffold.tag && (
-                  <p>
-                    <strong>TAG:</strong> {selectedScaffold.tag}
-                  </p>
-                )}
-                {selectedScaffold.requestor && (
-                  <p>
-                    <strong>Solicitante:</strong> {selectedScaffold.requestor}
-                  </p>
-                )}
-                {selectedScaffold.end_user && (
-                  <p>
-                    <strong>Usuario:</strong> {selectedScaffold.end_user}
-                  </p>
-                )}
-                {selectedScaffold.supervisor && (
-                  <p>
-                    <strong>Supervisor:</strong> {selectedScaffold.supervisor}
-                  </p>
-                )}
-                <p>
-                  <strong>Fecha de Montaje:</strong>{' '}
-                  {new Date(selectedScaffold.assembly_created_at).toLocaleString()}
-                </p>
-                <p>
-                  <strong>Dimensiones:</strong> {selectedScaffold.height}m x{' '}
-                  {selectedScaffold.width}m x {selectedScaffold.depth}m
-                </p>
-                <p>
-                  <strong>Metros Cúbicos:</strong> {selectedScaffold.cubic_meters} m³
-                </p>
-                <p>
-                  <strong>Estado:</strong>{' '}
-                  <span className="capitalize">
-                    {selectedScaffold.status === 'assembled' ? 'Armado' : 'Desarmado'}
-                  </span>
-                </p>
-                {selectedScaffold.assembly_notes && (
-                  <p className="mt-2">
-                    <strong>Notas de Montaje:</strong> {selectedScaffold.assembly_notes}
-                  </p>
-                )}
-              </div>
-              {selectedScaffold.status === 'disassembled' && (
-                <div className="p-4 bg-light-gray-bg rounded-lg border-t">
-                  <h3 className="font-bold text-dark-blue">Información de Desmontaje</h3>
-                  {selectedScaffold.disassembly_image_url && (
-                    <img
-                      src={selectedScaffold.disassembly_image_url}
-                      alt="Foto de desmontaje"
-                      className="mt-2 rounded-lg w-full object-contain max-h-[50vh]"
-                    />
-                  )}
-                  {selectedScaffold.disassembled_at && (
-                    <p>
-                      <strong>Fecha de Desmontaje:</strong>{' '}
-                      {new Date(selectedScaffold.disassembled_at).toLocaleString()}
-                    </p>
-                  )}
-                  {selectedScaffold.disassembly_notes && (
-                    <p className="mt-2">
-                      <strong>Notas de Desmontaje:</strong> {selectedScaffold.disassembly_notes}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {selectedScaffold && <ScaffoldDetailsModal scaffold={selectedScaffold} />}
       </Modal>
     </div>
   );

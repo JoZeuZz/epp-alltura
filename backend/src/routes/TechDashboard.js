@@ -13,7 +13,7 @@ router.get('/summary', async (req, res) => {
     
     // Total de reportes del técnico
     const totalReportsRes = await db.query(
-      'SELECT COUNT(*) as total FROM scaffolds WHERE userid = $1',
+      'SELECT COUNT(*) as total FROM scaffolds WHERE user_id = $1',
       [userId]
     );
     const totalReports = parseInt(totalReportsRes.rows[0].total, 10);
@@ -21,14 +21,14 @@ router.get('/summary', async (req, res) => {
     // Reportes este mes
     const monthReportsRes = await db.query(
       `SELECT COUNT(*) as total FROM scaffolds 
-       WHERE userid = $1 AND assemblycreatedat >= date_trunc('month', NOW())`,
+       WHERE user_id = $1 AND assembly_created_at >= date_trunc('month', NOW())`,
       [userId]
     );
     const monthReports = parseInt(monthReportsRes.rows[0].total, 10);
     
     // Total metros cúbicos
     const totalCubicMetersRes = await db.query(
-      'SELECT SUM(cubicmeters) as total FROM scaffolds WHERE userid = $1',
+      'SELECT SUM(cubic_meters) as total FROM scaffolds WHERE user_id = $1',
       [userId]
     );
     const totalCubicMeters = parseFloat(totalCubicMetersRes.rows[0].total) || 0;
@@ -37,8 +37,8 @@ router.get('/summary', async (req, res) => {
     const activeProjectsRes = await db.query(
       `SELECT COUNT(DISTINCT p.id) as total 
        FROM projects p 
-       JOIN projectusers pu ON p.id = pu.projectid 
-       WHERE pu.userid = $1 AND p.status = 'active'`,
+       JOIN project_users pu ON p.id = pu.project_id 
+       WHERE pu.user_id = $1 AND p.status = 'active'`,
       [userId]
     );
     const activeProjects = parseInt(activeProjectsRes.rows[0].total, 10);
