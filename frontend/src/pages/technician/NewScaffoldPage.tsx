@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef, ChangeEvent, FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { usePost } from '../../hooks/useMutate';
 import { useGet } from '../../hooks/useGet';
+import { useFormErrors } from '../../hooks/useFormErrors';
 import { Scaffold, Company, Supervisor, EndUser } from '../../types/api';
 import ImageUploadIcon from '../../components/icons/ImageUploadIcon';
+import LoadingOverlay from '../../components/LoadingOverlay';
 
 const NewScaffoldPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -24,6 +27,8 @@ const NewScaffoldPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const createScaffold = usePost<Scaffold, FormData>('scaffolds', '/scaffolds');
+  
+  const { handleApiError, clearErrors } = useFormErrors();
   
   // Cargar catálogos
   const { data: companies } = useGet<Company[]>('companies', '/companies');
@@ -59,8 +64,12 @@ const NewScaffoldPage: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    clearErrors();
+    
     if (!image || !dimensions.height || !dimensions.width || !dimensions.depth) {
-      setError('Por favor, complete todos los campos de dimensiones y adjunte una imagen.');
+      const errorMsg = 'Por favor, complete todos los campos de dimensiones y adjunte una imagen.';
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
@@ -85,10 +94,17 @@ const NewScaffoldPage: React.FC = () => {
 
     try {
       await createScaffold.mutateAsync(formData);
+      toast.success('¡Reporte de montaje creado exitosamente!');
       navigate(`/tech/project/${projectId}`);
-    } catch (err) {
-      setError('Error al enviar el reporte. Intente de nuevo.');
+    } catch (err: any) {
       console.error(err);
+      handleApiError(err);
+      const errorMsg = err?.response?.data?.message || 'Error al enviar el reporte. Intente de nuevo.';
+      setError(errorMsg);
+      
+      if (!err?.response?.data?.fieldErrors && !err?.response?.data?.errors) {
+        toast.error(errorMsg);
+      }
     }
   };
 
@@ -302,6 +318,12 @@ const NewScaffoldPage: React.FC = () => {
           </button>
         </div>
       </form>
+
+      <LoadingOverlay 
+        isOpen={createScaffold.isPending} 
+        message="Subiendo reporte de montaje..."
+        subMessage="Procesando imagen y guardando datos del andamio"
+      />
     </div>
   );
 };

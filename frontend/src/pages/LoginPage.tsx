@@ -1,5 +1,6 @@
 import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import logoWhite from '../assets/logo-alltura-white.png';
 
@@ -18,12 +19,17 @@ const LoginPage: React.FC = () => {
     try {
       const success = await login(email, password);
       if (success) {
+        toast.success('¡Bienvenido!');
         navigate('/'); // Redirect to the main dashboard after login
       } else {
-        setError('El correo electrónico o la contraseña son incorrectos.');
+        const errorMsg = 'El correo electrónico o la contraseña son incorrectos.';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch {
-      setError('Ocurrió un error al intentar iniciar sesión. Por favor, inténtelo de nuevo.');
+      const errorMsg = 'Ocurrió un error al intentar iniciar sesión. Por favor, inténtelo de nuevo.';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
     setLoading(false);
   };

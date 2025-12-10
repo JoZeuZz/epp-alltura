@@ -1,10 +1,10 @@
 const db = require('../db');
 
 const Client = {
-  async create({ name, contact_info }) {
+  async create({ name, email, phone, address, specialty }) {
     const { rows } = await db.query(
-      'INSERT INTO clients (name, contact_info) VALUES ($1, $2) RETURNING *',
-      [name, contact_info]
+      'INSERT INTO clients (name, email, phone, address, specialty) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [name, email, phone, address, specialty]
     );
     return rows[0];
   },
@@ -19,10 +19,10 @@ const Client = {
     return rows[0];
   },
 
-  async update(id, { name, contact_info }) {
+  async update(id, { name, email, phone, address, specialty }) {
     const { rows } = await db.query(
-      'UPDATE clients SET name = $1, contact_info = $2 WHERE id = $3 RETURNING *',
-      [name, contact_info, id]
+      'UPDATE clients SET name = $1, email = $2, phone = $3, address = $4, specialty = $5 WHERE id = $6 RETURNING *',
+      [name, email, phone, address, specialty, id]
     );
     return rows[0];
   },

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AppLayout from './layouts/AppLayout';
 import RootRedirect from './components/RootRedirect';
@@ -11,6 +12,9 @@ import ClientsPage from './pages/admin/ClientsPage';
 import ProjectsPage from './pages/admin/ProjectsPage';
 import UsersPage from './pages/admin/UsersPage';
 import ScaffoldsPage from './pages/admin/ScaffoldsPage';
+import CompaniesPage from './pages/admin/CompaniesPage';
+import SupervisorsPage from './pages/admin/SupervisorsPage';
+import EndUsersPage from './pages/admin/EndUsersPage';
 
 // Technician Pages
 import TechDashboard from './pages/technician/TechDashboard';
@@ -31,8 +35,11 @@ const AppContent: React.FC = () => {
   const { user } = useAuth();
 
   useEffect(() => {
+    // MODO DESARROLLO: Desregistrar service workers existentes
+    notificationService.unregisterAll();
+    
     // Inicializar notificaciones push
-    notificationService.initialize();
+    // TEMPORALMENTE DESACTIVADO: notificationService.initialize();
     
     // Inicializar métricas de performance
     performanceService.initialize();
@@ -59,6 +66,31 @@ const ProtectedRoutes: React.FC = () => {
 function App() {
   return (
     <AuthProvider>
+      <Toaster
+        position="top-right"
+        reverseOrder={false}
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            duration: 5000,
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
       <AppContent />
       <Router>
         <Routes>
@@ -68,10 +100,13 @@ function App() {
             {/* Admin Routes */}
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/clients" element={<ClientsPage />} />
+            <Route path="/admin/companies" element={<CompaniesPage />} />
             <Route path="/admin/projects" element={<ProjectsPage />} />
             <Route path="/admin/users" element={<UsersPage />} />
             <Route path="/admin/users/new" element={<UserFormPage />} />
             <Route path="/admin/users/edit/:id" element={<UserFormPage />} />
+            <Route path="/admin/supervisors" element={<SupervisorsPage />} />
+            <Route path="/admin/end-users" element={<EndUsersPage />} />
             <Route path="/admin/scaffolds" element={<ScaffoldsPage />} />
             <Route path="/admin/profile" element={<ProfilePage />} />
 

@@ -1,9 +1,12 @@
 import React, { useState, useCallback, FormEvent } from 'react';
+import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { usePut, usePost } from '../hooks/useMutate';
+import { useFormErrors } from '../hooks/useFormErrors';
 import { User } from '../types/api';
 import imageCompression from 'browser-image-compression';
 import UserIcon from '../components/icons/UserIcon';
+import ErrorMessage from '../components/ErrorMessage';
 
 type UserUpdateResponse = { user: User; token: string };
 
@@ -26,6 +29,8 @@ const ProfilePage: React.FC = () => {
 
   const updateUser = usePut<UserUpdateResponse, Partial<User>>('user-update', '/users/me');
   const uploadPicture = usePost<UserUpdateResponse, FormData>('user-picture', '/users/me/picture');
+  
+  const { generalError, handleApiError, clearErrors, getFieldError, clearFieldError } = useFormErrors();
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -47,7 +52,9 @@ const ProfilePage: React.FC = () => {
       setImagePreview(URL.createObjectURL(compressedFile));
     } catch (error) {
       console.error('Error compressing image:', error);
-      setError('Error al procesar la imagen.');
+      const errorMsg = 'Error al procesar la imagen.';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -55,9 +62,12 @@ const ProfilePage: React.FC = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    clearErrors();
 
     if (formData.password && formData.password !== formData.confirmPassword) {
-      setError('Las contraseñas no coinciden.');
+      const errorMsg = 'Las contraseñas no coinciden.';
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
@@ -85,12 +95,21 @@ const ProfilePage: React.FC = () => {
         const pictureResponse = await uploadPicture.mutateAsync(pictureFormData);
         refreshUserData(pictureResponse.user, pictureResponse.token);
         setSuccess('¡Perfil completo actualizado con éxito!');
+        toast.success('¡Perfil actualizado exitosamente!');
+      } else {
+        toast.success('Datos actualizados con éxito');
       }
 
       setFormData((prev) => ({ ...prev, password: '', confirmPassword: '' }));
-    } catch (err) {
-      setError('Error al actualizar el perfil. Por favor, intente de nuevo.');
+    } catch (err: any) {
       console.error(err);
+      handleApiError(err);
+      const errorMsg = err?.response?.data?.message || err?.response?.data?.error || 'Error al actualizar el perfil. Por favor, intente de nuevo.';
+      setError(errorMsg);
+      
+      if (!err?.response?.data?.fieldErrors && !err?.response?.data?.errors) {
+        toast.error(errorMsg);
+      }
     }
   };
   
@@ -101,6 +120,12 @@ const ProfilePage: React.FC = () => {
       <h1 className="text-3xl font-bold text-dark-blue mb-6">Mi Perfil</h1>
 
       <div className="bg-white p-8 rounded-lg shadow-md max-w-2xl mx-auto">
+        {generalError && (
+          <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded">
+            <p className="text-red-800 font-medium">{generalError}</p>
+          </div>
+        )}
+        
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Profile Picture */}
           <div className="flex flex-col items-center space-y-4">
@@ -125,12 +150,38 @@ const ProfilePage: React.FC = () => {
             <h2 className="text-lg font-semibold text-dark-blue mb-4">Datos de la Cuenta</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label htmlFor="first_name" className="block text-sm font-bold text-gray-700">Nombre</label>
-                <input type="text" id="first_name" value={formData.first_name} onChange={handleChange} className="form-input" required />
+                <label htmlFor="first_name" className="block text-sm font-bold text-gray-700">Nombre <span className="text-red-500">*</span></label>
+                <input 
+                  type="text" 
+                  id="first_name" 
+                  value={formData.first_name} 
+                  onChange={(e) => {
+                    handleChange(e);
+                    clearFieldError('first_name');
+                  }}
+                  className={`form-input ${
+                    getFieldError('first_name') ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
+                  }`}
+                  required 
+                />
+                <ErrorMessage message={getFieldError('first_name')} />
               </div>
               <div>
-                <label htmlFor="last_name" className="block text-sm font-bold text-gray-700">Apellido</label>
-                <input type="text" id="last_name" value={formData.last_name} onChange={handleChange} className="form-input" required />
+                <label htmlFor="last_name" className="block text-sm font-bold text-gray-700">Apellido <span className="text-red-500">*</span></label>
+                <input 
+                  type="text" 
+                  id="last_name" 
+                  value={formData.last_name} 
+                  onChange={(e) => {
+                    handleChange(e);
+                    clearFieldError('last_name');
+                  }}
+                  className={`form-input ${
+                    getFieldError('last_name') ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
+                  }`}
+                  required 
+                />
+                <ErrorMessage message={getFieldError('last_name')} />
               </div>
             </div>
             <div className="mt-6">
@@ -140,11 +191,30 @@ const ProfilePage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
               <div>
                 <label htmlFor="password" className="block text-sm font-bold text-gray-700">Nueva Contraseña</label>
-                <input type="password" id="password" value={formData.password} onChange={handleChange} className="form-input" placeholder="Dejar en blanco para no cambiar" />
+                <input 
+                  type="password" 
+                  id="password" 
+                  value={formData.password} 
+                  onChange={(e) => {
+                    handleChange(e);
+                    clearFieldError('password');
+                  }}
+                  className={`form-input ${
+                    getFieldError('password') ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''
+                  }`}
+                  placeholder="Dejar en blanco para no cambiar" 
+                />
+                <ErrorMessage message={getFieldError('password')} />
               </div>
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-bold text-gray-700">Confirmar Contraseña</label>
-                <input type="password" id="confirmPassword" value={formData.confirmPassword} onChange={handleChange} className="form-input" />
+                <input 
+                  type="password" 
+                  id="confirmPassword" 
+                  value={formData.confirmPassword} 
+                  onChange={handleChange}
+                  className="form-input" 
+                />
               </div>
             </div>
           </div>

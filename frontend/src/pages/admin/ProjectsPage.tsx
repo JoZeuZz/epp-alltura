@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { useGet } from '../../hooks/useGet';
 import * as apiHooks from '../../hooks/useMutate';
 import * as apiService from '../../services/apiService';
@@ -66,11 +67,14 @@ const ProjectsPage: React.FC = () => {
         };
         // Pass the full object to mutateAsync, the hook will handle separating the id
         await updateProject.mutateAsync({ id: selectedProject.id, ...payload });
+        toast.success('Proyecto actualizado correctamente');
       } else {
         await createProject.mutateAsync(projectData);
+        toast.success('Proyecto creado correctamente');
       }
       handleCloseModal();
-    } catch (err) {
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Error al guardar el proyecto');
       console.error(err);
     }
   };
@@ -84,8 +88,10 @@ const ProjectsPage: React.FC = () => {
   }) => {
     try {
       await assignUsers.mutateAsync({ projectId, userIds });
+      toast.success('Técnicos asignados correctamente');
       handleCloseAssignModal();
-    } catch (err) {
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Error al asignar técnicos');
       console.error(err);
     }
   };
@@ -100,7 +106,9 @@ const ProjectsPage: React.FC = () => {
 
     try {
       await deleteProject.mutateAsync(projectToDelete);
-    } catch (err) {
+      toast.success('Proyecto eliminado correctamente');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.error || 'Error al eliminar el proyecto');
       console.error(err);
     }
     setProjectToDelete(null);

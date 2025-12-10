@@ -7,7 +7,7 @@ const { isAdmin } = require('../middleware/roles');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const { uploadFile } = require('../lib/googleCloud');
-const logger = require('../lib/logger');
+const { logger } = require('../lib/logger');
 
 // Multer config for in-memory storage
 const multerStorage = multer.memoryStorage();
@@ -104,11 +104,73 @@ router.get('/:id', async (req, res, next) => {
 });
 
 const createUserSchema = Joi.object({
-  first_name: Joi.string().trim().min(2).max(100).required(),
-  last_name: Joi.string().trim().min(2).max(100).required(),
-  email: Joi.string().email().required(),
-  password: Joi.string().min(8).required(),
-  role: Joi.string().valid('admin', 'technician', 'client').default('client'),
+  first_name: Joi.string()
+    .trim()
+    .min(2)
+    .max(100)
+    .required()
+    .pattern(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
+    .messages({
+      'string.empty': 'El nombre es obligatorio',
+      'string.min': 'El nombre debe tener al menos 2 caracteres',
+      'string.max': 'El nombre no puede exceder 100 caracteres',
+      'string.pattern.base': 'El nombre solo puede contener letras',
+      'any.required': 'El nombre es obligatorio'
+    }),
+  last_name: Joi.string()
+    .trim()
+    .min(2)
+    .max(100)
+    .required()
+    .pattern(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
+    .messages({
+      'string.empty': 'El apellido es obligatorio',
+      'string.min': 'El apellido debe tener al menos 2 caracteres',
+      'string.max': 'El apellido no puede exceder 100 caracteres',
+      'string.pattern.base': 'El apellido solo puede contener letras',
+      'any.required': 'El apellido es obligatorio'
+    }),
+  email: Joi.string()
+    .trim()
+    .email({ tlds: { allow: false } })
+    .required()
+    .messages({
+      'string.empty': 'El email es obligatorio',
+      'string.email': 'Debe proporcionar un email válido',
+      'any.required': 'El email es obligatorio'
+    }),
+  password: Joi.string()
+    .min(8)
+    .max(128)
+    .required()
+    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).*$/)
+    .messages({
+      'string.empty': 'La contraseña es obligatoria',
+      'string.min': 'La contraseña debe tener al menos 8 caracteres',
+      'string.max': 'La contraseña no puede exceder 128 caracteres',
+      'string.pattern.base': 'La contraseña debe contener al menos una mayúscula, una minúscula y un número',
+      'any.required': 'La contraseña es obligatoria'
+    }),
+  role: Joi.string()
+    .valid('admin', 'technician', 'client')
+    .default('technician')
+    .messages({
+      'any.only': 'El rol debe ser admin, technician o client'
+    }),
+  rut: Joi.string()
+    .trim()
+    .pattern(/^[0-9]{1,2}\.[0-9]{3}\.[0-9]{3}-[0-9Kk]$/)
+    .allow('', null)
+    .messages({
+      'string.pattern.base': 'El formato del RUT no es válido (ej: 12.345.678-9)'
+    }),
+  phone_number: Joi.string()
+    .trim()
+    .pattern(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/)
+    .allow('', null)
+    .messages({
+      'string.pattern.base': 'El formato del teléfono no es válido'
+    })
 });
 
 // POST a new user
@@ -127,13 +189,60 @@ router.post('/', async (req, res, next) => {
 });
 
 const updateUserSchema = Joi.object({
-  first_name: Joi.string().trim().min(2).max(100),
-  last_name: Joi.string().trim().min(2).max(100),
-  email: Joi.string().email(),
-  password: Joi.string().min(8),
-  role: Joi.string().valid('admin', 'technician', 'client'),
-  rut: Joi.string().trim().allow(''),
-  phone_number: Joi.string().trim().allow(''),
+  first_name: Joi.string()
+    .trim()
+    .min(2)
+    .max(100)
+    .pattern(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
+    .messages({
+      'string.min': 'El nombre debe tener al menos 2 caracteres',
+      'string.max': 'El nombre no puede exceder 100 caracteres',
+      'string.pattern.base': 'El nombre solo puede contener letras'
+    }),
+  last_name: Joi.string()
+    .trim()
+    .min(2)
+    .max(100)
+    .pattern(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
+    .messages({
+      'string.min': 'El apellido debe tener al menos 2 caracteres',
+      'string.max': 'El apellido no puede exceder 100 caracteres',
+      'string.pattern.base': 'El apellido solo puede contener letras'
+    }),
+  email: Joi.string()
+    .trim()
+    .email({ tlds: { allow: false } })
+    .messages({
+      'string.email': 'Debe proporcionar un email válido'
+    }),
+  password: Joi.string()
+    .min(8)
+    .max(128)
+    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).*$/)
+    .messages({
+      'string.min': 'La contraseña debe tener al menos 8 caracteres',
+      'string.max': 'La contraseña no puede exceder 128 caracteres',
+      'string.pattern.base': 'La contraseña debe contener al menos una mayúscula, una minúscula y un número'
+    }),
+  role: Joi.string()
+    .valid('admin', 'technician', 'client')
+    .messages({
+      'any.only': 'El rol debe ser admin, technician o client'
+    }),
+  rut: Joi.string()
+    .trim()
+    .pattern(/^[0-9]{1,2}\.[0-9]{3}\.[0-9]{3}-[0-9Kk]$/)
+    .allow('', null)
+    .messages({
+      'string.pattern.base': 'El formato del RUT no es válido (ej: 12.345.678-9)'
+    }),
+  phone_number: Joi.string()
+    .trim()
+    .pattern(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/)
+    .allow('', null)
+    .messages({
+      'string.pattern.base': 'El formato del teléfono no es válido'
+    })
 });
 
 // PUT to update a user

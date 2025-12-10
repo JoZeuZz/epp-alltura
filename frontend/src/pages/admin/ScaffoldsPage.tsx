@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { useGet } from '../../hooks/useGet';
 import * as api from '../../services/apiService';
 import Modal from '../../components/Modal';
 import ProjectSelector from '../../components/ProjectSelector';
 import ScaffoldFilters from '../../components/ScaffoldFilters';
 import ScaffoldGrid from '../../components/ScaffoldGrid';
+import LoadingOverlay from '../../components/LoadingOverlay';
+import ScaffoldDetailsModal from '../../components/ScaffoldDetailsModal';
 import { Project, Scaffold } from '../../types/api';
 
 const ScaffoldsPage: React.FC = () => {
@@ -78,8 +81,11 @@ const ScaffoldsPage: React.FC = () => {
       if (link.parentNode) {
         link.parentNode.removeChild(link);
       }
-    } catch (err) {
-      setError('Error al generar el PDF.');
+      toast.success('PDF generado exitosamente');
+    } catch (err: any) {
+      const errorMsg = 'Error al generar el PDF.';
+      setError(errorMsg);
+      toast.error(errorMsg);
       console.error(err);
     } finally {
       setExporting(false);
@@ -104,8 +110,11 @@ const ScaffoldsPage: React.FC = () => {
       if (link.parentNode) {
         link.parentNode.removeChild(link);
       }
-    } catch (err) {
-      setError('Error al generar el Excel.');
+      toast.success('Excel generado exitosamente');
+    } catch (err: any) {
+      const errorMsg = 'Error al generar el Excel.';
+      setError(errorMsg);
+      toast.error(errorMsg);
       console.error(err);
     } finally {
       setExportingExcel(false);
@@ -156,98 +165,20 @@ const ScaffoldsPage: React.FC = () => {
         <ScaffoldGrid scaffolds={scaffolds} onScaffoldSelect={setSelectedScaffold} />
       )}
 
+      <LoadingOverlay 
+        isOpen={exporting} 
+        message="Generando PDF del proyecto..."
+        subMessage="Esto puede tomar unos segundos dependiendo del número de andamios"
+      />
+      
+      <LoadingOverlay 
+        isOpen={exportingExcel} 
+        message="Generando Excel del proyecto..."
+        subMessage="Procesando datos y creando el archivo"
+      />
+
       <Modal isOpen={!!selectedScaffold} onClose={handleCloseModal}>
-        {selectedScaffold && (
-          <div>
-            <h2 className="text-2xl font-bold mb-4 text-dark-blue">
-              Detalle del Andamio #{selectedScaffold.id}
-            </h2>
-            <div className="space-y-4">
-              <img
-                src={selectedScaffold.assembly_image_url}
-                alt="Foto de montaje"
-                className="rounded-lg w-full object-contain max-h-[50vh]"
-              />
-              <div className="p-4 bg-gray-100 rounded-lg">
-                {selectedScaffold.scaffold_number && (
-                  <p>
-                    <strong>Nº de Andamio:</strong> {selectedScaffold.scaffold_number}
-                  </p>
-                )}
-                {selectedScaffold.area && (
-                  <p>
-                    <strong>Área:</strong> {selectedScaffold.area}
-                  </p>
-                )}
-                {selectedScaffold.tag && (
-                  <p>
-                    <strong>TAG:</strong> {selectedScaffold.tag}
-                  </p>
-                )}
-                {selectedScaffold.company_name && (
-                  <p>
-                    <strong>Solicitante:</strong> {selectedScaffold.company_name}
-                  </p>
-                )}
-                {selectedScaffold.end_user_name && (
-                  <p>
-                    <strong>Usuario:</strong> {selectedScaffold.end_user_name}
-                  </p>
-                )}
-                {selectedScaffold.supervisor_name && (
-                  <p>
-                    <strong>Supervisor:</strong> {selectedScaffold.supervisor_name}
-                  </p>
-                )}
-                <p>
-                  <strong>Fecha de Montaje:</strong>{' '}
-                  {new Date(selectedScaffold.assembly_created_at).toLocaleString()}
-                </p>
-                <p>
-                  <strong>Dimensiones:</strong> {selectedScaffold.height}m x{' '}
-                  {selectedScaffold.width}m x {selectedScaffold.depth}m
-                </p>
-                <p>
-                  <strong>Metros Cúbicos:</strong> {selectedScaffold.cubic_meters} m³
-                </p>
-                <p>
-                  <strong>Estado:</strong>{' '}
-                  <span className="capitalize">
-                    {selectedScaffold.status === 'assembled' ? 'Armado' : 'Desarmado'}
-                  </span>
-                </p>
-                {selectedScaffold.assembly_notes && (
-                  <p className="mt-2">
-                    <strong>Notas de Montaje:</strong> {selectedScaffold.assembly_notes}
-                  </p>
-                )}
-              </div>
-              {selectedScaffold.status === 'disassembled' && (
-                <div className="p-4 bg-gray-100 rounded-lg border-t">
-                  <h3 className="font-bold text-dark-blue">Información de Desmontaje</h3>
-                  {selectedScaffold.disassembly_image_url && (
-                    <img
-                      src={selectedScaffold.disassembly_image_url}
-                      alt="Foto de desmontaje"
-                      className="mt-2 rounded-lg w-full object-contain max-h-[50vh]"
-                    />
-                  )}
-                  {selectedScaffold.disassembled_at && (
-                    <p>
-                      <strong>Fecha de Desmontaje:</strong>{' '}
-                      {new Date(selectedScaffold.disassembled_at).toLocaleString()}
-                    </p>
-                  )}
-                  {selectedScaffold.disassembly_notes && (
-                    <p className="mt-2">
-                      <strong>Notas de Desmontaje:</strong> {selectedScaffold.disassembly_notes}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {selectedScaffold && <ScaffoldDetailsModal scaffold={selectedScaffold} />}
       </Modal>
     </div>
   );

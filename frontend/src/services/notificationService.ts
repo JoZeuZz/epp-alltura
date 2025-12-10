@@ -76,6 +76,22 @@ class NotificationService {
     }
   }
 
+  // Desregistrar service workers (útil durante desarrollo)
+  async unregisterAll(): Promise<void> {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+          console.log('Service Worker desregistrado');
+        }
+        this.swRegistration = null;
+      }
+    } catch (error) {
+      console.error('Error desregistrando Service Workers:', error);
+    }
+  }
+
   private urlB64ToUint8Array(base64String: string): Uint8Array {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding)

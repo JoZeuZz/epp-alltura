@@ -3,20 +3,32 @@
  * Mejorado con soporte para múltiples errores de validación Joi
  */
 
-const logger = require('../lib/logger');
+const { logger } = require('../lib/logger');
 
 // Middleware para errores de validación Joi
 const handleJoiValidationError = (err) => {
-  const errors = err.details.map(detail => ({
-    field: detail.path.join('.'),
-    message: detail.message,
-    type: detail.type
-  }));
+  // Mapear errores de Joi a un formato estructurado por campo
+  const fieldErrors = {};
+  const errors = [];
+  
+  err.details.forEach(detail => {
+    const fieldName = detail.path.join('.');
+    const errorInfo = {
+      field: fieldName,
+      message: detail.message,
+      type: detail.type
+    };
+    
+    // Guardar en objeto de errores por campo para acceso rápido
+    fieldErrors[fieldName] = detail.message;
+    errors.push(errorInfo);
+  });
   
   return {
     status: 400,
     message: 'Error de validación',
-    errors: errors
+    errors: errors,
+    fieldErrors: fieldErrors // Para fácil acceso en frontend
   };
 };
 
@@ -97,6 +109,7 @@ const errorHandler = (err, req, res, _next) => {
     success: false,
     message: errorResponse.message,
     ...(errorResponse.errors && { errors: errorResponse.errors }),
+    ...(errorResponse.fieldErrors && { fieldErrors: errorResponse.fieldErrors }),
     ...(errorResponse.error && { error: errorResponse.error })
   };
 
