@@ -20,10 +20,14 @@ class PerformanceService {
     this.observeNavigationTiming();
     this.observeResourceTiming();
     
-    // Enviar métricas cada 30 segundos
+    // En desarrollo, enviar métricas cada 5 minutos para reducir requests
+    // En producción, cada 30 segundos
+    const isDevelopment = import.meta.env.MODE === 'development';
+    const interval = isDevelopment ? 300000 : 30000; // 5min vs 30s
+    
     setInterval(() => {
       this.sendMetrics();
-    }, 30000);
+    }, interval);
     
     // Enviar métricas al salir de la página
     window.addEventListener('beforeunload', () => {

@@ -1,9 +1,21 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
 const { revokeToken } = require('../middleware/auth');
 const { logger } = require('../lib/logger');
+
+// Rate limiter específico para autenticación
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: process.env.NODE_ENV === 'production' ? 10 : 100, // 10 intentos en producción, 100 en desarrollo
+  message: 'Demasiados intentos de login, por favor intenta de nuevo más tarde.',
+  skipSuccessfulRequests: true, // No contar requests exitosos
+});
+
+// Aplicar rate limiter solo a login
+router.use('/login', authLimiter);
 
 // Register a new user
 router.post('/register', async (req, res, next) => {
