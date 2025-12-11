@@ -1,5 +1,5 @@
 node_modules
 .env
 postgres-data/
-.serena/
 .github/
+docs/

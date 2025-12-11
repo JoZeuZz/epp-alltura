@@ -24,7 +24,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     try {
       const token = localStorage.getItem('accessToken');
-      if (token) {
+      if (token && typeof token === 'string') {
         const decodedUser = jwtDecode<{ user: User; exp: number }>(token);
         const isExpired = decodedUser.exp * 1000 < Date.now();
 
@@ -34,8 +34,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         setUser(decodedUser.user);
       }
-    } catch {
+    } catch (error) {
+      console.error('Error validating token on mount:', error);
       localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
       setUser(null);
     }
     setLoading(false);
@@ -43,12 +45,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await api.post<{ token: string }>('/auth/login', { email, password });
-      const { token } = response;
+      const response = await api.post<{ accessToken: string; refreshToken: string; user: User }>('/auth/login', { email, password });
+      const { accessToken, refreshToken, user } = response;
 
-      localStorage.setItem('accessToken', token);
-      const decodedUser = jwtDecode<{ user: User }>(token);
-      setUser(decodedUser.user);
+      // Guardar ambos tokens en localStorage
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      
+      // Establecer usuario desde la respuesta del backend
+      setUser(user);
       return true;
     } catch (error) {
       console.error('Login failed:', error);
@@ -59,6 +64,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     setUser(null);
   };
 

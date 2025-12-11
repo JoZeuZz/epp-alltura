@@ -33,3 +33,57 @@ services:
     # Política de reinicio:
     # Siempre reinicia el contenedor si se detiene, a menos que lo detengas manualmente.
     restart: unless-stopped
+
+    # Red personalizada para comunicación entre servicios
+    networks:
+      - alltura_network
+
+  # Servicio Redis para token blacklist y rate limiting
+  redis:
+    # Imagen oficial de Redis (Alpine para menor tamaño)
+    image: redis:7-alpine
+
+    # Nombre del contenedor
+    container_name: alltura_redis
+
+    # Comando para iniciar Redis con persistencia y configuración segura
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+
+    # Mapeo de puertos
+    ports:
+      - "6379:6379"
+
+    # Volumen para persistencia de datos
+    volumes:
+      - redis_data:/data
+
+    # Política de reinicio
+    restart: unless-stopped
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+    # Red personalizada
+    networks:
+      - alltura_network
+
+# Definición de redes
+networks:
+  alltura_network:
+    driver: bridge
+
+# Definición de volúmenes
+volumes:
+  redis_data:
+    driver: local
+
