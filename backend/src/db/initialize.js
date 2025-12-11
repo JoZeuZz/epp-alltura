@@ -47,6 +47,12 @@ const initializeDatabase = async () => {
         phone_number VARCHAR(50),
         profile_picture_url VARCHAR(255),
         role VARCHAR(50) NOT NULL CHECK(role IN ('admin', 'technician')),
+        must_change_password BOOLEAN DEFAULT FALSE,
+        failed_login_attempts INTEGER DEFAULT 0,
+        account_locked_until TIMESTAMP WITH TIME ZONE,
+        last_login_at TIMESTAMP WITH TIME ZONE,
+        last_login_ip VARCHAR(45),
+        last_login_user_agent TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       )
     `);
@@ -166,33 +172,30 @@ const initializeDatabase = async () => {
       )
     `);
 
-    // Verificar si existe el usuario admin
+    // ⚠️  SEGURIDAD: NO crear usuarios por defecto con contraseñas hardcodeadas
+    // Los usuarios administrativos deben ser creados usando el script seguro:
+    //   node src/scripts/create-admin.js
+    //
+    // Para desarrollo local, puedes crear usuarios manualmente con:
+    //   npm run create-admin
+    //
+    // Razones de seguridad:
+    // 1. CVE-ALLTURA-001: Credenciales hardcodeadas son una vulnerabilidad crítica
+    // 2. Las contraseñas por defecto son conocidas por atacantes
+    // 3. OWASP Top 10 A07:2021 - Identification and Authentication Failures
+    
     const adminCheck = await client.query(
-      "SELECT id FROM users WHERE email = 'admin@alltura.cl'"
+      "SELECT COUNT(*) as count FROM users WHERE role = 'admin'"
     );
 
-    if (adminCheck.rows.length === 0) {
-      logger.info('No se encontró usuario admin. Creando usuarios de prueba...');
-
-      // Crear usuario administrador
-      const adminPassword = await bcrypt.hash('password123', 10);
-      await client.query(
-        `INSERT INTO users (first_name, last_name, email, password_hash, role) 
-         VALUES ($1, $2, $3, $4, $5)`,
-        ['Administrador', 'Alltura', 'admin@alltura.cl', adminPassword, 'admin']
-      );
-
-      // Crear usuario técnico
-      const techPassword = await bcrypt.hash('password123', 10);
-      await client.query(
-        `INSERT INTO users (first_name, last_name, email, password_hash, role) 
-         VALUES ($1, $2, $3, $4, $5)`,
-        ['Técnico', 'de Campo', 'tech@alltura.cl', techPassword, 'technician']
-      );
-
-      logger.info('Usuarios de prueba creados exitosamente.');
+    if (parseInt(adminCheck.rows[0].count) === 0) {
+      logger.warn('⚠️  NO SE ENCONTRARON USUARIOS ADMINISTRADORES');
+      logger.warn('⚠️  Por favor, crea un usuario administrador usando:');
+      logger.warn('⚠️    node src/scripts/create-admin.js');
+      logger.warn('⚠️  o:');
+      logger.warn('⚠️    npm run create-admin');
     } else {
-      logger.info('Usuario admin ya existe. Saltando creación de usuarios.');
+      logger.info(`✅ Se encontraron ${adminCheck.rows[0].count} usuario(s) administrador(es)`);
     }
 
     // Verificar y poblar empresas mandantes
