@@ -5,7 +5,7 @@ const redisClient = require('./lib/redis');
 
 // Importar middlewares de seguridad
 const { createSecurityMiddleware } = require('./middleware/security');
-const { sanitizeStrict, sanitizeMongoOnly } = require('./middleware/sanitization');
+const { sanitizeStrict } = require('./middleware/sanitization');
 
 // Importar rutas
 const authRoutes = require('./routes/auth');
@@ -14,12 +14,9 @@ const projectRoutes = require('./routes/projects');
 const scaffoldRoutes = require('./routes/scaffolds');
 const userRoutes = require('./routes/users');
 const dashboardRoutes = require('./routes/dashboard');
-const techDashboardRoutes = require('./routes/TechDashboard');
+const supervisorDashboardRoutes = require('./routes/SupervisorDashboard');
 const notificationRoutes = require('./routes/notifications');
 const healthRoutes = require('./routes/health');
-const companyRoutes = require('./routes/companies');
-const supervisorRoutes = require('./routes/supervisors');
-const endUserRoutes = require('./routes/endUsers');
 const { initializeDatabase } = require('./db/initialize');
 
 const app = express();
@@ -73,8 +70,12 @@ app.use(express.urlencoded({
 // Sanitización estricta para rutas de API (excepto health)
 app.use('/api', sanitizeStrict);
 
-// Servir archivos estáticos desde la carpeta uploads
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Servir archivos estáticos desde la carpeta uploads con CORS habilitado
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  next();
+}, express.static(path.join(__dirname, '../uploads')));
 
 // Logging de requests
 app.use(requestLogger);
@@ -86,11 +87,8 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/scaffolds', scaffoldRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/tech-dashboard', techDashboardRoutes);
+app.use('/api/supervisor-dashboard', supervisorDashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/companies', companyRoutes);
-app.use('/api/supervisors', supervisorRoutes);
-app.use('/api/end-users', endUserRoutes);
 app.use('/health', healthRoutes);
 
 // Endpoint para métricas (nuevo endpoint que faltaba)

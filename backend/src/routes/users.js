@@ -152,10 +152,10 @@ const createUserSchema = Joi.object({
       'any.required': 'La contraseña es obligatoria'
     }),
   role: Joi.string()
-    .valid('admin', 'technician', 'client')
-    .default('technician')
+    .valid('admin', 'supervisor', 'client')
+    .default('supervisor')
     .messages({
-      'any.only': 'El rol debe ser admin, technician o client'
+      'any.only': 'El rol debe ser admin, supervisor o client'
     }),
   rut: Joi.string()
     .trim()
@@ -225,9 +225,9 @@ const updateUserSchema = Joi.object({
       'string.pattern.base': 'La contraseña debe contener al menos una mayúscula, una minúscula y un número'
     }),
   role: Joi.string()
-    .valid('admin', 'technician', 'client')
+    .valid('admin', 'supervisor', 'client')
     .messages({
-      'any.only': 'El rol debe ser admin, technician o client'
+      'any.only': 'El rol debe ser admin, supervisor o client'
     }),
   rut: Joi.string()
     .trim()

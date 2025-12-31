@@ -56,14 +56,14 @@ class PushNotificationService {
     }
   }
 
-  // Enviar a todos los técnicos de un proyecto
-  async sendToProjectTechnicians(projectId, payload) {
+  // Enviar a todos los supervisores de un proyecto
+  async sendToProjectSupervisors(projectId, payload) {
     try {
       const query = `
         SELECT DISTINCT u.id 
         FROM users u 
         JOIN project_users pu ON u.id = pu.userid 
-        WHERE pu.projectid = $1 AND u.role = 'technician'
+        WHERE pu.projectid = $1 AND u.role = 'supervisor'
       `;
       const result = await db.query(query, [projectId]);
       
@@ -73,7 +73,7 @@ class PushNotificationService {
       
       await Promise.allSettled(promises);
     } catch (error) {
-      logger.error('Error enviando notificaciones a técnicos:', error);
+      logger.error('Error enviando notificaciones a supervisores:', error);
     }
   }
 

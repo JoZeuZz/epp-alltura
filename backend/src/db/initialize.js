@@ -46,7 +46,7 @@ const initializeDatabase = async () => {
         rut VARCHAR(50),
         phone_number VARCHAR(50),
         profile_picture_url VARCHAR(255),
-        role VARCHAR(50) NOT NULL CHECK(role IN ('admin', 'technician')),
+        role VARCHAR(50) NOT NULL CHECK(role IN ('admin', 'supervisor', 'client')),
         must_change_password BOOLEAN DEFAULT FALSE,
         failed_login_attempts INTEGER DEFAULT 0,
         account_locked_until TIMESTAMP WITH TIME ZONE,
@@ -77,50 +77,9 @@ const initializeDatabase = async () => {
         client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
         name VARCHAR(255) NOT NULL,
         status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed')),
+        assigned_client_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        assigned_supervisor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      )
-    `);
-
-    // Crear tabla de empresas/solicitantes si no existe
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS companies (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) UNIQUE NOT NULL,
-        contact_person VARCHAR(255),
-        email VARCHAR(255),
-        phone VARCHAR(50),
-        address TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      )
-    `);
-
-    // Crear tabla de supervisores si no existe
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS supervisors (
-        id SERIAL PRIMARY KEY,
-        first_name VARCHAR(255) NOT NULL,
-        last_name VARCHAR(255) NOT NULL,
-        email VARCHAR(255),
-        phone VARCHAR(50),
-        rut VARCHAR(50),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        UNIQUE(first_name, last_name)
-      )
-    `);
-
-    // Crear tabla de usuarios finales si no existe
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS end_users (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) UNIQUE NOT NULL,
-        company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL,
-        email VARCHAR(255),
-        phone VARCHAR(50),
-        department VARCHAR(255),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       )
     `);
 
@@ -130,24 +89,40 @@ const initializeDatabase = async () => {
         id SERIAL PRIMARY KEY,
         project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
         user_id INTEGER NOT NULL REFERENCES users(id),
+        created_by INTEGER NOT NULL REFERENCES users(id),
         scaffold_number VARCHAR(255),
         area VARCHAR(255),
         tag VARCHAR(255),
-        company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL,
-        supervisor_id INTEGER REFERENCES supervisors(id) ON DELETE SET NULL,
-        end_user_id INTEGER REFERENCES end_users(id) ON DELETE SET NULL,
-        height DECIMAL NOT NULL,
         width DECIMAL NOT NULL,
-        depth DECIMAL NOT NULL,
+        length DECIMAL NOT NULL,
+        height DECIMAL NOT NULL,
         cubic_meters DECIMAL NOT NULL,
-        progress_percentage INTEGER NOT NULL,
-        assembly_notes TEXT,
+        progress_percentage INTEGER NOT NULL DEFAULT 100 CHECK(progress_percentage >= 0 AND progress_percentage <= 100),
+        card_status VARCHAR(50) NOT NULL DEFAULT 'green' CHECK(card_status IN ('green', 'red')),
+        assembly_status VARCHAR(50) NOT NULL DEFAULT 'assembled' CHECK(assembly_status IN ('assembled', 'disassembled')),
         assembly_image_url VARCHAR(255) NOT NULL,
+        assembly_notes TEXT,
         assembly_created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        status VARCHAR(50) NOT NULL DEFAULT 'assembled' CHECK(status IN ('assembled', 'disassembled')),
-        disassembly_notes TEXT,
+        location TEXT,
+        observations TEXT,
         disassembly_image_url VARCHAR(255),
-        disassembled_at TIMESTAMP WITH TIME ZONE
+        disassembly_notes TEXT,
+        disassembled_at TIMESTAMP WITH TIME ZONE,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `);
+
+    // Crear tabla de historial de andamios si no existe
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS scaffold_history (
+        id SERIAL PRIMARY KEY,
+        scaffold_id INTEGER NOT NULL REFERENCES scaffolds(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        change_type VARCHAR(100) NOT NULL,
+        previous_data JSONB,
+        new_data JSONB,
+        description TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       )
     `);
 
@@ -198,30 +173,10 @@ const initializeDatabase = async () => {
       logger.info(`✅ Se encontraron ${adminCheck.rows[0].count} usuario(s) administrador(es)`);
     }
 
-    // Verificar y poblar empresas mandantes
-    const companiesCheck = await client.query("SELECT COUNT(*) as count FROM companies");
-    if (parseInt(companiesCheck.rows[0].count) === 0) {
-      logger.info('Poblando empresas mandantes...');
-      
-      // CMPC - Compañía Manufacturera de Papeles y Cartones
-      await client.query(`
-        INSERT INTO companies (name, contact_person, email, phone, address) 
-        VALUES ($1, $2, $3, $4, $5)
-      `, [
-        'CMPC S.A.',
-        'Gerencia de Operaciones',
-        'contacto@cmpc.cl',
-        '+56 41 2345678',
-        'Planta Laja, Región del Biobío, Chile'
-      ]);
-
-      logger.info('✓ Empresa mandante CMPC S.A. creada');
-    }
-
-    // Verificar y poblar clientes
+    // Verificar y poblar clientes (empresas mandantes)
     const clientsCheck = await client.query("SELECT COUNT(*) as count FROM clients");
     if (parseInt(clientsCheck.rows[0].count) === 0) {
-      logger.info('Poblando empresas clientes (subcontrato)...');
+      logger.info('Poblando empresas clientes (empresas mandantes)...');
 
       const clients = [
         {
@@ -269,56 +224,6 @@ const initializeDatabase = async () => {
       }
 
       logger.info(`✓ ${clients.length} clientes creados`);
-    }
-
-    // Verificar y poblar supervisores
-    const supervisorsCheck = await client.query("SELECT COUNT(*) as count FROM supervisors");
-    if (parseInt(supervisorsCheck.rows[0].count) === 0) {
-      logger.info('Poblando supervisores de ejemplo...');
-
-      const supervisors = [
-        { first_name: 'Carlos', last_name: 'Muñoz Silva', email: 'carlos.munoz@alltura.cl', phone: '+56 9 8765 4321', rut: '12.345.678-9' },
-        { first_name: 'María', last_name: 'González Torres', email: 'maria.gonzalez@alltura.cl', phone: '+56 9 7654 3210', rut: '13.456.789-0' },
-        { first_name: 'Roberto', last_name: 'Pérez Valdés', email: 'roberto.perez@alltura.cl', phone: '+56 9 6543 2109', rut: '14.567.890-1' },
-        { first_name: 'Patricia', last_name: 'Soto Ramírez', email: 'patricia.soto@alltura.cl', phone: '+56 9 5432 1098', rut: '15.678.901-2' }
-      ];
-
-      for (const supervisor of supervisors) {
-        await client.query(
-          'INSERT INTO supervisors (first_name, last_name, email, phone, rut) VALUES ($1, $2, $3, $4, $5)',
-          [supervisor.first_name, supervisor.last_name, supervisor.email, supervisor.phone, supervisor.rut]
-        );
-      }
-
-      logger.info(`✓ ${supervisors.length} supervisores creados`);
-    }
-
-    // Verificar y poblar usuarios finales
-    const endUsersCheck = await client.query("SELECT COUNT(*) as count FROM end_users");
-    if (parseInt(endUsersCheck.rows[0].count) === 0) {
-      logger.info('Poblando usuarios finales (departamentos de CMPC)...');
-
-      const cmpcId = await client.query("SELECT id FROM companies WHERE name = 'CMPC S.A.'");
-      const companyId = cmpcId.rows[0]?.id;
-
-      if (companyId) {
-        const endUsers = [
-          { name: 'Departamento de Mantención - Planta Laja', department: 'Mantención Industrial', email: 'mantencion.laja@cmpc.cl', phone: '+56 41 2345679' },
-          { name: 'Área de Producción - Planta Laja', department: 'Producción', email: 'produccion.laja@cmpc.cl', phone: '+56 41 2345680' },
-          { name: 'Gerencia de Proyectos CMPC', department: 'Proyectos', email: 'proyectos@cmpc.cl', phone: '+56 41 2345681' },
-          { name: 'Departamento de Calidad', department: 'Control de Calidad', email: 'calidad@cmpc.cl', phone: '+56 41 2345682' },
-          { name: 'Equipo de Seguridad Industrial', department: 'Seguridad y Prevención', email: 'seguridad@cmpc.cl', phone: '+56 41 2345683' }
-        ];
-
-        for (const endUser of endUsers) {
-          await client.query(
-            'INSERT INTO end_users (name, company_id, department, email, phone) VALUES ($1, $2, $3, $4, $5)',
-            [endUser.name, companyId, endUser.department, endUser.email, endUser.phone]
-          );
-        }
-
-        logger.info(`✓ ${endUsers.length} usuarios finales creados`);
-      }
     }
 
     await client.query('COMMIT');

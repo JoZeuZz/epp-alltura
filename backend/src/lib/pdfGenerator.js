@@ -302,7 +302,7 @@ function generateScaffoldsPDF(project, scaffolds, res, filters = {}) {
     contentY += 15;
 
     doc.font('Helvetica').fillColor(COLORS.textLight)
-       .text('Técnico: ', rightColX, contentY, { continued: true })
+       .text('Supervisor: ', rightColX, contentY, { continued: true })
        .font('Helvetica-Bold').fillColor(COLORS.text)
        .text(scaffold.user_name);
     contentY += 15;

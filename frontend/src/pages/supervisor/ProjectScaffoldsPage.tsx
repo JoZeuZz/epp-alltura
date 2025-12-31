@@ -1,11 +1,24 @@
-import React from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useGet } from '../../hooks/useGet';
 import { Project, Scaffold } from '../../types/api';
+import Modal from '../../components/Modal';
+import ScaffoldDetailsModal from '../../components/ScaffoldDetailsModal';
+import { useAuth } from '../../context/AuthContext';
 
 const ProjectScaffoldsPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [selectedScaffold, setSelectedScaffold] = useState<Scaffold | null>(null);
+
+  const handleDisassembleClick = (scaffoldId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const confirmed = window.confirm('¿Estás seguro de que deseas desarmar este andamio? Serás redirigido a un formulario para cargar las pruebas del desarmado (foto y notas).');
+    if (confirmed) {
+      navigate(`/supervisor/scaffold/${scaffoldId}/disassemble?projectId=${projectId}`);
+    }
+  };
 
   // Helper para normalizar URLs de imágenes
   const getImageUrl = (url: string | undefined | null): string => {
@@ -30,6 +43,7 @@ const ProjectScaffoldsPage: React.FC = () => {
     data: scaffolds,
     isLoading: scaffoldsLoading,
     error: scaffoldsError,
+    refetch: refetchScaffolds,
   } = useGet<Scaffold[]>(`scaffolds-${projectId}`, `/scaffolds/project/${projectId}`);
 
   const isLoading = projectLoading || scaffoldsLoading;
@@ -55,12 +69,12 @@ const ProjectScaffoldsPage: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">{project?.name}</h1>
           <p className="text-sm sm:text-base text-neutral-gray">Cliente: {project?.client_name}</p>
         </div>
-        <Link
-          to={`/tech/project/${projectId}/new-scaffold`}
+        <button
+          onClick={() => navigate(`/supervisor/project/${projectId}/create-scaffold`)}
           className="bg-primary-blue text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-lg text-center text-sm sm:text-base whitespace-nowrap"
         >
           + Reportar Montaje
-        </Link>
+        </button>
       </div>
 
       <h2 className="text-xl sm:text-2xl font-bold text-dark-blue mb-4">Andamios Reportados</h2>
@@ -71,7 +85,8 @@ const ProjectScaffoldsPage: React.FC = () => {
           {scaffolds?.map((scaffold) => (
             <div
               key={scaffold.id}
-              className="bg-white p-4 rounded-lg shadow-md"
+              onClick={() => setSelectedScaffold(scaffold)}
+              className="bg-white p-4 rounded-lg shadow-md cursor-pointer transition-all hover:shadow-lg hover:scale-[1.01]"
             >
               {/* Layout móvil: Todo en columna */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -93,14 +108,9 @@ const ProjectScaffoldsPage: React.FC = () => {
                         Área: {scaffold.area}
                       </p>
                     )}
-                    {scaffold.company_name && (
+                    {scaffold.location && (
                       <p className="text-xs sm:text-sm text-neutral-gray truncate">
-                        Solicitante: {scaffold.company_name}
-                      </p>
-                    )}
-                    {scaffold.end_user_name && (
-                      <p className="text-xs sm:text-sm text-neutral-gray truncate">
-                        Usuario: {scaffold.end_user_name}
+                        Ubicación: {scaffold.location}
                       </p>
                     )}
                     <p className="text-xs sm:text-sm text-neutral-gray mt-1">
@@ -113,20 +123,20 @@ const ProjectScaffoldsPage: React.FC = () => {
                 <div className="flex items-center justify-between sm:justify-end gap-3">
                   <span
                     className={`capitalize px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-full whitespace-nowrap ${
-                      scaffold.status === 'assembled' 
+                      scaffold.assembly_status === 'assembled' 
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-yellow-100 text-yellow-800'
                     }`}
                   >
-                    {scaffold.status === 'assembled' ? 'Armado' : 'Desarmado'}
+                    {scaffold.assembly_status === 'assembled' ? 'Armado' : 'Desarmado'}
                   </span>
-                  {scaffold.status === 'assembled' && (
-                    <Link
-                      to={`/tech/scaffold/${scaffold.id}/disassemble?projectId=${projectId}`}
+                  {scaffold.assembly_status === 'assembled' && (
+                    <button
+                      onClick={(e) => handleDisassembleClick(scaffold.id, e)}
                       className="bg-yellow-500 text-white px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold hover:bg-yellow-600 transition-colors whitespace-nowrap"
                     >
                       Desarmar
-                    </Link>
+                    </button>
                   )}
                 </div>
               </div>
@@ -134,6 +144,21 @@ const ProjectScaffoldsPage: React.FC = () => {
           ))}
         </div>
       )}
+
+      {/* Details Modal */}
+      <Modal isOpen={!!selectedScaffold} onClose={() => setSelectedScaffold(null)}>
+        {selectedScaffold && (
+          <ScaffoldDetailsModal 
+            scaffold={selectedScaffold} 
+            canEdit={user?.role === 'supervisor'}
+            projectId={Number(projectId)}
+            onUpdate={() => {
+              refetchScaffolds();
+              setSelectedScaffold(null);
+            }}
+          />
+        )}
+      </Modal>
     </div>
   );
 };

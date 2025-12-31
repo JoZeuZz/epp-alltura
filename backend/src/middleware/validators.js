@@ -118,10 +118,10 @@ const baseSchemas = {
   
   // Rol de usuario
   role: Joi.string()
-    .valid('admin', 'technician')
+    .valid('admin', 'supervisor', 'client')
     .required()
     .messages({
-      'any.only': 'El rol debe ser admin o technician',
+      'any.only': 'El rol debe ser admin, supervisor o client',
       'any.required': 'El rol es requerido',
     }),
   
@@ -238,7 +238,7 @@ const userValidators = {
   
   // GET /api/users?role=...
   query: Joi.object({
-    role: Joi.string().valid('admin', 'technician').optional(),
+    role: Joi.string().valid('admin', 'supervisor', 'client').optional(),
     page: Joi.number().integer().min(1).default(1),
     limit: Joi.number().integer().min(1).max(100).default(20),
   }),
@@ -442,11 +442,6 @@ const scaffoldValidators = {
       }),
     
     assembly_created_at: baseSchemas.date.optional(),
-    
-    // Nuevos campos normalizados
-    company_id: baseSchemas.id.optional(),
-    supervisor_id: baseSchemas.id.optional(),
-    end_user_id: baseSchemas.id.optional(),
   }),
   
   // PUT /api/scaffolds/:id
@@ -457,9 +452,6 @@ const scaffoldValidators = {
     tag: Joi.string().max(255).trim().allow('', null).optional(),
     observations: Joi.string().max(5000).trim().allow('', null).optional(),
     assembly_created_at: baseSchemas.date.optional(),
-    company_id: baseSchemas.id.optional(),
-    supervisor_id: baseSchemas.id.optional(),
-    end_user_id: baseSchemas.id.optional(),
   }).min(1),
   
   // GET /api/scaffolds?project_id=...
@@ -477,56 +469,6 @@ const scaffoldValidators = {
 /**
  * Validadores para empresas, supervisores y usuarios finales
  */
-const companyValidators = {
-  create: Joi.object({
-    name: Joi.string().min(2).max(255).trim().required(),
-    contact_person: Joi.string().max(255).trim().optional().allow('', null),
-    email: baseSchemas.email.optional(),
-    phone: baseSchemas.phone.optional(),
-  }),
-  
-  update: Joi.object({
-    name: Joi.string().min(2).max(255).trim().optional(),
-    contact_person: Joi.string().max(255).trim().optional().allow('', null),
-    email: baseSchemas.email.optional(),
-    phone: baseSchemas.phone.optional(),
-  }).min(1),
-};
-
-const supervisorValidators = {
-  create: Joi.object({
-    name: baseSchemas.name,
-    company_id: baseSchemas.id,
-    email: baseSchemas.email.optional(),
-    phone: baseSchemas.phone.optional(),
-  }),
-  
-  update: Joi.object({
-    name: baseSchemas.name.optional(),
-    company_id: baseSchemas.id.optional(),
-    email: baseSchemas.email.optional(),
-    phone: baseSchemas.phone.optional(),
-  }).min(1),
-};
-
-const endUserValidators = {
-  create: Joi.object({
-    name: baseSchemas.name,
-    company_id: baseSchemas.id,
-    department: Joi.string().max(255).trim().optional().allow('', null),
-    email: baseSchemas.email.optional(),
-    phone: baseSchemas.phone.optional(),
-  }),
-  
-  update: Joi.object({
-    name: baseSchemas.name.optional(),
-    company_id: baseSchemas.id.optional(),
-    department: Joi.string().max(255).trim().optional().allow('', null),
-    email: baseSchemas.email.optional(),
-    phone: baseSchemas.phone.optional(),
-  }).min(1),
-};
-
 /**
  * Middleware factory para validación
  * @param {Joi.ObjectSchema} schema - Esquema Joi
@@ -582,9 +524,6 @@ module.exports = {
   projectValidators,
   clientValidators,
   scaffoldValidators,
-  companyValidators,
-  supervisorValidators,
-  endUserValidators,
   
   // Middleware
   validate,

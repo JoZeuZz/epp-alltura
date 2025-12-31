@@ -14,7 +14,7 @@ async function generateReportExcel(project, scaffolds) {
     { header: 'Usuario', key: 'end_user_name', width: 25 },
     { header: 'Supervisor', key: 'supervisor_name', width: 25 },
     { header: 'Fecha', key: 'date', width: 15 },
-    { header: 'Técnico', key: 'user', width: 30 },
+    { header: 'Usuario Creador', key: 'user', width: 30 },
     { header: 'Alto (m)', key: 'height', width: 10 },
     { header: 'Ancho (m)', key: 'width', width: 10 },
     { header: 'Prof. (m)', key: 'depth', width: 10 },
