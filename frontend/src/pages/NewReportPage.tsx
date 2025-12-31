@@ -54,7 +54,7 @@ const NewReportPage: React.FC = () => {
 
     try {
       await createReport.mutateAsync(formData);
-      navigate('/tech');
+      navigate('/supervisor/dashboard');
     } catch (error) {
       console.error('Failed to create report', error);
       alert('Error al crear el reporte. Por favor, intenta de nuevo.');
@@ -67,7 +67,7 @@ const NewReportPage: React.FC = () => {
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <button
-              onClick={() => navigate('/tech')}
+              onClick={() => navigate('/supervisor/dashboard')}
               className="flex items-center gap-2 text-primary-blue"
             >
               <ChevronLeftIcon className="h-6 w-6" />

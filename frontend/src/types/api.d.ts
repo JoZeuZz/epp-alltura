@@ -3,7 +3,7 @@ export interface User {
   first_name: string;
   last_name: string;
   email: string;
-  role: 'admin' | 'technician';
+  role: 'admin' | 'supervisor' | 'client'; // Actualizado: agregado 'client', cambiado 'technician' a 'supervisor'
   password?: string;
   created_at: string;
   rut?: string;
@@ -18,6 +18,12 @@ export interface Project {
   status: 'active' | 'inactive' | 'completed';
   created_at: string;
   client_name: string;
+  assigned_client_id?: number; // Nuevo: ID del usuario cliente asignado
+  assigned_client_name?: string; // Nuevo: Nombre del cliente asignado
+  assigned_client_email?: string; // Nuevo: Email del cliente asignado
+  assigned_supervisor_id?: number; // Nuevo: ID del supervisor asignado (antes assignedTechnicianId)
+  assigned_supervisor_name?: string; // Nuevo: Nombre del supervisor asignado
+  assigned_supervisor_email?: string; // Nuevo: Email del supervisor asignado
 }
 
 export interface Client {
@@ -32,66 +38,38 @@ export interface Client {
 export interface Scaffold {
   id: number;
   project_id?: number;
-  assembly_image_url: string;
+  // Nuevos campos de estado
+  card_status: 'green' | 'red'; // Nuevo: estado de la tarjeta
+  assembly_status: 'assembled' | 'disassembled'; // Nuevo: estado de armado
+  initial_image: string; // Nuevo: imagen inicial obligatoria (antes assembly_image_url)
+  disassembly_image?: string; // Nuevo: imagen de desarmado (nullable)
+  created_by?: number; // Nuevo: ID del usuario que creó el andamio
+  created_by_name?: string; // Nuevo: Nombre del usuario que creó el andamio
+  // Campos existentes
+  assembly_image_url: string; // Mantener por compatibilidad (apuntará a initial_image)
   cubic_meters: number;
   user_name: string;
   assembly_created_at: string;
-  status: 'assembled' | 'disassembled';
+  status: 'assembled' | 'disassembled'; // Deprecado: usar assembly_status
+  created_at?: string; // Nuevo: timestamp de creación del andamio
+  updated_at?: string; // Nuevo: timestamp de última actualización
   project_name?: string;
   scaffold_number?: string;
   area?: string;
   tag?: string;
-  company_id?: number;
-  company_name?: string;
-  supervisor_id?: number;
-  supervisor_name?: string;
-  end_user_id?: number;
-  end_user_name?: string;
   height: number;
   width: number;
+  length: number;
   depth: number;
   progress_percentage: number;
   assembly_notes: string;
-  disassembly_image_url?: string;
+  location?: string;
+  observations?: string;
+  disassembly_image_url?: string; // Deprecado: usar disassembly_image
   disassembled_at?: string;
   disassembly_notes?: string;
+  user_id?: number; // Nuevo: ID del usuario asociado al andamio
 }
-
-export interface Company {
-  id: number;
-  name: string;
-  contact_person?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Supervisor {
-  id: number;
-  first_name: string;
-  last_name: string;
-  full_name?: string;
-  email?: string;
-  phone?: string;
-  rut?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface EndUser {
-  id: number;
-  name: string;
-  company_id?: number;
-  company_name?: string;
-  email?: string;
-  phone?: string;
-  department?: string;
-  created_at: string;
-  updated_at: string;
-}
-
 
 export interface Report {
   id: number;
@@ -101,4 +79,30 @@ export interface Report {
   assembly_created_at: string;
   progress_percentage: number;
   assembly_notes?: string;
+}
+
+/**
+ * Nuevo: Interface para el historial de modificaciones de andamios
+ * Registra todos los cambios realizados en un andamio
+ */
+export interface ScaffoldHistory {
+  id: number;
+  scaffold_id: number;
+  modified_by: number;
+  modified_by_name?: string;
+  modified_by_email?: string;
+  modified_at: string;
+  change_type: string; // Tipo de cambio: 'card_status', 'assembly_status', 'update', 'dimensions', etc.
+  previous_data: Record<string, any>; // JSON con datos anteriores
+  new_data: Record<string, any>; // JSON con datos nuevos
+  description: string; // Descripción legible del cambio
+}
+
+/**
+ * Interface para estadísticas del dashboard
+ */
+export interface DashboardStats {
+  assembled_cubic_meters: number;
+  disassembled_cubic_meters: number;
+  total_cubic_meters: number;
 }

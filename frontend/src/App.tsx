@@ -12,16 +12,17 @@ import ClientsPage from './pages/admin/ClientsPage';
 import ProjectsPage from './pages/admin/ProjectsPage';
 import UsersPage from './pages/admin/UsersPage';
 import ScaffoldsPage from './pages/admin/ScaffoldsPage';
-import CompaniesPage from './pages/admin/CompaniesPage';
-import SupervisorsPage from './pages/admin/SupervisorsPage';
-import EndUsersPage from './pages/admin/EndUsersPage';
 
-// Technician Pages
-import TechDashboard from './pages/technician/TechDashboard';
-import ProjectScaffoldsPage from './pages/technician/ProjectScaffoldsPage';
-import NewScaffoldPage from './pages/technician/NewScaffoldPage';
-import DisassembleScaffoldPage from './pages/technician/DisassembleScaffoldPage';
-import HistoryPage from './pages/technician/HistoryPage';
+// Supervisor Pages
+import SupervisorDashboard from './pages/supervisor/SupervisorDashboard';
+import ProjectScaffoldsPage from './pages/supervisor/ProjectScaffoldsPage';
+import CreateScaffoldPage from './pages/supervisor/CreateScaffoldPage';
+import DisassembleScaffoldPage from './pages/supervisor/DisassembleScaffoldPage';
+import HistoryPage from './pages/supervisor/HistoryPage';
+
+// Client Pages
+import ClientDashboard from './pages/client/ClientDashboard';
+import ClientProjectScaffoldsPage from './pages/client/ClientProjectScaffoldsPage';
 
 // Shared Pages
 import ProfilePage from './pages/ProfilePage';
@@ -45,7 +46,7 @@ const AppContent: React.FC = () => {
     performanceService.initialize();
     
     // Por ahora no implementamos geolocalización
-    // if (user?.role === 'technician') {
+    // if (user?.role === 'supervisor') {
     //   navigator.geolocation?.getCurrentPosition(() => {}, () => {});
     // }
   }, [user]);
@@ -100,23 +101,25 @@ function App() {
             {/* Admin Routes */}
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
             <Route path="/admin/clients" element={<ClientsPage />} />
-            <Route path="/admin/companies" element={<CompaniesPage />} />
             <Route path="/admin/projects" element={<ProjectsPage />} />
             <Route path="/admin/users" element={<UsersPage />} />
             <Route path="/admin/users/new" element={<UserFormPage />} />
             <Route path="/admin/users/edit/:id" element={<UserFormPage />} />
-            <Route path="/admin/supervisors" element={<SupervisorsPage />} />
-            <Route path="/admin/end-users" element={<EndUsersPage />} />
             <Route path="/admin/scaffolds" element={<ScaffoldsPage />} />
             <Route path="/admin/profile" element={<ProfilePage />} />
 
-            {/* Technician Routes */}
-            <Route path="/tech/dashboard" element={<TechDashboard />} />
-            <Route path="/tech/project/:projectId" element={<ProjectScaffoldsPage />} />
-            <Route path="/tech/project/:projectId/new-scaffold" element={<NewScaffoldPage />} />
-            <Route path="/tech/history" element={<HistoryPage />} />
-            <Route path="/tech/profile" element={<ProfilePage />} />
-            <Route path="/tech/scaffold/:scaffoldId/disassemble" element={<DisassembleScaffoldPage />} />
+            {/* Supervisor Routes */}
+            <Route path="/supervisor/dashboard" element={<SupervisorDashboard />} />
+            <Route path="/supervisor/project/:projectId" element={<ProjectScaffoldsPage />} />
+            <Route path="/supervisor/project/:projectId/create-scaffold" element={<CreateScaffoldPage />} />
+            <Route path="/supervisor/scaffold/:scaffoldId/disassemble" element={<DisassembleScaffoldPage />} />
+            <Route path="/supervisor/history" element={<HistoryPage />} />
+            <Route path="/supervisor/profile" element={<ProfilePage />} />
+
+            {/* Client Routes */}
+            <Route path="/client/dashboard" element={<ClientDashboard />} />
+            <Route path="/client/project/:projectId" element={<ClientProjectScaffoldsPage />} />
+            <Route path="/client/profile" element={<ProfilePage />} />
           </Route>
 
           <Route path="/" element={<RootRedirect />} />

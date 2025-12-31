@@ -140,9 +140,9 @@ async function createAdminUser() {
       process.exit(1);
     }
 
-    const role = await prompt('Rol (admin/technician) [admin]: ') || 'admin';
-    if (!['admin', 'technician'].includes(role)) {
-      print('❌ Rol inválido. Debe ser "admin" o "technician"', 'red');
+    const role = await prompt('Rol (admin/supervisor) [admin]: ') || 'admin';
+    if (!['admin', 'supervisor'].includes(role)) {
+      print('❌ Rol inválido. Debe ser "admin" o "supervisor"', 'red');
       process.exit(1);
     }
 

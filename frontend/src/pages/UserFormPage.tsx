@@ -15,7 +15,7 @@ const UserFormPage: React.FC = () => {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('technician');
+  const [role, setRole] = useState('supervisor');
   const [password, setPassword] = useState('');
 
   const { data: user, isLoading } = useGet<User>(`user-${id}`, `/users/${id}`, {
@@ -43,7 +43,7 @@ const UserFormPage: React.FC = () => {
     const first_name = nameParts[0] || '';
     const last_name = nameParts.slice(1).join(' ') || '';
 
-    const userData: Partial<User> = { first_name, last_name, email, role: role as 'admin' | 'technician' };
+    const userData: Partial<User> = { first_name, last_name, email, role: role as 'admin' | 'supervisor' | 'client' };
     if (password) {
       userData.password = password;
     }
@@ -169,8 +169,9 @@ const UserFormPage: React.FC = () => {
                 onChange={(e) => setRole(e.target.value)}
                 className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm"
               >
-                <option value="technician">Técnico</option>
+                <option value="supervisor">Supervisor</option>
                 <option value="admin">Administrador</option>
+                <option value="client">Cliente</option>
               </select>
             </div>
           </div>

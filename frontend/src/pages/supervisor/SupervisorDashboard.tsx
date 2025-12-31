@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useGet } from '../../hooks/useGet';
 import { Project } from '../../types/api';
 
-const TechDashboard: React.FC = () => {
+const SupervisorDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const { data: projects, isLoading, error } = useGet<Project[]>('projects', '/projects');
 
@@ -46,7 +46,7 @@ const TechDashboard: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {filteredProjects.map((project) => (
             <Link
-              to={`/tech/project/${project.id}`}
+              to={`/supervisor/project/${project.id}`}
               key={project.id}
               className="block p-4 md:p-6 bg-white rounded-lg border border-gray-200 shadow-md hover:bg-gray-100 transition-colors"
             >
@@ -70,4 +70,4 @@ const TechDashboard: React.FC = () => {
   );
 };
 
-export default TechDashboard;
+export default SupervisorDashboard;

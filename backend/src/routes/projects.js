@@ -9,14 +9,30 @@ const { generateScaffoldsPDF } = require('../lib/pdfGenerator');
 const { generateReportExcel } = require('../lib/excelGenerator');
 const { logger } = require('../lib/logger');
 
-// GET all projects (for admins) or assigned projects (for technicians)
+// GET all projects (filtrado por rol)
+// Admin: todos los proyectos
+// Supervisor: proyectos donde está asignado
+// Client: proyectos donde está asignado
 router.get('/', authMiddleware, async (req, res, next) => {
   try {
     let projects;
     if (req.user.role === 'admin') {
       projects = await Project.getAll();
-    } else if (req.user.role === 'technician') {
-      projects = await Project.getForUser(req.user.id);
+    } else if (req.user.role === 'supervisor') {
+      // Supervisor ve proyectos donde está asignado + proyectos legacy con project_users
+      const assignedProjects = await Project.getByAssignedSupervisor(req.user.id);
+      const legacyProjects = await Project.getForUser(req.user.id);
+      // Combinar y eliminar duplicados
+      const allProjects = [...assignedProjects, ...legacyProjects];
+      const uniqueProjects = allProjects.filter((project, index, self) =>
+        index === self.findIndex((p) => p.id === project.id)
+      );
+      projects = uniqueProjects;
+    } else if (req.user.role === 'client') {
+      // Cliente solo ve proyectos donde está asignado
+      projects = await Project.getByAssignedClient(req.user.id);
+    } else {
+      return res.status(403).json({ message: 'Rol no autorizado.' });
     }
     res.json(projects);
   } catch (err) {
@@ -110,6 +126,24 @@ const projectSchema = Joi.object({
     .default('active')
     .messages({
       'any.only': 'El estado debe ser active, inactive o completed'
+    }),
+  assigned_client_id: Joi.number()
+    .integer()
+    .positive()
+    .allow(null)
+    .messages({
+      'number.base': 'El ID del cliente asignado debe ser un número',
+      'number.integer': 'El ID del cliente asignado debe ser un número entero',
+      'number.positive': 'El ID del cliente asignado debe ser un número positivo'
+    }),
+  assigned_supervisor_id: Joi.number()
+    .integer()
+    .positive()
+    .allow(null)
+    .messages({
+      'number.base': 'El ID del supervisor asignado debe ser un número',
+      'number.integer': 'El ID del supervisor asignado debe ser un número entero',
+      'number.positive': 'El ID del supervisor asignado debe ser un número positivo'
     })
 });
 
@@ -160,6 +194,74 @@ router.delete('/:id', async (req, res, next) => {
   }
 });
 
+/**
+ * @route   PATCH /api/projects/:id/assign-client
+ * @desc    Asignar un cliente (usuario tipo client) a un proyecto
+ * @access  Private (Admin)
+ */
+router.patch('/:id/assign-client', async (req, res, next) => {
+  try {
+    const { clientId } = req.body;
+    
+    if (!clientId) {
+      return res.status(400).json({ message: 'clientId es requerido' });
+    }
+
+    // Verificar que el usuario existe y es tipo client
+    const { rows } = await db.query('SELECT role FROM users WHERE id = $1', [clientId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+    if (rows[0].role !== 'client') {
+      return res.status(400).json({ message: 'El usuario debe tener rol de cliente' });
+    }
+
+    const updated = await Project.assignClient(req.params.id, clientId);
+    if (!updated) {
+      return res.status(404).json({ message: 'Proyecto no encontrado' });
+    }
+
+    res.json(updated);
+  } catch (err) {
+    logger.error(`Error al asignar cliente al proyecto ${req.params.id}: ${err.message}`, err);
+    next(err);
+  }
+});
+
+/**
+ * @route   PATCH /api/projects/:id/assign-supervisor
+ * @desc    Asignar un supervisor a un proyecto
+ * @access  Private (Admin)
+ */
+router.patch('/:id/assign-supervisor', async (req, res, next) => {
+  try {
+    const { supervisorId } = req.body;
+    
+    if (!supervisorId) {
+      return res.status(400).json({ message: 'supervisorId es requerido' });
+    }
+
+    // Verificar que el usuario existe y es tipo supervisor
+    const { rows } = await db.query('SELECT role FROM users WHERE id = $1', [supervisorId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+    if (rows[0].role !== 'supervisor') {
+      return res.status(400).json({ message: 'El usuario debe tener rol de supervisor' });
+    }
+
+    const updated = await Project.assignSupervisor(req.params.id, supervisorId);
+    if (!updated) {
+      return res.status(404).json({ message: 'Proyecto no encontrado' });
+    }
+
+    res.json(updated);
+  } catch (err) {
+    logger.error(`Error al asignar supervisor al proyecto ${req.params.id}: ${err.message}`, err);
+    next(err);
+  }
+});
+
 // GET project report as PDF
 router.get('/:id/report/pdf', async (req, res, next) => {
   try {
@@ -180,15 +282,9 @@ router.get('/:id/report/pdf', async (req, res, next) => {
     let query = `
       SELECT 
         s.*,
-        u.first_name || ' ' || u.last_name as user_name,
-        c.name as company_name,
-        sup.first_name || ' ' || sup.last_name as supervisor_name,
-        eu.name as end_user_name
+        u.first_name || ' ' || u.last_name as user_name
       FROM scaffolds s
       JOIN users u ON s.user_id = u.id
-      LEFT JOIN companies c ON s.company_id = c.id
-      LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
-      LEFT JOIN end_users eu ON s.end_user_id = eu.id
       WHERE s.project_id = $1
     `;
     
@@ -238,15 +334,9 @@ router.get('/:id/report/excel', async (req, res, next) => {
     const { rows: scaffolds } = await db.query(`
       SELECT 
         s.*,
-        u.first_name || ' ' || u.last_name as user_name,
-        c.name as company_name,
-        sup.first_name || ' ' || sup.last_name as supervisor_name,
-        eu.name as end_user_name
+        u.first_name || ' ' || u.last_name as user_name
       FROM scaffolds s
       JOIN users u ON s.user_id = u.id
-      LEFT JOIN companies c ON s.company_id = c.id
-      LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
-      LEFT JOIN end_users eu ON s.end_user_id = eu.id
       WHERE s.project_id = $1
       ORDER BY s.assembly_created_at DESC
     `, [projectId]);

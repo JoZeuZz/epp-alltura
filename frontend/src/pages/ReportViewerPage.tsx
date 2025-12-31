@@ -201,7 +201,7 @@ const ReportViewerPage: React.FC = () => {
                   <strong>Progreso:</strong> {selectedReport.progress_percentage}%
                 </p>
                 <p>
-                  <strong>Técnico:</strong> {selectedReport.user_name || 'N/A'}
+                  <strong>Supervisor:</strong> {selectedReport.user_name || 'N/A'}
                 </p>
                 <p>
                   <strong>Fecha:</strong>{' '}

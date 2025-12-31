@@ -19,12 +19,12 @@ const ProjectFormPage: React.FC = () => {
   // Definir el tipo exacto de los estados que admite Project['status']
   type ProjectStatus = Project['status']; // "active" | "inactive" | "completed" | undefined
   const [status, setStatus] = useState<ProjectStatus>('active');
-  const [assignedTechnicians, setAssignedTechnicians] = useState<number[]>([]);
+  const [assignedSupervisors, setAssignedSupervisors] = useState<number[]>([]);
 
   const { data: clients, isLoading: clientsLoading } = useGet<Client[]>('clients', '/clients');
-  const { data: technicians, isLoading: techniciansLoading } = useGet<User[]>(
-    'technicians',
-    '/users?role=technician',
+  const { data: supervisors, isLoading: supervisorsLoading } = useGet<User[]>(
+    'supervisors',
+    '/users?role=supervisor',
   );
   const { data: project, isLoading: projectLoading } = useGet<Project>(
     `project-${id}`,
@@ -64,15 +64,15 @@ const ProjectFormPage: React.FC = () => {
       setStatus(project.status);
     }
     if (isEditing && assignedUsers) {
-      setAssignedTechnicians(assignedUsers);
+      setAssignedSupervisors(assignedUsers);
     }
   }, [project, assignedUsers, isEditing]);
 
-  const handleTechnicianToggle = (technicianId: number) => {
-    setAssignedTechnicians((prev) =>
-      prev.includes(technicianId)
-        ? prev.filter((id) => id !== technicianId)
-        : [...prev, technicianId],
+  const handleSupervisorToggle = (supervisorId: number) => {
+    setAssignedSupervisors((prev) =>
+      prev.includes(supervisorId)
+        ? prev.filter((id) => id !== supervisorId)
+        : [...prev, supervisorId],
     );
   };
 
@@ -86,12 +86,12 @@ const ProjectFormPage: React.FC = () => {
       if (isEditing) {
         // `updateProject` espera el payload con el `id`
         await updateProject.mutateAsync({ ...projectData, id: Number(id) });
-        await assignUsers.mutateAsync({ userIds: assignedTechnicians });
+        await assignUsers.mutateAsync({ userIds: assignedSupervisors });
         toast.success('Proyecto actualizado con éxito.');
       } else {
         // `createProject` espera los datos sin `id`
         const projectResponse = await createProject.mutateAsync(projectData);
-        await post(`/projects/${projectResponse.id}/users`, { userIds: assignedTechnicians });
+        await post(`/projects/${projectResponse.id}/users`, { userIds: assignedSupervisors });
         toast.success('Proyecto creado con éxito.');
       }
 
@@ -109,7 +109,7 @@ const ProjectFormPage: React.FC = () => {
   };
 
   const isLoading =
-    clientsLoading || techniciansLoading || (isEditing && (projectLoading || assignedUsersLoading));
+    clientsLoading || supervisorsLoading || (isEditing && (projectLoading || assignedUsersLoading));
 
   if (isLoading) {
     return (
@@ -199,27 +199,27 @@ const ProjectFormPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Technician Assignment Section */}
+          {/* Supervisor Assignment Section */}
           <div>
-            <h3 className="text-lg font-medium text-dark-blue">Asignar Técnicos</h3>
+            <h3 className="text-lg font-medium text-dark-blue">Asignar Supervisores</h3>
             <div className="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 border-t pt-4">
-              {technicians && technicians.length > 0 ? (
-                technicians.map((tech) => (
-                  <div key={tech.id} className="flex items-center">
+              {supervisors && supervisors.length > 0 ? (
+                supervisors.map((sup) => (
+                  <div key={sup.id} className="flex items-center">
                     <input
-                      id={`tech-${tech.id}`}
+                      id={`sup-${sup.id}`}
                       type="checkbox"
                       className="h-4 w-4 text-primary-blue border-gray-300 rounded focus:ring-primary-blue"
-                      checked={assignedTechnicians.includes(tech.id)}
-                      onChange={() => handleTechnicianToggle(tech.id)}
+                      checked={assignedSupervisors.includes(sup.id)}
+                      onChange={() => handleSupervisorToggle(sup.id)}
                     />
-                    <label htmlFor={`tech-${tech.id}`} className="ml-3 block text-sm text-gray-700">
-                      {`${tech.first_name} ${tech.last_name}`}
+                    <label htmlFor={`sup-${sup.id}`} className="ml-3 block text-sm text-gray-700">
+                      {`${sup.first_name} ${sup.last_name}`}
                     </label>
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-neutral-gray">No hay técnicos disponibles.</p>
+                <p className="text-sm text-neutral-gray">No hay supervisores disponibles.</p>
               )}
             </div>
           </div>

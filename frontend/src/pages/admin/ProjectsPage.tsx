@@ -4,10 +4,10 @@ import toast from 'react-hot-toast';
 import { useGet } from '../../hooks/useGet';
 import * as apiHooks from '../../hooks/useMutate';
 import * as apiService from '../../services/apiService';
-import { Client, Project } from '../../types/api';
+import { Client, Project, User } from '../../types/api';
 import ProjectForm from '../../components/ProjectForm';
 import Modal from '../../components/Modal';
-import AssignTechniciansForm from '../../components/AssignTechniciansForm';
+import AssignSupervisorsForm from '../../components/AssignSupervisorsForm';
 import ConfirmationModal from '../../components/ConfirmationModal';
 
 const ProjectsPage: React.FC = () => {
@@ -20,8 +20,13 @@ const ProjectsPage: React.FC = () => {
 
   const { data: projects, isLoading: projectsLoading } = useGet<Project[]>('projects', '/projects');
   const { data: clients, isLoading: clientsLoading } = useGet<Client[]>('clients', '/clients');
+  const { data: users, isLoading: usersLoading } = useGet<User[]>('users', '/users');
 
   const queryClient = useQueryClient();
+
+  // Filtrar supervisores y usuarios cliente
+  const supervisors = users?.filter(u => u.role === 'supervisor') || [];
+  const clientUsers = users?.filter(u => u.role === 'client') || [];
 
   const createProject = apiHooks.usePost<Project, Partial<Project>>('projects', '/projects');
   // The data sent to update is not a full Project object.
@@ -64,6 +69,8 @@ const ProjectsPage: React.FC = () => {
           name: projectData.name || selectedProject.name,
           client_id: projectData.client_id || selectedProject.client_id,
           status: projectData.status || selectedProject.status,
+          assigned_supervisor_id: projectData.assigned_supervisor_id,
+          assigned_client_id: projectData.assigned_client_id,
         };
         // Pass the full object to mutateAsync, the hook will handle separating the id
         await updateProject.mutateAsync({ id: selectedProject.id, ...payload });
@@ -88,10 +95,10 @@ const ProjectsPage: React.FC = () => {
   }) => {
     try {
       await assignUsers.mutateAsync({ projectId, userIds });
-      toast.success('Técnicos asignados correctamente');
+      toast.success('Supervisores asignados correctamente');
       handleCloseAssignModal();
     } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error al asignar técnicos');
+      toast.error(err?.response?.data?.error || 'Error al asignar supervisores');
       console.error(err);
     }
   };
@@ -115,7 +122,7 @@ const ProjectsPage: React.FC = () => {
     setIsConfirmDeleteOpen(false);
   };
 
-  const isLoading = projectsLoading || clientsLoading;
+  const isLoading = projectsLoading || clientsLoading || usersLoading;
 
   if (isLoading) {
     return <p>Cargando proyectos...</p>;
@@ -200,14 +207,16 @@ const ProjectsPage: React.FC = () => {
         <ProjectForm
           project={selectedProject}
           clients={clients || []}
+          supervisors={supervisors}
+          clientUsers={clientUsers}
           onSubmit={handleSubmit}
           onCancel={handleCloseModal}
         />
       </Modal>
 
       <Modal isOpen={isAssignModalOpen} onClose={handleCloseAssignModal}>
-        <h2 className="text-2xl font-bold mb-4">Asignar Técnicos</h2>
-        <AssignTechniciansForm
+        <h2 className="text-2xl font-bold mb-4">Asignar Usuarios al Proyecto</h2>
+        <AssignSupervisorsForm
           project={projectToAssign}
           onSubmit={handleAssignSubmit}
           onCancel={handleCloseAssignModal}

@@ -3,6 +3,11 @@ const router = express.Router();
 const Joi = require('joi');
 const db = require('../db');
 const { authMiddleware } = require('../middleware/auth');
+const { checkRole, isAdminOrSupervisor, isAdmin, isSupervisor } = require('../middleware/roles');
+const { trackScaffoldChanges, saveScaffoldState } = require('../middleware/scaffoldHistory');
+const Scaffold = require('../models/scaffold');
+const ScaffoldHistory = require('../models/scaffoldHistory');
+const Project = require('../models/project');
 const multer = require('multer');
 const { uploadFile } = require('../lib/googleCloud');
 const { logger } = require('../lib/logger');
@@ -13,7 +18,50 @@ const path = require('path');
 const multerStorage = multer.memoryStorage();
 const upload = multer({ storage: multerStorage });
 
-router.use(authMiddleware); // Proteger todas las rutas de andamios
+router.use(authMiddleware);
+router.use(trackScaffoldChanges);
+
+/**
+ * @route   GET /api/scaffolds
+ * @desc    Obtener todos los andamios (filtrado por rol)
+ * @access  Private
+ *          - Admin: ve todos los andamios
+ *          - Supervisor: ve solo los que él creó
+ *          - Client: ve solo andamios de proyectos asignados
+ */
+router.get('/', async (req, res, next) => {
+  try {
+    const { role, id: userId } = req.user;
+    let scaffolds;
+
+    if (role === 'admin') {
+      // Admin ve todos
+      scaffolds = await Scaffold.getAll();
+    } else if (role === 'supervisor') {
+      // Supervisor solo ve los que creó
+      scaffolds = await Scaffold.getByCreator(userId);
+    } else if (role === 'client') {
+      // Cliente solo ve andamios de proyectos asignados
+      const projects = await Project.getByAssignedClient(userId);
+      const projectIds = projects.map(p => p.id);
+      
+      // Obtener andamios de esos proyectos
+      const allScaffolds = [];
+      for (const projectId of projectIds) {
+        const projectScaffolds = await Scaffold.getByProject(projectId);
+        allScaffolds.push(...projectScaffolds);
+      }
+      scaffolds = allScaffolds;
+    } else {
+      return res.status(403).json({ message: 'Rol no autorizado.' });
+    }
+
+    res.json(scaffolds);
+  } catch (err) {
+    logger.error(`Error al obtener andamios: ${err.message}`, err);
+    next(err);
+  }
+});
 
 /**
  * @route   GET /api/scaffolds/project/:projectId
@@ -23,27 +71,260 @@ router.use(authMiddleware); // Proteger todas las rutas de andamios
 router.get('/project/:projectId', async (req, res, next) => {
   const { projectId } = req.params;
   try {
-    const query = `
-      SELECT 
-        s.*, 
-        u.first_name || ' ' || u.last_name as user_name,
-        c.name as company_name,
-        sup.first_name || ' ' || sup.last_name as supervisor_name,
-        eu.name as end_user_name
-      FROM scaffolds s 
-      JOIN users u ON s.user_id = u.id 
-      LEFT JOIN companies c ON s.company_id = c.id
-      LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
-      LEFT JOIN end_users eu ON s.end_user_id = eu.id
-      WHERE s.project_id = $1 
-      ORDER BY s.assembly_created_at DESC`;
-    const { rows } = await db.query(query, [projectId]);
-    res.json(rows);
+    const scaffolds = await Scaffold.getByProject(projectId);
+    res.json(scaffolds);
   } catch (err) {
     logger.error(
       `Error al obtener los andamios del proyecto con ID ${projectId}: ${err.message}`,
       err,
     );
+    next(err);
+  }
+});
+
+/**
+ * @route   GET /api/scaffolds/my-history
+ * @desc    Obtener historial de cambios realizados por el usuario actual
+ * @access  Private
+ */
+router.get('/my-history', async (req, res, next) => {
+  try {
+    const history = await ScaffoldHistory.getByUser(req.user.id);
+    res.json(history);
+  } catch (err) {
+    logger.error(`Error al obtener historial del usuario ${req.user.id}: ${err.message}`, err);
+    next(err);
+  }
+});
+
+/**
+ * @route   GET /api/scaffolds/:id
+ * @desc    Obtener un andamio específico por ID
+ * @access  Private
+ */
+router.get('/:id', async (req, res, next) => {
+  const { id } = req.params;
+  try {
+    const scaffold = await Scaffold.getById(id);
+    
+    if (!scaffold) {
+      return res.status(404).json({ message: 'Andamio no encontrado.' });
+    }
+
+    res.json(scaffold);
+  } catch (err) {
+    logger.error(`Error al obtener andamio con ID ${id}: ${err.message}`, err);
+    next(err);
+  }
+});
+
+/**
+ * @route   GET /api/scaffolds/:id/history
+ * @desc    Obtener historial de cambios de un andamio
+ * @access  Private
+ */
+router.get('/:id/history', async (req, res, next) => {
+  const { id } = req.params;
+  try {
+    const history = await ScaffoldHistory.getByScaffold(id);
+    res.json(history);
+  } catch (err) {
+    logger.error(`Error al obtener historial del andamio ${id}: ${err.message}`, err);
+    next(err);
+  }
+});
+
+/**
+ * @route   PATCH /api/scaffolds/:id/card-status
+ * @desc    Cambiar el estado de la tarjeta (verde/roja)
+ * @access  Private (Admin o Supervisor propietario)
+ */
+router.patch('/:id/card-status', isAdminOrSupervisor, async (req, res, next) => {
+  const { id } = req.params;
+  const { card_status } = req.body;
+
+  try {
+    // Validar que card_status sea válido
+    if (!['green', 'red'].includes(card_status)) {
+      return res.status(400).json({ message: 'Estado de tarjeta inválido. Debe ser "green" o "red".' });
+    }
+
+    // Obtener andamio actual
+    const scaffold = await Scaffold.getById(id);
+    if (!scaffold) {
+      return res.status(404).json({ message: 'Andamio no encontrado.' });
+    }
+
+    // Verificar permisos: admin o supervisor propietario
+    if (req.user.role !== 'admin' && scaffold.created_by !== req.user.id) {
+      return res.status(403).json({ message: 'No tienes permisos para modificar este andamio.' });
+    }
+
+    // No permitir tarjeta verde si está desarmado
+    if (card_status === 'green' && scaffold.assembly_status === 'disassembled') {
+      return res.status(400).json({ 
+        message: 'No puedes cambiar la tarjeta a verde mientras el andamio esté desarmado.' 
+      });
+    }
+
+    // Guardar estado anterior para historial
+    saveScaffoldState(req, id, scaffold);
+
+    // Actualizar estado
+    const updated = await Scaffold.updateCardStatus(id, card_status);
+
+    // Registrar en historial
+    await ScaffoldHistory.create({
+      scaffold_id: id,
+      user_id: req.user.id,
+      change_type: 'card_status',
+      previous_data: { card_status: scaffold.card_status },
+      new_data: { card_status },
+      description: `Tarjeta cambiada de ${scaffold.card_status} a ${card_status}`,
+    });
+
+    res.json(updated);
+  } catch (err) {
+    logger.error(`Error al cambiar estado de tarjeta del andamio ${id}: ${err.message}`, err);
+    next(err);
+  }
+});
+
+/**
+ * @route   PATCH /api/scaffolds/:id/assembly-status
+ * @desc    Cambiar el estado de armado (assembled/disassembled)
+ * @access  Private (Admin o Supervisor propietario)
+ */
+router.patch('/:id/assembly-status', isAdminOrSupervisor, upload.single('disassembly_image'), async (req, res, next) => {
+  const { id } = req.params;
+  const { assembly_status } = req.body;
+
+  try {
+    // Validar que assembly_status sea válido
+    if (!['assembled', 'disassembled'].includes(assembly_status)) {
+      return res.status(400).json({ message: 'Estado de armado inválido. Debe ser "assembled" o "disassembled".' });
+    }
+
+    // Obtener andamio actual
+    const scaffold = await Scaffold.getById(id);
+    if (!scaffold) {
+      return res.status(404).json({ message: 'Andamio no encontrado.' });
+    }
+
+    // Verificar permisos
+    if (req.user.role !== 'admin' && scaffold.created_by !== req.user.id) {
+      return res.status(403).json({ message: 'No tienes permisos para modificar este andamio.' });
+    }
+
+    // Si se va a desarmar, requerir imagen
+    let disassemblyImageUrl = null;
+    if (assembly_status === 'disassembled') {
+      if (!req.file) {
+        return res.status(400).json({ message: 'Se requiere imagen de desarmado.' });
+      }
+      disassemblyImageUrl = await uploadFile(req.file);
+    }
+
+    // Guardar estado anterior
+    saveScaffoldState(req, id, scaffold);
+
+    // Actualizar estado
+    const updated = await Scaffold.updateAssemblyStatus(id, assembly_status, disassemblyImageUrl);
+
+    // Registrar en historial
+    await ScaffoldHistory.create({
+      scaffold_id: id,
+      user_id: req.user.id,
+      change_type: 'assembly_status',
+      previous_data: { 
+        assembly_status: scaffold.assembly_status,
+        card_status: scaffold.card_status,
+      },
+      new_data: { 
+        assembly_status,
+        card_status: assembly_status === 'disassembled' ? 'red' : updated.card_status,
+        disassembly_image: disassemblyImageUrl,
+      },
+      description: `Estado cambiado de ${scaffold.assembly_status} a ${assembly_status}`,
+    });
+
+    res.json(updated);
+  } catch (err) {
+    logger.error(`Error al cambiar estado de armado del andamio ${id}: ${err.message}`, err);
+    next(err);
+  }
+});
+
+/**
+ * @route   PUT /api/scaffolds/:id/disassemble
+ * @desc    Desarmar andamio con foto y notas de prueba
+ * @access  Private (Admin o Supervisor propietario)
+ */
+router.put('/:id/disassemble', isAdminOrSupervisor, upload.single('disassembly_image'), async (req, res, next) => {
+  const { id } = req.params;
+  const { disassembly_notes } = req.body;
+
+  try {
+    // Obtener andamio actual
+    const scaffold = await Scaffold.getById(id);
+    if (!scaffold) {
+      return res.status(404).json({ message: 'Andamio no encontrado.' });
+    }
+
+    // Verificar permisos
+    if (req.user.role !== 'admin' && scaffold.created_by !== req.user.id) {
+      return res.status(403).json({ message: 'No tienes permisos para modificar este andamio.' });
+    }
+
+    // Requerir imagen de desarmado
+    if (!req.file) {
+      return res.status(400).json({ message: 'Se requiere imagen de desarmado.' });
+    }
+
+    // Subir imagen
+    const disassemblyImageUrl = await uploadFile(req.file);
+
+    // Guardar estado anterior
+    saveScaffoldState(req, id, scaffold);
+
+    // Actualizar andamio a desarmado con foto y notas
+    const query = `
+      UPDATE scaffolds 
+      SET assembly_status = 'disassembled', 
+          card_status = 'red',
+          disassembly_image_url = $1,
+          disassembly_notes = $2,
+          disassembled_at = NOW(),
+          updated_at = NOW()
+      WHERE id = $3
+      RETURNING *
+    `;
+
+    const { rows } = await db.query(query, [disassemblyImageUrl, disassembly_notes || null, id]);
+    const updated = rows[0];
+
+    // Registrar en historial
+    await ScaffoldHistory.create({
+      scaffold_id: id,
+      user_id: req.user.id,
+      change_type: 'disassemble',
+      previous_data: { 
+        assembly_status: scaffold.assembly_status,
+        card_status: scaffold.card_status,
+      },
+      new_data: { 
+        assembly_status: 'disassembled',
+        card_status: 'red',
+        disassembly_image: disassemblyImageUrl,
+        disassembly_notes: disassembly_notes || null,
+      },
+      description: `Andamio desarmado con pruebas fotográficas`,
+    });
+
+    logger.info(`Andamio ${id} desarmado por usuario ${req.user.id}`);
+    res.json(updated);
+  } catch (err) {
+    logger.error(`Error al desarmar andamio ${id}: ${err.message}`, err);
     next(err);
   }
 });
@@ -80,33 +361,6 @@ const createScaffoldSchema = Joi.object({
     .messages({
       'string.max': 'El TAG no puede exceder 255 caracteres'
     }),
-  company_id: Joi.number()
-    .integer()
-    .positive()
-    .allow(null)
-    .messages({
-      'number.base': 'El ID de la empresa debe ser un número',
-      'number.integer': 'El ID de la empresa debe ser un número entero',
-      'number.positive': 'El ID de la empresa debe ser un número positivo'
-    }),
-  supervisor_id: Joi.number()
-    .integer()
-    .positive()
-    .allow(null)
-    .messages({
-      'number.base': 'El ID del supervisor debe ser un número',
-      'number.integer': 'El ID del supervisor debe ser un número entero',
-      'number.positive': 'El ID del supervisor debe ser un número positivo'
-    }),
-  end_user_id: Joi.number()
-    .integer()
-    .positive()
-    .allow(null)
-    .messages({
-      'number.base': 'El ID del usuario final debe ser un número',
-      'number.integer': 'El ID del usuario final debe ser un número entero',
-      'number.positive': 'El ID del usuario final debe ser un número positivo'
-    }),
   height: Joi.number()
     .positive()
     .max(999.99)
@@ -127,15 +381,15 @@ const createScaffoldSchema = Joi.object({
       'number.max': 'El ancho no puede exceder 999.99 metros',
       'any.required': 'El ancho es obligatorio'
     }),
-  depth: Joi.number()
+  length: Joi.number()
     .positive()
     .max(999.99)
     .required()
     .messages({
-      'number.base': 'La profundidad debe ser un número',
-      'number.positive': 'La profundidad debe ser un número positivo',
-      'number.max': 'La profundidad no puede exceder 999.99 metros',
-      'any.required': 'La profundidad es obligatoria'
+      'number.base': 'El largo debe ser un número',
+      'number.positive': 'El largo debe ser un número positivo',
+      'number.max': 'El largo no puede exceder 999.99 metros',
+      'any.required': 'El largo es obligatorio'
     }),
   progress_percentage: Joi.number()
     .integer()
@@ -158,69 +412,95 @@ const createScaffoldSchema = Joi.object({
     })
 });
 
+// Schema para actualizaciones parciales (solo assembly_status y card_status)
+const updateScaffoldStatusSchema = Joi.object({
+  assembly_status: Joi.string()
+    .valid('assembled', 'disassembled')
+    .optional()
+    .messages({
+      'any.only': 'El estado de armado debe ser "assembled" o "disassembled"'
+    }),
+  card_status: Joi.string()
+    .valid('green', 'red')
+    .optional()
+    .messages({
+      'any.only': 'El estado de la tarjeta debe ser "green" o "red"'
+    })
+}).or('assembly_status', 'card_status') // Al menos uno debe estar presente
+  .custom((value, helpers) => {
+    // Validación: Un andamio desarmado NO puede tener tarjeta verde
+    if (value.assembly_status === 'disassembled' && value.card_status === 'green') {
+      return helpers.error('custom.disassembledGreen');
+    }
+    return value;
+  }, 'Validación de consistencia de estados')
+  .messages({
+    'custom.disassembledGreen': 'Un andamio desarmado no puede tener tarjeta verde. Debe tener tarjeta roja.'
+  });
+
 /**
  * @route   POST /api/scaffolds
- * @desc    Crear un nuevo reporte de andamio (montaje)
- * @access  Private (Technician/Admin)
+ * @desc    Crear un nuevo andamio
+ * @access  Private (Supervisor/Admin)
+ * Cambio de paradigma: crear andamio persistente, no reporte
  */
-router.post('/', upload.single('assembly_image'), async (req, res, next) => {
+router.post('/', isAdminOrSupervisor, upload.single('assembly_image'), async (req, res, next) => {
   try {
+    // Validar que se haya subido la imagen de montaje (obligatoria)
     if (!req.file) {
-      return res.status(400).json({ message: 'El archivo de imagen es requerido.' });
+      return res.status(400).json({ message: 'La imagen de montaje es obligatoria.' });
     }
 
     const validatedData = await createScaffoldSchema.validateAsync(req.body);
 
     // Subir imagen a GCS
-    const imageUrl = await uploadFile(req.file);
+    const assemblyImageUrl = await uploadFile(req.file);
 
     const {
       project_id,
       scaffold_number,
       area,
       tag,
-      company_id,
-      supervisor_id,
-      end_user_id,
       height,
       width,
-      depth,
+      length,
       progress_percentage,
       assembly_notes,
     } = validatedData;
-    const user_id = req.user.id;
 
     // Calcular metros cúbicos
-    const cubic_meters = parseFloat(height) * parseFloat(width) * parseFloat(depth);
+    const cubic_meters = parseFloat(height) * parseFloat(width) * parseFloat(length);
 
-    const query = `
-      INSERT INTO scaffolds 
-        (project_id, user_id, scaffold_number, area, tag, company_id, supervisor_id, end_user_id, height, width, depth, cubic_meters, progress_percentage, assembly_notes, assembly_image_url)
-      VALUES 
-        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-      RETURNING *
-    `;
-    const values = [
+    // Crear andamio usando el modelo
+    const scaffold = await Scaffold.create({
       project_id,
-      user_id,
+      user_id: req.user.id,
       scaffold_number,
       area,
       tag,
-      company_id,
-      supervisor_id,
-      end_user_id,
       height,
       width,
-      depth,
+      length,
       cubic_meters,
       progress_percentage,
       assembly_notes,
-      imageUrl,
-    ];
+      assembly_image_url: assemblyImageUrl,
+      card_status: 'red', // Por defecto: roja
+      assembly_status: 'disassembled', // Por defecto: desarmado
+    });
 
-    const { rows } = await db.query(query, values);
+    // Registrar creación en historial
+    await ScaffoldHistory.create({
+      scaffold_id: scaffold.id,
+      user_id: req.user.id,
+      change_type: 'create',
+      previous_data: {},
+      new_data: scaffold,
+      description: 'Andamio creado',
+    });
 
-    res.status(201).json(rows[0]);
+    logger.info(`Andamio ${scaffold.id} creado por usuario ${req.user.id}`);
+    res.status(201).json(scaffold);
   } catch (err) {
     if (err.isJoi) {
       return res.status(400).json({ error: err.details[0].message });
@@ -230,94 +510,111 @@ router.post('/', upload.single('assembly_image'), async (req, res, next) => {
   }
 });
 
-const disassembleScaffoldSchema = Joi.object({
-  disassembly_notes: Joi.string().trim().allow('').max(1000),
-});
-
 /**
- * @route   PUT /api/scaffolds/:id/disassemble
- * @desc    Marcar un andamio como desarmado
- * @access  Private (Technician/Admin)
+ * @route   PUT /api/scaffolds/:id
+ * @desc    Actualizar un andamio completo
+ * @access  Private (Admin o Supervisor propietario)
  */
-router.put('/:id/disassemble', upload.single('disassembly_image'), async (req, res, next) => {
+router.put('/:id', isAdminOrSupervisor, async (req, res, next) => {
+  const { id } = req.params;
+
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'La imagen de prueba del desmontaje es requerida.' });
-    }
-
-    const validatedData = await disassembleScaffoldSchema.validateAsync(req.body);
-
-    // Subir imagen a GCS
-    const imageUrl = await uploadFile(req.file);
-
-    const { disassembly_notes } = validatedData;
-    const { id } = req.params;
-
-    const query = `
-      UPDATE scaffolds
-      SET 
-        status = 'disassembled',
-        disassembly_notes = $1,
-        disassembly_image_url = $2,
-        disassembled_at = NOW()
-      WHERE id = $3
-      RETURNING *
-    `;
-    const { rows } = await db.query(query, [disassembly_notes, imageUrl, id]);
-
-    if (rows.length === 0) {
+    // Obtener andamio actual
+    const scaffold = await Scaffold.getById(id);
+    if (!scaffold) {
       return res.status(404).json({ message: 'Andamio no encontrado.' });
     }
 
-    res.json(rows[0]);
+    // Verificar permisos
+    if (req.user.role !== 'admin' && scaffold.created_by !== req.user.id) {
+      return res.status(403).json({ 
+        message: 'No tienes permisos para editar este andamio. Solo puedes editar andamios que tú mismo creaste.' 
+      });
+    }
+
+    // Determinar si es actualización de estado o completa
+    const isStatusUpdate = (req.body.assembly_status || req.body.card_status) && 
+                          !req.body.project_id && 
+                          !req.body.height;
+
+    let validatedData;
+    let dataToUpdate;
+
+    if (isStatusUpdate) {
+      // Actualización de estado solamente
+      validatedData = await updateScaffoldStatusSchema.validateAsync(req.body);
+      
+      // Regla de negocio: Si se desarma el andamio, forzar tarjeta roja
+      if (validatedData.assembly_status === 'disassembled') {
+        validatedData.card_status = 'red';
+      }
+      
+      // Si solo se está cambiando card_status pero el andamio está desarmado, validar
+      if (validatedData.card_status === 'green' && scaffold.assembly_status === 'disassembled') {
+        return res.status(400).json({ 
+          error: 'Un andamio desarmado no puede tener tarjeta verde. Debe tener tarjeta roja.' 
+        });
+      }
+      
+      dataToUpdate = validatedData;
+    } else {
+      // Actualización completa
+      validatedData = await createScaffoldSchema.validateAsync(req.body);
+      
+      // Recalcular metros cúbicos si cambió alguna dimensión
+      const cubic_meters = parseFloat(validatedData.height) * 
+                           parseFloat(validatedData.width) * 
+                           parseFloat(validatedData.length);
+      
+      dataToUpdate = {
+        ...validatedData,
+        cubic_meters,
+      };
+    }
+
+    // Guardar estado anterior para historial
+    saveScaffoldState(req, id, scaffold);
+
+    // Actualizar
+    const updated = await Scaffold.update(id, dataToUpdate);
+
+    // Registrar en historial
+    await ScaffoldHistory.createFromChanges(id, req.user.id, scaffold, updated);
+
+    logger.info(`Andamio ${id} actualizado por usuario ${req.user.id}`);
+    res.json(updated);
   } catch (err) {
     if (err.isJoi) {
       return res.status(400).json({ error: err.details[0].message });
     }
-    logger.error(`Error al desmontar el andamio con ID ${req.params.id}: ${err.message}`, err);
+    logger.error(`Error al actualizar andamio ${id}: ${err.message}`, err);
     next(err);
   }
 });
 
 /**
- * @route   GET /api/scaffolds/my-history
- * @desc    Obtener el historial de andamios del técnico logueado
- * @access  Private (Technician)
+ * @route   GET /api/scaffolds/my-scaffolds
+ * @desc    Obtener andamios creados por el supervisor logueado
+ * @access  Private (Supervisor)
  */
-router.get('/my-history', async (req, res) => {
+router.get('/my-scaffolds', isSupervisor, async (req, res, next) => {
   const userId = req.user.id;
   try {
-    const query = `
-      SELECT 
-        s.*, 
-        p.name as project_name,
-        c.name as company_name,
-        sup.first_name || ' ' || sup.last_name as supervisor_name,
-        eu.name as end_user_name
-      FROM scaffolds s
-      JOIN projects p ON s.project_id = p.id
-      LEFT JOIN companies c ON s.company_id = c.id
-      LEFT JOIN supervisors sup ON s.supervisor_id = sup.id
-      LEFT JOIN end_users eu ON s.end_user_id = eu.id
-      WHERE s.user_id = $1 
-      ORDER BY s.assembly_created_at DESC
-    `;
-    const { rows } = await db.query(query, [userId]);
-    res.json(rows);
+    const scaffolds = await Scaffold.getByCreator(userId);
+    res.json(scaffolds);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
+    logger.error(`Error al obtener andamios del supervisor ${userId}: ${err.message}`, err);
+    next(err);
   }
 });
 
 /**
  * @route   DELETE /api/scaffolds/:id
- * @desc    Eliminar un andamio (solo admin)
+ * @desc    Eliminar un andamio y su historial (solo admin)
  * @access  Private (Admin)
  */
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:id', isAdmin, async (req, res, next) => {
   const { id } = req.params;
-  const { role } = req.user;
 
   try {
     // Verificar que solo admins puedan eliminar

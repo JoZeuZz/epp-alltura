@@ -54,7 +54,7 @@ const RecentReportsTable: React.FC<{ reports: Scaffold[] }> = ({ reports }) => (
               scope="col"
               className="px-6 py-3 text-left text-xs font-medium text-neutral-gray uppercase tracking-wider"
             >
-              Técnico
+              Supervisor
             </th>
             <th
               scope="col"

@@ -6,12 +6,12 @@ const db = require('../db');
 // Proteger todas las rutas
 router.use(authMiddleware);
 
-// GET /api/tech-dashboard/summary - Resumen para técnicos
+// GET /api/supervisor-dashboard/summary - Resumen para supervisores
 router.get('/summary', async (req, res) => {
   try {
     const userId = req.user.id;
     
-    // Total de reportes del técnico
+    // Total de reportes del supervisor
     const totalReportsRes = await db.query(
       'SELECT COUNT(*) as total FROM scaffolds WHERE user_id = $1',
       [userId]
@@ -50,7 +50,7 @@ router.get('/summary', async (req, res) => {
       activeProjects
     });
   } catch (error) {
-    console.error('Error fetching tech dashboard summary:', error);
+    console.error('Error fetching supervisor dashboard summary:', error);
     res.status(500).json({ error: 'Error al obtener resumen' });
   }
 });

@@ -24,7 +24,12 @@ const RootRedirect = () => {
     return <Navigate to="/admin/dashboard" replace />;
   }
 
-  return <Navigate to="/tech/dashboard" replace />;
+  if (user.role === 'supervisor') {
+    return <Navigate to="/supervisor/dashboard" replace />;
+  }
+
+  // Cliente por defecto
+  return <Navigate to="/client/dashboard" replace />;
 };
 
 export default RootRedirect;

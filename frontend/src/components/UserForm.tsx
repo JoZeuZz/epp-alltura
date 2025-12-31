@@ -10,7 +10,7 @@ const newUserInitialState = {
   last_name: '',
   email: '',
   password: '',
-  role: 'technician',
+  role: 'supervisor',
 };
 interface Props {
   user: User | null;
@@ -48,7 +48,7 @@ export default function UserForm({ user, onSubmit, onCancel }: Props) {
       first_name: values.first_name,
       last_name: values.last_name,
       email: values.email,
-      role: values.role as 'admin' | 'technician',
+      role: values.role as 'admin' | 'supervisor' | 'client',
     };
     if (values.password) {
       userData.password = values.password;
@@ -133,9 +133,15 @@ export default function UserForm({ user, onSubmit, onCancel }: Props) {
           onChange={handleChange}
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
         >
-          <option value="technician">Técnico</option>
+          <option value="supervisor">Supervisor</option>
           <option value="admin">Administrador</option>
+          <option value="client">Usuario Cliente</option>
         </select>
+        {values.role === 'client' && (
+          <p className="mt-2 text-sm text-gray-600">
+            ℹ️ El Usuario Cliente solo puede visualizar andamios de proyectos asignados.
+          </p>
+        )}
       </div>
       <div className="flex items-center justify-end">
         <button

@@ -28,7 +28,7 @@ const setupDatabase = async () => {
           rut VARCHAR(50),
           phone_number VARCHAR(50),
           profile_picture_url VARCHAR(255),
-          role VARCHAR(50) NOT NULL CHECK(role IN ('admin', 'technician')),
+          role VARCHAR(50) NOT NULL CHECK(role IN ('admin', 'supervisor', 'client')),
           created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
@@ -60,28 +60,49 @@ const setupDatabase = async () => {
           id SERIAL PRIMARY KEY,
           project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
           user_id INTEGER NOT NULL REFERENCES users(id),
-          height DECIMAL NOT NULL,
+          created_by INTEGER NOT NULL REFERENCES users(id),
+          scaffold_number VARCHAR(255),
+          area VARCHAR(255),
+          tag VARCHAR(255),
           width DECIMAL NOT NULL,
-          depth DECIMAL NOT NULL,
+          length DECIMAL NOT NULL,
+          height DECIMAL NOT NULL,
           cubic_meters DECIMAL NOT NULL,
-          progress_percentage INTEGER NOT NULL,
-          assembly_notes TEXT,
+          progress_percentage INTEGER NOT NULL DEFAULT 100 CHECK(progress_percentage >= 0 AND progress_percentage <= 100),
+          card_status VARCHAR(50) NOT NULL DEFAULT 'green' CHECK(card_status IN ('green', 'red')),
+          assembly_status VARCHAR(50) NOT NULL DEFAULT 'assembled' CHECK(assembly_status IN ('assembled', 'disassembled')),
           assembly_image_url VARCHAR(255) NOT NULL,
+          assembly_notes TEXT,
           assembly_created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-          status VARCHAR(50) NOT NULL DEFAULT 'assembled' CHECK(status IN ('assembled', 'disassembled')),
-          disassembly_notes TEXT,
+          location TEXT,
+          observations TEXT,
           disassembly_image_url VARCHAR(255),
-          disassembled_at TIMESTAMP WITH TIME ZONE
+          disassembly_notes TEXT,
+          disassembled_at TIMESTAMP WITH TIME ZONE,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
 
-    // Add new columns to scaffolds table if they don't exist
+    // Add columns if they don't exist (for migration from old structure)
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS created_by INTEGER REFERENCES users(id)`);
     await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS scaffold_number VARCHAR(255)`);
     await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS area VARCHAR(255)`);
     await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS tag VARCHAR(255)`);
-    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS requestor VARCHAR(255)`);
-    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS end_user VARCHAR(255)`);
-    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS supervisor VARCHAR(255)`);
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS card_status VARCHAR(50) DEFAULT 'green' CHECK(card_status IN ('green', 'red'))`);
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS assembly_status VARCHAR(50) DEFAULT 'assembled' CHECK(assembly_status IN ('assembled', 'disassembled'))`);
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS location TEXT`);
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS observations TEXT`);
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS length DECIMAL`);
+    
+    // Rename old column if exists
+    await client.query(`ALTER TABLE scaffolds RENAME COLUMN IF EXISTS depth TO length`);
+    
+    // Remove old columns if they exist
+    await client.query(`ALTER TABLE scaffolds DROP COLUMN IF EXISTS status`);
+    await client.query(`ALTER TABLE scaffolds DROP COLUMN IF EXISTS requestor`);
+    await client.query(`ALTER TABLE scaffolds DROP COLUMN IF EXISTS end_user`);
+    await client.query(`ALTER TABLE scaffolds DROP COLUMN IF EXISTS supervisor`);
 
     // Create project_users join table
     await client.query(`
@@ -100,12 +121,12 @@ const setupDatabase = async () => {
       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash;
     `, [adminPassword]);
 
-    const techPassword = await bcrypt.hash('password123', 10);
+    const supervisorPassword = await bcrypt.hash('password123', 10);
     await client.query(`
       INSERT INTO users (first_name, last_name, email, password_hash, role)
-      VALUES ('Técnico', 'de Campo', 'tech@alltura.cl', $1, 'technician')
+      VALUES ('Supervisor', 'de Campo', 'supervisor@alltura.cl', $1, 'supervisor')
       ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash;
-    `, [techPassword]);
+    `, [supervisorPassword]);
 
     await client.query('COMMIT');
     console.log('Database tables created and seeded successfully.');
