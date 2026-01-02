@@ -271,9 +271,24 @@ router.put('/:id/disassemble', isAdminOrSupervisor, upload.single('disassembly_i
       return res.status(404).json({ message: 'Andamio no encontrado.' });
     }
 
-    // Verificar permisos
-    if (req.user.role !== 'admin' && scaffold.created_by !== req.user.id) {
-      return res.status(403).json({ message: 'No tienes permisos para modificar este andamio.' });
+    // Verificar permisos para supervisores
+    if (req.user.role === 'supervisor') {
+      // Un supervisor puede desarmar si:
+      // 1. Él creó el andamio, O
+      // 2. El andamio pertenece a un proyecto asignado a él
+      const isCreator = scaffold.created_by === req.user.id;
+      
+      if (!isCreator) {
+        // Verificar si el andamio pertenece a un proyecto asignado al supervisor
+        const project = await Project.getById(scaffold.project_id);
+        const isAssignedToProject = project && project.assigned_supervisor_id === req.user.id;
+        
+        if (!isAssignedToProject) {
+          return res.status(403).json({ 
+            message: 'No tienes permisos para modificar este andamio. Solo puedes modificar andamios que tú creaste o que pertenecen a proyectos asignados a ti.' 
+          });
+        }
+      }
     }
 
     // Requerir imagen de desarmado
@@ -412,21 +427,31 @@ const createScaffoldSchema = Joi.object({
     })
 });
 
-// Schema para actualizaciones parciales (solo assembly_status y card_status)
+// Schema para actualizaciones parciales (estado, tarjeta y porcentaje)
 const updateScaffoldStatusSchema = Joi.object({
   assembly_status: Joi.string()
-    .valid('assembled', 'disassembled')
+    .valid('assembled', 'in_progress', 'disassembled')
     .optional()
     .messages({
-      'any.only': 'El estado de armado debe ser "assembled" o "disassembled"'
+      'any.only': 'El estado de armado debe ser "assembled", "in_progress" o "disassembled"'
     }),
   card_status: Joi.string()
     .valid('green', 'red')
     .optional()
     .messages({
       'any.only': 'El estado de la tarjeta debe ser "green" o "red"'
+    }),
+  progress_percentage: Joi.number()
+    .integer()
+    .min(0)
+    .max(100)
+    .optional()
+    .messages({
+      'number.base': 'El porcentaje de avance debe ser un número',
+      'number.min': 'El porcentaje de avance debe ser al menos 0',
+      'number.max': 'El porcentaje de avance no puede ser mayor a 100'
     })
-}).or('assembly_status', 'card_status') // Al menos uno debe estar presente
+}).or('assembly_status', 'card_status', 'progress_percentage') // Al menos uno debe estar presente
   .custom((value, helpers) => {
     // Validación: Un andamio desarmado NO puede tener tarjeta verde
     if (value.assembly_status === 'disassembled' && value.card_status === 'green') {
@@ -525,15 +550,28 @@ router.put('/:id', isAdminOrSupervisor, async (req, res, next) => {
       return res.status(404).json({ message: 'Andamio no encontrado.' });
     }
 
-    // Verificar permisos
-    if (req.user.role !== 'admin' && scaffold.created_by !== req.user.id) {
-      return res.status(403).json({ 
-        message: 'No tienes permisos para editar este andamio. Solo puedes editar andamios que tú mismo creaste.' 
-      });
+    // Verificar permisos para supervisores
+    if (req.user.role === 'supervisor') {
+      // Un supervisor puede editar si:
+      // 1. Él creó el andamio, O
+      // 2. El andamio pertenece a un proyecto asignado a él
+      const isCreator = scaffold.created_by === req.user.id;
+      
+      if (!isCreator) {
+        // Verificar si el andamio pertenece a un proyecto asignado al supervisor
+        const project = await Project.getById(scaffold.project_id);
+        const isAssignedToProject = project && project.assigned_supervisor_id === req.user.id;
+        
+        if (!isAssignedToProject) {
+          return res.status(403).json({ 
+            message: 'No tienes permisos para editar este andamio. Solo puedes editar andamios que tú creaste o que pertenecen a proyectos asignados a ti.' 
+          });
+        }
+      }
     }
 
     // Determinar si es actualización de estado o completa
-    const isStatusUpdate = (req.body.assembly_status || req.body.card_status) && 
+    const isStatusUpdate = (req.body.assembly_status || req.body.card_status || req.body.progress_percentage !== undefined) && 
                           !req.body.project_id && 
                           !req.body.height;
 
@@ -544,16 +582,54 @@ router.put('/:id', isAdminOrSupervisor, async (req, res, next) => {
       // Actualización de estado solamente
       validatedData = await updateScaffoldStatusSchema.validateAsync(req.body);
       
-      // Regla de negocio: Si se desarma el andamio, forzar tarjeta roja
-      if (validatedData.assembly_status === 'disassembled') {
-        validatedData.card_status = 'red';
+      // ============================================
+      // VALIDACIONES Y SINCRONIZACIÓN AUTOMÁTICA
+      // ============================================
+      
+      // 1. Validar que el porcentaje no retroceda
+      if (validatedData.progress_percentage !== undefined && validatedData.progress_percentage < scaffold.progress_percentage) {
+        return res.status(400).json({ 
+          error: `El porcentaje de avance no puede retroceder de ${scaffold.progress_percentage}% a ${validatedData.progress_percentage}%. Use el estado "desarmado" para indicar que el andamio ya no está en uso.` 
+        });
       }
       
-      // Si solo se está cambiando card_status pero el andamio está desarmado, validar
-      if (validatedData.card_status === 'green' && scaffold.assembly_status === 'disassembled') {
+      // 2. Sincronización automática: Porcentaje → Estado
+      if (validatedData.progress_percentage !== undefined) {
+        if (validatedData.progress_percentage === 0) {
+          validatedData.assembly_status = 'disassembled';
+          validatedData.card_status = 'red'; // Desarmado siempre con tarjeta roja
+        } else if (validatedData.progress_percentage === 100) {
+          validatedData.assembly_status = 'assembled';
+        } else {
+          validatedData.assembly_status = 'in_progress';
+        }
+      }
+      
+      // 3. Sincronización automática: Estado → Porcentaje
+      if (validatedData.assembly_status && validatedData.progress_percentage === undefined) {
+        if (validatedData.assembly_status === 'assembled') {
+          // Si marca como armado, primero pasar a 100%
+          validatedData.progress_percentage = 100;
+        } else if (validatedData.assembly_status === 'disassembled') {
+          // Si marca como desarmado, establecer en 0%
+          validatedData.progress_percentage = 0;
+          validatedData.card_status = 'red';
+        }
+        // Si marca como 'in_progress', mantener porcentaje actual (no cambiar)
+      }
+      
+      // 4. Regla: Andamio desarmado o en proceso no puede tener tarjeta verde
+      if (validatedData.card_status === 'green' && 
+          (validatedData.assembly_status === 'disassembled' || 
+           validatedData.assembly_status === 'in_progress')) {
         return res.status(400).json({ 
-          error: 'Un andamio desarmado no puede tener tarjeta verde. Debe tener tarjeta roja.' 
+          error: 'Solo un andamio completamente armado (100%) puede tener tarjeta verde.' 
         });
+      }
+      
+      // 5. Forzar tarjeta roja si está desarmado
+      if (validatedData.assembly_status === 'disassembled') {
+        validatedData.card_status = 'red';
       }
       
       dataToUpdate = validatedData;
@@ -617,8 +693,8 @@ router.delete('/:id', isAdmin, async (req, res, next) => {
   const { id } = req.params;
 
   try {
-    // Verificar que solo admins puedan eliminar
-    if (role !== 'admin') {
+    // El middleware isAdmin ya verificó que es admin, esto es redundante pero lo dejamos por seguridad
+    if (req.user.role !== 'admin') {
       return res.status(403).json({ 
         message: 'No tienes permisos para eliminar reportes de andamios' 
       });

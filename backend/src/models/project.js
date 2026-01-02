@@ -53,6 +53,26 @@ const Project = {
       LEFT JOIN clients c ON p.client_id = c.id
       LEFT JOIN users ac ON p.assigned_client_id = ac.id
       LEFT JOIN users au ON p.assigned_supervisor_id = au.id
+      WHERE p.active = TRUE AND c.active = TRUE
+      ORDER BY p.created_at DESC
+    `);
+    return rows;
+  },
+
+  async getAllIncludingInactive() {
+    const { rows } = await db.query(`
+      SELECT 
+        p.*, 
+        c.name as client_name,
+        c.active as client_active,
+        ac.first_name || ' ' || ac.last_name as assigned_client_name,
+        ac.email as assigned_client_email,
+        au.first_name || ' ' || au.last_name as assigned_supervisor_name,
+        au.email as assigned_supervisor_email
+      FROM projects p 
+      LEFT JOIN clients c ON p.client_id = c.id
+      LEFT JOIN users ac ON p.assigned_client_id = ac.id
+      LEFT JOIN users au ON p.assigned_supervisor_id = au.id
       ORDER BY p.created_at DESC
     `);
     return rows;
@@ -63,6 +83,7 @@ const Project = {
       SELECT 
         p.*, 
         c.name as client_name,
+        c.active as client_active,
         ac.first_name || ' ' || ac.last_name as assigned_client_name,
         ac.email as assigned_client_email,
         au.first_name || ' ' || au.last_name as assigned_supervisor_name,
@@ -78,11 +99,11 @@ const Project = {
 
   async getForUser(userId) {
     const { rows } = await db.query(
-      `SELECT p.*, c.name as client_name 
+      `SELECT p.*, c.name as client_name, c.active as client_active
        FROM projects p 
        JOIN project_users pu ON p.id = pu.project_id 
        LEFT JOIN clients c ON p.client_id = c.id 
-       WHERE pu.user_id = $1
+       WHERE pu.user_id = $1 AND p.active = TRUE AND c.active = TRUE
        ORDER BY p.created_at DESC`,
       [userId]
     );
@@ -279,7 +300,9 @@ const Project = {
       SELECT 
         p.*, 
         c.name as client_name,
-        au.first_name || ' ' || au.last_name as assigned_supervisor_name
+        c.active as client_active,
+        au.first_name || ' ' || au.last_name as assigned_supervisor_name,
+        au.email as assigned_supervisor_email
       FROM projects p 
       LEFT JOIN clients c ON p.client_id = c.id
       LEFT JOIN users au ON p.assigned_supervisor_id = au.id
@@ -298,10 +321,13 @@ const Project = {
       SELECT 
         p.*, 
         c.name as client_name,
-        ac.first_name || ' ' || ac.last_name as assigned_client_name
+        c.active as client_active,
+        ac.first_name || ' ' || ac.last_name as assigned_client_name,
+        asup.first_name || ' ' || asup.last_name as assigned_supervisor_name
       FROM projects p 
       LEFT JOIN clients c ON p.client_id = c.id
       LEFT JOIN users ac ON p.assigned_client_id = ac.id
+      LEFT JOIN users asup ON p.assigned_supervisor_id = asup.id
       WHERE p.assigned_supervisor_id = $1
       ORDER BY p.created_at DESC
     `, [supervisorId]);

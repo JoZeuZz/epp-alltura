@@ -17,8 +17,8 @@ export interface Project {
   name: string;
   status: 'active' | 'inactive' | 'completed';
   created_at: string;
-  client_name: string;
-  assigned_client_id?: number; // Nuevo: ID del usuario cliente asignado
+  client_name: string;  active: boolean;
+  client_active: boolean;  assigned_client_id?: number; // Nuevo: ID del usuario cliente asignado
   assigned_client_name?: string; // Nuevo: Nombre del cliente asignado
   assigned_client_email?: string; // Nuevo: Email del cliente asignado
   assigned_supervisor_id?: number; // Nuevo: ID del supervisor asignado (antes assignedTechnicianId)
@@ -33,6 +33,8 @@ export interface Client {
   phone?: string;
   address?: string;
   specialty?: string;
+  active?: boolean;
+  created_at?: string;
 }
 
 export interface Scaffold {
@@ -40,7 +42,7 @@ export interface Scaffold {
   project_id?: number;
   // Nuevos campos de estado
   card_status: 'green' | 'red'; // Nuevo: estado de la tarjeta
-  assembly_status: 'assembled' | 'disassembled'; // Nuevo: estado de armado
+  assembly_status: 'assembled' | 'in_progress' | 'disassembled'; // Nuevo: estado de armado (3 estados)
   initial_image: string; // Nuevo: imagen inicial obligatoria (antes assembly_image_url)
   disassembly_image?: string; // Nuevo: imagen de desarmado (nullable)
   created_by?: number; // Nuevo: ID del usuario que creó el andamio
@@ -50,7 +52,7 @@ export interface Scaffold {
   cubic_meters: number;
   user_name: string;
   assembly_created_at: string;
-  status: 'assembled' | 'disassembled'; // Deprecado: usar assembly_status
+  status: 'assembled' | 'in_progress' | 'disassembled'; // Deprecado: usar assembly_status
   created_at?: string; // Nuevo: timestamp de creación del andamio
   updated_at?: string; // Nuevo: timestamp de última actualización
   project_name?: string;

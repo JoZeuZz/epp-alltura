@@ -9,9 +9,12 @@ const SupervisorDashboard: React.FC = () => {
 
   const filteredProjects = useMemo(() => {
     if (!projects) return [];
-    return projects.filter((project) =>
-      project.name.toLowerCase().includes(searchTerm.toLowerCase()),
-    );
+    // Filtrar solo proyectos activos con clientes activos
+    return projects
+      .filter((project) => project.active && project.client_active)
+      .filter((project) =>
+        project.name.toLowerCase().includes(searchTerm.toLowerCase()),
+      );
   }, [projects, searchTerm]);
 
   if (isLoading) {

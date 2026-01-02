@@ -41,19 +41,23 @@ export default function ScaffoldGrid({ scaffolds, onScaffoldSelect }: Props) {
           <div className="p-4">
             <p className="text-lg font-bold text-dark-blue">{scaffold.cubic_meters} m³</p>
             <p className="text-sm text-gray-600">
-              {scaffold.height}x{scaffold.width}x{scaffold.depth} m
+              {scaffold.height}x{scaffold.width}x{scaffold.length} m
             </p>
             <p className="text-sm text-gray-500">
               {new Date(scaffold.assembly_created_at).toLocaleDateString()}
             </p>
             <span
               className={`mt-2 inline-block capitalize px-2 py-1 text-xs font-semibold rounded-full ${
-                scaffold.status === 'assembled'
+                scaffold.assembly_status === 'assembled'
                   ? 'bg-green-100 text-green-800'
-                  : 'bg-yellow-100 text-yellow-800'
+                  : scaffold.assembly_status === 'in_progress'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-gray-100 text-gray-800'
               }`}
             >
-              {scaffold.status === 'assembled' ? 'Armado' : 'Desarmado'}
+              {scaffold.assembly_status === 'assembled' ? 'Armado 100%' : 
+               scaffold.assembly_status === 'in_progress' ? `En Proceso ${scaffold.progress_percentage}%` : 
+               'Desarmado 0%'}
             </span>
           </div>
         </div>

@@ -9,10 +9,10 @@ const { logger } = require('../lib/logger');
 // Apply auth and isAdmin middleware to all client routes
 router.use(authMiddleware, isAdmin);
 
-// GET all clients
+// GET all clients (including inactive for admin)
 router.get('/', async (req, res, next) => {
   try {
-    const clients = await Client.getAll();
+    const clients = await Client.getAllIncludingInactive();
     res.json(clients);
   } catch (err) {
     logger.error(`Error al obtener todos los clientes: ${err.message}`, err);
@@ -117,16 +117,47 @@ router.put('/:id', async (req, res, next) => {
   }
 });
 
-// DELETE a client
+// DELETE a client (or deactivate if has projects)
 router.delete('/:id', async (req, res, next) => {
   try {
-    const deletedClient = await Client.delete(req.params.id);
-    if (!deletedClient) {
+    const result = await Client.delete(req.params.id);
+    if (!result) {
       return res.status(404).json({ message: 'Client not found' });
     }
-    res.json({ message: 'Client deleted' });
+    
+    // Si fue desactivado en lugar de eliminado
+    if (result.deactivated) {
+      logger.info(`Cliente con ID ${req.params.id} desactivado (tiene proyectos vinculados)`);
+      return res.json({ 
+        message: 'Cliente desactivado correctamente',
+        deactivated: true,
+        client: result
+      });
+    }
+    
+    // Si fue eliminado permanentemente
+    logger.info(`Cliente con ID ${req.params.id} eliminado permanentemente`);
+    res.json({ message: 'Cliente eliminado correctamente', deleted: true });
   } catch (err) {
     logger.error(`Error al eliminar el cliente con ID ${req.params.id}: ${err.message}`, err);
+    next(err);
+  }
+});
+
+// POST to reactivate a client
+router.post('/:id/reactivate', async (req, res, next) => {
+  try {
+    const reactivatedClient = await Client.reactivate(req.params.id);
+    if (!reactivatedClient) {
+      return res.status(404).json({ message: 'Client not found' });
+    }
+    logger.info(`Cliente con ID ${req.params.id} reactivado`);
+    res.json({ 
+      message: 'Cliente reactivado correctamente',
+      client: reactivatedClient 
+    });
+  } catch (err) {
+    logger.error(`Error al reactivar el cliente con ID ${req.params.id}: ${err.message}`, err);
     next(err);
   }
 });

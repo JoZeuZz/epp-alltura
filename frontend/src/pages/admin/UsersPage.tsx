@@ -4,11 +4,14 @@ import { usePost, usePut, useDelete } from '../../hooks/useMutate';
 import { User } from '../../types/api';
 import UserForm from '../../components/UserForm';
 import Modal from '../../components/Modal';
+import ConfirmationModal from '../../components/ConfirmationModal';
 
 const UsersPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   const { data: users, isLoading, error } = useGet<User[]>('users', '/users');
   const createUser = usePost<User, Partial<User>>('users', '/users');
@@ -41,14 +44,20 @@ const UsersPage: React.FC = () => {
     }
   };
 
-  const handleDelete = async (userId: number) => {
-    if (window.confirm('¿Está seguro de que desea eliminar este usuario?')) {
-      try {
-        await deleteUser.mutateAsync(userId);
-      } catch (err) {
-        console.error(err);
-      }
+  const handleDelete = (user: User) => {
+    setUserToDelete(user);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!userToDelete) return;
+
+    try {
+      await deleteUser.mutateAsync(userToDelete.id);
+    } catch (err) {
+      console.error(err);
     }
+    setUserToDelete(null);
   };
 
   if (isLoading) {
@@ -170,7 +179,7 @@ const UsersPage: React.FC = () => {
                     Editar
                   </button>
                   <button
-                    onClick={() => handleDelete(user.id)}
+                    onClick={() => handleDelete(user)}
                     className="text-red-600 hover:text-red-900"
                   >
                     Eliminar
@@ -188,6 +197,16 @@ const UsersPage: React.FC = () => {
         </h2>
         <UserForm user={selectedUser} onSubmit={handleSubmit} onCancel={handleCloseModal} />
       </Modal>
+
+      <ConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Eliminar Usuario"
+        message={`¿Está seguro de que desea eliminar el usuario "${userToDelete?.first_name} ${userToDelete?.last_name}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar"
+        variant="danger"
+      />
     </div>
   );
 };

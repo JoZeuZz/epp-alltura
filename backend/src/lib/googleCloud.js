@@ -42,8 +42,9 @@ const uploadFile = (file) => new Promise((resolve, reject) => {
       if (err) {
         reject(`Unable to save image locally: ${err}`);
       } else {
-        // Devolver URL local
-        const localUrl = `/uploads/${filename}`;
+        // Devolver URL absoluta usando BACKEND_URL o construyendo desde PORT
+        const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+        const localUrl = `${backendUrl}/uploads/${filename}`;
         resolve(localUrl);
       }
     });

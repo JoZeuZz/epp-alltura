@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Scaffold } from '../types/api';
 import ConfirmationModal from './ConfirmationModal';
+import ScaffoldTimeline from './ScaffoldTimeline';
 import { put } from '../services/apiService';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 interface ScaffoldDetailsModalProps {
   scaffold: Scaffold;
@@ -20,10 +22,14 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
   projectId
 }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [showDisassembleConfirm, setShowDisassembleConfirm] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [assemblyStatus, setAssemblyStatus] = useState(scaffold.assembly_status);
   const [cardStatus, setCardStatus] = useState(scaffold.card_status);
+  const [progressPercentage, setProgressPercentage] = useState(scaffold.progress_percentage);
+  const [isEditingProgress, setIsEditingProgress] = useState(false);
+  const [tempProgress, setTempProgress] = useState(scaffold.progress_percentage);
   const [isUpdating, setIsUpdating] = useState(false);
 
   const getImageUrl = (url: string | null | undefined) => {
@@ -59,6 +65,7 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
         assembly_status: 'assembled'
       });
       setAssemblyStatus('assembled');
+      setProgressPercentage(100); // Sincronización automática
       if (onUpdate) onUpdate();
     } catch (error) {
       console.error('Error updating assembly status:', error);
@@ -70,14 +77,9 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
 
   const handleToggleAssemblyStatus = () => {
     if (!canEdit || isUpdating) return;
-    
-    // Si intenta desarmar, mostrar confirmación
-    if (assemblyStatus === 'assembled') {
-      setShowDisassembleConfirm(true);
-    } else {
-      // Si intenta armar, permitirlo directamente
-      handleAssemble();
-    }
+    // Este botón solo se muestra cuando NO está armado
+    // Al presionarlo, marca como armado (100%)
+    handleAssemble();
   };
 
   const handleToggleCardStatus = async () => {
@@ -106,6 +108,44 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
     }
   };
 
+  const handleUpdateProgress = async () => {
+    if (!canEdit || isUpdating) return;
+    
+    // Validar rango
+    if (tempProgress < 0 || tempProgress > 100) {
+      alert('El porcentaje debe estar entre 0 y 100');
+      return;
+    }
+
+    // Si no cambió, solo cerrar la edición
+    if (tempProgress === progressPercentage) {
+      setIsEditingProgress(false);
+      return;
+    }
+    
+    setIsUpdating(true);
+    
+    try {
+      await put(`/scaffolds/${scaffold.id}`, {
+        progress_percentage: tempProgress
+      });
+      setProgressPercentage(tempProgress);
+      setIsEditingProgress(false);
+      if (onUpdate) onUpdate();
+    } catch (error: any) {
+      console.error('Error updating progress percentage:', error);
+      const errorMessage = error?.response?.data?.error || error?.response?.data?.message || 'Error al actualizar el porcentaje de avance';
+      alert(errorMessage);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleCancelProgressEdit = () => {
+    setTempProgress(progressPercentage);
+    setIsEditingProgress(false);
+  };
+
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto">
       {/* Modal de confirmación para desarmar */}
@@ -130,48 +170,91 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
       {canEdit && (
         <div className="bg-gradient-to-r from-blue-50 to-green-50 p-4 md:p-6 rounded-lg mb-4 md:mb-6 border-2 border-blue-200">
           <h3 className="font-bold text-dark-blue mb-4 text-base md:text-lg">Control de Estados</h3>
+          
+          {/* Indicador de Estado Actual */}
+          <div className="mb-4 p-4 bg-white rounded-lg shadow-sm border-l-4 {assemblyStatus === 'assembled' ? 'border-green-500' : assemblyStatus === 'in_progress' ? 'border-yellow-500' : 'border-gray-500'}">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm text-gray-600 block">Estado Actual:</span>
+                <span className={`text-lg font-bold ${
+                  assemblyStatus === 'assembled' ? 'text-green-700' : 
+                  assemblyStatus === 'in_progress' ? 'text-yellow-700' : 
+                  'text-gray-700'
+                }`}>
+                  {assemblyStatus === 'assembled' ? '✅ Armado (100%)' : 
+                   assemblyStatus === 'in_progress' ? '🔄 En Proceso' : 
+                   '⚫ Desarmado (0%)'}
+                </span>
+              </div>
+              <div className="text-3xl">
+                {assemblyStatus === 'assembled' ? '✅' : 
+                 assemblyStatus === 'in_progress' ? '🔄' : 
+                 '⚫'}
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             
-            {/* Switch Estado de Armado */}
-            <div className="bg-white p-4 rounded-lg shadow-sm">
-              <label className="flex items-center justify-between cursor-pointer">
-                <div className="flex-1">
-                  <span className="font-semibold text-gray-700 block mb-1">Estado de Armado</span>
-                  <span className="text-sm text-gray-500">
-                    {assemblyStatus === 'assembled' ? 'Andamio Armado' : 'Andamio Desarmado'}
-                  </span>
-                </div>
-                <div className="relative ml-4">
-                  <input
-                    type="checkbox"
-                    checked={assemblyStatus === 'assembled'}
-                    onChange={handleToggleAssemblyStatus}
-                    disabled={isUpdating}
-                    className="sr-only peer"
-                  />
-                  <div className={`w-14 h-7 rounded-full transition-all duration-300 ${
-                    assemblyStatus === 'assembled' 
-                      ? 'bg-green-500' 
-                      : 'bg-yellow-400'
-                  } ${isUpdating ? 'opacity-50' : ''}`}></div>
-                  <div className={`absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform duration-300 ${
-                    assemblyStatus === 'assembled' ? 'translate-x-7' : 'translate-x-0'
-                  }`}></div>
-                </div>
-              </label>
-            </div>
+            {/* Switch: Activar Armado (solo si está desarmado o en proceso) */}
+            {assemblyStatus !== 'assembled' && (
+              <div className="bg-white p-4 rounded-lg shadow-sm">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div className="flex-1">
+                    <span className="font-semibold text-gray-700 block mb-1">Marcar como Armado</span>
+                    <span className="text-sm text-gray-500">
+                      {assemblyStatus === 'in_progress' 
+                        ? `Completar armado (de ${progressPercentage}% a 100%)`
+                        : 'Activar andamio (0% a 100%)'}
+                    </span>
+                  </div>
+                  <div className="relative ml-4">
+                    <input
+                      type="checkbox"
+                      checked={false}
+                      onChange={handleToggleAssemblyStatus}
+                      disabled={isUpdating}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-14 h-7 rounded-full transition-all duration-300 bg-gray-300 ${isUpdating ? 'opacity-50' : ''}`}></div>
+                    <div className="absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform duration-300"></div>
+                  </div>
+                </label>
+              </div>
+            )}
 
-            {/* Switch Estado de Tarjeta */}
+            {/* Switch: Desarmar (solo si está armado o en proceso) */}
+            {assemblyStatus !== 'disassembled' && (
+              <div className="bg-white p-4 rounded-lg shadow-sm">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div className="flex-1">
+                    <span className="font-semibold text-gray-700 block mb-1">Desarmar Andamio</span>
+                    <span className="text-sm text-gray-500">
+                      Requiere foto y notas de desarmado
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setShowDisassembleConfirm(true)}
+                    disabled={isUpdating}
+                    className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors disabled:bg-gray-400 text-sm font-semibold"
+                  >
+                    Desarmar
+                  </button>
+                </label>
+              </div>
+            )}
+
+            {/* Switch Estado de Tarjeta - Solo disponible si está armado */}
             <div className="bg-white p-4 rounded-lg shadow-sm">
-              <label className={`flex items-center justify-between ${assemblyStatus === 'disassembled' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+              <label className={`flex items-center justify-between ${assemblyStatus !== 'assembled' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                 <div className="flex-1">
                   <span className="font-semibold text-gray-700 block mb-1">Estado de Tarjeta</span>
                   <span className="text-sm text-gray-500">
-                    {cardStatus === 'green' ? 'Tarjeta Verde' : 'Tarjeta Roja'}
+                    {cardStatus === 'green' ? 'Tarjeta Verde ✓' : 'Tarjeta Roja ✗'}
                   </span>
-                  {assemblyStatus === 'disassembled' && (
+                  {assemblyStatus !== 'assembled' && (
                     <span className="block text-xs text-red-600 mt-1">
-                      * Andamio desarmado requiere tarjeta roja
+                      * Solo disponible cuando esté armado al 100%
                     </span>
                   )}
                 </div>
@@ -180,14 +263,14 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
                     type="checkbox"
                     checked={cardStatus === 'green'}
                     onChange={handleToggleCardStatus}
-                    disabled={isUpdating || assemblyStatus === 'disassembled'}
+                    disabled={isUpdating || assemblyStatus !== 'assembled'}
                     className="sr-only peer"
                   />
                   <div className={`w-14 h-7 rounded-full transition-all duration-300 ${
                     cardStatus === 'green' 
                       ? 'bg-green-500' 
                       : 'bg-red-500'
-                  } ${(isUpdating || assemblyStatus === 'disassembled') ? 'opacity-50' : ''}`}></div>
+                  } ${(isUpdating || assemblyStatus !== 'assembled') ? 'opacity-50' : ''}`}></div>
                   <div className={`absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform duration-300 ${
                     cardStatus === 'green' ? 'translate-x-7' : 'translate-x-0'
                   }`}></div>
@@ -284,6 +367,89 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
         </div>
       </div>
 
+      {/* Porcentaje de Avance */}
+      <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 md:p-6 rounded-lg mb-4 md:mb-6 border-2 border-purple-200">
+        <h3 className="font-bold text-dark-blue mb-3 text-base md:text-lg flex items-center gap-2">
+          <span className="text-2xl">📊</span>
+          Porcentaje de Avance
+        </h3>
+        
+        {canEdit && !isEditingProgress ? (
+          <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm">
+            <div className="flex-1">
+              <div className="flex items-center gap-4">
+                <div className="text-4xl font-bold text-purple-600">{progressPercentage}%</div>
+                <div className="flex-1">
+                  <div className="w-full bg-gray-200 rounded-full h-4">
+                    <div 
+                      className="bg-gradient-to-r from-purple-500 to-blue-500 h-4 rounded-full transition-all duration-500"
+                      style={{ width: `${progressPercentage}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsEditingProgress(true)}
+              disabled={isUpdating}
+              className="ml-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors disabled:bg-gray-400"
+            >
+              ✏️ Editar
+            </button>
+          </div>
+        ) : canEdit && isEditingProgress ? (
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div className="flex items-center gap-4 mb-3">
+              <label className="font-semibold text-gray-700">Nuevo porcentaje:</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={tempProgress}
+                onChange={(e) => setTempProgress(Number(e.target.value))}
+                className="border-2 border-purple-300 rounded-lg px-4 py-2 w-24 text-center text-xl font-bold focus:outline-none focus:border-purple-500"
+                disabled={isUpdating}
+              />
+              <span className="text-xl font-bold text-gray-600">%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-4 mb-4">
+              <div 
+                className="bg-gradient-to-r from-purple-500 to-blue-500 h-4 rounded-full transition-all duration-300"
+                style={{ width: `${Math.min(100, Math.max(0, tempProgress))}%` }}
+              ></div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleUpdateProgress}
+                disabled={isUpdating}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors disabled:bg-gray-400 font-semibold"
+              >
+                {isUpdating ? 'Guardando...' : '✓ Guardar'}
+              </button>
+              <button
+                onClick={handleCancelProgressEdit}
+                disabled={isUpdating}
+                className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors disabled:bg-gray-400 font-semibold"
+              >
+                ✗ Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-4 bg-white p-4 rounded-lg shadow-sm">
+            <div className="text-4xl font-bold text-purple-600">{progressPercentage}%</div>
+            <div className="flex-1">
+              <div className="w-full bg-gray-200 rounded-full h-4">
+                <div 
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 h-4 rounded-full transition-all duration-500"
+                  style={{ width: `${progressPercentage}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Información de Montaje */}
       <div className="bg-white border-2 border-green-200 p-3 md:p-4 rounded-lg mb-4 md:mb-6">
         <h3 className="font-bold text-green-700 mb-2 md:mb-3 text-base md:text-lg flex items-center gap-2">
@@ -361,6 +527,13 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Línea de Tiempo - Visible para todos, especialmente útil para clientes */}
+      {user?.role === 'client' && (
+        <div className="mt-6 pt-6 border-t-2 border-gray-200">
+          <ScaffoldTimeline scaffoldId={scaffold.id} />
         </div>
       )}
 
