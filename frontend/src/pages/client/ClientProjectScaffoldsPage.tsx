@@ -155,7 +155,7 @@ const ClientProjectScaffoldsPage: React.FC = () => {
                     </p>
                   )}
                   <p>
-                    <span className="font-semibold">Dimensiones:</span> {scaffold.height}m × {scaffold.width}m × {scaffold.depth}m
+                    <span className="font-semibold">Dimensiones:</span> {scaffold.height}m × {scaffold.width}m × {scaffold.length}m
                   </p>
                   <p>
                     <span className="font-semibold">Volumen:</span> {scaffold.cubic_meters} m³

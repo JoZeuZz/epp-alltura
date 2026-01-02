@@ -106,6 +106,7 @@ function App() {
             <Route path="/admin/users/new" element={<UserFormPage />} />
             <Route path="/admin/users/edit/:id" element={<UserFormPage />} />
             <Route path="/admin/scaffolds" element={<ScaffoldsPage />} />
+            <Route path="/admin/project/:projectId/create-scaffold" element={<CreateScaffoldPage />} />
             <Route path="/admin/profile" element={<ProfilePage />} />
 
             {/* Supervisor Routes */}

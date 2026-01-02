@@ -4,6 +4,7 @@ import { useGet } from '../../hooks/useGet';
 import { Project, Scaffold } from '../../types/api';
 import Modal from '../../components/Modal';
 import ScaffoldDetailsModal from '../../components/ScaffoldDetailsModal';
+import ConfirmationModal from '../../components/ConfirmationModal';
 import { useAuth } from '../../context/AuthContext';
 
 const ProjectScaffoldsPage: React.FC = () => {
@@ -11,12 +12,18 @@ const ProjectScaffoldsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [selectedScaffold, setSelectedScaffold] = useState<Scaffold | null>(null);
+  const [isDisassembleModalOpen, setIsDisassembleModalOpen] = useState(false);
+  const [scaffoldToDisassemble, setScaffoldToDisassemble] = useState<number | null>(null);
 
   const handleDisassembleClick = (scaffoldId: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    const confirmed = window.confirm('¿Estás seguro de que deseas desarmar este andamio? Serás redirigido a un formulario para cargar las pruebas del desarmado (foto y notas).');
-    if (confirmed) {
-      navigate(`/supervisor/scaffold/${scaffoldId}/disassemble?projectId=${projectId}`);
+    setScaffoldToDisassemble(scaffoldId);
+    setIsDisassembleModalOpen(true);
+  };
+
+  const confirmDisassemble = () => {
+    if (scaffoldToDisassemble) {
+      navigate(`/supervisor/scaffold/${scaffoldToDisassemble}/disassemble?projectId=${projectId}`);
     }
   };
 
@@ -159,6 +166,18 @@ const ProjectScaffoldsPage: React.FC = () => {
           />
         )}
       </Modal>
+
+      {/* Disassemble Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={isDisassembleModalOpen}
+        onClose={() => setIsDisassembleModalOpen(false)}
+        onConfirm={confirmDisassemble}
+        title="Desarmar Andamio"
+        message="¿Estás seguro de que deseas desarmar este andamio? Serás redirigido a un formulario para cargar las pruebas del desarmado (foto y notas)."
+        variant="warning"
+        confirmText="Desarmar"
+        cancelText="Cancelar"
+      />
     </div>
   );
 };

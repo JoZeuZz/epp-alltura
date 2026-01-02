@@ -17,7 +17,8 @@ router.get('/', authMiddleware, async (req, res, next) => {
   try {
     let projects;
     if (req.user.role === 'admin') {
-      projects = await Project.getAll();
+      // Admin ve todos los proyectos (activos e inactivos)
+      projects = await Project.getAllIncludingInactive();
     } else if (req.user.role === 'supervisor') {
       // Supervisor ve proyectos donde está asignado + proyectos legacy con project_users
       const assignedProjects = await Project.getByAssignedSupervisor(req.user.id);

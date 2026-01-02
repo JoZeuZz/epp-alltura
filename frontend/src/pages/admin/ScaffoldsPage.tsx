@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import { useGet } from '../../hooks/useGet';
@@ -9,16 +9,16 @@ import ScaffoldFilters from '../../components/ScaffoldFilters';
 import ScaffoldGrid from '../../components/ScaffoldGrid';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import ScaffoldDetailsModal from '../../components/ScaffoldDetailsModal';
-import ScaffoldFormModal from '../../components/ScaffoldFormModal';
 import { Project, Scaffold } from '../../types/api';
 
 const ScaffoldsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [filters, setFilters] = useState({ status: 'all', startDate: '', endDate: '' });
   const [scaffolds, setScaffolds] = useState<Scaffold[]>([]);
   const [selectedScaffold, setSelectedScaffold] = useState<Scaffold | null>(null);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,26 +97,19 @@ const ScaffoldsPage: React.FC = () => {
     setSelectedScaffold(null);
   };
 
-  const handleCreateScaffold = async (formData: FormData) => {
-    try {
-      const token = localStorage.getItem('accessToken');
-      await axios.post('/api/scaffolds', formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      
-      toast.success('Andamio creado correctamente');
-      setIsCreateModalOpen(false);
-      
-      // Recargar los datos
-      window.location.reload();
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.message || 'Error al crear el andamio';
-      toast.error(errorMsg);
-      console.error(err);
+  const handleCreateScaffold = () => {
+    if (!selectedProjectId) {
+      toast.error('Por favor, selecciona un proyecto primero');
+      return;
     }
+    
+    // Verificar si el proyecto está activo
+    if (selectedProject && (!selectedProject.active || !selectedProject.client_active)) {
+      toast.error('No se pueden crear andamios para un proyecto o cliente desactivado');
+      return;
+    }
+    
+    navigate(`/admin/project/${selectedProjectId}/create-scaffold`);
   };
 
   const handleDeleteScaffold = async (scaffoldId: number) => {
@@ -235,7 +228,11 @@ const ScaffoldsPage: React.FC = () => {
           <ProjectSelector
             projects={projects || []}
             selectedProjectId={selectedProjectId}
-            onProjectSelect={setSelectedProjectId}
+            onProjectSelect={(projectId) => {
+              setSelectedProjectId(projectId);
+              const project = projects?.find(p => p.id === parseInt(projectId));
+              setSelectedProject(project || null);
+            }}
           />
         </div>
         <div className="md:col-span-3">
@@ -244,9 +241,19 @@ const ScaffoldsPage: React.FC = () => {
       </div>
 
       <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-2 mb-4">
+        {selectedProject && (!selectedProject.active || !selectedProject.client_active) && (
+          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 mb-2 rounded" role="alert">
+            <p className="font-bold">Proyecto Desactivado</p>
+            <p className="text-sm">
+              {!selectedProject.client_active 
+                ? 'El cliente empresa está desactivado. No se pueden crear ni editar andamios.' 
+                : 'Este proyecto está desactivado. No se pueden crear ni editar andamios.'}
+            </p>
+          </div>
+        )}
         <button
-          onClick={() => setIsCreateModalOpen(true)}
-          disabled={!selectedProjectId}
+          onClick={handleCreateScaffold}
+          disabled={!selectedProjectId || !selectedProject?.active || !selectedProject?.client_active}
           className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 text-sm md:text-base w-full sm:w-auto"
         >
           + Crear Andamio
@@ -292,16 +299,14 @@ const ScaffoldsPage: React.FC = () => {
           <ScaffoldDetailsModal
             scaffold={selectedScaffold}
             onDelete={handleDeleteScaffold}
+            canEdit={true}
+            projectId={selectedProjectId ? Number(selectedProjectId) : undefined}
+            onUpdate={() => {
+              window.location.reload();
+            }}
           />
         )}
       </Modal>
-
-      <ScaffoldFormModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={handleCreateScaffold}
-        projectId={selectedProjectId ? parseInt(selectedProjectId) : undefined}
-      />
     </div>
   );
 };

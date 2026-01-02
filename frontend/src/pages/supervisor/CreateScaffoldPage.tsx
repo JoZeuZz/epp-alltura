@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useGet } from '../../hooks/useGet';
@@ -8,10 +8,15 @@ import { Project } from '../../types/api';
 /**
  * Página para crear un nuevo andamio
  * Incluye todos los campos necesarios: dimensiones, área, TAG, ubicación, etc.
+ * Funciona tanto para supervisor como para admin
  */
 const CreateScaffoldPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const routeLocation = useLocation();
+  
+  // Detectar si es admin o supervisor basado en la ruta
+  const isAdmin = routeLocation.pathname.startsWith('/admin');
 
   const { data: project, isLoading: projectLoading } = useGet<Project>(
     `project-${projectId}`,
@@ -114,7 +119,13 @@ const CreateScaffoldPage: React.FC = () => {
       });
       
       toast.success('Andamio creado correctamente');
-      navigate(`/supervisor/project/${projectId}`);
+      
+      // Redirigir según el rol
+      if (isAdmin) {
+        navigate(`/admin/scaffolds?projectId=${projectId}`);
+      } else {
+        navigate(`/supervisor/project/${projectId}`);
+      }
     } catch (error: any) {
       console.error('Failed to create scaffold', error);
       const errorMsg = error?.response?.data?.message || 'Error al crear el andamio';
@@ -132,6 +143,28 @@ const CreateScaffoldPage: React.FC = () => {
     );
   }
 
+  // Verificar si el proyecto está desactivado
+  if (project && (!project.active || !project.client_active)) {
+    return (
+      <div className="max-w-4xl mx-auto p-4 md:p-6">
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded">
+          <h2 className="text-xl font-bold mb-2">Proyecto Desactivado</h2>
+          <p className="mb-4">
+            {!project.client_active 
+              ? 'El cliente empresa está desactivado. No se pueden crear andamios.' 
+              : 'Este proyecto está desactivado. No se pueden crear andamios.'}
+          </p>
+          <button
+            onClick={() => navigate(isAdmin ? '/admin/scaffolds' : '/supervisor')}
+            className="bg-primary-blue text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
+            Volver
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Header */}
@@ -139,7 +172,13 @@ const CreateScaffoldPage: React.FC = () => {
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <button
-              onClick={() => navigate(`/supervisor/project/${projectId}`)}
+              onClick={() => {
+                if (isAdmin) {
+                  navigate(`/admin/scaffolds?projectId=${projectId}`);
+                } else {
+                  navigate(`/supervisor/project/${projectId}`);
+                }
+              }}
               className="flex items-center gap-2 text-primary-blue hover:text-blue-700"
             >
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

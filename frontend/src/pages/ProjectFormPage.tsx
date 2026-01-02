@@ -85,12 +85,12 @@ const ProjectFormPage: React.FC = () => {
       setIsSaving(true);
       if (isEditing) {
         // `updateProject` espera el payload con el `id`
-        await updateProject.mutateAsync({ ...projectData, id: Number(id) });
+        await updateProject.mutateAsync({ ...projectData, id: Number(id) } as any);
         await assignUsers.mutateAsync({ userIds: assignedSupervisors });
         toast.success('Proyecto actualizado con éxito.');
       } else {
         // `createProject` espera los datos sin `id`
-        const projectResponse = await createProject.mutateAsync(projectData);
+        const projectResponse = await createProject.mutateAsync(projectData as any);
         await post(`/projects/${projectResponse.id}/users`, { userIds: assignedSupervisors });
         toast.success('Proyecto creado con éxito.');
       }

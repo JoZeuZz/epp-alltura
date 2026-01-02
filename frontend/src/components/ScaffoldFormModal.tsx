@@ -164,7 +164,7 @@ export const ScaffoldFormModal: React.FC<ScaffoldFormModalProps> = ({
 
       // Agregar imagen si existe
       if (initialImage) {
-        submitData.append('initial_image', initialImage);
+        submitData.append('assembly_image', initialImage);
       }
 
       await onSubmit(submitData);

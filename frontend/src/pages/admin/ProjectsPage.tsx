@@ -17,6 +17,7 @@ const ProjectsPage: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
 
   const { data: projects, isLoading: projectsLoading } = useGet<Project[]>('projects', '/projects');
   const { data: clients, isLoading: clientsLoading } = useGet<Client[]>('clients', '/clients');
@@ -124,6 +125,14 @@ const ProjectsPage: React.FC = () => {
 
   const isLoading = projectsLoading || clientsLoading || usersLoading;
 
+  // Filtrar proyectos según el estado del checkbox
+  const filteredProjects = projects?.filter(project => {
+    if (showInactive) {
+      return true; // Mostrar todos
+    }
+    return project.active && project.client_active; // Solo activos
+  }) || [];
+
   if (isLoading) {
     return <p>Cargando proyectos...</p>;
   }
@@ -132,18 +141,32 @@ const ProjectsPage: React.FC = () => {
     <div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 md:mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-dark-blue">Gestión de Proyectos</h1>
-        <button
-          onClick={() => handleOpenModal()}
-          className="bg-primary-blue text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base w-full sm:w-auto"
-        >
-          + Añadir Proyecto
-        </button>
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <label className="flex items-center gap-2 text-sm text-gray-700 bg-gray-100 px-3 py-2 rounded-lg">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+              className="w-4 h-4 text-primary-blue border-gray-300 rounded focus:ring-primary-blue"
+            />
+            Mostrar desactivados
+          </label>
+          <button
+            onClick={() => handleOpenModal()}
+            className="bg-primary-blue text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base w-full sm:w-auto"
+          >
+            + Añadir Proyecto
+          </button>
+        </div>
       </div>
 
       <div className="bg-white shadow-md rounded-lg overflow-x-auto">
         <table className="min-w-full leading-normal">
           <thead>
             <tr>
+              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                Activo
+              </th>
               <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Nombre del Proyecto
               </th>
@@ -159,8 +182,19 @@ const ProjectsPage: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {projects?.map((project) => (
-              <tr key={project.id}>
+            {filteredProjects.map((project) => (
+              <tr key={project.id} className={!project.active || !project.client_active ? 'bg-gray-50 opacity-60' : ''}>
+                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                  {project.active && project.client_active ? (
+                    <span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">
+                      Activo
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">
+                      {!project.client_active ? 'Cliente desact.' : 'Desactivado'}
+                    </span>
+                  )}
+                </td>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                   <p className="text-gray-900 whitespace-no-wrap">{project.name}</p>
                 </td>
