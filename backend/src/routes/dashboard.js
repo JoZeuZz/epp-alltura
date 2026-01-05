@@ -12,13 +12,37 @@ router.use(isAdmin);
 // GET /api/dashboard/summary
 router.get('/summary', async (req, res) => {
   try {
-    // Total de metros cúbicos (actualizado: solo andamios armados)
-    const totalCubicMetersRes = await db.query("SELECT SUM(cubic_meters) as total FROM scaffolds WHERE assembly_status = 'assembled'");
-    const totalCubicMeters = parseFloat(totalCubicMetersRes.rows[0].total) || 0;
+    // Estadísticas de metros cúbicos por estado
+    const cubicMetersStatsRes = await db.query(`
+      SELECT 
+        SUM(CASE WHEN assembly_status = 'assembled' THEN cubic_meters ELSE 0 END) as assembled_cubic_meters,
+        SUM(CASE WHEN assembly_status = 'disassembled' THEN cubic_meters ELSE 0 END) as disassembled_cubic_meters,
+        SUM(CASE WHEN assembly_status = 'in_progress' THEN cubic_meters ELSE 0 END) as in_progress_cubic_meters,
+        SUM(cubic_meters) as total_cubic_meters
+      FROM scaffolds
+    `);
+    const cubicStats = cubicMetersStatsRes.rows[0];
+
+    // Estadísticas de andamios por estado
+    const scaffoldStatsRes = await db.query(`
+      SELECT 
+        COUNT(*) FILTER (WHERE assembly_status = 'assembled') as assembled_count,
+        COUNT(*) FILTER (WHERE assembly_status = 'disassembled') as disassembled_count,
+        COUNT(*) FILTER (WHERE assembly_status = 'in_progress') as in_progress_count,
+        COUNT(*) as total_scaffolds,
+        COUNT(*) FILTER (WHERE card_status = 'green') as green_cards_count,
+        COUNT(*) FILTER (WHERE card_status = 'red') as red_cards_count
+      FROM scaffolds
+    `);
+    const scaffoldStats = scaffoldStatsRes.rows[0];
 
     // Proyectos activos
     const activeProjectsRes = await db.query("SELECT COUNT(*) as total FROM projects WHERE status = 'active'");
     const activeProjects = parseInt(activeProjectsRes.rows[0].total, 10);
+
+    // Clientes activos
+    const activeClientsRes = await db.query("SELECT COUNT(*) as total FROM clients WHERE active = true");
+    const activeClients = parseInt(activeClientsRes.rows[0].total, 10);
 
     // Andamios creados en las últimas 24 horas
     const recentScaffoldsCountRes = await db.query("SELECT COUNT(*) as total FROM scaffolds WHERE assembly_created_at >= NOW() - INTERVAL '24 hours'");
@@ -39,8 +63,25 @@ router.get('/summary', async (req, res) => {
     const recentScaffolds = recentScaffoldsRes.rows;
 
     res.json({
+      // Métricas de proyectos y clientes
       activeProjects,
-      totalCubicMeters,
+      activeClients,
+      
+      // Métricas de metros cúbicos
+      totalCubicMeters: parseFloat(cubicStats.total_cubic_meters) || 0,
+      assembledCubicMeters: parseFloat(cubicStats.assembled_cubic_meters) || 0,
+      disassembledCubicMeters: parseFloat(cubicStats.disassembled_cubic_meters) || 0,
+      inProgressCubicMeters: parseFloat(cubicStats.in_progress_cubic_meters) || 0,
+      
+      // Métricas de andamios
+      totalScaffolds: parseInt(scaffoldStats.total_scaffolds, 10) || 0,
+      assembledScaffolds: parseInt(scaffoldStats.assembled_count, 10) || 0,
+      disassembledScaffolds: parseInt(scaffoldStats.disassembled_count, 10) || 0,
+      inProgressScaffolds: parseInt(scaffoldStats.in_progress_count, 10) || 0,
+      greenCards: parseInt(scaffoldStats.green_cards_count, 10) || 0,
+      redCards: parseInt(scaffoldStats.red_cards_count, 10) || 0,
+      
+      // Andamios recientes
       recentScaffoldsCount,
       recentScaffolds
     });

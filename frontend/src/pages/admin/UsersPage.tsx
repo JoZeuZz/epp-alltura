@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGet } from '../../hooks/useGet';
 import { usePost, usePut, useDelete } from '../../hooks/useMutate';
 import { User } from '../../types/api';
@@ -7,6 +8,7 @@ import Modal from '../../components/Modal';
 import ConfirmationModal from '../../components/ConfirmationModal';
 
 const UsersPage: React.FC = () => {
+  const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -171,7 +173,16 @@ const UsersPage: React.FC = () => {
                     {user.role === 'client' && 'Usuario Cliente'}
                   </span>
                 </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm whitespace-nowrap">
+                  {(user.role === 'admin' || user.role === 'supervisor') && (
+                    <button
+                      onClick={() => navigate(`/admin/users/${user.id}/history`)}
+                      className="text-purple-600 hover:text-purple-900 mr-4"
+                      title="Ver historial de cambios"
+                    >
+                      Historial
+                    </button>
+                  )}
                   <button
                     onClick={() => handleOpenModal(user)}
                     className="text-indigo-600 hover:text-indigo-900 mr-4"

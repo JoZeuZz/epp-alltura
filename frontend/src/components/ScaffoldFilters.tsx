@@ -37,6 +37,7 @@ export default function ScaffoldFilters({ filters, onFilterChange }: ScaffoldFil
           >
             <option value="all">Todos</option>
             <option value="assembled">Armado</option>
+            <option value="in_progress">En Proceso</option>
             <option value="disassembled">Desarmado</option>
           </select>
         </div>

@@ -172,7 +172,7 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
           <h3 className="font-bold text-dark-blue mb-4 text-base md:text-lg">Control de Estados</h3>
           
           {/* Indicador de Estado Actual */}
-          <div className="mb-4 p-4 bg-white rounded-lg shadow-sm border-l-4 {assemblyStatus === 'assembled' ? 'border-green-500' : assemblyStatus === 'in_progress' ? 'border-yellow-500' : 'border-gray-500'}">
+          <div className={`mb-4 p-4 bg-white rounded-lg shadow-sm border-l-4 ${assemblyStatus === 'assembled' ? 'border-green-500' : assemblyStatus === 'in_progress' ? 'border-yellow-500' : 'border-gray-500'}`}>
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-sm text-gray-600 block">Estado Actual:</span>
@@ -182,7 +182,7 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
                   'text-gray-700'
                 }`}>
                   {assemblyStatus === 'assembled' ? '✅ Armado (100%)' : 
-                   assemblyStatus === 'in_progress' ? '🔄 En Proceso' : 
+                   assemblyStatus === 'in_progress' ? `🔄 En Proceso (${progressPercentage}%)` : 
                    '⚫ Desarmado (0%)'}
                 </span>
               </div>

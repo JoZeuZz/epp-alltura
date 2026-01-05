@@ -165,9 +165,6 @@ const ProjectsPage: React.FC = () => {
           <thead>
             <tr>
               <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Activo
-              </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Nombre del Proyecto
               </th>
               <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -185,28 +182,23 @@ const ProjectsPage: React.FC = () => {
             {filteredProjects.map((project) => (
               <tr key={project.id} className={!project.active || !project.client_active ? 'bg-gray-50 opacity-60' : ''}>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  {project.active && project.client_active ? (
-                    <span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">
-                      Activo
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">
-                      {!project.client_active ? 'Cliente desact.' : 'Desactivado'}
-                    </span>
-                  )}
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                   <p className="text-gray-900 whitespace-no-wrap">{project.name}</p>
                 </td>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                   <p className="text-gray-900 whitespace-no-wrap">{project.client_name}</p>
                 </td>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <span
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${project.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}
-                  >
-                    {project.status === 'active' ? 'Activo' : 'Completado'}
-                  </span>
+                  {!project.active || !project.client_active ? (
+                    <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">
+                      {!project.client_active ? 'Cliente desact.' : 'Desactivado'}
+                    </span>
+                  ) : (
+                    <span
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${project.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}
+                    >
+                      {project.status === 'active' ? 'Activo' : 'Completado'}
+                    </span>
+                  )}
                 </td>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm whitespace-nowrap">
                   <button
