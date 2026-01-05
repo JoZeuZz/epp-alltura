@@ -99,11 +99,15 @@ const Scaffold = {
         s.*, 
         u.first_name || ' ' || u.last_name as user_name,
         creator.first_name || ' ' || creator.last_name as created_by_name,
-        p.name as project_name
+        p.name as project_name,
+        c.name as company_name,
+        supervisor.first_name || ' ' || supervisor.last_name as supervisor_name
       FROM scaffolds s 
       JOIN users u ON s.user_id = u.id 
       LEFT JOIN users creator ON s.created_by = creator.id
       LEFT JOIN projects p ON s.project_id = p.id
+      LEFT JOIN clients c ON p.client_id = c.id
+      LEFT JOIN users supervisor ON p.assigned_supervisor_id = supervisor.id
       WHERE s.project_id = $1 
       ORDER BY s.assembly_created_at DESC
     `;

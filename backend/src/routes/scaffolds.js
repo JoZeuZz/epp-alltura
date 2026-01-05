@@ -98,6 +98,22 @@ router.get('/my-history', async (req, res, next) => {
 });
 
 /**
+ * @route   GET /api/scaffolds/user-history/:userId
+ * @desc    Obtener historial de cambios de un usuario específico (solo admin)
+ * @access  Private (Admin only)
+ */
+router.get('/user-history/:userId', isAdmin, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const history = await ScaffoldHistory.getByUser(parseInt(userId));
+    res.json(history);
+  } catch (err) {
+    logger.error(`Error al obtener historial del usuario ${req.params.userId}: ${err.message}`, err);
+    next(err);
+  }
+});
+
+/**
  * @route   GET /api/scaffolds/:id
  * @desc    Obtener un andamio específico por ID
  * @access  Private
@@ -496,6 +512,23 @@ router.post('/', isAdminOrSupervisor, upload.single('assembly_image'), async (re
     // Calcular metros cúbicos
     const cubic_meters = parseFloat(height) * parseFloat(width) * parseFloat(length);
 
+    // Determinar assembly_status basado en progress_percentage
+    let assembly_status = 'disassembled';
+    let card_status = 'red';
+    
+    if (progress_percentage !== undefined && progress_percentage !== null) {
+      if (progress_percentage === 100) {
+        assembly_status = 'assembled';
+        card_status = 'green';
+      } else if (progress_percentage > 0 && progress_percentage < 100) {
+        assembly_status = 'in_progress';
+        card_status = 'red';
+      } else {
+        assembly_status = 'disassembled';
+        card_status = 'red';
+      }
+    }
+
     // Crear andamio usando el modelo
     const scaffold = await Scaffold.create({
       project_id,
@@ -507,11 +540,11 @@ router.post('/', isAdminOrSupervisor, upload.single('assembly_image'), async (re
       width,
       length,
       cubic_meters,
-      progress_percentage,
+      progress_percentage: progress_percentage || 0,
       assembly_notes,
       assembly_image_url: assemblyImageUrl,
-      card_status: 'red', // Por defecto: roja
-      assembly_status: 'disassembled', // Por defecto: desarmado
+      card_status,
+      assembly_status,
     });
 
     // Registrar creación en historial

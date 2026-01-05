@@ -11,6 +11,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import ClientsPage from './pages/admin/ClientsPage';
 import ProjectsPage from './pages/admin/ProjectsPage';
 import UsersPage from './pages/admin/UsersPage';
+import UserHistoryPage from './pages/admin/UserHistoryPage';
 import ScaffoldsPage from './pages/admin/ScaffoldsPage';
 
 // Supervisor Pages
@@ -103,6 +104,7 @@ function App() {
             <Route path="/admin/clients" element={<ClientsPage />} />
             <Route path="/admin/projects" element={<ProjectsPage />} />
             <Route path="/admin/users" element={<UsersPage />} />
+            <Route path="/admin/users/:userId/history" element={<UserHistoryPage />} />
             <Route path="/admin/users/new" element={<UserFormPage />} />
             <Route path="/admin/users/edit/:id" element={<UserFormPage />} />
             <Route path="/admin/scaffolds" element={<ScaffoldsPage />} />

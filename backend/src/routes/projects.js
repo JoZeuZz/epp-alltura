@@ -283,9 +283,17 @@ router.get('/:id/report/pdf', async (req, res, next) => {
     let query = `
       SELECT 
         s.*,
-        u.first_name || ' ' || u.last_name as user_name
+        u.first_name || ' ' || u.last_name as user_name,
+        creator.first_name || ' ' || creator.last_name as created_by_name,
+        creator.role as creator_role,
+        c.name as company_name,
+        supervisor.first_name || ' ' || supervisor.last_name as supervisor_name
       FROM scaffolds s
       JOIN users u ON s.user_id = u.id
+      LEFT JOIN users creator ON s.created_by = creator.id
+      LEFT JOIN projects p ON s.project_id = p.id
+      LEFT JOIN clients c ON p.client_id = c.id
+      LEFT JOIN users supervisor ON p.assigned_supervisor_id = supervisor.id
       WHERE s.project_id = $1
     `;
     
@@ -293,7 +301,7 @@ router.get('/:id/report/pdf', async (req, res, next) => {
     
     // Aplicar filtro de estado
     if (filters.status && filters.status !== 'all') {
-      query += ` AND s.status = $${queryParams.length + 1}`;
+      query += ` AND s.assembly_status = $${queryParams.length + 1}`;
       queryParams.push(filters.status);
     }
     
@@ -335,9 +343,17 @@ router.get('/:id/report/excel', async (req, res, next) => {
     const { rows: scaffolds } = await db.query(`
       SELECT 
         s.*,
-        u.first_name || ' ' || u.last_name as user_name
+        u.first_name || ' ' || u.last_name as user_name,
+        creator.first_name || ' ' || creator.last_name as created_by_name,
+        creator.role as creator_role,
+        c.name as company_name,
+        supervisor.first_name || ' ' || supervisor.last_name as supervisor_name
       FROM scaffolds s
       JOIN users u ON s.user_id = u.id
+      LEFT JOIN users creator ON s.created_by = creator.id
+      LEFT JOIN projects p ON s.project_id = p.id
+      LEFT JOIN clients c ON p.client_id = c.id
+      LEFT JOIN users supervisor ON p.assigned_supervisor_id = supervisor.id
       WHERE s.project_id = $1
       ORDER BY s.assembly_created_at DESC
     `, [projectId]);

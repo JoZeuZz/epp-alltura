@@ -132,10 +132,16 @@ const ProjectScaffoldsPage: React.FC = () => {
                     className={`capitalize px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-full whitespace-nowrap ${
                       scaffold.assembly_status === 'assembled' 
                         ? 'bg-green-100 text-green-800' 
+                        : scaffold.assembly_status === 'in_progress'
+                        ? 'bg-blue-100 text-blue-800'
                         : 'bg-yellow-100 text-yellow-800'
                     }`}
                   >
-                    {scaffold.assembly_status === 'assembled' ? 'Armado' : 'Desarmado'}
+                    {scaffold.assembly_status === 'assembled' 
+                      ? 'Armado' 
+                      : scaffold.assembly_status === 'in_progress'
+                      ? `En Proceso (${scaffold.progress_percentage || 0}%)`
+                      : 'Desarmado'}
                   </span>
                   {scaffold.assembly_status === 'assembled' && (
                     <button

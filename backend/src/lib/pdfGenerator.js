@@ -139,32 +139,70 @@ function generateScaffoldsPDF(project, scaffolds, res, filters = {}) {
 
   // Calcular estadísticas
   const totalCubicMeters = scaffolds.reduce((sum, s) => sum + parseFloat(s.cubic_meters), 0);
-  const assembledCount = scaffolds.filter(s => s.status === 'assembled').length;
-  const disassembledCount = scaffolds.filter(s => s.status === 'disassembled').length;
+  const assembledCount = scaffolds.filter(s => s.assembly_status === 'assembled').length;
+  const inProgressCount = scaffolds.filter(s => s.assembly_status === 'in_progress').length;
+  const disassembledCount = scaffolds.filter(s => s.assembly_status === 'disassembled').length;
+  const assembledM3 = scaffolds.filter(s => s.assembly_status === 'assembled').reduce((sum, s) => sum + parseFloat(s.cubic_meters), 0);
+  const greenCards = scaffolds.filter(s => s.card_status === 'green').length;
+  const redCards = scaffolds.filter(s => s.card_status === 'red').length;
 
   // Tarjetas de estadísticas
   const cardY = 160;
-  const cardWidth = 150;
+  const cardWidth = 140;
   const cardHeight = 80;
-  const cardGap = 20;
+  const cardGap = 15;
 
+  // Primera fila de tarjetas
   // Tarjeta 1: Total Andamios
   drawStatCard(doc, 40, cardY, cardWidth, cardHeight, 
     scaffolds.length.toString(), 
-    'Total de Andamios\nReportados', 
+    'Total de Andamios', 
     COLORS.primary);
 
-  // Tarjeta 2: Metros Cúbicos
+  // Tarjeta 2: Armados
   drawStatCard(doc, 40 + cardWidth + cardGap, cardY, cardWidth, cardHeight, 
-    `${totalCubicMeters.toFixed(2)} m³`, 
-    'Total Metros\nCúbicos', 
+    assembledCount.toString(), 
+    'Armados', 
+    COLORS.accent);
+
+  // Tarjeta 3: En Proceso
+  drawStatCard(doc, 40 + (cardWidth + cardGap) * 2, cardY, cardWidth, cardHeight, 
+    inProgressCount.toString(), 
+    'En Proceso', 
+    '#f59e0b');
+
+  // Tarjeta 4: Desarmados
+  drawStatCard(doc, 40 + (cardWidth + cardGap) * 3, cardY, cardWidth, cardHeight, 
+    disassembledCount.toString(), 
+    'Desarmados', 
+    '#ef4444');
+
+  // Segunda fila de tarjetas
+  const secondRowY = cardY + cardHeight + 20;
+
+  // Tarjeta 5: Total m³
+  drawStatCard(doc, 40, secondRowY, cardWidth, cardHeight, 
+    `${totalCubicMeters.toFixed(1)} m³`, 
+    'Total Metros Cúbicos', 
     COLORS.secondary);
 
-  // Tarjeta 3: Armados
-  drawStatCard(doc, 40 + (cardWidth + cardGap) * 2, cardY, cardWidth, cardHeight, 
-    assembledCount.toString(), 
-    'Andamios\nArmados', 
+  // Tarjeta 6: m³ Armados
+  drawStatCard(doc, 40 + cardWidth + cardGap, secondRowY, cardWidth, cardHeight, 
+    `${assembledM3.toFixed(1)} m³`, 
+    'm³ Armados', 
     COLORS.accent);
+
+  // Tarjeta 7: Tarjetas Verdes
+  drawStatCard(doc, 40 + (cardWidth + cardGap) * 2, secondRowY, cardWidth, cardHeight, 
+    greenCards.toString(), 
+    'Tarjetas Verdes', 
+    '#10b981');
+
+  // Tarjeta 8: Tarjetas Rojas
+  drawStatCard(doc, 40 + (cardWidth + cardGap) * 3, secondRowY, cardWidth, cardHeight, 
+    redCards.toString(), 
+    'Tarjetas Rojas', 
+    '#ef4444');
 
   // Nueva página para el listado
   doc.addPage();
@@ -207,7 +245,10 @@ function generateScaffoldsPDF(project, scaffolds, res, filters = {}) {
       .fill();
 
     // Borde de la caja con color según estado
-    const borderColor = scaffold.status === 'assembled' ? COLORS.accent : '#f59e0b';
+    let borderColor = COLORS.accent; // assembled
+    if (scaffold.assembly_status === 'in_progress') borderColor = '#f59e0b';
+    if (scaffold.assembly_status === 'disassembled') borderColor = '#ef4444';
+    
     doc
       .strokeColor(borderColor)
       .lineWidth(2)
@@ -226,20 +267,45 @@ function generateScaffoldsPDF(project, scaffolds, res, filters = {}) {
       .fillColor('#ffffff')
       .text(`Andamio #${index + 1}`, 50, currentY + 8);
 
-    // Estado badge
-    const statusX = doc.page.width - 140;
-    const statusColor = scaffold.status === 'assembled' ? COLORS.accent : '#f59e0b';
+    // Estado badge - assembly_status
+    const statusX = doc.page.width - 220;
+    let statusColor = COLORS.accent;
+    let statusText = 'ARMADO';
+    
+    if (scaffold.assembly_status === 'in_progress') {
+      statusColor = '#f59e0b';
+      statusText = 'EN PROCESO';
+    } else if (scaffold.assembly_status === 'disassembled') {
+      statusColor = '#ef4444';
+      statusText = 'DESARMADO';
+    }
+    
     doc
       .fillColor(statusColor)
-      .rect(statusX, currentY + 5, 90, 20)
+      .rect(statusX, currentY + 5, 95, 20)
       .fill();
     
     doc
       .fontSize(9)
       .font('Helvetica-Bold')
       .fillColor('#ffffff')
-      .text(scaffold.status === 'assembled' ? 'ARMADO' : 'DESARMADO', 
-        statusX + 5, currentY + 10, { width: 80, align: 'center' });
+      .text(statusText, statusX + 5, currentY + 10, { width: 85, align: 'center' });
+
+    // Badge de tarjeta - card_status
+    const cardBadgeX = doc.page.width - 115;
+    const cardColor = scaffold.card_status === 'green' ? '#10b981' : '#ef4444';
+    const cardText = scaffold.card_status === 'green' ? 'VERDE' : 'ROJA';
+    
+    doc
+      .fillColor(cardColor)
+      .rect(cardBadgeX, currentY + 5, 70, 20)
+      .fill();
+    
+    doc
+      .fontSize(8)
+      .font('Helvetica-Bold')
+      .fillColor('#ffffff')
+      .text(cardText, cardBadgeX + 5, currentY + 10, { width: 60, align: 'center' });
 
     // Contenido de la caja - columna izquierda
     let contentY = currentY + 40;
@@ -267,32 +333,41 @@ function generateScaffoldsPDF(project, scaffolds, res, filters = {}) {
 
     if (scaffold.company_name) {
       doc.font('Helvetica').fillColor(COLORS.textLight)
-         .text('Solicitante: ', 50, contentY, { continued: true })
+         .text('Empresa: ', 50, contentY, { continued: true })
          .font('Helvetica-Bold').fillColor(COLORS.text).text(scaffold.company_name);
       contentY += 15;
     }
 
-    if (scaffold.end_user_name) {
+    // Determinar supervisor de obra según lógica:
+    // - Si lo creó un admin, usar supervisor del proyecto
+    // - Si lo creó un supervisor, usar ese supervisor
+    const supervisorObra = scaffold.creator_role === 'admin' 
+      ? (scaffold.supervisor_name || '')
+      : (scaffold.created_by_name || scaffold.user_name || '');
+    
+    if (supervisorObra) {
       doc.font('Helvetica').fillColor(COLORS.textLight)
-         .text('Usuario: ', 50, contentY, { continued: true })
-         .font('Helvetica-Bold').fillColor(COLORS.text).text(scaffold.end_user_name);
+         .text('Supervisor Obra: ', 50, contentY, { continued: true })
+         .font('Helvetica-Bold').fillColor(COLORS.text).text(supervisorObra);
       contentY += 15;
     }
 
-    if (scaffold.supervisor_name) {
+    // Creado por
+    if (scaffold.created_by_name) {
       doc.font('Helvetica').fillColor(COLORS.textLight)
-         .text('Supervisor: ', 50, contentY, { continued: true })
-         .font('Helvetica-Bold').fillColor(COLORS.text).text(scaffold.supervisor_name);
+         .text('Creado por: ', 50, contentY, { continued: true })
+         .font('Helvetica-Bold').fillColor(COLORS.text).text(scaffold.created_by_name);
     }
 
     // Contenido de la caja - columna derecha
     contentY = currentY + 40;
     const rightColX = 320;
 
+    const length = scaffold.length || scaffold.depth;
     doc.font('Helvetica').fillColor(COLORS.textLight)
        .text('Dimensiones: ', rightColX, contentY, { continued: true })
        .font('Helvetica-Bold').fillColor(COLORS.text)
-       .text(`${scaffold.height}m x ${scaffold.width}m x ${scaffold.depth}m`);
+       .text(`${scaffold.height}m x ${scaffold.width}m x ${length}m`);
     contentY += 15;
 
     doc.font('Helvetica').fillColor(COLORS.textLight)
@@ -302,13 +377,7 @@ function generateScaffoldsPDF(project, scaffolds, res, filters = {}) {
     contentY += 15;
 
     doc.font('Helvetica').fillColor(COLORS.textLight)
-       .text('Supervisor: ', rightColX, contentY, { continued: true })
-       .font('Helvetica-Bold').fillColor(COLORS.text)
-       .text(scaffold.user_name);
-    contentY += 15;
-
-    doc.font('Helvetica').fillColor(COLORS.textLight)
-       .text('Fecha: ', rightColX, contentY, { continued: true })
+       .text('Fecha Creación: ', rightColX, contentY, { continued: true })
        .font('Helvetica-Bold').fillColor(COLORS.text)
        .text(new Date(scaffold.assembly_created_at).toLocaleDateString('es-CL'));
     contentY += 15;
@@ -317,6 +386,14 @@ function generateScaffoldsPDF(project, scaffolds, res, filters = {}) {
        .text('Progreso: ', rightColX, contentY, { continued: true })
        .font('Helvetica-Bold').fillColor(COLORS.text)
        .text(`${scaffold.progress_percentage}%`);
+    contentY += 15;
+
+    // Estado de tarjeta
+    const tarjetaEstado = scaffold.card_status === 'green' ? 'Verde' : 'Roja';
+    doc.font('Helvetica').fillColor(COLORS.textLight)
+       .text('Tarjeta: ', rightColX, contentY, { continued: true })
+       .font('Helvetica-Bold').fillColor(scaffold.card_status === 'green' ? '#10b981' : '#ef4444')
+       .text(tarjetaEstado);
 
     // Notas si existen
     if (scaffold.assembly_notes) {

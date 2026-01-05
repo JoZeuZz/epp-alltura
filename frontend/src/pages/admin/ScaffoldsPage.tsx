@@ -74,7 +74,7 @@ const ScaffoldsPage: React.FC = () => {
 
     // Filter by status
     if (filters.status !== 'all') {
-      filtered = filtered.filter((s) => s.status === filters.status);
+      filtered = filtered.filter((s) => s.assembly_status === filters.status);
     }
 
     // Filter by date range
@@ -219,67 +219,209 @@ const ScaffoldsPage: React.FC = () => {
 
   const isLoading = projectsLoading || scaffoldsLoading;
 
+  // Calcular estadísticas para mostrar
+  const stats = {
+    total: scaffolds.length,
+    assembled: scaffolds.filter(s => s.assembly_status === 'assembled').length,
+    inProgress: scaffolds.filter(s => s.assembly_status === 'in_progress').length,
+    disassembled: scaffolds.filter(s => s.assembly_status === 'disassembled').length,
+    totalM3: scaffolds.reduce((sum, s) => sum + (Number(s.cubic_meters) || 0), 0),
+    assembledM3: scaffolds
+      .filter(s => s.assembly_status === 'assembled')
+      .reduce((sum, s) => sum + (Number(s.cubic_meters) || 0), 0),
+    greenCards: scaffolds.filter(s => s.card_status === 'green').length,
+    redCards: scaffolds.filter(s => s.card_status === 'red').length,
+  };
+
   return (
-    <div>
-      <h1 className="text-2xl md:text-3xl font-bold text-dark-blue mb-4 md:mb-6">Visualizador de Andamios</h1>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-4 md:mb-6">
-        <div className="md:col-span-1">
-          <ProjectSelector
-            projects={projects || []}
-            selectedProjectId={selectedProjectId}
-            onProjectSelect={(projectId) => {
-              setSelectedProjectId(projectId);
-              const project = projects?.find(p => p.id === parseInt(projectId));
-              setSelectedProject(project || null);
-            }}
-          />
-        </div>
-        <div className="md:col-span-3">
-          <ScaffoldFilters filters={filters} onFilterChange={setFilters} />
-        </div>
+    <div className="space-y-6">
+      {/* Header con título y descripción */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg p-6 shadow-lg text-white">
+        <h1 className="text-3xl md:text-4xl font-bold mb-2">Visualizador de Andamios</h1>
+        <p className="text-blue-100 text-sm md:text-base">
+          Gestiona y visualiza todos los andamios del proyecto
+        </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-2 mb-4">
-        {selectedProject && (!selectedProject.active || !selectedProject.client_active) && (
-          <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-3 mb-2 rounded" role="alert">
-            <p className="font-bold">Proyecto Desactivado</p>
-            <p className="text-sm">
-              {!selectedProject.client_active 
-                ? 'El cliente empresa está desactivado. No se pueden crear ni editar andamios.' 
-                : 'Este proyecto está desactivado. No se pueden crear ni editar andamios.'}
-            </p>
+      {/* Selectores y Filtros */}
+      <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+        <h2 className="text-lg font-semibold text-dark-blue mb-4">Seleccionar Proyecto</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="md:col-span-1">
+            <ProjectSelector
+              projects={projects || []}
+              selectedProjectId={selectedProjectId}
+              onProjectSelect={(projectId) => {
+                setSelectedProjectId(projectId);
+                const project = projects?.find(p => p.id === parseInt(projectId));
+                setSelectedProject(project || null);
+              }}
+            />
           </div>
-        )}
-        <button
-          onClick={handleCreateScaffold}
-          disabled={!selectedProjectId || !selectedProject?.active || !selectedProject?.client_active}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-400 text-sm md:text-base w-full sm:w-auto"
-        >
-          + Crear Andamio
-        </button>
-        <button
-          onClick={handleExportPDF}
-          disabled={!selectedProjectId || exporting}
-          className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 disabled:bg-gray-400 text-sm md:text-base w-full sm:w-auto"
-        >
-          {exporting ? 'Generando...' : 'Exportar a PDF'}
-        </button>
-        <button
-          onClick={handleExportExcel}
-          disabled={!selectedProjectId || exportingExcel}
-          className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 disabled:bg-gray-400 text-sm md:text-base w-full sm:w-auto"
-        >
-          {exportingExcel ? 'Generando...' : 'Exportar a Excel'}
-        </button>
+          <div className="md:col-span-3">
+            <ScaffoldFilters filters={filters} onFilterChange={setFilters} />
+          </div>
+        </div>
       </div>
 
-      {error && <p className="text-red-500 bg-red-100 p-3 rounded-lg mb-4">{error}</p>}
+      {/* Alerta de proyecto desactivado */}
+      {selectedProject && (!selectedProject.active || !selectedProject.client_active) && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-md">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-yellow-800">Proyecto Desactivado</p>
+              <p className="mt-1 text-sm text-yellow-700">
+                {!selectedProject.client_active 
+                  ? 'El cliente empresa está desactivado. No se pueden crear ni editar andamios.' 
+                  : 'Este proyecto está desactivado. No se pueden crear ni editar andamios.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {/* Estadísticas del proyecto */}
+      {selectedProjectId && scaffolds.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+          <h2 className="text-lg font-semibold text-dark-blue mb-4">Estadísticas del Proyecto</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+            {/* Total Andamios */}
+            <div className="bg-gray-50 rounded-lg p-3 border-l-4 border-gray-500">
+              <p className="text-xs text-gray-600 mb-1">Total</p>
+              <p className="text-2xl font-bold text-gray-700">{stats.total}</p>
+            </div>
+            
+            {/* Armados */}
+            <div className="bg-green-50 rounded-lg p-3 border-l-4 border-green-500">
+              <p className="text-xs text-green-700 mb-1">Armados</p>
+              <p className="text-2xl font-bold text-green-600">{stats.assembled}</p>
+            </div>
+            
+            {/* En Proceso */}
+            <div className="bg-yellow-50 rounded-lg p-3 border-l-4 border-yellow-500">
+              <p className="text-xs text-yellow-700 mb-1">En Proceso</p>
+              <p className="text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
+            </div>
+            
+            {/* Desarmados */}
+            <div className="bg-red-50 rounded-lg p-3 border-l-4 border-red-500">
+              <p className="text-xs text-red-700 mb-1">Desarmados</p>
+              <p className="text-2xl font-bold text-red-600">{stats.disassembled}</p>
+            </div>
+            
+            {/* Total m³ */}
+            <div className="bg-blue-50 rounded-lg p-3 border-l-4 border-blue-500">
+              <p className="text-xs text-blue-700 mb-1">Total m³</p>
+              <p className="text-xl font-bold text-blue-600">{stats.totalM3.toFixed(1)}</p>
+            </div>
+            
+            {/* m³ Armados */}
+            <div className="bg-cyan-50 rounded-lg p-3 border-l-4 border-cyan-500">
+              <p className="text-xs text-cyan-700 mb-1">m³ Armados</p>
+              <p className="text-xl font-bold text-cyan-600">{stats.assembledM3.toFixed(1)}</p>
+            </div>
+            
+            {/* Tarjetas Verdes */}
+            <div className="bg-emerald-50 rounded-lg p-3 border-l-4 border-emerald-500">
+              <p className="text-xs text-emerald-700 mb-1">🟢 Verdes</p>
+              <p className="text-2xl font-bold text-emerald-600">{stats.greenCards}</p>
+            </div>
+            
+            {/* Tarjetas Rojas */}
+            <div className="bg-rose-50 rounded-lg p-3 border-l-4 border-rose-500">
+              <p className="text-xs text-rose-700 mb-1">🔴 Rojas</p>
+              <p className="text-2xl font-bold text-rose-600">{stats.redCards}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Acciones principales */}
+      <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h2 className="text-lg font-semibold text-dark-blue">
+            {selectedProjectId 
+              ? `${scaffolds.length} Andamio${scaffolds.length !== 1 ? 's' : ''} Encontrado${scaffolds.length !== 1 ? 's' : ''}`
+              : 'Selecciona un proyecto para comenzar'}
+          </h2>
+          
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <button
+              onClick={handleCreateScaffold}
+              disabled={!selectedProjectId || !selectedProject?.active || !selectedProject?.client_active}
+              className="bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Crear Andamio
+            </button>
+            
+            <button
+              onClick={handleExportPDF}
+              disabled={!selectedProjectId || exporting}
+              className="bg-red-500 text-white px-4 py-2.5 rounded-lg hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              {exporting ? 'Generando...' : 'Exportar PDF'}
+            </button>
+            
+            <button
+              onClick={handleExportExcel}
+              disabled={!selectedProjectId || exportingExcel}
+              className="bg-green-500 text-white px-4 py-2.5 rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {exportingExcel ? 'Generando...' : 'Exportar Excel'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mensajes de error */}
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg shadow-md">
+          <p className="text-red-700">{error}</p>
+        </div>
+      )}
+
+      {/* Grid de andamios o estado vacío */}
       {isLoading ? (
-        <p>Cargando...</p>
+        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-gray-600">Cargando andamios...</p>
+        </div>
+      ) : selectedProjectId ? (
+        scaffolds.length > 0 ? (
+          <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+            <ScaffoldGrid scaffolds={scaffolds} onScaffoldSelect={setSelectedScaffold} />
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-md p-12 text-center">
+            <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+            <p className="mt-4 text-gray-600 font-medium">No se encontraron andamios</p>
+            <p className="mt-2 text-gray-500 text-sm">Crea un nuevo andamio o ajusta los filtros</p>
+          </div>
+        )
       ) : (
-        <ScaffoldGrid scaffolds={scaffolds} onScaffoldSelect={setSelectedScaffold} />
+        <div className="bg-white rounded-lg shadow-md p-12 text-center">
+          <svg className="mx-auto h-16 w-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          </svg>
+          <p className="mt-4 text-gray-600 font-medium">Selecciona un proyecto</p>
+          <p className="mt-2 text-gray-500 text-sm">Elige un proyecto para visualizar sus andamios</p>
+        </div>
       )}
 
       <LoadingOverlay 
