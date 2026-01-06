@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLoaderData, useActionData, useSubmit } from 'react-router';
 import toast from 'react-hot-toast';
-import axios from 'axios';
-import { useGet } from '../../hooks/useGet';
-import { usePost, usePut, useDelete } from '../../hooks/useMutate';
 import { Client } from '../../types/api';
 import ClientForm from '../../components/ClientForm';
 import Modal from '../../components/Modal';
 import ConfirmationModal from '../../components/ConfirmationModal';
 
 const ClientsPage: React.FC = () => {
+  const { clients } = useLoaderData() as { clients: Client[] };
+  const actionData = useActionData() as { success?: boolean; message?: string; warning?: boolean } | undefined;
+  const submit = useSubmit();
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -16,10 +18,27 @@ const ClientsPage: React.FC = () => {
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [clientToReactivate, setClientToReactivate] = useState<Client | null>(null);
 
-  const { data: clients, isLoading, error, refetch } = useGet<Client[]>('clients', '/clients');
-  const createClient = usePost<Client, Omit<Client, 'id'>>('clients', '/clients');
-  const updateClient = usePut<Client, Client>('clients', '/clients');
-  const deleteClient = useDelete<Client>('clients', '/clients');
+  // Manejar respuestas de la action
+  useEffect(() => {
+    if (actionData) {
+      if (actionData.success) {
+        if (actionData.warning) {
+          toast.success(actionData.message || 'Operación completada', { icon: '⚠️' });
+        } else {
+          toast.success(actionData.message || 'Operación exitosa');
+        }
+        // Cerrar modales después de éxito
+        setIsModalOpen(false);
+        setIsDeleteModalOpen(false);
+        setIsReactivateModalOpen(false);
+        setSelectedClient(null);
+        setClientToDelete(null);
+        setClientToReactivate(null);
+      } else {
+        toast.error(actionData.message || 'Error en la operación');
+      }
+    }
+  }, [actionData]);
 
   const handleOpenModal = (client: Client | null = null) => {
     setSelectedClient(client);
@@ -31,84 +50,15 @@ const ClientsPage: React.FC = () => {
     setSelectedClient(null);
   };
 
-  const handleSubmit = async (clientData: Partial<Client>) => {
-    try {
-      if (selectedClient?.id) {
-        const updateData: Client = {
-          id: selectedClient.id,
-          name: clientData.name || selectedClient.name,
-          email: clientData.email,
-          phone: clientData.phone,
-          address: clientData.address,
-          specialty: clientData.specialty,
-        };
-        await updateClient.mutateAsync(updateData);
-        toast.success('Cliente actualizado correctamente');
-      } else {
-        await createClient.mutateAsync(clientData as Omit<Client, 'id'>);
-        toast.success('Cliente creado correctamente');
-      }
-      handleCloseModal();
-    } catch (err: any) {
-      console.error(err);
-      const errorMsg = err?.response?.data?.error || 'Error al guardar el cliente';
-      toast.error(errorMsg);
-    }
-  };
-
   const handleDelete = async (client: Client) => {
     setClientToDelete(client);
     setIsDeleteModalOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!clientToDelete) return;
-
-    try {
-      const response = await deleteClient.mutateAsync(clientToDelete.id) as any;
-      
-      // Verificar si fue desactivado o eliminado
-      if (response?.deactivated) {
-        toast.success('Cliente desactivado correctamente (tiene proyectos vinculados)', {
-          icon: '⚠️',
-        });
-      } else {
-        toast.success('Cliente eliminado correctamente');
-      }
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.error || 'Error al eliminar el cliente';
-      toast.error(errorMsg);
-    }
-    setClientToDelete(null);
   };
 
   const handleReactivate = (client: Client) => {
     setClientToReactivate(client);
     setIsReactivateModalOpen(true);
   };
-
-  const confirmReactivate = async () => {
-    if (!clientToReactivate) return;
-
-    try {
-      const token = localStorage.getItem('accessToken');
-      await axios.post(`/api/clients/${clientToReactivate.id}/reactivate`, {}, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      toast.success('Cliente reactivado correctamente');
-      refetch(); // Refrescar lista de clientes
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.error || 'Error al reactivar el cliente';
-      toast.error(errorMsg);
-    }
-    setClientToReactivate(null);
-  };
-
-  if (isLoading) {
-    return <p>Cargando clientes...</p>;
-  }
 
   return (
     <div>
@@ -122,31 +72,30 @@ const ClientsPage: React.FC = () => {
         </button>
       </div>
 
-      {error && <p className="text-red-500 bg-red-100 p-3 rounded-lg mb-4">{error.message}</p>}
-
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         <table className="min-w-full leading-normal">
+          <caption className="sr-only">Lista de clientes</caption>
           <thead>
             <tr>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Estado
               </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Nombre
               </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Email
               </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Teléfono
               </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Dirección
               </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Especialidad
               </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Acciones
               </th>
             </tr>
@@ -185,6 +134,7 @@ const ClientsPage: React.FC = () => {
                     onClick={() => handleOpenModal(client)}
                     className="text-indigo-600 hover:text-indigo-900 mr-4"
                     disabled={!client.active}
+                    aria-label={`Editar cliente ${client.name}`}
                   >
                     Editar
                   </button>
@@ -192,6 +142,7 @@ const ClientsPage: React.FC = () => {
                     <button
                       onClick={() => handleDelete(client)}
                       className="text-red-600 hover:text-red-900"
+                      aria-label={`Eliminar cliente ${client.name}`}
                     >
                       Eliminar
                     </button>
@@ -199,6 +150,7 @@ const ClientsPage: React.FC = () => {
                     <button
                       onClick={() => handleReactivate(client)}
                       className="text-green-600 hover:text-green-900"
+                      aria-label={`Reactivar cliente ${client.name}`}
                     >
                       Reactivar
                     </button>
@@ -214,13 +166,22 @@ const ClientsPage: React.FC = () => {
         <h2 className="text-2xl font-bold mb-4">
           {selectedClient ? 'Editar Cliente' : 'Nuevo Cliente'}
         </h2>
-        <ClientForm client={selectedClient} onSubmit={handleSubmit} onCancel={handleCloseModal} />
+        <ClientForm client={selectedClient} onCancel={handleCloseModal} />
       </Modal>
 
       <ConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={confirmDelete}
+        onConfirm={() => {
+          // Usar useSubmit de React Router
+          const formData = new FormData();
+          formData.append('intent', 'delete');
+          formData.append('id', String(clientToDelete?.id || ''));
+          
+          submit(formData, { method: 'post' });
+          
+          setIsDeleteModalOpen(false);
+        }}
         title="Eliminar Cliente"
         message={`¿Está seguro de que desea eliminar el cliente "${clientToDelete?.name}"? Si tiene proyectos asociados, será desactivado en lugar de eliminado.`}
         confirmText="Eliminar"
@@ -230,7 +191,16 @@ const ClientsPage: React.FC = () => {
       <ConfirmationModal
         isOpen={isReactivateModalOpen}
         onClose={() => setIsReactivateModalOpen(false)}
-        onConfirm={confirmReactivate}
+        onConfirm={() => {
+          // Usar useSubmit de React Router
+          const formData = new FormData();
+          formData.append('intent', 'reactivate');
+          formData.append('id', String(clientToReactivate?.id || ''));
+          
+          submit(formData, { method: 'post' });
+          
+          setIsReactivateModalOpen(false);
+        }}
         title="Reactivar Cliente"
         message={`¿Está seguro de que desea reactivar el cliente "${clientToReactivate?.name}"? Esto también reactivará todos sus proyectos.`}
         confirmText="Reactivar"

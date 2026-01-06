@@ -1,22 +1,35 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { useGet } from '../hooks/useGet';
 import { usePost, usePut } from '../hooks/useMutate';
 import { useFormErrors } from '../hooks/useFormErrors';
 import { User } from '../types/api';
 import Spinner from '../components/Spinner';
-import ErrorMessage from '../components/ErrorMessage';
+
+const userSchema = z.object({
+  first_name: z.string().min(1, 'El nombre es requerido').max(100, 'Máximo 100 caracteres'),
+  last_name: z.string().min(1, 'El apellido es requerido').max(100, 'Máximo 100 caracteres'),
+  email: z.string().email('Email inválido').max(255, 'Máximo 255 caracteres'),
+  role: z.enum(['admin', 'supervisor', 'client']),
+  password: z.string()
+    .min(8, 'Mínimo 8 caracteres')
+    .regex(/[A-Z]/, 'Debe contener al menos una mayúscula')
+    .regex(/[a-z]/, 'Debe contener al menos una minúscula')
+    .regex(/[0-9]/, 'Debe contener al menos un número')
+    .optional()
+    .or(z.literal('')),
+});
+
+type UserFormData = z.infer<typeof userSchema>;
 
 const UserFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isEditing = Boolean(id);
-
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState('supervisor');
-  const [password, setPassword] = useState('');
 
   const { data: user, isLoading } = useGet<User>(`user-${id}`, `/users/${id}`, {
     enabled: isEditing,
@@ -25,27 +38,48 @@ const UserFormPage: React.FC = () => {
   const createUser = usePost<User, Partial<User>>('users', '/users');
   const updateUser = usePut<User, Partial<User> & { id: number }>('users', '/users');
   
-  const { generalError, handleApiError, clearErrors, getFieldError, clearFieldError } = useFormErrors();
+  const { generalError, handleApiError, clearErrors } = useFormErrors();
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset,
+  } = useForm<UserFormData>({
+    resolver: zodResolver(userSchema),
+    defaultValues: {
+      first_name: '',
+      last_name: '',
+      email: '',
+      role: 'supervisor',
+      password: '',
+    },
+  });
 
   useEffect(() => {
     if (isEditing && user) {
-      setName(`${user.first_name} ${user.last_name}`);
-      setEmail(user.email);
-      setRole(user.role);
+      reset({
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        role: user.role,
+        password: '',
+      });
     }
-  }, [user, isEditing]);
+  }, [user, isEditing, reset]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    clearErrors(); // Limpiar errores previos
+  const onSubmit = async (data: UserFormData) => {
+    clearErrors();
+
+    const userData: Partial<User> = { 
+      first_name: data.first_name, 
+      last_name: data.last_name, 
+      email: data.email, 
+      role: data.role 
+    };
     
-    const nameParts = name.split(' ');
-    const first_name = nameParts[0] || '';
-    const last_name = nameParts.slice(1).join(' ') || '';
-
-    const userData: Partial<User> = { first_name, last_name, email, role: role as 'admin' | 'supervisor' | 'client' };
-    if (password) {
-      userData.password = password;
+    if (data.password) {
+      userData.password = data.password;
     }
 
     try {
@@ -57,13 +91,13 @@ const UserFormPage: React.FC = () => {
         toast.success('Usuario creado con éxito.');
       }
       navigate('/admin/users');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to save user', error);
       handleApiError(error);
       
-      // Toast general solo si no hay errores de campo
-      if (!error?.response?.data?.fieldErrors && !error?.response?.data?.errors) {
-        toast.error(error?.response?.data?.message || 'Error al guardar el usuario.');
+      const apiError = error as { response?: { data?: { fieldErrors?: unknown; errors?: unknown; message?: string } } };
+      if (!apiError?.response?.data?.fieldErrors && !apiError?.response?.data?.errors) {
+        toast.error(apiError?.response?.data?.message || 'Error al guardar el usuario.');
       }
     }
   };
@@ -89,90 +123,99 @@ const UserFormPage: React.FC = () => {
           </div>
         )}
         
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div>
             <label htmlFor="first_name" className="block text-sm font-medium text-neutral-gray">
-              Nombre
+              Nombre <span className="text-red-500">*</span>
             </label>
             <div className="mt-1">
               <input
                 type="text"
                 id="first_name"
-                value={name.split(' ')[0] || ''}
-                onChange={(e) => {
-                  const lastName = name.split(' ').slice(1).join(' ');
-                  setName(`${e.target.value}${lastName ? ' ' + lastName : ''}`);
-                  clearFieldError('first_name');
-                }}
+                {...register('first_name')}
+                aria-invalid={errors.first_name ? 'true' : 'false'}
+                aria-describedby={errors.first_name ? 'first_name-error' : undefined}
                 className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm ${
-                  getFieldError('first_name') ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                  errors.first_name ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
                 }`}
-                required
               />
-              <ErrorMessage message={getFieldError('first_name')} />
+              {errors.first_name && (
+                <p id="first_name-error" className="text-red-600 text-sm mt-1" role="alert">
+                  {errors.first_name.message}
+                </p>
+              )}
             </div>
           </div>
 
           <div>
             <label htmlFor="last_name" className="block text-sm font-medium text-neutral-gray">
-              Apellido
+              Apellido <span className="text-red-500">*</span>
             </label>
             <div className="mt-1">
               <input
                 type="text"
                 id="last_name"
-                value={name.split(' ').slice(1).join(' ') || ''}
-                onChange={(e) => {
-                  const firstName = name.split(' ')[0] || '';
-                  setName(`${firstName} ${e.target.value}`.trim());
-                  clearFieldError('last_name');
-                }}
+                {...register('last_name')}
+                aria-invalid={errors.last_name ? 'true' : 'false'}
+                aria-describedby={errors.last_name ? 'last_name-error' : undefined}
                 className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm ${
-                  getFieldError('last_name') ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                  errors.last_name ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
                 }`}
-                required
               />
-              <ErrorMessage message={getFieldError('last_name')} />
+              {errors.last_name && (
+                <p id="last_name-error" className="text-red-600 text-sm mt-1" role="alert">
+                  {errors.last_name.message}
+                </p>
+              )}
             </div>
           </div>
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-neutral-gray">
-              Email
+              Email <span className="text-red-500">*</span>
             </label>
             <div className="mt-1">
               <input
                 type="email"
                 id="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  clearFieldError('email');
-                }}
+                {...register('email')}
+                aria-invalid={errors.email ? 'true' : 'false'}
+                aria-describedby={errors.email ? 'email-error' : undefined}
                 className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm ${
-                  getFieldError('email') ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                  errors.email ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
                 }`}
-                required
               />
-              <ErrorMessage message={getFieldError('email')} />
+              {errors.email && (
+                <p id="email-error" className="text-red-600 text-sm mt-1" role="alert">
+                  {errors.email.message}
+                </p>
+              )}
             </div>
           </div>
 
           <div>
             <label htmlFor="role" className="block text-sm font-medium text-neutral-gray">
-              Rol
+              Rol <span className="text-red-500">*</span>
             </label>
             <div className="mt-1">
               <select
                 id="role"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm"
+                {...register('role')}
+                aria-invalid={errors.role ? 'true' : 'false'}
+                aria-describedby={errors.role ? 'role-error' : undefined}
+                className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm ${
+                  errors.role ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                }`}
               >
                 <option value="supervisor">Supervisor</option>
                 <option value="admin">Administrador</option>
                 <option value="client">Cliente</option>
               </select>
+              {errors.role && (
+                <p id="role-error" className="text-red-600 text-sm mt-1" role="alert">
+                  {errors.role.message}
+                </p>
+              )}
             </div>
           </div>
 
@@ -184,20 +227,21 @@ const UserFormPage: React.FC = () => {
               <input
                 type="password"
                 id="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  clearFieldError('password');
-                }}
+                {...register('password')}
+                aria-invalid={errors.password ? 'true' : 'false'}
+                aria-describedby={errors.password ? 'password-error' : (!isEditing ? 'password-hint' : undefined)}
                 className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm ${
-                  getFieldError('password') ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
+                  errors.password ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
                 }`}
                 placeholder={isEditing ? 'Dejar en blanco para no cambiar' : 'Mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número'}
-                required={!isEditing}
               />
-              <ErrorMessage message={getFieldError('password')} />
-              {!isEditing && !getFieldError('password') && (
-                <p className="text-xs text-gray-500 mt-1">
+              {errors.password && (
+                <p id="password-error" className="text-red-600 text-sm mt-1" role="alert">
+                  {errors.password.message}
+                </p>
+              )}
+              {!isEditing && !errors.password && (
+                <p id="password-hint" className="text-xs text-gray-500 mt-1">
                   La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.
                 </p>
               )}
@@ -209,16 +253,16 @@ const UserFormPage: React.FC = () => {
               type="button"
               onClick={() => navigate('/admin/users')}
               className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-blue"
-              disabled={createUser.isPending || updateUser.isPending}
+              disabled={isSubmitting}
             >
               Cancelar
             </button>
             <button
               type="submit"
               className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-blue hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-blue disabled:opacity-50"
-              disabled={createUser.isPending || updateUser.isPending}
+              disabled={isSubmitting}
             >
-              {createUser.isPending || updateUser.isPending ? 'Guardando...' : 'Guardar'}
+              {isSubmitting ? 'Guardando...' : 'Guardar'}
             </button>
           </div>
         </form>

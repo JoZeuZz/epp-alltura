@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLoaderData } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import axios from 'axios';
-import { useGet } from '../../hooks/useGet';
 import Modal from '../../components/Modal';
 import ProjectSelector from '../../components/ProjectSelector';
 import ScaffoldFilters from '../../components/ScaffoldFilters';
@@ -12,6 +11,7 @@ import ScaffoldDetailsModal from '../../components/ScaffoldDetailsModal';
 import { Project, Scaffold } from '../../types/api';
 
 const ScaffoldsPage: React.FC = () => {
+  const { projects: initialProjects } = useLoaderData() as { projects: Project[] };
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
@@ -24,53 +24,58 @@ const ScaffoldsPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
 
-  const { data: projects, isLoading: projectsLoading } = useGet<Project[]>('projects', '/projects');
-  const { data: allScaffolds, isLoading: scaffoldsLoading } = useGet<Scaffold[]>(
-    ['scaffolds', selectedProjectId], // Query key depends on the selected project
-    `/scaffolds/project/${selectedProjectId}`,
-    undefined, // No params needed here
-    { enabled: !!selectedProjectId }, // This is a React Query option, not an API param
-  );
+  const projects = initialProjects;
+  const projectsLoading = false;
+  const scaffoldsLoading = false;
+
+  // Fetch scaffolds when project is selected
+  useEffect(() => {
+    if (selectedProjectId) {
+      const fetchScaffolds = async () => {
+        const token = localStorage.getItem('accessToken');
+        const response = await fetch(`http://localhost:5000/api/scaffolds/project/${selectedProjectId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        setScaffolds(data);
+      };
+      fetchScaffolds();
+    }
+  }, [selectedProjectId]);
 
   // Leer parámetros de URL al cargar - establecer el proyecto primero
   useEffect(() => {
     const projectIdFromUrl = searchParams.get('projectId');
     
     if (projectIdFromUrl && !selectedProjectId) {
-      console.log('Setting project from URL:', projectIdFromUrl);
       setSelectedProjectId(projectIdFromUrl);
     }
   }, [searchParams, selectedProjectId]);
 
   // Una vez que los scaffolds se cargan, abrir el modal si hay reportId
   useEffect(() => {
-    if (urlParamsProcessed || !allScaffolds) return;
+    if (urlParamsProcessed || !scaffolds) return;
     
     const reportIdFromUrl = searchParams.get('reportId');
     
-    if (reportIdFromUrl && allScaffolds.length > 0) {
-      console.log('Looking for report:', reportIdFromUrl, 'in', allScaffolds.length, 'scaffolds');
-      const scaffold = allScaffolds.find(s => s.id === parseInt(reportIdFromUrl));
+    if (reportIdFromUrl && scaffolds.length > 0) {
+      const scaffold = scaffolds.find(s => s.id === parseInt(reportIdFromUrl));
       
       if (scaffold) {
-        console.log('Found scaffold, opening modal:', scaffold);
         setSelectedScaffold(scaffold);
         setUrlParamsProcessed(true);
         // Limpiar parámetros después de abrir
         setTimeout(() => setSearchParams({}), 100);
-      } else {
-        console.log('Scaffold not found with id:', reportIdFromUrl);
       }
     }
-  }, [allScaffolds, searchParams, urlParamsProcessed, setSearchParams]);
+  }, [scaffolds, searchParams, urlParamsProcessed, setSearchParams]);
 
-  // Apply filters when filters or allScaffolds change
-  useEffect(() => {
-    if (!allScaffolds || !selectedProjectId) {
-      setScaffolds([]);
-      return;
+  // Filtrar scaffolds (calculado, no estado)
+  const filteredScaffolds = React.useMemo(() => {
+    if (!scaffolds || !selectedProjectId) {
+      return [];
     }
-    let filtered = [...allScaffolds];
+    let filtered = [...scaffolds];
 
     // Filter by status
     if (filters.status !== 'all') {
@@ -90,8 +95,8 @@ const ScaffoldsPage: React.FC = () => {
       filtered = filtered.filter((s) => new Date(s.assembly_created_at) < end);
     }
 
-    setScaffolds(filtered);
-  }, [filters, allScaffolds, selectedProjectId]);
+    return filtered;
+  }, [filters, scaffolds, selectedProjectId]);
 
   const handleCloseModal = () => {
     setSelectedScaffold(null);
@@ -131,8 +136,9 @@ const ScaffoldsPage: React.FC = () => {
       
       // Recargar los datos del servidor
       window.location.reload();
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.message || 'Error al eliminar el reporte';
+    } catch (err: unknown) {
+      const apiError = err as { response?: { data?: { message?: string } } };
+      const errorMsg = apiError?.response?.data?.message || 'Error al eliminar el reporte';
       toast.error(errorMsg);
       console.error(err);
     }
@@ -171,7 +177,7 @@ const ScaffoldsPage: React.FC = () => {
         link.parentNode.removeChild(link);
       }
       toast.success('PDF generado exitosamente');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMsg = 'Error al generar el PDF.';
       setError(errorMsg);
       toast.error(errorMsg);
@@ -207,7 +213,7 @@ const ScaffoldsPage: React.FC = () => {
         link.parentNode.removeChild(link);
       }
       toast.success('Excel generado exitosamente');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMsg = 'Error al generar el Excel.';
       setError(errorMsg);
       toast.error(errorMsg);
@@ -221,16 +227,16 @@ const ScaffoldsPage: React.FC = () => {
 
   // Calcular estadísticas para mostrar
   const stats = {
-    total: scaffolds.length,
-    assembled: scaffolds.filter(s => s.assembly_status === 'assembled').length,
-    inProgress: scaffolds.filter(s => s.assembly_status === 'in_progress').length,
-    disassembled: scaffolds.filter(s => s.assembly_status === 'disassembled').length,
-    totalM3: scaffolds.reduce((sum, s) => sum + (Number(s.cubic_meters) || 0), 0),
-    assembledM3: scaffolds
+    total: filteredScaffolds.length,
+    assembled: filteredScaffolds.filter(s => s.assembly_status === 'assembled').length,
+    inProgress: filteredScaffolds.filter(s => s.assembly_status === 'in_progress').length,
+    disassembled: filteredScaffolds.filter(s => s.assembly_status === 'disassembled').length,
+    totalM3: filteredScaffolds.reduce((sum, s) => sum + (Number(s.cubic_meters) || 0), 0),
+    assembledM3: filteredScaffolds
       .filter(s => s.assembly_status === 'assembled')
       .reduce((sum, s) => sum + (Number(s.cubic_meters) || 0), 0),
-    greenCards: scaffolds.filter(s => s.card_status === 'green').length,
-    redCards: scaffolds.filter(s => s.card_status === 'red').length,
+    greenCards: filteredScaffolds.filter(s => s.card_status === 'green').length,
+    redCards: filteredScaffolds.filter(s => s.card_status === 'red').length,
   };
 
   return (
@@ -286,7 +292,7 @@ const ScaffoldsPage: React.FC = () => {
       )}
 
       {/* Estadísticas del proyecto */}
-      {selectedProjectId && scaffolds.length > 0 && (
+      {selectedProjectId && filteredScaffolds.length > 0 && (
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
           <h2 className="text-lg font-semibold text-dark-blue mb-4">Estadísticas del Proyecto</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
@@ -346,7 +352,7 @@ const ScaffoldsPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h2 className="text-lg font-semibold text-dark-blue">
             {selectedProjectId 
-              ? `${scaffolds.length} Andamio${scaffolds.length !== 1 ? 's' : ''} Encontrado${scaffolds.length !== 1 ? 's' : ''}`
+              ? `${filteredScaffolds.length} Andamio${filteredScaffolds.length !== 1 ? 's' : ''} Encontrado${filteredScaffolds.length !== 1 ? 's' : ''}`
               : 'Selecciona un proyecto para comenzar'}
           </h2>
           
@@ -401,9 +407,9 @@ const ScaffoldsPage: React.FC = () => {
           <p className="mt-4 text-gray-600">Cargando andamios...</p>
         </div>
       ) : selectedProjectId ? (
-        scaffolds.length > 0 ? (
+        filteredScaffolds.length > 0 ? (
           <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-            <ScaffoldGrid scaffolds={scaffolds} onScaffoldSelect={setSelectedScaffold} />
+            <ScaffoldGrid scaffolds={filteredScaffolds} onScaffoldSelect={setSelectedScaffold} />
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-md p-12 text-center">

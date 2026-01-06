@@ -121,7 +121,7 @@ export const ScaffoldHistoryView: React.FC<ScaffoldHistoryViewProps> = ({
                     {entry.change_type}
                   </span>
                   <span className="text-sm text-gray-500">
-                    {new Date(entry.modified_at).toLocaleString('es-ES')}
+                    {new Date(entry.created_at).toLocaleString('es-ES')}
                   </span>
                 </div>
 

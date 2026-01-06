@@ -18,13 +18,18 @@ const ScaffoldHistory = {
       previous_data,
       new_data,
       description,
+      scaffold_number,
+      project_name,
+      area,
+      tag,
     } = historyData;
 
     const query = `
       INSERT INTO scaffold_history 
-        (scaffold_id, user_id, change_type, previous_data, new_data, description)
+        (scaffold_id, user_id, change_type, previous_data, new_data, description, 
+         scaffold_number, project_name, area, tag)
       VALUES 
-        ($1, $2, $3, $4, $5, $6)
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `;
 
@@ -35,6 +40,10 @@ const ScaffoldHistory = {
       JSON.stringify(previous_data || {}),
       JSON.stringify(new_data || {}),
       description,
+      scaffold_number,
+      project_name,
+      area,
+      tag,
     ];
 
     const { rows } = await db.query(query, values);
@@ -89,9 +98,10 @@ const ScaffoldHistory = {
    * @param {number} userId - ID del usuario que hace el cambio
    * @param {Object} previousData - Datos anteriores del andamio
    * @param {Object} newData - Datos nuevos del andamio
+   * @param {Object} denormalizedData - Datos denormalizados (scaffold_number, project_name, area, tag)
    * @returns {Promise<Object>} - Entrada de historial creada
    */
-  async createFromChanges(scaffoldId, userId, previousData, newData) {
+  async createFromChanges(scaffoldId, userId, previousData, newData, denormalizedData = {}) {
     const changes = [];
     const changeType = [];
 
@@ -134,6 +144,10 @@ const ScaffoldHistory = {
       previous_data: previousData,
       new_data: newData,
       description,
+      scaffold_number: denormalizedData.scaffold_number || previousData.scaffold_number,
+      project_name: denormalizedData.project_name,
+      area: denormalizedData.area || previousData.area,
+      tag: denormalizedData.tag || previousData.tag,
     });
   },
 
@@ -146,10 +160,14 @@ const ScaffoldHistory = {
     const query = `
       SELECT 
         sh.*,
-        s.scaffold_number,
-        s.area,
-        s.tag,
-        p.name as project_name
+        COALESCE(s.scaffold_number, sh.scaffold_number) as scaffold_number,
+        COALESCE(s.area::VARCHAR, sh.area) as area,
+        COALESCE(s.tag::VARCHAR, sh.tag) as tag,
+        COALESCE(p.name, sh.project_name) as project_name,
+        CASE 
+          WHEN sh.scaffold_id IS NULL THEN true 
+          ELSE false 
+        END as scaffold_deleted
       FROM scaffold_history sh
       LEFT JOIN scaffolds s ON sh.scaffold_id = s.id
       LEFT JOIN projects p ON s.project_id = p.id

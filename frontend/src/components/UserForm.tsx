@@ -1,110 +1,70 @@
-import { useEffect, FormEvent, useState } from 'react';
+import { Form, useNavigation } from 'react-router-dom';
+import { useState } from 'react';
 import { User } from '../types/api';
-import { useForm } from '../hooks/useForm';
-import PasswordStrength from './PasswordStrength.tsx';
+import PasswordStrength from './PasswordStrength';
 
-// Define the initial state for a new user outside the component.
-// This ensures the object reference is stable across renders.
-const newUserInitialState = {
-  first_name: '',
-  last_name: '',
-  email: '',
-  password: '',
-  role: 'supervisor',
-};
-interface Props {
+interface UserFormProps {
   user: User | null;
-  onSubmit: (user: Partial<User>) => void;
   onCancel: () => void;
 }
 
-export default function UserForm({ user, onSubmit, onCancel }: Props) {
-  const initialValues = user
-    ? { first_name: user.first_name, last_name: user.last_name, email: user.email, password: '', role: user.role }
-    : newUserInitialState;
-
-  const { values, handleChange, reset } = useForm(initialValues);
-  const [formError, setFormError] = useState<string | null>(null);
-
+export default function UserForm({ user, onCancel }: UserFormProps) {
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === 'submitting';
   const isEditing = !!user;
-
-  useEffect(() => {
-    reset();
-  }, [user]);
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    setFormError(null); // Limpiar errores previos
-
-    if (!values.first_name || !values.last_name || !values.email || (!isEditing && !values.password)) {
-      setFormError('Por favor, complete todos los campos obligatorios.');
-      return;
-    }
-    if (!isEditing && values.password.length < 8) {
-      setFormError('La contraseña no cumple con los requisitos.');
-      return;
-    }
-    const userData: Partial<User> = {
-      first_name: values.first_name,
-      last_name: values.last_name,
-      email: values.email,
-      role: values.role as 'admin' | 'supervisor' | 'client',
-    };
-    if (values.password) {
-      userData.password = values.password;
-    }
-    onSubmit(userData);
-  };
+  const [password, setPassword] = useState('');
 
   return (
-    <form onSubmit={handleSubmit}>
-      {formError && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
-          {formError}
-        </div>
-      )}
+    <Form method="post">
+      {/* Intent field para discriminar entre create y update */}
+      <input type="hidden" name="intent" value={user ? 'update' : 'create'} />
+      {user && <input type="hidden" name="id" value={user.id} />}
+
       <div className="mb-4">
         <label htmlFor="first_name" className="block text-gray-700 text-sm font-bold mb-2">
-          Nombre
+          Nombre *
         </label>
         <input
           type="text"
           id="first_name"
           name="first_name"
-          value={values.first_name}
-          onChange={handleChange}
+          defaultValue={user?.first_name || ''}
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
           required
+          disabled={isSubmitting}
         />
       </div>
+
       <div className="mb-4">
         <label htmlFor="last_name" className="block text-gray-700 text-sm font-bold mb-2">
-          Apellido
+          Apellido *
         </label>
         <input
           type="text"
           id="last_name"
           name="last_name"
-          value={values.last_name}
-          onChange={handleChange}
+          defaultValue={user?.last_name || ''}
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
           required
+          disabled={isSubmitting}
         />
       </div>
+
       <div className="mb-4">
         <label htmlFor="email" className="block text-gray-700 text-sm font-bold mb-2">
-          Email
+          Email *
         </label>
         <input
           type="email"
           id="email"
           name="email"
-          value={values.email}
-          onChange={handleChange}
+          defaultValue={user?.email || ''}
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
           required
+          disabled={isSubmitting}
         />
       </div>
+
       <div className="mb-4">
         <label htmlFor="password" className="block text-gray-700 text-sm font-bold mb-2">
           Contraseña {isEditing && '(Dejar en blanco para no cambiar)'}
@@ -113,51 +73,55 @@ export default function UserForm({ user, onSubmit, onCancel }: Props) {
           type="password"
           id="password"
           name="password"
-          value={values.password}
-          onChange={handleChange}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
           required={!isEditing}
+          minLength={isEditing ? 0 : 8}
+          disabled={isSubmitting}
         />
-        {!isEditing && (
-          <PasswordStrength password={values.password} />
+        {!isEditing && password && (
+          <PasswordStrength password={password} />
         )}
       </div>
+
       <div className="mb-6">
         <label htmlFor="role" className="block text-gray-700 text-sm font-bold mb-2">
-          Rol
+          Rol *
         </label>
         <select
           id="role"
           name="role"
-          value={values.role}
-          onChange={handleChange}
+          defaultValue={user?.role || 'supervisor'}
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+          disabled={isSubmitting}
         >
           <option value="supervisor">Supervisor</option>
           <option value="admin">Administrador</option>
           <option value="client">Usuario Cliente</option>
         </select>
-        {values.role === 'client' && (
-          <p className="mt-2 text-sm text-gray-600">
-            ℹ️ El Usuario Cliente solo puede visualizar andamios de proyectos asignados.
-          </p>
-        )}
+        <p className="mt-2 text-sm text-gray-600">
+          ℹ️ {user?.role === 'client' || 'El Usuario Cliente solo puede visualizar andamios de proyectos asignados.'}
+        </p>
       </div>
+
       <div className="flex items-center justify-end">
         <button
           type="button"
           onClick={onCancel}
-          className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 mr-2"
+          className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 mr-2 disabled:opacity-50"
+          disabled={isSubmitting}
         >
           Cancelar
         </button>
         <button
           type="submit"
-          className="bg-primary-blue text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700"
+          className="bg-primary-blue text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          disabled={isSubmitting}
         >
-          {isEditing ? 'Actualizar' : 'Crear'}
+          {isSubmitting ? 'Guardando...' : (isEditing ? 'Actualizar' : 'Crear')}
         </button>
       </div>
-    </form>
+    </Form>
   );
 }

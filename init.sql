@@ -65,16 +65,25 @@ CREATE TABLE IF NOT EXISTS scaffolds (
 );
 
 -- Creación de la tabla de historial de andamios
+-- Historial inmutable: sobrevive a la eliminación de andamios
 CREATE TABLE IF NOT EXISTS scaffold_history (
     id SERIAL PRIMARY KEY,
-    scaffold_id INTEGER NOT NULL REFERENCES scaffolds(id) ON DELETE CASCADE,
+    scaffold_id INTEGER REFERENCES scaffolds(id) ON DELETE SET NULL,
     user_id INTEGER NOT NULL REFERENCES users(id),
     change_type VARCHAR(100) NOT NULL,
     previous_data JSONB,
     new_data JSONB,
     description TEXT,
+    -- Campos denormalizados para preservar información tras eliminación
+    scaffold_number VARCHAR(255),
+    project_name VARCHAR(255),
+    area VARCHAR(255),
+    tag VARCHAR(255),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Índice para optimizar consultas de historial por usuario
+CREATE INDEX IF NOT EXISTS idx_scaffold_history_user ON scaffold_history(user_id, created_at DESC);
 
 -- Creación de la tabla intermedia para asignar usuarios a proyectos
 CREATE TABLE IF NOT EXISTS project_users (

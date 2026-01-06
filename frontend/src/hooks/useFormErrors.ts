@@ -1,35 +1,20 @@
 import { useState, useCallback } from 'react';
-
-interface FieldErrors {
-  [key: string]: string;
-}
-
-interface ApiError {
-  response?: {
-    data?: {
-      message?: string;
-      fieldErrors?: FieldErrors;
-      errors?: Array<{ field: string; message: string }>;
-    };
-  };
-}
+import type { ApiError } from '../types/api';
 
 /**
- * Hook personalizado para manejar errores de formulario
- * Convierte errores de API a formato manejable por campo
+ * Hook simplificado para manejar errores generales de API
+ * Los errores de validación por campo son manejados por React Hook Form + Zod
  */
 export const useFormErrors = () => {
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [generalError, setGeneralError] = useState<string>('');
 
   /**
-   * Procesa un error de API y extrae errores por campo
+   * Procesa un error de API y extrae el mensaje general
    */
-  const handleApiError = useCallback((error: any) => {
+  const handleApiError = useCallback((error: unknown) => {
     const apiError = error as ApiError;
     
-    // Resetear errores previos
-    setFieldErrors({});
+    // Resetear error previo
     setGeneralError('');
 
     // Extraer datos del error
@@ -40,68 +25,21 @@ export const useFormErrors = () => {
       return;
     }
 
-    // Si hay errores por campo (formato fieldErrors)
-    if (errorData.fieldErrors) {
-      setFieldErrors(errorData.fieldErrors);
-      setGeneralError(errorData.message || 'Por favor, corrija los errores en el formulario.');
-      return;
-    }
-
-    // Si hay errores en formato array
-    if (errorData.errors && Array.isArray(errorData.errors)) {
-      const errors: FieldErrors = {};
-      errorData.errors.forEach((err: { field: string; message: string }) => {
-        errors[err.field] = err.message;
-      });
-      setFieldErrors(errors);
-      setGeneralError(errorData.message || 'Por favor, corrija los errores en el formulario.');
-      return;
-    }
-
-    // Error general sin campos específicos
-    setGeneralError(errorData.message || 'Ocurrió un error. Por favor, intente de nuevo.');
+    // Obtener mensaje de error (priorizar message sobre error)
+    const errorMessage = errorData.message || errorData.error || 'Ocurrió un error. Por favor, intente de nuevo.';
+    setGeneralError(errorMessage);
   }, []);
 
   /**
-   * Limpia el error de un campo específico
-   */
-  const clearFieldError = useCallback((fieldName: string) => {
-    setFieldErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors[fieldName];
-      return newErrors;
-    });
-  }, []);
-
-  /**
-   * Limpia todos los errores
+   * Limpia el error general
    */
   const clearErrors = useCallback(() => {
-    setFieldErrors({});
     setGeneralError('');
   }, []);
 
-  /**
-   * Obtiene el error de un campo específico
-   */
-  const getFieldError = useCallback((fieldName: string): string | undefined => {
-    return fieldErrors[fieldName];
-  }, [fieldErrors]);
-
-  /**
-   * Verifica si un campo tiene error
-   */
-  const hasFieldError = useCallback((fieldName: string): boolean => {
-    return !!fieldErrors[fieldName];
-  }, [fieldErrors]);
-
   return {
-    fieldErrors,
     generalError,
     handleApiError,
-    clearFieldError,
     clearErrors,
-    getFieldError,
-    hasFieldError,
   };
 };

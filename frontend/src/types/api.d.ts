@@ -84,19 +84,40 @@ export interface Report {
 }
 
 /**
+ * Interface para los datos de cambios en el historial de andamios
+ * Define los campos que pueden cambiar en un andamio
+ */
+export interface ScaffoldChangeData {
+  card_status?: 'green' | 'red';
+  assembly_status?: 'assembled' | 'in_progress' | 'disassembled';
+  progress_percentage?: number;
+  cubic_meters?: number;
+  width?: number;
+  length?: number;
+  height?: number;
+  scaffold_number?: string;
+  area?: string;
+  tag?: string;
+  location?: string;
+  observations?: string;
+  assembly_notes?: string;
+  disassembly_notes?: string;
+}
+
+/**
  * Nuevo: Interface para el historial de modificaciones de andamios
  * Registra todos los cambios realizados en un andamio
  */
 export interface ScaffoldHistory {
   id: number;
   scaffold_id: number;
-  modified_by: number;
+  user_id: number;
   modified_by_name?: string;
   modified_by_email?: string;
-  modified_at: string;
+  created_at: string;
   change_type: string; // Tipo de cambio: 'card_status', 'assembly_status', 'update', 'dimensions', etc.
-  previous_data: Record<string, any>; // JSON con datos anteriores
-  new_data: Record<string, any>; // JSON con datos nuevos
+  previous_data: ScaffoldChangeData | null; // Datos anteriores tipados
+  new_data: ScaffoldChangeData | null; // Datos nuevos tipados
   description: string; // Descripción legible del cambio
 }
 
@@ -107,4 +128,28 @@ export interface DashboardStats {
   assembled_cubic_meters: number;
   disassembled_cubic_meters: number;
   total_cubic_meters: number;
+}
+
+/**
+ * Interface para respuestas de error de la API
+ * Utilizada para tipado fuerte de errores HTTP
+ */
+export interface ApiErrorResponse {
+  message?: string;
+  error?: string;
+  fieldErrors?: Record<string, string>;
+  errors?: Array<{ field: string; message: string }>;
+}
+
+/**
+ * Interface para errores capturados de la API
+ * Utilizada en bloques catch para manejo de errores tipado
+ */
+export interface ApiError {
+  response?: {
+    data?: ApiErrorResponse;
+    status?: number;
+    statusText?: string;
+  };
+  message?: string;
 }

@@ -1,8 +1,6 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import { useParams, useNavigate, useLocation, useLoaderData, Form, useActionData, useNavigation } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { useGet } from '../../hooks/useGet';
 import { Project } from '../../types/api';
 
 /**
@@ -14,14 +12,25 @@ const CreateScaffoldPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const routeLocation = useLocation();
+  const { project } = useLoaderData() as { project: Project };
+  const actionData = useActionData() as { success?: boolean; message?: string } | undefined;
+  const navigation = useNavigation();
   
   // Detectar si es admin o supervisor basado en la ruta
   const isAdmin = routeLocation.pathname.startsWith('/admin');
+  const projectLoading = false;
+  const isSubmitting = navigation.state === 'submitting';
 
-  const { data: project, isLoading: projectLoading } = useGet<Project>(
-    `project-${projectId}`,
-    `/projects/${projectId}`,
-  );
+  // Manejar respuestas de la action
+  useEffect(() => {
+    if (actionData) {
+      if (actionData.success) {
+        toast.success(actionData.message || 'Andamio creado exitosamente');
+      } else {
+        toast.error(actionData.message || 'Error al crear andamio');
+      }
+    }
+  }, [actionData]);
 
   // Estados del formulario
   const [scaffoldNumber, setScaffoldNumber] = useState<string>('');
@@ -37,7 +46,6 @@ const CreateScaffoldPage: React.FC = () => {
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [cubicMeters, setCubicMeters] = useState<string>('0.00');
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Calcular metros cúbicos automáticamente
   useEffect(() => {
@@ -69,10 +77,9 @@ const CreateScaffoldPage: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    
+  const handleFormValidation = (e: FormEvent<HTMLFormElement>) => {
     if (!image) {
+      e.preventDefault();
       toast.error('Por favor, adjunta una imagen del andamio.');
       return;
     }
@@ -83,55 +90,19 @@ const CreateScaffoldPage: React.FC = () => {
     const l = parseFloat(length);
 
     if (!h || h <= 0 || h > 100) {
+      e.preventDefault();
       toast.error('La altura debe estar entre 0 y 100 metros');
       return;
     }
     if (!w || w <= 0 || w > 100) {
+      e.preventDefault();
       toast.error('El ancho debe estar entre 0 y 100 metros');
       return;
     }
     if (!l || l <= 0 || l > 100) {
+      e.preventDefault();
       toast.error('El largo debe estar entre 0 y 100 metros');
       return;
-    }
-
-    const formData = new FormData();
-    formData.append('project_id', projectId!);
-    formData.append('scaffold_number', scaffoldNumber);
-    formData.append('area', area);
-    formData.append('tag', tag);
-    formData.append('height', height);
-    formData.append('width', width);
-    formData.append('length', length);
-    formData.append('progress_percentage', progressPercentage.toString());
-    formData.append('assembly_notes', assemblyNotes);
-    formData.append('assembly_image', image); // Nombre del campo para multer en el backend
-
-    setIsSubmitting(true);
-
-    try {
-      const token = localStorage.getItem('accessToken');
-      await axios.post('/api/scaffolds', formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      
-      toast.success('Andamio creado correctamente');
-      
-      // Redirigir según el rol
-      if (isAdmin) {
-        navigate(`/admin/scaffolds?projectId=${projectId}`);
-      } else {
-        navigate(`/supervisor/project/${projectId}`);
-      }
-    } catch (error: any) {
-      console.error('Failed to create scaffold', error);
-      const errorMsg = error?.response?.data?.message || 'Error al crear el andamio';
-      toast.error(errorMsg);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -206,7 +177,23 @@ const CreateScaffoldPage: React.FC = () => {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <Form method="post" encType="multipart/form-data" onSubmit={handleFormValidation} className="space-y-6">
+            {/* Hidden fields para el router action */}
+            <input type="hidden" name="project_id" value={projectId || ''} />
+            <input type="hidden" name="progress_percentage" value={progressPercentage} />
+            
+            {/* Input file único (siempre presente, solo oculto) */}
+            <input
+              id="image-upload"
+              name="assembly_image"
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleImageChange}
+              className="hidden"
+              required
+            />
+            
             {/* Imagen Inicial */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -225,14 +212,6 @@ const CreateScaffoldPage: React.FC = () => {
                   >
                     Cambiar foto
                   </label>
-                  <input
-                    id="image-upload"
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleImageChange}
-                    className="hidden"
-                  />
                 </div>
               ) : (
                 <label
@@ -244,15 +223,6 @@ const CreateScaffoldPage: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                   <span className="mt-2 text-sm text-gray-600">Toca para tomar o seleccionar una foto</span>
-                  <input
-                    id="image-upload"
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleImageChange}
-                    className="hidden"
-                    required
-                  />
                 </label>
               )}
             </div>
@@ -266,6 +236,7 @@ const CreateScaffoldPage: React.FC = () => {
                 <input
                   type="text"
                   id="scaffoldNumber"
+                  name="scaffold_number"
                   value={scaffoldNumber}
                   onChange={(e) => setScaffoldNumber(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
@@ -280,6 +251,7 @@ const CreateScaffoldPage: React.FC = () => {
                 <input
                   type="text"
                   id="area"
+                  name="area"
                   value={area}
                   onChange={(e) => setArea(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
@@ -294,6 +266,7 @@ const CreateScaffoldPage: React.FC = () => {
                 <input
                   type="text"
                   id="tag"
+                  name="tag"
                   value={tag}
                   onChange={(e) => setTag(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
@@ -315,6 +288,7 @@ const CreateScaffoldPage: React.FC = () => {
                   <input
                     type="number"
                     id="height"
+                    name="height"
                     step="0.01"
                     min="0"
                     max="100"
@@ -332,6 +306,7 @@ const CreateScaffoldPage: React.FC = () => {
                   <input
                     type="number"
                     id="width"
+                    name="width"
                     step="0.01"
                     min="0"
                     max="100"
@@ -349,6 +324,7 @@ const CreateScaffoldPage: React.FC = () => {
                   <input
                     type="number"
                     id="length"
+                    name="length"
                     step="0.01"
                     min="0"
                     max="100"
@@ -405,6 +381,7 @@ const CreateScaffoldPage: React.FC = () => {
               <input
                 type="text"
                 id="location"
+                name="location"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-blue focus:border-transparent"
@@ -419,6 +396,7 @@ const CreateScaffoldPage: React.FC = () => {
               </label>
               <textarea
                 id="observations"
+                name="observations"
                 value={observations}
                 onChange={(e) => setObservations(e.target.value)}
                 rows={3}
@@ -434,6 +412,7 @@ const CreateScaffoldPage: React.FC = () => {
               </label>
               <textarea
                 id="assemblyNotes"
+                name="assembly_notes"
                 value={assemblyNotes}
                 onChange={(e) => setAssemblyNotes(e.target.value)}
                 rows={3}
@@ -460,7 +439,7 @@ const CreateScaffoldPage: React.FC = () => {
                 {isSubmitting ? 'Guardando...' : 'Crear Andamio'}
               </button>
             </div>
-          </form>
+          </Form>
         </div>
       </main>
     </div>

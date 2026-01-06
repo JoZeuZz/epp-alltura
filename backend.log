@@ -1,9 +1,0 @@
-nohup: ignoring input
-[dotenv@17.2.2] injecting env (0) from .env -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
-VAPID keys not configured. Push notifications will not work.
-[dotenv@17.2.2] injecting env (0) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
-[32minfo[39m: Usuario admin ya existe. Saltando creación de usuarios. {"service":"alltura-backend","timestamp":"2025-12-01 15:21:38","version":"1.0.0"}
-[32minfo[39m: Base de datos inicializada correctamente. {"service":"alltura-backend","timestamp":"2025-12-01 15:21:38","version":"1.0.0"}
-Servidor corriendo en puerto 5000
-[32minfo[39m: HTTP Request {"duration":116,"ip":"::ffff:127.0.0.1","method":"POST","service":"alltura-backend","statusCode":200,"timestamp":"2025-12-01 15:21:52","url":"/login","userAgent":"curl/7.88.1","version":"1.0.0"}
-[32minfo[39m: HTTP Request {"duration":12,"ip":"::ffff:127.0.0.1","method":"GET","service":"alltura-backend","statusCode":200,"timestamp":"2025-12-01 15:21:52","url":"/summary","userAgent":"curl/7.88.1","userId":1,"userRole":"admin","version":"1.0.0"}

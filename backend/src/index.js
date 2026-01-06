@@ -27,6 +27,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
+  '0.0.0.0',
   process.env.CLIENT_URL,
 ].filter(Boolean);
 

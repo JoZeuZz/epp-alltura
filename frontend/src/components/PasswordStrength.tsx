@@ -4,7 +4,7 @@ interface PasswordStrengthProps {
   password?: string;
 }
 
-const CheckIcon = () => (
+const CheckIcon = React.memo(() => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     className="h-4 w-4 text-green-500"
@@ -14,9 +14,10 @@ const CheckIcon = () => (
   >
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
   </svg>
-);
+));
+CheckIcon.displayName = 'CheckIcon';
 
-const XIcon = () => (
+const XIcon = React.memo(() => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     className="h-4 w-4 text-gray-400"
@@ -26,28 +27,26 @@ const XIcon = () => (
   >
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
   </svg>
-);
+));
+XIcon.displayName = 'XIcon';
 
-const PasswordRequirement: React.FC<{ isValid: boolean; text: string }> = ({ isValid, text }) => (
+const PasswordRequirement: React.FC<{ isValid: boolean; text: string }> = React.memo(({ isValid, text }) => (
   <li className={`flex items-center text-sm ${isValid ? 'text-green-600' : 'text-gray-500'}`}>
     {isValid ? <CheckIcon /> : <XIcon />}
     <span className="ml-2">{text}</span>
   </li>
-);
+));
+PasswordRequirement.displayName = 'PasswordRequirement';
 
-const PasswordStrength: React.FC<PasswordStrengthProps> = ({ password = '' }) => {
+const PasswordStrength: React.FC<PasswordStrengthProps> = React.memo(({ password = '' }) => {
   const hasMinLength = password.length >= 8;
-  // Puedes añadir más validaciones aquí
-  // const hasNumber = /\d/.test(password);
-  // const hasUpperCase = /[A-Z]/.test(password);
 
   return (
     <ul className="mt-2 space-y-1">
       <PasswordRequirement isValid={hasMinLength} text="Al menos 8 caracteres" />
-      {/* <PasswordRequirement isValid={hasNumber} text="Contiene al menos un número" /> */}
-      {/* <PasswordRequirement isValid={hasUpperCase} text="Contiene al menos una mayúscula" /> */}
     </ul>
   );
-};
+});
+PasswordStrength.displayName = 'PasswordStrength';
 
 export default PasswordStrength;

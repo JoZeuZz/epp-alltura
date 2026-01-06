@@ -278,7 +278,7 @@ const configureHPP = () => {
 const createSecurityMiddleware = (config = {}) => {
   const {
     environment = process.env.NODE_ENV || 'production',
-    allowedOrigins = [process.env.CLIENT_URL || 'http://localhost:5173'],
+    allowedOrigins = [process.env.CLIENT_URL || '0.0.0.0'],
   } = config;
 
   return {

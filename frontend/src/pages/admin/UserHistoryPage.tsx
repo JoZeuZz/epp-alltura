@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useGet } from '../../hooks/useGet';
+import { useNavigate, useLoaderData } from 'react-router-dom';
 import { User } from '../../types/api';
 
 interface HistoryEntry {
@@ -16,23 +15,11 @@ interface HistoryEntry {
 }
 
 const UserHistoryPage: React.FC = () => {
-  const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
+  const { userData: user, history: initialHistory } = useLoaderData() as { userData: User, history: HistoryEntry[] };
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Obtener información del usuario
-  const { data: users } = useGet<User[]>('users', '/users');
-  const user = users?.find(u => u.id === parseInt(userId || '0'));
-
-  // Obtener historial del usuario
-  const {
-    data: history,
-    isLoading,
-    error,
-  } = useGet<HistoryEntry[]>(
-    `user-history-${userId}`,
-    `/scaffolds/user-history/${userId}`
-  );
+  const history = initialHistory;
 
   const filteredHistory = useMemo(() => {
     if (!history) return [];
@@ -53,34 +40,6 @@ const UserHistoryPage: React.FC = () => {
     };
     return types[type] || type;
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-6xl mx-auto">
-        <button
-          onClick={() => navigate('/admin/users')}
-          className="mb-4 flex items-center gap-2 text-primary-blue hover:text-blue-700"
-        >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Volver a Usuarios
-        </button>
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded">
-          <p className="font-bold">Error al cargar el historial</p>
-          <p>{error.message}</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-6xl mx-auto">

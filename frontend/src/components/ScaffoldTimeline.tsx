@@ -9,8 +9,8 @@ interface TimelineEvent {
   modified_by_email?: string;
   created_at: string;
   change_type: string;
-  previous_data: any;
-  new_data: any;
+  previous_data: Record<string, unknown>;
+  new_data: Record<string, unknown>;
   description: string;
 }
 
@@ -29,7 +29,7 @@ const ScaffoldTimeline: React.FC<ScaffoldTimelineProps> = ({ scaffoldId }) => {
         setLoading(true);
         const data = await get<TimelineEvent[]>(`/scaffolds/${scaffoldId}/history`);
         setEvents(data);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error fetching scaffold history:', err);
         setError('Error al cargar el historial');
       } finally {

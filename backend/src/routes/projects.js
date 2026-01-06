@@ -184,13 +184,71 @@ router.put('/:id', async (req, res, next) => {
 // DELETE a project
 router.delete('/:id', async (req, res, next) => {
   try {
-    const deletedProject = await Project.delete(req.params.id);
-    if (!deletedProject) {
+    const projectId = req.params.id;
+    
+    // Verificar si el proyecto tiene andamios asociados
+    const scaffoldCount = await Project.getScaffoldCount(projectId);
+    
+    if (scaffoldCount > 0) {
+      // Si tiene andamios, desactivar en lugar de eliminar
+      const deactivatedProject = await Project.deactivate(projectId);
+      if (!deactivatedProject) {
+        return res.status(404).json({ message: 'Project not found' });
+      }
+      return res.json({ 
+        message: 'Project deactivated (has associated scaffolds)',
+        deactivated: true,
+        scaffoldCount 
+      });
+    } else {
+      // Si no tiene andamios, eliminar permanentemente
+      const deletedProject = await Project.delete(projectId);
+      if (!deletedProject) {
+        return res.status(404).json({ message: 'Project not found' });
+      }
+      return res.json({ 
+        message: 'Project deleted permanently',
+        deleted: true 
+      });
+    }
+  } catch (err) {
+    logger.error(`Error al eliminar/desactivar el proyecto con ID ${req.params.id}: ${err.message}`, err);
+    next(err);
+  }
+});
+
+/**
+ * @route   GET /api/projects/:id/scaffolds/count
+ * @desc    Obtener el conteo de andamios asociados a un proyecto
+ * @access  Private (Admin)
+ */
+router.get('/:id/scaffolds/count', async (req, res, next) => {
+  try {
+    const count = await Project.getScaffoldCount(req.params.id);
+    res.json({ count });
+  } catch (err) {
+    logger.error(`Error al obtener conteo de andamios para proyecto ${req.params.id}: ${err.message}`, err);
+    next(err);
+  }
+});
+
+/**
+ * @route   PATCH /api/projects/:id/reactivate
+ * @desc    Reactivar un proyecto desactivado
+ * @access  Private (Admin)
+ */
+router.patch('/:id/reactivate', async (req, res, next) => {
+  try {
+    const reactivatedProject = await Project.reactivate(req.params.id);
+    if (!reactivatedProject) {
       return res.status(404).json({ message: 'Project not found' });
     }
-    res.json({ message: 'Project deleted' });
+    res.json({ 
+      message: 'Project reactivated successfully',
+      project: reactivatedProject 
+    });
   } catch (err) {
-    logger.error(`Error al eliminar el proyecto con ID ${req.params.id}: ${err.message}`, err);
+    logger.error(`Error al reactivar el proyecto con ID ${req.params.id}: ${err.message}`, err);
     next(err);
   }
 });

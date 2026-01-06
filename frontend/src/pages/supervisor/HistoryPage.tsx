@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useGet } from '../../hooks/useGet';
+import { useLoaderData } from 'react-router-dom';
 
 interface HistoryEntry {
   id: number;
@@ -14,13 +14,9 @@ interface HistoryEntry {
 }
 
 const HistoryPage: React.FC = () => {
+  const { history: initialHistory } = useLoaderData() as { history: HistoryEntry[] };
   const [searchTerm, setSearchTerm] = useState('');
-
-  const {
-    data: history,
-    isLoading,
-    error,
-  } = useGet<HistoryEntry[]>('my-history', '/scaffolds/my-history');
+  const history = initialHistory;
 
   const filteredHistory = useMemo(() => {
     if (!history) return [];
@@ -40,14 +36,6 @@ const HistoryPage: React.FC = () => {
     };
     return types[type] || type;
   };
-
-  if (isLoading) {
-    return <p className="text-center text-neutral-gray">Cargando historial...</p>;
-  }
-
-  if (error) {
-    return <p className="text-red-500 bg-red-100 p-3 rounded-lg">{error.message}</p>;
-  }
 
   return (
     <div>

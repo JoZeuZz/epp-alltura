@@ -13,12 +13,16 @@
 ## Frontend (TypeScript/React)
 - **Módulos**: ES6 imports/exports
 - **Componentes**: Funcionales con hooks
-- **Sintaxis**: JSX, TypeScript estricto
+- **Sintaxis**: JSX, TypeScript estricto (NO usar `any`)
 - **Nombres**: PascalCase para componentes, camelCase para variables
 - **Estado**: React Query para servidor, Context para auth
 - **Estilos**: Tailwind CSS utility-first
-- **Rutas**: React Router con rutas protegidas por rol
+- **Rutas**: React Router v7 con rutas protegidas por rol
 - **Tipos**: Interfaces en types/, enums donde aplique
+- **Formularios**: React Hook Form + Zod para validación
+- **Lazy Loading**: Usar lazy() para todas las páginas (code splitting)
+- **Optimización**: React.memo para componentes pequeños reutilizables
+- **Hooks**: useMemo para cálculos costosos, useCallback para callbacks estables
 
 ## General
 - **Linting**: ESLint con reglas recomendadas
