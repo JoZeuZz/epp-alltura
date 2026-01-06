@@ -132,6 +132,7 @@ async function generateTokenPair(user) {
   const payload = {
     user: {
       id: user.id,
+      email: user.email,
       first_name: user.first_name,
       last_name: user.last_name,
       role: user.role,

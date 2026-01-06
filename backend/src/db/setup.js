@@ -88,12 +88,15 @@ const setupDatabase = async () => {
     await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS scaffold_number VARCHAR(255)`);
     await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS area VARCHAR(255)`);
     await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS tag VARCHAR(255)`);
-    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS card_status VARCHAR(50) DEFAULT 'green' CHECK(card_status IN ('green', 'red'))`);
-    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS assembly_status VARCHAR(50) DEFAULT 'assembled' CHECK(assembly_status IN ('assembled', 'disassembled'))`);
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS card_status VARCHAR(50) DEFAULT 'green'`);
+    await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS assembly_status VARCHAR(50) DEFAULT 'assembled'`);
     await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS location TEXT`);
     await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS observations TEXT`);
     await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()`);
     await client.query(`ALTER TABLE scaffolds ADD COLUMN IF NOT EXISTS length DECIMAL`);
+    
+    // Add active column to projects for soft delete
+    await client.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true`);
     
     // Rename old column if exists
     await client.query(`ALTER TABLE scaffolds RENAME COLUMN IF EXISTS depth TO length`);

@@ -1,48 +1,21 @@
-import { useEffect, FormEvent } from 'react';
+import { Form, useNavigation } from 'react-router-dom';
 import { Client } from '../types/api';
-import { useForm } from '../hooks/useForm';
-
-// Define the initial state for a new client outside the component.
-// This ensures the object reference is stable across renders.
-const newClientInitialState: Omit<Client, 'id'> = {
-  name: '',
-  email: '',
-  phone: '',
-  address: '',
-  specialty: '',
-};
 
 interface ClientFormProps {
   client: Client | null;
-  onSubmit: (clientData: Partial<Client>) => void;
   onCancel: () => void;
 }
 
-export default function ClientForm({ client, onSubmit, onCancel }: ClientFormProps): JSX.Element {
-  // Use the stable initial state object when creating a new client.
-  const { values, handleChange, reset } = useForm(client || newClientInitialState);
-
-  useEffect(() => {
-    // This effect now correctly resets the form only when the client prop changes,
-    // or when switching between creating and editing.
-    reset();
-  }, [client]); // The `reset` function is now stable thanks to the fix in `useForm`.
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!values.name) {
-      alert('El nombre del cliente es obligatorio.');
-      return;
-    }
-    const submissionData: Partial<Client> = { ...values };
-    if (client) {
-      submissionData.id = client.id;
-    }
-    onSubmit(submissionData);
-  };
+export default function ClientForm({ client, onCancel }: ClientFormProps) {
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === 'submitting';
 
   return (
-    <form onSubmit={handleSubmit}>
+    <Form method="post">
+      {/* Intent field para discriminar entre create y update */}
+      <input type="hidden" name="intent" value={client ? 'update' : 'create'} />
+      {client && <input type="hidden" name="id" value={client.id} />}
+
       <div className="mb-4">
         <label htmlFor="name" className="block text-gray-700 text-sm font-bold mb-2">
           Nombre del Cliente *
@@ -51,10 +24,10 @@ export default function ClientForm({ client, onSubmit, onCancel }: ClientFormPro
           type="text"
           id="name"
           name="name"
-          value={values.name}
-          onChange={handleChange}
+          defaultValue={client?.name || ''}
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
           required
+          disabled={isSubmitting}
         />
       </div>
 
@@ -66,9 +39,9 @@ export default function ClientForm({ client, onSubmit, onCancel }: ClientFormPro
           type="email"
           id="email"
           name="email"
-          value={values.email || ''}
-          onChange={handleChange}
+          defaultValue={client?.email || ''}
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+          disabled={isSubmitting}
         />
       </div>
 
@@ -80,9 +53,9 @@ export default function ClientForm({ client, onSubmit, onCancel }: ClientFormPro
           type="tel"
           id="phone"
           name="phone"
-          value={values.phone || ''}
-          onChange={handleChange}
+          defaultValue={client?.phone || ''}
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+          disabled={isSubmitting}
         />
       </div>
 
@@ -94,9 +67,9 @@ export default function ClientForm({ client, onSubmit, onCancel }: ClientFormPro
           type="text"
           id="address"
           name="address"
-          value={values.address || ''}
-          onChange={handleChange}
+          defaultValue={client?.address || ''}
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+          disabled={isSubmitting}
         />
       </div>
 
@@ -108,10 +81,10 @@ export default function ClientForm({ client, onSubmit, onCancel }: ClientFormPro
           type="text"
           id="specialty"
           name="specialty"
-          value={values.specialty || ''}
-          onChange={handleChange}
+          defaultValue={client?.specialty || ''}
           placeholder="Ej: Montaje Industrial, Construcción, etc."
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+          disabled={isSubmitting}
         />
       </div>
 
@@ -119,17 +92,19 @@ export default function ClientForm({ client, onSubmit, onCancel }: ClientFormPro
         <button
           type="button"
           onClick={onCancel}
-          className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 mr-2"
+          className="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 mr-2 disabled:opacity-50"
+          disabled={isSubmitting}
         >
           Cancelar
         </button>
         <button
           type="submit"
-          className="bg-primary-blue text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700"
+          className="bg-primary-blue text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          disabled={isSubmitting}
         >
-          {client ? 'Actualizar' : 'Crear'}
+          {isSubmitting ? 'Guardando...' : (client ? 'Actualizar' : 'Crear')}
         </button>
       </div>
-    </form>
+    </Form>
   );
 }

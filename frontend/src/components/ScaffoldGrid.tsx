@@ -27,10 +27,16 @@ export default function ScaffoldGrid({ scaffolds, onScaffoldSelect }: Props) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
       {scaffolds.map((scaffold) => (
-        <div
+        <button
+          type="button"
           key={scaffold.id}
-          className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer transform hover:-translate-y-1 transition-transform duration-300"
           onClick={() => onScaffoldSelect(scaffold)}
+          aria-label={`Ver detalles del andamio ${scaffold.scaffold_number || scaffold.id} de ${scaffold.cubic_meters} metros cúbicos en estado ${
+            scaffold.assembly_status === 'assembled' ? 'armado' : 
+            scaffold.assembly_status === 'in_progress' ? 'en proceso' : 
+            'desarmado'
+          }`}
+          className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer transform hover:-translate-y-1 transition-transform duration-300 w-full text-left focus:outline-none focus:ring-2 focus:ring-primary-blue focus:ring-offset-2"
         >
           <img
             src={getImageUrl(scaffold.assembly_image_url)}
@@ -60,7 +66,7 @@ export default function ScaffoldGrid({ scaffolds, onScaffoldSelect }: Props) {
                'Desarmado 0%'}
             </span>
           </div>
-        </div>
+        </button>
       ))}
     </div>
   );

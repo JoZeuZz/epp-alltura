@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useGet } from '../../hooks/useGet';
+import { useParams, useNavigate, useLoaderData, useRevalidator } from 'react-router-dom';
 import { Project, Scaffold } from '../../types/api';
 import Modal from '../../components/Modal';
 import ScaffoldDetailsModal from '../../components/ScaffoldDetailsModal';
@@ -11,6 +10,8 @@ const ProjectScaffoldsPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const revalidator = useRevalidator();
+  const { project, scaffolds } = useLoaderData() as { project: Project, scaffolds: Scaffold[] };
   const [selectedScaffold, setSelectedScaffold] = useState<Scaffold | null>(null);
   const [isDisassembleModalOpen, setIsDisassembleModalOpen] = useState(false);
   const [scaffoldToDisassemble, setScaffoldToDisassemble] = useState<number | null>(null);
@@ -41,34 +42,36 @@ const ProjectScaffoldsPage: React.FC = () => {
     e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect fill="%23ddd" width="64" height="64"/%3E%3Ctext fill="%23999" font-size="10" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ESin imagen%3C/text%3E%3C/svg%3E';
   };
 
-  const {
-    data: project,
-    isLoading: projectLoading,
-    error: projectError,
-  } = useGet<Project>(`project-${projectId}`, `/projects/${projectId}`);
-  const {
-    data: scaffolds,
-    isLoading: scaffoldsLoading,
-    error: scaffoldsError,
-    refetch: refetchScaffolds,
-  } = useGet<Scaffold[]>(`scaffolds-${projectId}`, `/scaffolds/project/${projectId}`);
-
-  const isLoading = projectLoading || scaffoldsLoading;
-  const error = projectError || scaffoldsError;
-
-  if (isLoading) {
-    return <p className="text-center text-neutral-gray">Cargando proyecto...</p>;
-  }
-
-  if (error) {
-    return <p className="text-red-500 bg-red-100 p-3 rounded-lg">{error.message}</p>;
-  }
+  const refetchScaffolds = async () => {
+    revalidator.revalidate();
+  };
 
   return (
     <div>
       <button onClick={() => navigate(-1)} className="mb-4 text-primary-blue hover:underline">
         &larr; Volver a Mis Proyectos
       </button>
+      
+      {/* Alerta si proyecto desactivado */}
+      {project && (!project.active || !project.client_active) && (
+        <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-yellow-800">Proyecto en modo solo lectura</h3>
+              <p className="mt-1 text-sm text-yellow-700">
+                {!project.client_active 
+                  ? 'El cliente empresa está desactivado. No se pueden crear ni editar andamios.' 
+                  : 'Este proyecto está desactivado. No se pueden crear ni editar andamios.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Header responsive: vertical en móvil, horizontal en desktop */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
@@ -78,7 +81,8 @@ const ProjectScaffoldsPage: React.FC = () => {
         </div>
         <button
           onClick={() => navigate(`/supervisor/project/${projectId}/create-scaffold`)}
-          className="bg-primary-blue text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-lg text-center text-sm sm:text-base whitespace-nowrap"
+          disabled={!project?.active || !project?.client_active}
+          className="bg-primary-blue text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-lg text-center text-sm sm:text-base whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
         >
           + Reportar Montaje
         </button>

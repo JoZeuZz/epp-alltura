@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import * as api from '../services/apiService';
 import { jwtDecode } from 'jwt-decode';
 import { User } from '../types/api';
@@ -43,7 +43,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       const response = await api.post<{ accessToken: string; refreshToken: string; user: User }>('/auth/login', { email, password });
       const { accessToken, refreshToken, user } = response;
@@ -60,15 +60,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       logout(); // Ensure clean state on failure
       return false;
     }
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     setUser(null);
-  };
+    // Redirigir al login
+    window.location.href = '/login';
+  }, []);
 
-  const refreshUserData = (newUserData: User, token?: string) => {
+  const refreshUserData = useCallback((newUserData: User, token?: string) => {
     try {
       // If a new token is provided, update it in localStorage
       if (token) {
@@ -80,15 +82,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('Failed to refresh token', error);
       logout(); // Fallback to logout on error
     }
-  };
+  }, [logout]);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     loading,
     login,
     logout,
     refreshUserData,
-  };
+  }), [user, loading, login, logout, refreshUserData]);
 
   return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
 };

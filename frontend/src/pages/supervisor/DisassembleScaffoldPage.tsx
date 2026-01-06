@@ -1,63 +1,78 @@
-import React, { useState, useRef, ChangeEvent, FormEvent } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import toast from 'react-hot-toast';
 import ImageUploadIcon from '../../components/icons/ImageUploadIcon';
 import LoadingOverlay from '../../components/LoadingOverlay';
 
+const disassembleSchema = z.object({
+  disassembly_notes: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
+  disassembly_image: z
+    .custom<FileList>()
+    .refine((files) => files?.length === 1, 'La imagen es requerida')
+    .refine(
+      (files) => files?.[0]?.size <= 10 * 1024 * 1024,
+      'El archivo no debe superar 10MB'
+    )
+    .refine(
+      (files) => ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(files?.[0]?.type),
+      'Solo se permiten archivos JPG, PNG o WEBP'
+    ),
+});
+
+type DisassembleFormData = z.infer<typeof disassembleSchema>;
+
 const DisassembleScaffoldPage: React.FC = () => {
   const { scaffoldId } = useParams<{ scaffoldId: string }>();
   const navigate = useNavigate();
-  const [notes, setNotes] = useState('');
-  const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState('');
   const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    watch,
+  } = useForm<DisassembleFormData>({
+    resolver: zodResolver(disassembleSchema),
+    defaultValues: {
+      disassembly_notes: '',
+    },
+  });
+
+  const imageFiles = watch('disassembly_image');
+
+  React.useEffect(() => {
+    if (imageFiles && imageFiles.length > 0) {
+      const file = imageFiles[0];
+      setImagePreview(URL.createObjectURL(file));
     }
-  };
+  }, [imageFiles]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!image) {
-      setError('Por favor, adjunte una foto de prueba del desmontaje.');
-      return;
-    }
-
+  const onSubmit = async (data: DisassembleFormData) => {
     if (!window.confirm('¿Está seguro de que desea marcar este andamio como desarmado?')) {
       return;
     }
 
     setError('');
-    setIsSubmitting(true);
 
     const formData = new FormData();
-    formData.append('disassembly_notes', notes);
-    formData.append('disassembly_image', image);
+    formData.append('disassembly_notes', data.disassembly_notes || '');
+    formData.append('disassembly_image', data.disassembly_image[0]);
 
     try {
-      // Usar api.put directamente para enviar FormData correctamente
       const { put } = await import('../../services/apiService');
       await put(`/scaffolds/${scaffoldId}/disassemble`, formData);
       toast.success('¡Andamio desmontado exitosamente!');
-      // Navegar de vuelta usando el historial del navegador
       navigate(-1);
-    } catch (err: any) {
-      const errorMsg = err?.response?.data?.message || 'Error al enviar el reporte de desmontaje. Intente de nuevo.';
+    } catch (err: unknown) {
+      const apiError = err as { response?: { data?: { message?: string } } };
+      const errorMsg = apiError?.response?.data?.message || 'Error al enviar el reporte de desmontaje. Intente de nuevo.';
       setError(errorMsg);
       toast.error(errorMsg);
       console.error(err);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -68,11 +83,11 @@ const DisassembleScaffoldPage: React.FC = () => {
       </button>
       <h1 className="text-3xl font-bold text-dark-blue mb-6">Marcar Andamio como Desarmado</h1>
 
-      <form onSubmit={handleSubmit} className="space-y-6 bg-white p-8 rounded-lg shadow-md">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 bg-white p-8 rounded-lg shadow-md">
         {/* Image Upload */}
         <div>
           <label className="block text-sm font-bold text-gray-700 mb-2">
-            Foto de Prueba del Desmontaje
+            Foto de Prueba del Desmontaje <span className="text-red-500">*</span>
           </label>
           <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
             <div className="space-y-1 text-center">
@@ -90,21 +105,23 @@ const DisassembleScaffoldPage: React.FC = () => {
                   htmlFor="file-upload"
                   className="relative cursor-pointer bg-white rounded-md font-medium text-primary-blue hover:text-blue-700 focus-within:outline-none"
                 >
-                  <span>{image ? 'Cambiar foto' : 'Adjuntar una foto'}</span>
+                  <span>{imagePreview ? 'Cambiar foto' : 'Adjuntar una foto'}</span>
                   <input
                     id="file-upload"
-                    name="file-upload"
                     type="file"
                     className="sr-only"
                     accept="image/*"
                     capture="environment"
-                    onChange={handleImageChange}
-                    ref={fileInputRef}
-                    required
+                    {...register('disassembly_image')}
+                    aria-invalid={errors.disassembly_image ? 'true' : 'false'}
+                    aria-describedby={errors.disassembly_image ? 'disassembly_image-error' : undefined}
                   />
                 </label>
               </div>
               <p className="text-xs text-gray-500">Foto del área despejada</p>
+              {errors.disassembly_image && (
+                <p id="disassembly_image-error" className="text-red-500 text-sm mt-1" role="alert">{errors.disassembly_image.message as string}</p>
+              )}
             </div>
           </div>
         </div>
@@ -117,10 +134,14 @@ const DisassembleScaffoldPage: React.FC = () => {
           <textarea
             id="notes"
             rows={3}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            {...register('disassembly_notes')}
             className="form-input"
+            aria-invalid={errors.disassembly_notes ? 'true' : 'false'}
+            aria-describedby={errors.disassembly_notes ? 'disassembly_notes-error' : undefined}
           ></textarea>
+          {errors.disassembly_notes && (
+            <p id="disassembly_notes-error" className="text-red-500 text-sm mt-1" role="alert">{errors.disassembly_notes.message}</p>
+          )}
         </div>
 
         {error && <p className="text-red-500 text-sm">{error}</p>}

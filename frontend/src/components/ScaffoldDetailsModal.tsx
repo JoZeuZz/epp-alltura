@@ -111,6 +111,13 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
   const handleUpdateProgress = async () => {
     if (!canEdit || isUpdating) return;
     
+    // Validación: No permitir cambiar porcentaje de andamios desarmados
+    if (assemblyStatus === 'disassembled') {
+      alert('No puedes cambiar el porcentaje de un andamio desarmado. Los andamios desarmados permanecen en 0% como registro histórico.');
+      handleCancelProgressEdit();
+      return;
+    }
+    
     // Validar rango
     if (tempProgress < 0 || tempProgress > 100) {
       alert('El porcentaje debe estar entre 0 y 100');
@@ -132,9 +139,10 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
       setProgressPercentage(tempProgress);
       setIsEditingProgress(false);
       if (onUpdate) onUpdate();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating progress percentage:', error);
-      const errorMessage = error?.response?.data?.error || error?.response?.data?.message || 'Error al actualizar el porcentaje de avance';
+      const apiError = error as { response?: { data?: { error?: string; message?: string } } };
+      const errorMessage = apiError?.response?.data?.error || apiError?.response?.data?.message || 'Error al actualizar el porcentaje de avance';
       alert(errorMessage);
     } finally {
       setIsUpdating(false);
@@ -196,16 +204,14 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             
-            {/* Switch: Activar Armado (solo si está desarmado o en proceso) */}
-            {assemblyStatus !== 'assembled' && (
+            {/* Switch: Activar Armado (solo si está en proceso) */}
+            {assemblyStatus === 'in_progress' && (
               <div className="bg-white p-4 rounded-lg shadow-sm">
                 <label className="flex items-center justify-between cursor-pointer">
                   <div className="flex-1">
-                    <span className="font-semibold text-gray-700 block mb-1">Marcar como Armado</span>
+                    <span className="font-semibold text-gray-700 block mb-1">Completar Armado</span>
                     <span className="text-sm text-gray-500">
-                      {assemblyStatus === 'in_progress' 
-                        ? `Completar armado (de ${progressPercentage}% a 100%)`
-                        : 'Activar andamio (0% a 100%)'}
+                      Completar armado (de {progressPercentage}% a 100%)
                     </span>
                   </div>
                   <div className="relative ml-4">
@@ -220,6 +226,27 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
                     <div className="absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform duration-300"></div>
                   </div>
                 </label>
+              </div>
+            )}
+            
+            {/* Mensaje informativo para andamios desarmados */}
+            {assemblyStatus === 'disassembled' && (
+              <div className="col-span-full bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-yellow-800 font-semibold">
+                      Andamio Desarmado - Registro Histórico
+                    </p>
+                    <p className="text-sm text-yellow-700 mt-1">
+                      Este andamio fue desarmado y permanece como registro histórico inmutable. No puede ser rearmado ni modificado. Si necesitas un nuevo andamio en esta ubicación, crea uno desde cero.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
 

@@ -10,7 +10,7 @@ interface ScaffoldStatusBadgeProps {
  * Componente de badges para mostrar el estado de un andamio
  * Muestra indicadores visuales de tarjeta y estado de armado
  */
-export const ScaffoldStatusBadge: React.FC<ScaffoldStatusBadgeProps> = ({
+export const ScaffoldStatusBadge: React.FC<ScaffoldStatusBadgeProps> = React.memo(({
   scaffold,
   showDetails = false,
 }) => {
@@ -24,6 +24,9 @@ export const ScaffoldStatusBadge: React.FC<ScaffoldStatusBadgeProps> = ({
             : 'bg-red-500'
         }`}
         title={scaffold.card_status === 'green' ? 'Tarjeta Verde - Todo OK' : 'Tarjeta Roja - Hay problemas'}
+        role={!showDetails ? 'status' : undefined}
+        aria-live={!showDetails ? 'polite' : undefined}
+        aria-label={!showDetails ? `Estado de tarjeta: ${scaffold.card_status === 'green' ? 'verde, todo OK' : 'roja, hay problemas'}` : undefined}
       >
         <span>{scaffold.card_status === 'green' ? '✓' : '✗'}</span>
         {showDetails && (
@@ -39,6 +42,9 @@ export const ScaffoldStatusBadge: React.FC<ScaffoldStatusBadgeProps> = ({
             : 'bg-gray-500'
         }`}
         title={scaffold.assembly_status === 'assembled' ? 'Armado' : 'Desarmado'}
+        role={!showDetails ? 'status' : undefined}
+        aria-live={!showDetails ? 'polite' : undefined}
+        aria-label={!showDetails ? `Estado de armado: ${scaffold.assembly_status === 'assembled' ? 'armado' : 'desarmado'}` : undefined}
       >
         <span>{scaffold.assembly_status === 'assembled' ? '🏗️' : '📦'}</span>
         {showDetails && (
@@ -51,6 +57,8 @@ export const ScaffoldStatusBadge: React.FC<ScaffoldStatusBadgeProps> = ({
         <div
           className="flex items-center space-x-1 px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-sm font-medium"
           title={`Progreso: ${scaffold.progress_percentage}%`}
+          role="status"
+          aria-label={`Progreso del andamio: ${scaffold.progress_percentage} por ciento`}
         >
           <span>📊</span>
           <span>{scaffold.progress_percentage}%</span>
@@ -58,6 +66,8 @@ export const ScaffoldStatusBadge: React.FC<ScaffoldStatusBadgeProps> = ({
       )}
     </div>
   );
-};
+});
+
+ScaffoldStatusBadge.displayName = 'ScaffoldStatusBadge';
 
 export default ScaffoldStatusBadge;

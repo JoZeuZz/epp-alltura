@@ -6,7 +6,7 @@ interface LoadingOverlayProps {
   subMessage?: string;
 }
 
-const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ 
+const LoadingOverlay: React.FC<LoadingOverlayProps> = React.memo(({ 
   isOpen, 
   message = 'Cargando...', 
   subMessage 
@@ -14,7 +14,12 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm"
+      role="alert"
+      aria-live="assertive"
+      aria-busy="true"
+    >
       <div className="bg-white rounded-lg shadow-2xl p-8 max-w-md w-full mx-4 transform transition-all">
         {/* Spinner animado */}
         <div className="flex justify-center mb-6">
@@ -45,6 +50,8 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
       </div>
     </div>
   );
-};
+});
+
+LoadingOverlay.displayName = 'LoadingOverlay';
 
 export default LoadingOverlay;

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { useGet } from '../../hooks/useGet';
+import { useLoaderData, useRevalidator } from 'react-router-dom';
 import Modal from '../../components/Modal';
 import ScaffoldDetailsModal from '../../components/ScaffoldDetailsModal';
 import { Project, Scaffold } from '../../types/api';
@@ -10,34 +9,19 @@ import { Project, Scaffold } from '../../types/api';
  * Vista de solo lectura de los andamios de un proyecto
  */
 const ClientProjectScaffoldsPage: React.FC = () => {
-  const { projectId } = useParams<{ projectId: string }>();
+  const revalidator = useRevalidator();
+  const { project, scaffolds } = useLoaderData() as { project: Project, scaffolds: Scaffold[] };
   const [selectedScaffold, setSelectedScaffold] = useState<Scaffold | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  const { data: project, isLoading: projectLoading } = useGet<Project>(
-    `project-${projectId}`,
-    `/projects/${projectId}`,
-  );
-
-  const { data: scaffolds, isLoading: scaffoldsLoading } = useGet<Scaffold[]>(
-    ['scaffolds', projectId],
-    `/scaffolds/project/${projectId}`,
-  );
+  const refetchScaffolds = async () => {
+    revalidator.revalidate();
+  };
 
   const filteredScaffolds = scaffolds?.filter((scaffold) => {
     if (statusFilter === 'all') return true;
     return scaffold.assembly_status === statusFilter;
   });
-
-  const isLoading = projectLoading || scaffoldsLoading;
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
-      </div>
-    );
-  }
 
   return (
     <div>
@@ -74,6 +58,16 @@ const ClientProjectScaffoldsPage: React.FC = () => {
             Armados ({scaffolds?.filter((s) => s.assembly_status === 'assembled').length || 0})
           </button>
           <button
+            onClick={() => setStatusFilter('in_progress')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              statusFilter === 'in_progress'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            En Proceso ({scaffolds?.filter((s) => s.assembly_status === 'in_progress').length || 0})
+          </button>
+          <button
             onClick={() => setStatusFilter('disassembled')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
               statusFilter === 'disassembled'
@@ -106,7 +100,7 @@ const ClientProjectScaffoldsPage: React.FC = () => {
           <p className="mt-1 text-sm text-gray-500">
             {statusFilter === 'all'
               ? 'Aún no hay andamios creados en este proyecto.'
-              : `No hay andamios ${statusFilter === 'assembled' ? 'armados' : 'desarmados'} en este momento.`}
+              : `No hay andamios ${statusFilter === 'assembled' ? 'armados' : statusFilter === 'in_progress' ? 'en proceso' : 'desarmados'} en este momento.`}
           </p>
         </div>
       ) : (
@@ -134,10 +128,16 @@ const ClientProjectScaffoldsPage: React.FC = () => {
                     className={`px-3 py-1 text-xs font-bold rounded-full ${
                       scaffold.assembly_status === 'assembled'
                         ? 'bg-green-500 text-white'
+                        : scaffold.assembly_status === 'in_progress'
+                        ? 'bg-blue-500 text-white'
                         : 'bg-yellow-500 text-white'
                     }`}
                   >
-                    {scaffold.assembly_status === 'assembled' ? 'Armado' : 'Desarmado'}
+                    {scaffold.assembly_status === 'assembled'
+                      ? 'Armado'
+                      : scaffold.assembly_status === 'in_progress'
+                      ? `En Proceso ${scaffold.progress_percentage}%`
+                      : 'Desarmado'}
                   </span>
                 </div>
               </div>
@@ -160,6 +160,11 @@ const ClientProjectScaffoldsPage: React.FC = () => {
                   <p>
                     <span className="font-semibold">Volumen:</span> {scaffold.cubic_meters} m³
                   </p>
+                  {scaffold.assembly_status === 'in_progress' && (
+                    <p>
+                      <span className="font-semibold">Avance:</span> {scaffold.progress_percentage}%
+                    </p>
+                  )}
                   <p>
                     <span className="font-semibold">Fecha:</span>{' '}
                     {new Date(scaffold.assembly_created_at).toLocaleDateString('es-CL')}
@@ -176,6 +181,10 @@ const ClientProjectScaffoldsPage: React.FC = () => {
         {selectedScaffold && (
           <ScaffoldDetailsModal
             scaffold={selectedScaffold}
+            onUpdate={() => {
+              refetchScaffolds();
+              setSelectedScaffold(null);
+            }}
           />
         )}
       </Modal>

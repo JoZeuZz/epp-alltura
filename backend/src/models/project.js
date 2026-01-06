@@ -45,6 +45,7 @@ const Project = {
       SELECT 
         p.*, 
         c.name as client_name,
+        c.active as client_active,
         ac.first_name || ' ' || ac.last_name as assigned_client_name,
         ac.email as assigned_client_email,
         au.first_name || ' ' || au.last_name as assigned_supervisor_name,
@@ -201,6 +202,34 @@ const Project = {
   async delete(id) {
     const { rows } = await db.query('DELETE FROM projects WHERE id = $1 RETURNING *', [id]);
     return rows[0];
+  },
+
+  async deactivate(id) {
+    // Desactivar el proyecto
+    const { rows } = await db.query(
+      'UPDATE projects SET active = FALSE WHERE id = $1 RETURNING *',
+      [id]
+    );
+    
+    return { ...rows[0], deactivated: true };
+  },
+
+  async reactivate(id) {
+    // Reactivar el proyecto
+    const { rows } = await db.query(
+      'UPDATE projects SET active = TRUE WHERE id = $1 RETURNING *',
+      [id]
+    );
+    
+    return rows[0];
+  },
+
+  async getScaffoldCount(id) {
+    const { rows } = await db.query(
+      'SELECT COUNT(*) as count FROM scaffolds WHERE project_id = $1',
+      [id]
+    );
+    return parseInt(rows[0].count);
   },
 
   async countActive() {

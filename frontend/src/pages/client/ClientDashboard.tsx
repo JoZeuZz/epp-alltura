@@ -1,7 +1,6 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLoaderData } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useGet } from '../../hooks/useGet';
 import { Project } from '../../types/api';
 
 /**
@@ -10,15 +9,7 @@ import { Project } from '../../types/api';
  */
 const ClientDashboard: React.FC = () => {
   const { user } = useAuth();
-  const { data: projects, isLoading } = useGet<Project[]>('projects', '/projects');
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
-      </div>
-    );
-  }
+  const { projects } = useLoaderData() as { projects: Project[] };
 
   return (
     <div>

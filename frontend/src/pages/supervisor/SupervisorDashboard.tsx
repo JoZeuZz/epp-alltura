@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { useGet } from '../../hooks/useGet';
+import { Link, useLoaderData } from 'react-router-dom';
 import { Project } from '../../types/api';
 
 const SupervisorDashboard: React.FC = () => {
+  const { projects: initialProjects } = useLoaderData() as { projects: Project[] };
   const [searchTerm, setSearchTerm] = useState('');
-  const { data: projects, isLoading, error } = useGet<Project[]>('projects', '/projects');
+  const projects = initialProjects;
 
   const filteredProjects = useMemo(() => {
     if (!projects) return [];
@@ -16,14 +16,6 @@ const SupervisorDashboard: React.FC = () => {
         project.name.toLowerCase().includes(searchTerm.toLowerCase()),
       );
   }, [projects, searchTerm]);
-
-  if (isLoading) {
-    return <p className="text-center text-neutral-gray">Cargando mis proyectos...</p>;
-  }
-
-  if (error) {
-    return <p className="text-red-500 bg-red-100 p-3 rounded-lg">{error.message}</p>;
-  }
 
   return (
     <div>

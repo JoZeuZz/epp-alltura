@@ -1,75 +1,66 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useGet } from '../../hooks/useGet';
-import { usePost, usePut, useDelete } from '../../hooks/useMutate';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate, useLoaderData, Form, useActionData } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { User } from '../../types/api';
 import UserForm from '../../components/UserForm';
 import Modal from '../../components/Modal';
 import ConfirmationModal from '../../components/ConfirmationModal';
 
 const UsersPage: React.FC = () => {
+  const { users } = useLoaderData() as { users: User[] };
+  const actionData = useActionData() as { success?: boolean; message?: string } | undefined;
   const navigate = useNavigate();
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
-  const { data: users, isLoading, error } = useGet<User[]>('users', '/users');
-  const createUser = usePost<User, Partial<User>>('users', '/users');
-  const updateUser = usePut<User, Partial<User> & { id: number }>('users', '/users');
-  const deleteUser = useDelete<User>('users', '/users');
+  // Manejar respuestas de la action
+  useEffect(() => {
+    if (actionData) {
+      if (actionData.success) {
+        toast.success(actionData.message || 'Operación exitosa');
+        setIsModalOpen(false);
+        setIsDeleteModalOpen(false);
+        setSelectedUser(null);
+        setUserToDelete(null);
+      } else {
+        toast.error(actionData.message || 'Error en la operación');
+      }
+    }
+  }, [actionData]);
 
-  const handleOpenModal = (user: User | null = null) => {
+  const handleOpenModal = useCallback((user: User | null = null) => {
     setSelectedUser(user);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleCloseModal = () => {
+  const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
     setSelectedUser(null);
-  };
+  }, []);
 
-  const handleSubmit = async (userData: Partial<User>) => {
-    try {
-      if (selectedUser) {
-        if (userData.password === '') {
-          delete userData.password;
-        }
-        await updateUser.mutateAsync({ ...userData, id: selectedUser.id });
-      } else {
-        await createUser.mutateAsync(userData);
-      }
-      handleCloseModal();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDelete = (user: User) => {
+  const handleDelete = useCallback((user: User) => {
     setUserToDelete(user);
     setIsDeleteModalOpen(true);
-  };
+  }, []);
 
-  const confirmDelete = async () => {
-    if (!userToDelete) return;
+  // Filtrar usuarios por rol con useMemo
+  const filteredUsers = useMemo(() => 
+    users?.filter(user => 
+      roleFilter === 'all' ? true : user.role === roleFilter
+    ) || [], 
+    [users, roleFilter]
+  );
 
-    try {
-      await deleteUser.mutateAsync(userToDelete.id);
-    } catch (err) {
-      console.error(err);
-    }
-    setUserToDelete(null);
-  };
-
-  if (isLoading) {
-    return <p>Cargando usuarios...</p>;
-  }
-
-  // Filtrar usuarios por rol
-  const filteredUsers = users?.filter(user => 
-    roleFilter === 'all' ? true : user.role === roleFilter
-  ) || [];
+  // Conteos de usuarios por rol memoizados
+  const userCounts = useMemo(() => ({
+    admin: users?.filter(u => u.role === 'admin').length || 0,
+    supervisor: users?.filter(u => u.role === 'supervisor').length || 0,
+    client: users?.filter(u => u.role === 'client').length || 0,
+  }), [users]);
 
   return (
     <div>
@@ -103,7 +94,7 @@ const UsersPage: React.FC = () => {
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
           }`}
         >
-          Administradores ({users?.filter(u => u.role === 'admin').length || 0})
+          Administradores ({userCounts.admin})
         </button>
         <button
           onClick={() => setRoleFilter('supervisor')}
@@ -113,7 +104,7 @@ const UsersPage: React.FC = () => {
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
           }`}
         >
-          Supervisores ({users?.filter(u => u.role === 'supervisor').length || 0})
+          Supervisores ({userCounts.supervisor})
         </button>
         <button
           onClick={() => setRoleFilter('client')}
@@ -123,26 +114,25 @@ const UsersPage: React.FC = () => {
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
           }`}
         >
-          Usuarios Cliente ({users?.filter(u => u.role === 'client').length || 0})
+          Usuarios Cliente ({userCounts.client})
         </button>
       </div>
 
-      {error && <p className="text-red-500 bg-red-100 p-3 rounded-lg mb-4">{error.message}</p>}
-
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         <table className="min-w-full leading-normal">
+          <caption className="sr-only">Lista de usuarios del sistema</caption>
           <thead>
             <tr>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Nombre
               </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Email
               </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Rol
               </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Acciones
               </th>
             </tr>
@@ -179,6 +169,7 @@ const UsersPage: React.FC = () => {
                       onClick={() => navigate(`/admin/users/${user.id}/history`)}
                       className="text-purple-600 hover:text-purple-900 mr-4"
                       title="Ver historial de cambios"
+                      aria-label={`Ver historial de ${user.first_name} ${user.last_name}`}
                     >
                       Historial
                     </button>
@@ -186,12 +177,14 @@ const UsersPage: React.FC = () => {
                   <button
                     onClick={() => handleOpenModal(user)}
                     className="text-indigo-600 hover:text-indigo-900 mr-4"
+                    aria-label={`Editar usuario ${user.first_name} ${user.last_name}`}
                   >
                     Editar
                   </button>
                   <button
                     onClick={() => handleDelete(user)}
                     className="text-red-600 hover:text-red-900"
+                    aria-label={`Eliminar usuario ${user.first_name} ${user.last_name}`}
                   >
                     Eliminar
                   </button>
@@ -206,18 +199,38 @@ const UsersPage: React.FC = () => {
         <h2 className="text-2xl font-bold mb-4">
           {selectedUser ? 'Editar Usuario' : 'Nuevo Usuario'}
         </h2>
-        <UserForm user={selectedUser} onSubmit={handleSubmit} onCancel={handleCloseModal} />
+        <UserForm user={selectedUser} onCancel={handleCloseModal} />
       </Modal>
 
       <ConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={confirmDelete}
+        onConfirm={() => {}}
         title="Eliminar Usuario"
         message={`¿Está seguro de que desea eliminar el usuario "${userToDelete?.first_name} ${userToDelete?.last_name}"? Esta acción no se puede deshacer.`}
         confirmText="Eliminar"
         variant="danger"
-      />
+      >
+        <Form method="post" onSubmit={() => setIsDeleteModalOpen(false)}>
+          <input type="hidden" name="intent" value="delete" />
+          <input type="hidden" name="id" value={userToDelete?.id || ''} />
+          <div className="flex justify-end gap-2 mt-4">
+            <button
+              type="button"
+              onClick={() => setIsDeleteModalOpen(false)}
+              className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+            >
+              Eliminar
+            </button>
+          </div>
+        </Form>
+      </ConfirmationModal>
     </div>
   );
 };

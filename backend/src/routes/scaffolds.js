@@ -189,7 +189,10 @@ router.patch('/:id/card-status', isAdminOrSupervisor, async (req, res, next) => 
     // Actualizar estado
     const updated = await Scaffold.updateCardStatus(id, card_status);
 
-    // Registrar en historial
+    // Obtener información del proyecto para campos denormalizados
+    const project = await Project.getById(scaffold.project_id);
+
+    // Registrar en historial con campos denormalizados
     await ScaffoldHistory.create({
       scaffold_id: id,
       user_id: req.user.id,
@@ -197,6 +200,10 @@ router.patch('/:id/card-status', isAdminOrSupervisor, async (req, res, next) => 
       previous_data: { card_status: scaffold.card_status },
       new_data: { card_status },
       description: `Tarjeta cambiada de ${scaffold.card_status} a ${card_status}`,
+      scaffold_number: scaffold.scaffold_number,
+      project_name: project?.name,
+      area: scaffold.area,
+      tag: scaffold.tag,
     });
 
     res.json(updated);
@@ -247,7 +254,10 @@ router.patch('/:id/assembly-status', isAdminOrSupervisor, upload.single('disasse
     // Actualizar estado
     const updated = await Scaffold.updateAssemblyStatus(id, assembly_status, disassemblyImageUrl);
 
-    // Registrar en historial
+    // Obtener información del proyecto para campos denormalizados
+    const project = await Project.getById(scaffold.project_id);
+
+    // Registrar en historial con campos denormalizados
     await ScaffoldHistory.create({
       scaffold_id: id,
       user_id: req.user.id,
@@ -262,6 +272,10 @@ router.patch('/:id/assembly-status', isAdminOrSupervisor, upload.single('disasse
         disassembly_image: disassemblyImageUrl,
       },
       description: `Estado cambiado de ${scaffold.assembly_status} a ${assembly_status}`,
+      scaffold_number: scaffold.scaffold_number,
+      project_name: project?.name,
+      area: scaffold.area,
+      tag: scaffold.tag,
     });
 
     res.json(updated);
@@ -287,6 +301,17 @@ router.put('/:id/disassemble', isAdminOrSupervisor, upload.single('disassembly_i
       return res.status(404).json({ message: 'Andamio no encontrado.' });
     }
 
+    // Verificar que el proyecto esté activo
+    const project = await Project.getById(scaffold.project_id);
+    if (!project) {
+      return res.status(404).json({ message: 'Proyecto no encontrado.' });
+    }
+    if (!project.active || !project.client_active) {
+      return res.status(400).json({ 
+        message: 'No se pueden desarmar andamios de un proyecto o cliente desactivado. Los datos históricos están protegidos.' 
+      });
+    }
+
     // Verificar permisos para supervisores
     if (req.user.role === 'supervisor') {
       // Un supervisor puede desarmar si:
@@ -295,8 +320,7 @@ router.put('/:id/disassemble', isAdminOrSupervisor, upload.single('disassembly_i
       const isCreator = scaffold.created_by === req.user.id;
       
       if (!isCreator) {
-        // Verificar si el andamio pertenece a un proyecto asignado al supervisor
-        const project = await Project.getById(scaffold.project_id);
+        // Verificar si el andamio pertenece a un proyecto asignado al supervisor (ya tenemos el project)
         const isAssignedToProject = project && project.assigned_supervisor_id === req.user.id;
         
         if (!isAssignedToProject) {
@@ -334,7 +358,7 @@ router.put('/:id/disassemble', isAdminOrSupervisor, upload.single('disassembly_i
     const { rows } = await db.query(query, [disassemblyImageUrl, disassembly_notes || null, id]);
     const updated = rows[0];
 
-    // Registrar en historial
+    // Registrar en historial con campos denormalizados
     await ScaffoldHistory.create({
       scaffold_id: id,
       user_id: req.user.id,
@@ -350,6 +374,10 @@ router.put('/:id/disassemble', isAdminOrSupervisor, upload.single('disassembly_i
         disassembly_notes: disassembly_notes || null,
       },
       description: `Andamio desarmado con pruebas fotográficas`,
+      scaffold_number: scaffold.scaffold_number,
+      project_name: project.name,
+      area: scaffold.area,
+      tag: scaffold.tag,
     });
 
     logger.info(`Andamio ${id} desarmado por usuario ${req.user.id}`);
@@ -440,6 +468,20 @@ const createScaffoldSchema = Joi.object({
     .allow('', null)
     .messages({
       'string.max': 'Las notas de montaje no pueden exceder 2000 caracteres'
+    }),
+  location: Joi.string()
+    .trim()
+    .max(500)
+    .allow('', null)
+    .messages({
+      'string.max': 'La ubicación no puede exceder 500 caracteres'
+    }),
+  observations: Joi.string()
+    .trim()
+    .max(2000)
+    .allow('', null)
+    .messages({
+      'string.max': 'Las observaciones no pueden exceder 2000 caracteres'
     })
 });
 
@@ -494,6 +536,17 @@ router.post('/', isAdminOrSupervisor, upload.single('assembly_image'), async (re
 
     const validatedData = await createScaffoldSchema.validateAsync(req.body);
 
+    // Verificar que el proyecto esté activo
+    const project = await Project.getById(validatedData.project_id);
+    if (!project) {
+      return res.status(404).json({ message: 'Proyecto no encontrado.' });
+    }
+    if (!project.active || !project.client_active) {
+      return res.status(400).json({ 
+        message: 'No se pueden crear andamios en un proyecto o cliente desactivado. Los datos históricos están protegidos.' 
+      });
+    }
+
     // Subir imagen a GCS
     const assemblyImageUrl = await uploadFile(req.file);
 
@@ -507,6 +560,8 @@ router.post('/', isAdminOrSupervisor, upload.single('assembly_image'), async (re
       length,
       progress_percentage,
       assembly_notes,
+      location,
+      observations,
     } = validatedData;
 
     // Calcular metros cúbicos
@@ -542,12 +597,14 @@ router.post('/', isAdminOrSupervisor, upload.single('assembly_image'), async (re
       cubic_meters,
       progress_percentage: progress_percentage || 0,
       assembly_notes,
+      location,
+      observations,
       assembly_image_url: assemblyImageUrl,
       card_status,
       assembly_status,
     });
 
-    // Registrar creación en historial
+    // Registrar creación en historial con datos denormalizados
     await ScaffoldHistory.create({
       scaffold_id: scaffold.id,
       user_id: req.user.id,
@@ -555,6 +612,10 @@ router.post('/', isAdminOrSupervisor, upload.single('assembly_image'), async (re
       previous_data: {},
       new_data: scaffold,
       description: 'Andamio creado',
+      scaffold_number: scaffold.scaffold_number,
+      project_name: project.name,
+      area: scaffold.area,
+      tag: scaffold.tag,
     });
 
     logger.info(`Andamio ${scaffold.id} creado por usuario ${req.user.id}`);
@@ -583,6 +644,17 @@ router.put('/:id', isAdminOrSupervisor, async (req, res, next) => {
       return res.status(404).json({ message: 'Andamio no encontrado.' });
     }
 
+    // Verificar que el proyecto esté activo
+    const project = await Project.getById(scaffold.project_id);
+    if (!project) {
+      return res.status(404).json({ message: 'Proyecto no encontrado.' });
+    }
+    if (!project.active || !project.client_active) {
+      return res.status(400).json({ 
+        message: 'No se pueden editar andamios de un proyecto o cliente desactivado. Los datos históricos están protegidos.' 
+      });
+    }
+
     // Verificar permisos para supervisores
     if (req.user.role === 'supervisor') {
       // Un supervisor puede editar si:
@@ -591,8 +663,7 @@ router.put('/:id', isAdminOrSupervisor, async (req, res, next) => {
       const isCreator = scaffold.created_by === req.user.id;
       
       if (!isCreator) {
-        // Verificar si el andamio pertenece a un proyecto asignado al supervisor
-        const project = await Project.getById(scaffold.project_id);
+        // Verificar si el andamio pertenece a un proyecto asignado al supervisor (ya tenemos el project)
         const isAssignedToProject = project && project.assigned_supervisor_id === req.user.id;
         
         if (!isAssignedToProject) {
@@ -618,6 +689,31 @@ router.put('/:id', isAdminOrSupervisor, async (req, res, next) => {
       // ============================================
       // VALIDACIONES Y SINCRONIZACIÓN AUTOMÁTICA
       // ============================================
+      
+      // 0. VALIDACIÓN CRÍTICA: No permitir modificar andamios desarmados
+      // Los andamios desarmados son registros históricos inmutables
+      if (scaffold.assembly_status === 'disassembled') {
+        // Verificar si intenta cambiar el estado a algo diferente de desarmado
+        if (validatedData.assembly_status && validatedData.assembly_status !== 'disassembled') {
+          return res.status(400).json({
+            error: 'No puedes rearmar un andamio que ya fue desarmado. Los andamios desarmados son registros históricos y no pueden volver a armarse. Si necesitas un nuevo andamio en la misma ubicación, crea uno nuevo.'
+          });
+        }
+        
+        // Verificar si intenta cambiar el porcentaje a más de 0
+        if (validatedData.progress_percentage !== undefined && validatedData.progress_percentage > 0) {
+          return res.status(400).json({
+            error: 'No puedes cambiar el porcentaje de avance de un andamio desarmado. Los andamios desarmados permanecen en 0% como registro histórico.'
+          });
+        }
+        
+        // Si intenta cambiar el estado de tarjeta (solo permitir mantenerlo en rojo)
+        if (validatedData.card_status && validatedData.card_status !== 'red') {
+          return res.status(400).json({
+            error: 'Los andamios desarmados deben mantener tarjeta roja como registro de seguridad.'
+          });
+        }
+      }
       
       // 1. Validar que el porcentaje no retroceda
       if (validatedData.progress_percentage !== undefined && validatedData.progress_percentage < scaffold.progress_percentage) {
@@ -687,8 +783,13 @@ router.put('/:id', isAdminOrSupervisor, async (req, res, next) => {
     // Actualizar
     const updated = await Scaffold.update(id, dataToUpdate);
 
-    // Registrar en historial
-    await ScaffoldHistory.createFromChanges(id, req.user.id, scaffold, updated);
+    // Registrar en historial con campos denormalizados (reutilizar variable project ya cargada)
+    await ScaffoldHistory.createFromChanges(id, req.user.id, scaffold, updated, {
+      scaffold_number: scaffold.scaffold_number,
+      project_name: project?.name,
+      area: scaffold.area,
+      tag: scaffold.tag,
+    });
 
     logger.info(`Andamio ${id} actualizado por usuario ${req.user.id}`);
     res.json(updated);
@@ -733,24 +834,60 @@ router.delete('/:id', isAdmin, async (req, res, next) => {
       });
     }
 
-    // Verificar si el andamio existe y obtener las rutas de las imágenes
-    const checkQuery = 'SELECT assembly_image_url, disassembly_image_url FROM scaffolds WHERE id = $1';
-    const { rows } = await db.query(checkQuery, [id]);
+    // Verificar si el andamio existe y obtener información completa
+    const scaffold = await Scaffold.getById(id);
 
-    if (rows.length === 0) {
+    if (!scaffold) {
       return res.status(404).json({ message: 'Andamio no encontrado' });
     }
 
-    const scaffold = rows[0];
+    // Obtener información del proyecto para registrar en historial
+    const project = await Project.getById(scaffold.project_id);
+
+    // Registrar eliminación en historial ANTES de eliminar
+    await ScaffoldHistory.create({
+      scaffold_id: id,
+      user_id: req.user.id,
+      change_type: 'delete',
+      previous_data: scaffold,
+      new_data: {},
+      description: 'Andamio eliminado del sistema',
+      scaffold_number: scaffold.scaffold_number,
+      project_name: project?.name,
+      area: scaffold.area,
+      tag: scaffold.tag,
+    });
 
     // Función auxiliar para eliminar imagen si existe
     const deleteImageFile = async (imageUrl) => {
       if (!imageUrl) return;
       
       try {
-        // Extraer el path relativo (quitar /uploads/ del inicio)
-        const relativePath = imageUrl.replace(/^\/uploads\//, '');
-        const fullPath = path.join(__dirname, '../../uploads', relativePath);
+        let filename;
+        
+        // Si es una URL completa (http://... o https://...)
+        if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+          // Si es de Google Cloud Storage, no intentar eliminar localmente
+          if (imageUrl.includes('storage.googleapis.com')) {
+            logger.info(`Imagen en GCS, no se elimina localmente: ${imageUrl}`);
+            return;
+          }
+          
+          // Si es URL local, extraer solo el nombre del archivo
+          // Ejemplo: http://192.168.1.7:5000/uploads/1767639773039.jpg -> 1767639773039.jpg
+          const urlParts = imageUrl.split('/uploads/');
+          if (urlParts.length > 1) {
+            filename = urlParts[1];
+          } else {
+            logger.warn(`No se pudo extraer filename de URL: ${imageUrl}`);
+            return;
+          }
+        } else {
+          // Si es un path relativo (/uploads/filename.jpg)
+          filename = imageUrl.replace(/^\/uploads\//, '');
+        }
+        
+        const fullPath = path.join(__dirname, '../../uploads', filename);
         
         // Verificar si el archivo existe antes de intentar eliminarlo
         await fs.access(fullPath);

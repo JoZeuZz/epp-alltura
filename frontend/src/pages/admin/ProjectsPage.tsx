@@ -1,9 +1,6 @@
-import React, { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useLoaderData, useActionData, useSubmit } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { useGet } from '../../hooks/useGet';
-import * as apiHooks from '../../hooks/useMutate';
-import * as apiService from '../../services/apiService';
 import { Client, Project, User } from '../../types/api';
 import ProjectForm from '../../components/ProjectForm';
 import Modal from '../../components/Modal';
@@ -11,37 +8,43 @@ import AssignSupervisorsForm from '../../components/AssignSupervisorsForm';
 import ConfirmationModal from '../../components/ConfirmationModal';
 
 const ProjectsPage: React.FC = () => {
+  const { projects, clients, users } = useLoaderData() as { projects: Project[], clients: Client[], users: User[] };
+  const actionData = useActionData() as { success?: boolean; message?: string } | undefined;
+  const submit = useSubmit();
+  
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [projectToAssign, setProjectToAssign] = useState<Project | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<number | null>(null);
+  const [scaffoldCount, setScaffoldCount] = useState<number>(0);
   const [showInactive, setShowInactive] = useState(false);
 
-  const { data: projects, isLoading: projectsLoading } = useGet<Project[]>('projects', '/projects');
-  const { data: clients, isLoading: clientsLoading } = useGet<Client[]>('clients', '/clients');
-  const { data: users, isLoading: usersLoading } = useGet<User[]>('users', '/users');
+  const projectsLoading = false;
+  const clientsLoading = false;
+  const usersLoading = false;
 
-  const queryClient = useQueryClient();
+  // Manejar respuestas de la action
+  useEffect(() => {
+    if (actionData) {
+      if (actionData.success) {
+        toast.success(actionData.message || 'Operación exitosa');
+        setIsModalOpen(false);
+        setIsAssignModalOpen(false);
+        setIsConfirmDeleteOpen(false);
+        setSelectedProject(null);
+        setProjectToAssign(null);
+        setProjectToDelete(null);
+      } else {
+        toast.error(actionData.message || 'Error en la operación');
+      }
+    }
+  }, [actionData]);
 
-  // Filtrar supervisores y usuarios cliente
-  const supervisors = users?.filter(u => u.role === 'supervisor') || [];
-  const clientUsers = users?.filter(u => u.role === 'client') || [];
-
-  const createProject = apiHooks.usePost<Project, Partial<Project>>('projects', '/projects');
-  // The data sent to update is not a full Project object.
-  // It's an object with an `id` and the fields to update.
-  type ProjectUpdatePayload = Partial<Omit<Project, 'id'>> & { id: number };
-  const updateProject = apiHooks.usePut<Project, ProjectUpdatePayload>('projects', '/projects');
-  const deleteProject = apiHooks.useDelete<Project>('projects', '/projects');
-
-  const assignUsers = useMutation<unknown, Error, { projectId: number; userIds: number[] }>({
-    mutationFn: ({ projectId, userIds }) => apiService.post(`/projects/${projectId}/users`, { userIds }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] }); // O una clave más específica si es necesario
-    },
-  });
+  // Filtrar supervisores y usuarios cliente con useMemo para evitar recálculos innecesarios
+  const supervisors = useMemo(() => users?.filter(u => u.role === 'supervisor') || [], [users]);
+  const clientUsers = useMemo(() => users?.filter(u => u.role === 'client') || [], [users]);
 
   const handleOpenModal = (project: Project | null = null) => {
     setSelectedProject(project);
@@ -63,30 +66,6 @@ const ProjectsPage: React.FC = () => {
     setProjectToAssign(null);
   };
 
-  const handleSubmit = async (projectData: Partial<Project>) => {
-    try {
-      if (selectedProject?.id) {
-        const payload = {
-          name: projectData.name || selectedProject.name,
-          client_id: projectData.client_id || selectedProject.client_id,
-          status: projectData.status || selectedProject.status,
-          assigned_supervisor_id: projectData.assigned_supervisor_id,
-          assigned_client_id: projectData.assigned_client_id,
-        };
-        // Pass the full object to mutateAsync, the hook will handle separating the id
-        await updateProject.mutateAsync({ id: selectedProject.id, ...payload });
-        toast.success('Proyecto actualizado correctamente');
-      } else {
-        await createProject.mutateAsync(projectData);
-        toast.success('Proyecto creado correctamente');
-      }
-      handleCloseModal();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error al guardar el proyecto');
-      console.error(err);
-    }
-  };
-
   const handleAssignSubmit = async ({
     projectId,
     userIds,
@@ -94,33 +73,59 @@ const ProjectsPage: React.FC = () => {
     projectId: number;
     userIds: number[];
   }) => {
+    // Este método se mantiene temporalmente para AssignSupervisorsForm
+    // TODO: migrar AssignSupervisorsForm a usar Form también
     try {
-      await assignUsers.mutateAsync({ projectId, userIds });
-      toast.success('Supervisores asignados correctamente');
-      handleCloseAssignModal();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error al asignar supervisores');
-      console.error(err);
+      const token = localStorage.getItem('accessToken');
+      
+      const response = await fetch(`/api/projects/${projectId}/users`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userIds }),
+      });
+      
+      if (response.ok) {
+        toast.success('Usuarios asignados correctamente');
+        handleCloseAssignModal();
+        // Recargar la página para ver los cambios
+        window.location.reload();
+      } else {
+        const data = await response.json();
+        toast.error(data.error || 'Error al asignar usuarios');
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al asignar usuarios';
+      toast.error(message);
     }
   };
 
-  const handleDeleteClick = (projectId: number) => {
+  const handleDeleteClick = async (projectId: number) => {
     setProjectToDelete(projectId);
-    setIsConfirmDeleteOpen(true);
-  };
-
-  const handleDelete = async () => {
-    if (!projectToDelete) return;
-
+    
+    // Obtener el conteo de andamios antes de mostrar el modal
     try {
-      await deleteProject.mutateAsync(projectToDelete);
-      toast.success('Proyecto eliminado correctamente');
-    } catch (err: any) {
-      toast.error(err?.response?.data?.error || 'Error al eliminar el proyecto');
-      console.error(err);
+      const token = localStorage.getItem('accessToken');
+      const response = await fetch(`/api/projects/${projectId}/scaffolds/count`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setScaffoldCount(data.count);
+      } else {
+        setScaffoldCount(0);
+      }
+    } catch (err) {
+      console.error('Error al obtener conteo de andamios:', err);
+      setScaffoldCount(0);
     }
-    setProjectToDelete(null);
-    setIsConfirmDeleteOpen(false);
+    
+    setIsConfirmDeleteOpen(true);
   };
 
   const isLoading = projectsLoading || clientsLoading || usersLoading;
@@ -162,18 +167,19 @@ const ProjectsPage: React.FC = () => {
 
       <div className="bg-white shadow-md rounded-lg overflow-x-auto">
         <table className="min-w-full leading-normal">
+          <caption className="sr-only">Lista de proyectos</caption>
           <thead>
             <tr>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Nombre del Proyecto
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                Nombre
               </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Cliente
               </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Estado
               </th>
-              <th className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 Acciones
               </th>
             </tr>
@@ -201,24 +207,46 @@ const ProjectsPage: React.FC = () => {
                   )}
                 </td>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm whitespace-nowrap">
-                  <button
-                    onClick={() => handleOpenAssignModal(project)}
-                    className="text-green-600 hover:text-green-900 mr-4"
-                  >
-                    Asignar
-                  </button>
-                  <button
-                    onClick={() => handleOpenModal(project)}
-                    className="text-indigo-600 hover:text-indigo-900 mr-4"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => handleDeleteClick(project.id)}
-                    className="text-red-600 hover:text-red-900"
-                  >
-                    Eliminar
-                  </button>
+                  {!project.active && project.client_active ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          const formData = new FormData();
+                          formData.append('intent', 'reactivate');
+                          formData.append('id', String(project.id));
+                          submit(formData, { method: 'post' });
+                        }}
+                        className="text-green-600 hover:text-green-900 mr-4"
+                        aria-label={`Reactivar proyecto ${project.name}`}
+                      >
+                        Reactivar
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleOpenAssignModal(project)}
+                        className="text-green-600 hover:text-green-900 mr-4"
+                        aria-label={`Asignar andamios al proyecto ${project.name}`}
+                      >
+                        Asignar
+                      </button>
+                      <button
+                        onClick={() => handleOpenModal(project)}
+                        className="text-indigo-600 hover:text-indigo-900 mr-4"
+                        aria-label={`Editar proyecto ${project.name}`}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(project.id)}
+                        className="text-red-600 hover:text-red-900"
+                        aria-label={`Eliminar proyecto ${project.name}`}
+                      >
+                        Eliminar
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
@@ -235,7 +263,6 @@ const ProjectsPage: React.FC = () => {
           clients={clients || []}
           supervisors={supervisors}
           clientUsers={clientUsers}
-          onSubmit={handleSubmit}
           onCancel={handleCloseModal}
         />
       </Modal>
@@ -252,9 +279,24 @@ const ProjectsPage: React.FC = () => {
       <ConfirmationModal
         isOpen={isConfirmDeleteOpen}
         onClose={() => setIsConfirmDeleteOpen(false)}
-        onConfirm={handleDelete}
-        title="Eliminar Proyecto"
-        message="¿Está seguro de que desea eliminar este proyecto? Esta acción no se puede deshacer."
+        onConfirm={() => {
+          // Usar useSubmit de React Router
+          const formData = new FormData();
+          formData.append('intent', 'delete');
+          formData.append('id', String(projectToDelete || ''));
+          
+          submit(formData, { method: 'post' });
+          
+          setIsConfirmDeleteOpen(false);
+        }}
+        title={scaffoldCount > 0 ? "Desactivar Proyecto" : "Eliminar Proyecto"}
+        message={
+          scaffoldCount > 0
+            ? `Este proyecto tiene ${scaffoldCount} andamio${scaffoldCount === 1 ? '' : 's'} asociado${scaffoldCount === 1 ? '' : 's'}. Por seguridad, el proyecto será desactivado en lugar de eliminado. Podrá reactivarlo más adelante si lo necesita.`
+            : "¿Está seguro de que desea eliminar este proyecto permanentemente? Esta acción no se puede deshacer."
+        }
+        confirmText={scaffoldCount > 0 ? "Desactivar" : "Eliminar"}
+        variant={scaffoldCount > 0 ? "warning" : "danger"}
       />
     </div>
   );

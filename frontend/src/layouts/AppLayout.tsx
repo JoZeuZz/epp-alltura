@@ -1,4 +1,4 @@
-import { useState, Fragment, useRef, useEffect } from 'react';
+import { useState, Fragment, useRef, useEffect, Suspense } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import logoWhite from '../assets/logo-alltura-white.png';
@@ -66,7 +66,7 @@ const AppLayout = () => {
         onClick={handleLinkClick}
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
-        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
         Dashboard
@@ -79,7 +79,7 @@ const AppLayout = () => {
         onClick={handleLinkClick}
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
-        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
         Proyectos
@@ -89,7 +89,7 @@ const AppLayout = () => {
         onClick={handleLinkClick}
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
-        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
         Andamios
@@ -102,7 +102,7 @@ const AppLayout = () => {
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
         onClick={handleLinkClick}
       >
-        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         </svg>
         Clientes
@@ -115,7 +115,7 @@ const AppLayout = () => {
         onClick={handleLinkClick}
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
-        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
         </svg>
         Usuarios del Sistema
@@ -130,7 +130,7 @@ const AppLayout = () => {
         onClick={handleLinkClick}
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
-        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
         Mis Proyectos
@@ -140,7 +140,7 @@ const AppLayout = () => {
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
         onClick={handleLinkClick}
       >
-        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         Historial
@@ -155,7 +155,7 @@ const AppLayout = () => {
         onClick={handleLinkClick}
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
-        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
         Mis Proyectos
@@ -165,6 +165,13 @@ const AppLayout = () => {
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans">
+      {/* Skip to main content link */}
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary-blue focus:text-white focus:rounded-md"
+      >
+        Ir al contenido principal
+      </a>
 
       {/* --- Sidebar --- */}
       {isSidebarOpen && (
@@ -173,7 +180,8 @@ const AppLayout = () => {
           onClick={() => setSidebarOpen(false)}
         ></div>
       )}
-      <div
+      <nav
+        aria-label="Navegación principal"
         className={`fixed inset-y-0 left-0 z-40 w-64 bg-dark-blue text-white flex flex-col transform transition-transform duration-300 ease-in-out
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
@@ -181,8 +189,12 @@ const AppLayout = () => {
         <div className="flex flex-col h-full w-64 overflow-hidden">
           <div className="flex items-center justify-between h-20 border-b border-gray-700 px-4 flex-shrink-0">
             <img src={logoWhite} alt="Alltura Logo" className="h-12 w-auto" />
-            <button onClick={() => setSidebarOpen(false)} className="text-white">
-              <CloseIcon />
+            <button 
+              onClick={() => setSidebarOpen(false)} 
+              className="text-white"
+              aria-label="Cerrar menú de navegación"
+            >
+              <CloseIcon aria-hidden="true" />
             </button>
           </div>
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
@@ -244,22 +256,33 @@ const AppLayout = () => {
             )}
           </div>
         </div>
-      </div>
+      </nav>
 
       {/* Contenedor para Header y Main Content */}
       <div className="flex flex-col flex-1 w-full">
         {/* Header Unificado */}
         <header className="bg-dark-blue text-white flex items-center justify-between p-4 z-30 shadow-lg flex-shrink-0">
-          <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="text-white">
-            <MenuIcon />
+          <button 
+            onClick={() => setSidebarOpen(!isSidebarOpen)} 
+            className="text-white"
+            aria-label="Abrir menú de navegación"
+            aria-expanded={isSidebarOpen}
+          >
+            <MenuIcon aria-hidden="true" />
           </button>
           <img src={logoWhite} alt="Alltura Logo" className="h-8 w-auto" />
           <div className="w-6"></div> {/* Espaciador para centrar el logo */}
         </header>
 
         {/* --- Main Content --- */}
-        <main className="flex-1 w-full p-4 sm:p-6 lg:p-10 overflow-y-auto">
-          <Outlet />
+        <main id="main-content" className="flex-1 w-full p-4 sm:p-6 lg:p-10 overflow-y-auto">
+          <Suspense fallback={
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
+            </div>
+          }>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

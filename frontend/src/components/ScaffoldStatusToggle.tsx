@@ -103,6 +103,9 @@ export const ScaffoldStatusToggle: React.FC<ScaffoldStatusToggleProps> = ({
           <button
             onClick={handleCardToggle}
             disabled={isChangingCard || scaffold.assembly_status === 'disassembled'}
+            role="switch"
+            aria-checked={scaffold.card_status === 'green'}
+            aria-label={`Cambiar estado de tarjeta a ${scaffold.card_status === 'green' ? 'rojo' : 'verde'}`}
             className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
               scaffold.card_status === 'green'
                 ? 'bg-green-500'
@@ -148,6 +151,9 @@ export const ScaffoldStatusToggle: React.FC<ScaffoldStatusToggleProps> = ({
           <button
             onClick={handleAssemblyToggle}
             disabled={isChangingAssembly}
+            role="switch"
+            aria-checked={scaffold.assembly_status === 'assembled'}
+            aria-label={`Cambiar estado de armado a ${scaffold.assembly_status === 'assembled' ? 'desarmado' : 'armado'}`}
             className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
               scaffold.assembly_status === 'assembled'
                 ? 'bg-blue-500'
