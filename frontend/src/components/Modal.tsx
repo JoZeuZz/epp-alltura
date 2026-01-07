@@ -86,7 +86,7 @@ export default function Modal({ isOpen, onClose, children, title, description }:
         `}</style>
         
         <div
-          className="bg-white p-4 sm:p-6 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+          className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] sm:max-h-[85vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
           style={{
             animation: 'modalSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',

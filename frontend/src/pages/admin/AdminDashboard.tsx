@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLoaderData } from 'react-router-dom';
 import { Scaffold } from '../../types/api';
+import { ResponsiveGrid } from '../../components/layout';
 
 interface DashboardSummary {
   // Proyectos y clientes
@@ -48,12 +49,14 @@ const MetricCard: React.FC<{
   colorClass?: string;
 }> = ({ title, value, icon, to = null, subtitle, colorClass = 'text-primary-blue' }) => {
   const content = (
-    <div className="bg-white p-4 md:p-6 rounded-lg shadow-md flex items-center transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-      <div className={`mr-3 md:mr-4 ${colorClass} flex-shrink-0`}>{icon}</div>
+    <div className="bg-white p-3 sm:p-4 rounded-lg shadow-md flex items-center gap-2 sm:gap-3 transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+      <div className={`${colorClass} flex-shrink-0`}>
+        <div className="w-8 h-8 sm:w-9 sm:h-9">{icon}</div>
+      </div>
       <div className="min-w-0 flex-1">
-        <h3 className="text-xs md:text-sm font-medium text-neutral-gray truncate">{title}</h3>
-        <p className="text-2xl md:text-3xl font-bold text-dark-blue">{value}</p>
-        {subtitle && <p className="text-xs text-neutral-gray mt-1">{subtitle}</p>}
+        <h3 className="text-xs sm:text-sm text-gray-600 mb-0.5">{title}</h3>
+        <p className="text-2xl sm:text-3xl font-bold text-dark-blue leading-tight">{value}</p>
+        {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
       </div>
     </div>
   );
@@ -69,15 +72,15 @@ const StatsCard: React.FC<{
   items: Array<{ label: string; value: string | number; color?: string }>;
   icon: React.ReactNode;
 }> = ({ title, items, icon }) => (
-  <div className="bg-white p-4 md:p-6 rounded-lg shadow-md">
-    <div className="flex items-center mb-4">
-      <div className="mr-3 text-primary-blue">{icon}</div>
-      <h2 className="text-lg md:text-xl font-bold text-dark-blue">{title}</h2>
+  <div className="bg-white p-3 sm:p-4 md:p-5 rounded-lg shadow-md">
+    <div className="flex items-center gap-2 mb-3">
+      <div className="text-primary-blue w-5 h-5 sm:w-6 sm:h-6">{icon}</div>
+      <h2 className="text-base sm:text-lg font-semibold text-dark-blue">{title}</h2>
     </div>
-    <div className="space-y-3">
+    <div className="space-y-2">
       {items.map((item, index) => (
         <div key={index} className="flex justify-between items-center">
-          <span className="text-sm text-neutral-gray">{item.label}</span>
+          <span className="body-base text-neutral-gray">{item.label}</span>
           <span className={`text-lg font-semibold ${item.color || 'text-dark-blue'}`}>
             {item.value}
           </span>
@@ -89,14 +92,12 @@ const StatsCard: React.FC<{
 
 const RecentReportsTable: React.FC<{ reports: Scaffold[] }> = ({ reports }) => (
   <div className="bg-white p-4 md:p-6 rounded-lg shadow-md">
-    <h2 className="text-xl md:text-2xl font-bold text-dark-blue mb-3 md:mb-4">Últimos Andamios Creados</h2>
+    <h2 className="heading-2 text-dark-blue mb-3 md:mb-4">Últimos Andamios Creados</h2>
     {reports.length === 0 ? (
       <p className="text-center text-neutral-gray py-4">No hay andamios recientes</p>
     ) : (
-      <div className="overflow-x-auto -mx-4 md:mx-0">
-        <div className="inline-block min-w-full align-middle">
-          <div className="overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200">
+      <div className="overflow-x-auto scrollbar-thin">
+        <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th
@@ -158,8 +159,6 @@ const RecentReportsTable: React.FC<{ reports: Scaffold[] }> = ({ reports }) => (
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
       </div>
     )}
   </div>
@@ -174,13 +173,13 @@ const AdminDashboard: React.FC = () => {
   const formatM3 = (num: number) => `${formatNumber(num)} m³`;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-blue">Dashboard</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Dashboard</h1>
 
       {/* Sección: Resumen General */}
       <div>
-        <h2 className="text-lg font-semibold text-dark-blue mb-3">Resumen General</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <h2 className="text-lg sm:text-xl font-semibold text-dark-blue mb-2 sm:mb-3">Resumen General</h2>
+        <ResponsiveGrid variant="stats" gap="md">
           <MetricCard
             title="Proyectos Activos"
             value={summary?.activeProjects || 0}
@@ -209,13 +208,13 @@ const AdminDashboard: React.FC = () => {
             subtitle="Andamios creados hoy"
             colorClass="text-orange-600"
           />
-        </div>
+        </ResponsiveGrid>
       </div>
 
       {/* Sección: Desglose de Metros Cúbicos */}
       <div>
-        <h2 className="text-lg font-semibold text-dark-blue mb-3">Desglose de Metros Cúbicos (m³)</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <h2 className="text-lg sm:text-xl font-semibold text-dark-blue mb-2 sm:mb-3">Desglose de Metros Cúbicos (m³)</h2>
+        <ResponsiveGrid variant="stats" gap="md">
           <MetricCard
             title="Total m³"
             value={formatM3(summary?.totalCubicMeters || 0)}
@@ -243,11 +242,11 @@ const AdminDashboard: React.FC = () => {
             colorClass="text-red-600"
             subtitle={`${summary?.disassembledScaffolds || 0} andamios`}
           />
-        </div>
+        </ResponsiveGrid>
       </div>
 
       {/* Sección: Estadísticas Detalladas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <ResponsiveGrid variant="wide" gap="lg">
         {/* Andamios por Estado */}
         <StatsCard
           title="Andamios por Estado"
@@ -318,7 +317,7 @@ const AdminDashboard: React.FC = () => {
             },
           ]}
         />
-      </div>
+      </ResponsiveGrid>
 
       {/* Tabla de Últimos Andamios */}
       {summary?.recentScaffolds && summary.recentScaffolds.length > 0 && (

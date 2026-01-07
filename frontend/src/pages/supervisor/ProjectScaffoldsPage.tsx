@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate, useLoaderData, useRevalidator } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import axios from 'axios';
+import imageCompression from 'browser-image-compression';
 import { Project, Scaffold } from '../../types/api';
 import Modal from '../../components/Modal';
+import ScaffoldGrid from '../../components/ScaffoldGrid';
 import ScaffoldDetailsModal from '../../components/ScaffoldDetailsModal';
-import ConfirmationModal from '../../components/ConfirmationModal';
 import { useAuth } from '../../context/AuthContext';
 
 const ProjectScaffoldsPage: React.FC = () => {
@@ -11,35 +14,109 @@ const ProjectScaffoldsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const revalidator = useRevalidator();
-  const { project, scaffolds } = useLoaderData() as { project: Project, scaffolds: Scaffold[] };
+  const { project, scaffolds: initialScaffolds } = useLoaderData() as { project: Project, scaffolds: Scaffold[] };
+  const [scaffolds, setScaffolds] = useState<Scaffold[]>(initialScaffolds);
   const [selectedScaffold, setSelectedScaffold] = useState<Scaffold | null>(null);
-  const [isDisassembleModalOpen, setIsDisassembleModalOpen] = useState(false);
   const [scaffoldToDisassemble, setScaffoldToDisassemble] = useState<number | null>(null);
+  const [disassembleImage, setDisassembleImage] = useState<File | null>(null);
+  const [disassembleNotes, setDisassembleNotes] = useState('');
+  const [isDisassembling, setIsDisassembling] = useState(false);
 
-  const handleDisassembleClick = (scaffoldId: number, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleToggleCard = async (scaffoldId: number, currentStatus: 'green' | 'red') => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const newStatus = currentStatus === 'green' ? 'red' : 'green';
+      
+      await axios.patch(
+        `/api/scaffolds/${scaffoldId}/card-status`,
+        { card_status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      toast.success(`Tarjeta cambiada a ${newStatus === 'green' ? 'verde' : 'roja'}`);
+      
+      // Actualizar estado local
+      setScaffolds(scaffolds.map(s => 
+        s.id === scaffoldId ? { ...s, card_status: newStatus } : s
+      ));
+    } catch (err: unknown) {
+      const apiError = err as { response?: { data?: { message?: string } } };
+      const errorMsg = apiError?.response?.data?.message || 'Error al cambiar la tarjeta';
+      toast.error(errorMsg);
+      console.error(err);
+    }
+  };
+
+  const handleDisassemble = (scaffoldId: number) => {
     setScaffoldToDisassemble(scaffoldId);
-    setIsDisassembleModalOpen(true);
+    setDisassembleImage(null);
+    setDisassembleNotes('');
   };
 
-  const confirmDisassemble = () => {
-    if (scaffoldToDisassemble) {
-      navigate(`/supervisor/scaffold/${scaffoldToDisassemble}/disassemble?projectId=${projectId}`);
+  const handleDisassembleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1024,
+        useWebWorker: true,
+      };
+      const compressedFile = await imageCompression(file, options);
+      setDisassembleImage(compressedFile);
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      toast.error('Error al procesar la imagen');
     }
   };
 
-  // Helper para normalizar URLs de imágenes
-  const getImageUrl = (url: string | undefined | null): string => {
-    if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
+  const handleConfirmDisassemble = async () => {
+    if (!scaffoldToDisassemble || !disassembleImage) {
+      toast.error('Por favor, selecciona una imagen del desarmado');
+      return;
     }
-    return `http://localhost:5000${url}`;
-  };
 
-  // Handle image error
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="64" height="64"%3E%3Crect fill="%23ddd" width="64" height="64"/%3E%3Ctext fill="%23999" font-size="10" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ESin imagen%3C/text%3E%3C/svg%3E';
+    setIsDisassembling(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const formData = new FormData();
+      formData.append('disassembly_image', disassembleImage);
+      if (disassembleNotes) {
+        formData.append('disassembly_notes', disassembleNotes);
+      }
+
+      await axios.put(
+        `/api/scaffolds/${scaffoldToDisassemble}/disassemble`,
+        formData,
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          } 
+        }
+      );
+
+      toast.success('Andamio desarmado correctamente');
+      
+      // Actualizar estado local
+      setScaffolds(scaffolds.map(s => 
+        s.id === scaffoldToDisassemble 
+          ? { ...s, assembly_status: 'disassembled', card_status: 'red', progress_percentage: 0 } 
+          : s
+      ));
+      
+      setScaffoldToDisassemble(null);
+      setDisassembleImage(null);
+      setDisassembleNotes('');
+    } catch (err: unknown) {
+      const apiError = err as { response?: { data?: { message?: string } } };
+      const errorMsg = apiError?.response?.data?.message || 'Error al desarmar el andamio';
+      toast.error(errorMsg);
+      console.error(err);
+    } finally {
+      setIsDisassembling(false);
+    }
   };
 
   const refetchScaffolds = async () => {
@@ -92,75 +169,86 @@ const ProjectScaffoldsPage: React.FC = () => {
       {scaffolds?.length === 0 ? (
         <p className="text-neutral-gray">Aún no se han reportado andamios para este proyecto.</p>
       ) : (
-        <div className="space-y-4">
-          {scaffolds?.map((scaffold) => (
-            <div
-              key={scaffold.id}
-              onClick={() => setSelectedScaffold(scaffold)}
-              className="bg-white p-4 rounded-lg shadow-md cursor-pointer transition-all hover:shadow-lg hover:scale-[1.01]"
-            >
-              {/* Layout móvil: Todo en columna */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                {/* Sección principal: imagen + info */}
-                <div className="flex gap-3 items-start">
-                  <img
-                    src={getImageUrl(scaffold.assembly_image_url)}
-                    alt={`Andamio ${scaffold.id}`}
-                    className="h-20 w-20 sm:h-16 sm:w-16 object-cover rounded-md flex-shrink-0"
-                    onError={handleImageError}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-dark-blue text-base sm:text-lg mb-1">
-                      {scaffold.scaffold_number && `N° ${scaffold.scaffold_number} - `}
-                      {scaffold.cubic_meters} m³
-                    </p>
-                    {scaffold.area && (
-                      <p className="text-xs sm:text-sm text-neutral-gray">
-                        Área: {scaffold.area}
-                      </p>
-                    )}
-                    {scaffold.location && (
-                      <p className="text-xs sm:text-sm text-neutral-gray truncate">
-                        Ubicación: {scaffold.location}
-                      </p>
-                    )}
-                    <p className="text-xs sm:text-sm text-neutral-gray mt-1">
-                      {new Date(scaffold.assembly_created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Sección de acciones: badge + botón */}
-                <div className="flex items-center justify-between sm:justify-end gap-3">
-                  <span
-                    className={`capitalize px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-full whitespace-nowrap ${
-                      scaffold.assembly_status === 'assembled' 
-                        ? 'bg-green-100 text-green-800' 
-                        : scaffold.assembly_status === 'in_progress'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}
-                  >
-                    {scaffold.assembly_status === 'assembled' 
-                      ? 'Armado' 
-                      : scaffold.assembly_status === 'in_progress'
-                      ? `En Proceso (${scaffold.progress_percentage || 0}%)`
-                      : 'Desarmado'}
-                  </span>
-                  {scaffold.assembly_status === 'assembled' && (
-                    <button
-                      onClick={(e) => handleDisassembleClick(scaffold.id, e)}
-                      className="bg-yellow-500 text-white px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold hover:bg-yellow-600 transition-colors whitespace-nowrap"
-                    >
-                      Desarmar
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+        <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+          <ScaffoldGrid 
+            scaffolds={scaffolds} 
+            onScaffoldSelect={setSelectedScaffold}
+            onToggleCard={handleToggleCard}
+            onDisassemble={handleDisassemble}
+            projectAssignedSupervisorId={project?.assigned_supervisor_id}
+          />
         </div>
       )}
+
+      {/* Modal de desarmado */}
+      <Modal 
+        isOpen={!!scaffoldToDisassemble} 
+        onClose={() => {
+          setScaffoldToDisassemble(null);
+          setDisassembleImage(null);
+          setDisassembleNotes('');
+        }}
+      >
+        <div className="p-6">
+          <h2 className="text-2xl font-bold text-dark-blue mb-4">Desarmar Andamio</h2>
+          <p className="text-gray-600 mb-6">
+            Por favor, proporciona una imagen del andamio desarmado y notas opcionales.
+          </p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Imagen del desarmado <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleDisassembleImageChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              {disassembleImage && (
+                <p className="mt-2 text-sm text-green-600">
+                  ✓ Imagen seleccionada: {disassembleImage.name}
+                </p>
+              )}
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Notas del desarmado (opcional)
+              </label>
+              <textarea
+                value={disassembleNotes}
+                onChange={(e) => setDisassembleNotes(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Ingresa observaciones sobre el desarmado..."
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => {
+                setScaffoldToDisassemble(null);
+                setDisassembleImage(null);
+                setDisassembleNotes('');
+              }}
+              disabled={isDisassembling}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleConfirmDisassemble}
+              disabled={!disassembleImage || isDisassembling}
+              className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isDisassembling ? 'Desarmando...' : 'Confirmar Desarmado'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Details Modal */}
       <Modal isOpen={!!selectedScaffold} onClose={() => setSelectedScaffold(null)}>
@@ -176,18 +264,6 @@ const ProjectScaffoldsPage: React.FC = () => {
           />
         )}
       </Modal>
-
-      {/* Disassemble Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={isDisassembleModalOpen}
-        onClose={() => setIsDisassembleModalOpen(false)}
-        onConfirm={confirmDisassemble}
-        title="Desarmar Andamio"
-        message="¿Estás seguro de que deseas desarmar este andamio? Serás redirigido a un formulario para cargar las pruebas del desarmado (foto y notas)."
-        variant="warning"
-        confirmText="Desarmar"
-        cancelText="Cancelar"
-      />
     </div>
   );
 };

@@ -18,11 +18,15 @@
 - **Estado**: React Query para servidor, Context para auth
 - **Estilos**: Tailwind CSS utility-first
 - **Rutas**: React Router v7 con rutas protegidas por rol
-- **Tipos**: Interfaces en types/, enums donde aplique
+- **Tipos**: Interfaces en types/, enums donde aplique (NUNCA duplicar tipos de /types/api)
 - **Formularios**: React Hook Form + Zod para validación
 - **Lazy Loading**: Usar lazy() para todas las páginas (code splitting)
 - **Optimización**: React.memo para componentes pequeños reutilizables
 - **Hooks**: useMemo para cálculos costosos, useCallback para callbacks estables
+- **Responsive**: useBreakpoints hook para condicional rendering (isMobile < 640px)
+- **Cards**: Usar EntityCard base para componentes reutilizables con InfoField[] y CardAction[]
+- **Breakpoints**: sm=640px, md=768px, lg=1024px, xl=1280px (Tailwind defaults)
+- **Touch Targets**: Mínimo 44x44px para elementos interactivos (botones, links)
 
 ## General
 - **Linting**: ESLint con reglas recomendadas

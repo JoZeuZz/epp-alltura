@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Link, useLoaderData } from 'react-router-dom';
+import { useLoaderData } from 'react-router-dom';
 import { Project } from '../../types/api';
+import { ResponsiveGrid } from '../../components/layout';
+import ProjectCard from '../../components/ProjectCard';
 
 const SupervisorDashboard: React.FC = () => {
   const { projects: initialProjects } = useLoaderData() as { projects: Project[] };
@@ -19,7 +21,7 @@ const SupervisorDashboard: React.FC = () => {
 
   return (
     <div>
-      <h1 className="text-2xl md:text-3xl font-bold text-dark-blue mb-4 md:mb-6">Mis Proyectos Activos</h1>
+      <h1 className="heading-1 text-dark-blue mb-4 md:mb-6">Mis Proyectos Activos</h1>
 
       <div className="mb-4 md:mb-6">
         <input
@@ -27,39 +29,26 @@ const SupervisorDashboard: React.FC = () => {
           placeholder="Buscar proyecto..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full p-3 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue"
+          className="w-full p-3 body-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue min-h-touch"
         />
       </div>
 
       {filteredProjects.length === 0 ? (
-        <p className="text-neutral-gray text-center py-8 text-sm md:text-base">
+        <p className="text-neutral-gray text-center py-8 body-base">
           {searchTerm
             ? 'No se encontraron proyectos que coincidan con tu búsqueda.'
             : 'No tienes proyectos asignados en este momento.'}
         </p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        <ResponsiveGrid variant="cards" gap="lg">
           {filteredProjects.map((project) => (
-            <Link
-              to={`/supervisor/project/${project.id}`}
+            <ProjectCard
               key={project.id}
-              className="block p-4 md:p-6 bg-white rounded-lg border border-gray-200 shadow-md hover:bg-gray-100 transition-colors"
-            >
-              <h5 className="mb-2 text-xl md:text-2xl font-bold tracking-tight text-dark-blue">
-                {project.name}
-              </h5>
-              <p className="font-normal text-neutral-gray mb-3">Cliente: {project.client_name}</p>
-              <div className="flex items-center justify-between">
-                <span
-                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${project.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}
-                >
-                  {project.status === 'active' ? 'Activo' : 'Completado'}
-                </span>
-                <span className="text-primary-blue font-semibold">Ver detalles &rarr;</span>
-              </div>
-            </Link>
+              project={project}
+              linkTo={`/supervisor/project/${project.id}`}
+            />
           ))}
-        </div>
+        </ResponsiveGrid>
       )}
     </div>
   );

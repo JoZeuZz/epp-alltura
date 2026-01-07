@@ -5,11 +5,15 @@ import { Client } from '../../types/api';
 import ClientForm from '../../components/ClientForm';
 import Modal from '../../components/Modal';
 import ConfirmationModal from '../../components/ConfirmationModal';
+import { ClientCard } from '../../components/cards';
+import { ResponsiveGrid } from '../../components/layout';
+import { useBreakpoints } from '../../hooks';
 
 const ClientsPage: React.FC = () => {
   const { clients } = useLoaderData() as { clients: Client[] };
   const actionData = useActionData() as { success?: boolean; message?: string; warning?: boolean } | undefined;
   const submit = useSubmit();
+  const { isMobile } = useBreakpoints();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -72,9 +76,25 @@ const ClientsPage: React.FC = () => {
         </button>
       </div>
 
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full leading-normal">
-          <caption className="sr-only">Lista de clientes</caption>
+      {/* Vista móvil: Cards */}
+      {isMobile ? (
+        <ResponsiveGrid variant="wide" gap="md">
+          {clients?.map((client) => (
+            <ClientCard
+              key={client.id}
+              client={client}
+              onEdit={handleOpenModal}
+              onDelete={handleDelete}
+              onReactivate={handleReactivate}
+            />
+          ))}
+        </ResponsiveGrid>
+      ) : (
+        /* Vista desktop: Tabla */
+        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+          <div className="overflow-x-auto scrollbar-thin">
+          <table className="min-w-full leading-normal">
+            <caption className="sr-only">Lista de clientes</caption>
           <thead>
             <tr>
               <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -160,7 +180,9 @@ const ClientsPage: React.FC = () => {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
+      )}
 
       <Modal isOpen={isModalOpen} onClose={handleCloseModal}>
         <h2 className="text-2xl font-bold mb-4">

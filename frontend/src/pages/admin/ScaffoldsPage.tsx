@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, useLoaderData } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import axios from 'axios';
+import imageCompression from 'browser-image-compression';
 import Modal from '../../components/Modal';
 import ProjectSelector from '../../components/ProjectSelector';
 import ScaffoldFilters from '../../components/ScaffoldFilters';
@@ -23,6 +24,10 @@ const ScaffoldsPage: React.FC = () => {
   const [exportingExcel, setExportingExcel] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
+  const [scaffoldToDisassemble, setScaffoldToDisassemble] = useState<number | null>(null);
+  const [disassembleImage, setDisassembleImage] = useState<File | null>(null);
+  const [disassembleNotes, setDisassembleNotes] = useState('');
+  const [isDisassembling, setIsDisassembling] = useState(false);
 
   const projects = initialProjects;
   const projectsLoading = false;
@@ -115,6 +120,103 @@ const ScaffoldsPage: React.FC = () => {
     }
     
     navigate(`/admin/project/${selectedProjectId}/create-scaffold`);
+  };
+
+  const handleToggleCard = async (scaffoldId: number, currentStatus: 'green' | 'red') => {
+    try {
+      const token = localStorage.getItem('accessToken');
+      const newStatus = currentStatus === 'green' ? 'red' : 'green';
+      
+      await axios.patch(
+        `/api/scaffolds/${scaffoldId}/card-status`,
+        { card_status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      toast.success(`Tarjeta cambiada a ${newStatus === 'green' ? 'verde' : 'roja'}`);
+      
+      // Actualizar estado local
+      setScaffolds(scaffolds.map(s => 
+        s.id === scaffoldId ? { ...s, card_status: newStatus } : s
+      ));
+    } catch (err: unknown) {
+      const apiError = err as { response?: { data?: { message?: string } } };
+      const errorMsg = apiError?.response?.data?.message || 'Error al cambiar la tarjeta';
+      toast.error(errorMsg);
+      console.error(err);
+    }
+  };
+
+  const handleDisassemble = (scaffoldId: number) => {
+    setScaffoldToDisassemble(scaffoldId);
+    setDisassembleImage(null);
+    setDisassembleNotes('');
+  };
+
+  const handleDisassembleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1024,
+        useWebWorker: true,
+      };
+      const compressedFile = await imageCompression(file, options);
+      setDisassembleImage(compressedFile);
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      toast.error('Error al procesar la imagen');
+    }
+  };
+
+  const handleConfirmDisassemble = async () => {
+    if (!scaffoldToDisassemble || !disassembleImage) {
+      toast.error('Por favor, selecciona una imagen del desarmado');
+      return;
+    }
+
+    setIsDisassembling(true);
+    try {
+      const token = localStorage.getItem('accessToken');
+      const formData = new FormData();
+      formData.append('disassembly_image', disassembleImage);
+      if (disassembleNotes) {
+        formData.append('disassembly_notes', disassembleNotes);
+      }
+
+      await axios.put(
+        `/api/scaffolds/${scaffoldToDisassemble}/disassemble`,
+        formData,
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data'
+          } 
+        }
+      );
+
+      toast.success('Andamio desarmado correctamente');
+      
+      // Actualizar estado local
+      setScaffolds(scaffolds.map(s => 
+        s.id === scaffoldToDisassemble 
+          ? { ...s, assembly_status: 'disassembled', card_status: 'red', progress_percentage: 0 } 
+          : s
+      ));
+      
+      setScaffoldToDisassemble(null);
+      setDisassembleImage(null);
+      setDisassembleNotes('');
+    } catch (err: unknown) {
+      const apiError = err as { response?: { data?: { message?: string } } };
+      const errorMsg = apiError?.response?.data?.message || 'Error al desarmar el andamio';
+      toast.error(errorMsg);
+      console.error(err);
+    } finally {
+      setIsDisassembling(false);
+    }
   };
 
   const handleDeleteScaffold = async (scaffoldId: number) => {
@@ -252,8 +354,8 @@ const ScaffoldsPage: React.FC = () => {
       {/* Selectores y Filtros */}
       <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
         <h2 className="text-lg font-semibold text-dark-blue mb-4">Seleccionar Proyecto</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="md:col-span-1">
+        <div className="space-y-4">
+          <div>
             <ProjectSelector
               projects={projects || []}
               selectedProjectId={selectedProjectId}
@@ -264,7 +366,7 @@ const ScaffoldsPage: React.FC = () => {
               }}
             />
           </div>
-          <div className="md:col-span-3">
+          <div>
             <ScaffoldFilters filters={filters} onFilterChange={setFilters} />
           </div>
         </div>
@@ -295,53 +397,53 @@ const ScaffoldsPage: React.FC = () => {
       {selectedProjectId && filteredScaffolds.length > 0 && (
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
           <h2 className="text-lg font-semibold text-dark-blue mb-4">Estadísticas del Proyecto</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
             {/* Total Andamios */}
-            <div className="bg-gray-50 rounded-lg p-3 border-l-4 border-gray-500">
+            <div className="bg-gray-50 rounded-lg p-2.5 md:p-3 border-l-4 border-gray-500">
               <p className="text-xs text-gray-600 mb-1">Total</p>
-              <p className="text-2xl font-bold text-gray-700">{stats.total}</p>
+              <p className="text-xl md:text-2xl font-bold text-gray-700">{stats.total}</p>
             </div>
             
             {/* Armados */}
-            <div className="bg-green-50 rounded-lg p-3 border-l-4 border-green-500">
+            <div className="bg-green-50 rounded-lg p-2.5 md:p-3 border-l-4 border-green-500">
               <p className="text-xs text-green-700 mb-1">Armados</p>
-              <p className="text-2xl font-bold text-green-600">{stats.assembled}</p>
+              <p className="text-xl md:text-2xl font-bold text-green-600">{stats.assembled}</p>
             </div>
             
             {/* En Proceso */}
-            <div className="bg-yellow-50 rounded-lg p-3 border-l-4 border-yellow-500">
+            <div className="bg-yellow-50 rounded-lg p-2.5 md:p-3 border-l-4 border-yellow-500">
               <p className="text-xs text-yellow-700 mb-1">En Proceso</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
+              <p className="text-xl md:text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
             </div>
             
             {/* Desarmados */}
-            <div className="bg-red-50 rounded-lg p-3 border-l-4 border-red-500">
+            <div className="bg-red-50 rounded-lg p-2.5 md:p-3 border-l-4 border-red-500">
               <p className="text-xs text-red-700 mb-1">Desarmados</p>
-              <p className="text-2xl font-bold text-red-600">{stats.disassembled}</p>
+              <p className="text-xl md:text-2xl font-bold text-red-600">{stats.disassembled}</p>
             </div>
             
             {/* Total m³ */}
-            <div className="bg-blue-50 rounded-lg p-3 border-l-4 border-blue-500">
+            <div className="bg-blue-50 rounded-lg p-2.5 md:p-3 border-l-4 border-blue-500">
               <p className="text-xs text-blue-700 mb-1">Total m³</p>
-              <p className="text-xl font-bold text-blue-600">{stats.totalM3.toFixed(1)}</p>
+              <p className="text-lg md:text-xl font-bold text-blue-600">{stats.totalM3.toFixed(1)}</p>
             </div>
             
             {/* m³ Armados */}
-            <div className="bg-cyan-50 rounded-lg p-3 border-l-4 border-cyan-500">
+            <div className="bg-cyan-50 rounded-lg p-2.5 md:p-3 border-l-4 border-cyan-500">
               <p className="text-xs text-cyan-700 mb-1">m³ Armados</p>
-              <p className="text-xl font-bold text-cyan-600">{stats.assembledM3.toFixed(1)}</p>
+              <p className="text-lg md:text-xl font-bold text-cyan-600">{stats.assembledM3.toFixed(1)}</p>
             </div>
             
             {/* Tarjetas Verdes */}
-            <div className="bg-emerald-50 rounded-lg p-3 border-l-4 border-emerald-500">
+            <div className="bg-emerald-50 rounded-lg p-2.5 md:p-3 border-l-4 border-emerald-500">
               <p className="text-xs text-emerald-700 mb-1">🟢 Verdes</p>
-              <p className="text-2xl font-bold text-emerald-600">{stats.greenCards}</p>
+              <p className="text-xl md:text-2xl font-bold text-emerald-600">{stats.greenCards}</p>
             </div>
             
             {/* Tarjetas Rojas */}
-            <div className="bg-rose-50 rounded-lg p-3 border-l-4 border-rose-500">
+            <div className="bg-rose-50 rounded-lg p-2.5 md:p-3 border-l-4 border-rose-500">
               <p className="text-xs text-rose-700 mb-1">🔴 Rojas</p>
-              <p className="text-2xl font-bold text-rose-600">{stats.redCards}</p>
+              <p className="text-xl md:text-2xl font-bold text-rose-600">{stats.redCards}</p>
             </div>
           </div>
         </div>
@@ -349,14 +451,14 @@ const ScaffoldsPage: React.FC = () => {
 
       {/* Acciones principales */}
       <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex flex-col gap-4">
           <h2 className="text-lg font-semibold text-dark-blue">
             {selectedProjectId 
               ? `${filteredScaffolds.length} Andamio${filteredScaffolds.length !== 1 ? 's' : ''} Encontrado${filteredScaffolds.length !== 1 ? 's' : ''}`
               : 'Selecciona un proyecto para comenzar'}
           </h2>
           
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             <button
               onClick={handleCreateScaffold}
               disabled={!selectedProjectId || !selectedProject?.active || !selectedProject?.client_active}
@@ -382,7 +484,7 @@ const ScaffoldsPage: React.FC = () => {
             <button
               onClick={handleExportExcel}
               disabled={!selectedProjectId || exportingExcel}
-              className="bg-green-500 text-white px-4 py-2.5 rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2"
+              className="bg-green-500 text-white px-4 py-2.5 rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2 sm:col-span-2 lg:col-span-1"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -409,7 +511,13 @@ const ScaffoldsPage: React.FC = () => {
       ) : selectedProjectId ? (
         filteredScaffolds.length > 0 ? (
           <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-            <ScaffoldGrid scaffolds={filteredScaffolds} onScaffoldSelect={setSelectedScaffold} />
+            <ScaffoldGrid 
+              scaffolds={filteredScaffolds} 
+              onScaffoldSelect={setSelectedScaffold}
+              onToggleCard={handleToggleCard}
+              onDisassemble={handleDisassemble}
+              projectAssignedSupervisorId={selectedProject?.assigned_supervisor_id}
+            />
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-md p-12 text-center">
@@ -441,6 +549,76 @@ const ScaffoldsPage: React.FC = () => {
         message="Generando Excel del proyecto..."
         subMessage="Procesando datos y creando el archivo"
       />
+
+      {/* Modal de desarmado */}
+      <Modal 
+        isOpen={!!scaffoldToDisassemble} 
+        onClose={() => {
+          setScaffoldToDisassemble(null);
+          setDisassembleImage(null);
+          setDisassembleNotes('');
+        }}
+      >
+        <div className="p-6">
+          <h2 className="text-2xl font-bold text-dark-blue mb-4">Desarmar Andamio</h2>
+          <p className="text-gray-600 mb-6">
+            Por favor, proporciona una imagen del andamio desarmado y notas opcionales.
+          </p>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Imagen del desarmado <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleDisassembleImageChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              {disassembleImage && (
+                <p className="mt-2 text-sm text-green-600">
+                  ✓ Imagen seleccionada: {disassembleImage.name}
+                </p>
+              )}
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Notas del desarmado (opcional)
+              </label>
+              <textarea
+                value={disassembleNotes}
+                onChange={(e) => setDisassembleNotes(e.target.value)}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Ingresa observaciones sobre el desarmado..."
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => {
+                setScaffoldToDisassemble(null);
+                setDisassembleImage(null);
+                setDisassembleNotes('');
+              }}
+              disabled={isDisassembling}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleConfirmDisassemble}
+              disabled={!disassembleImage || isDisassembling}
+              className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isDisassembling ? 'Desarmando...' : 'Confirmar Desarmado'}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal isOpen={!!selectedScaffold} onClose={handleCloseModal}>
         {selectedScaffold && (

@@ -97,10 +97,10 @@ export default function ConfirmationModal({
           
           {/* Contenido */}
           <div className="flex-1 min-w-0">
-            <h3 className="text-xl font-bold text-gray-900 mb-2 leading-tight">
+            <h3 className="heading-3 text-gray-900 mb-2 leading-tight">
               {title}
             </h3>
-            <p className="text-base text-gray-600 leading-relaxed">
+            <p className="body-base text-gray-600 leading-relaxed">
               {message}
             </p>
             {children}
@@ -111,7 +111,7 @@ export default function ConfirmationModal({
         <div className="mt-8 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
           <button
             type="button"
-            className="group inline-flex justify-center items-center rounded-xl border-2 border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-400 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-gray-300/50 focus:border-gray-400 active:scale-[0.98] transition-all duration-200"
+            className="group inline-flex justify-center items-center rounded-xl border-2 border-gray-300 bg-white px-5 py-3 label-base text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-400 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-gray-300/50 focus:border-gray-400 active:scale-[0.98] transition-all duration-200 min-h-touch"
             onClick={onClose}
           >
             <span className="group-hover:-translate-x-0.5 transition-transform duration-200">
@@ -120,7 +120,7 @@ export default function ConfirmationModal({
           </button>
           <button
             type="button"
-            className={`inline-flex justify-center items-center rounded-xl border-2 border-transparent ${styles.buttonBg} px-6 py-3 text-sm font-bold text-white shadow-lg ${styles.glowColor} focus:outline-none focus:ring-4 focus:ring-offset-2 transition-all duration-200`}
+            className={`inline-flex justify-center items-center rounded-xl border-2 border-transparent ${styles.buttonBg} px-6 py-3 label-base text-white shadow-lg ${styles.glowColor} focus:outline-none focus:ring-4 focus:ring-offset-2 transition-all duration-200 min-h-touch`}
             onClick={() => {
               onConfirm();
               onClose();

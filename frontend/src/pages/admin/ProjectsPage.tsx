@@ -6,11 +6,15 @@ import ProjectForm from '../../components/ProjectForm';
 import Modal from '../../components/Modal';
 import AssignSupervisorsForm from '../../components/AssignSupervisorsForm';
 import ConfirmationModal from '../../components/ConfirmationModal';
+import { ProjectCard } from '../../components/cards';
+import { ResponsiveGrid } from '../../components/layout';
+import { useBreakpoints } from '../../hooks';
 
 const ProjectsPage: React.FC = () => {
   const { projects, clients, users } = useLoaderData() as { projects: Project[], clients: Client[], users: User[] };
   const actionData = useActionData() as { success?: boolean; message?: string } | undefined;
   const submit = useSubmit();
+  const { isMobile } = useBreakpoints();
   
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [projectToAssign, setProjectToAssign] = useState<Project | null>(null);
@@ -128,6 +132,13 @@ const ProjectsPage: React.FC = () => {
     setIsConfirmDeleteOpen(true);
   };
 
+  const handleReactivate = (projectId: number) => {
+    const formData = new FormData();
+    formData.append('intent', 'reactivate');
+    formData.append('id', String(projectId));
+    submit(formData, { method: 'post' });
+  };
+
   const isLoading = projectsLoading || clientsLoading || usersLoading;
 
   // Filtrar proyectos según el estado del checkbox
@@ -165,9 +176,26 @@ const ProjectsPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-        <table className="min-w-full leading-normal">
-          <caption className="sr-only">Lista de proyectos</caption>
+      {/* Vista móvil: Cards */}
+      {isMobile ? (
+        <ResponsiveGrid variant="wide" gap="md">
+          {filteredProjects.map((project) => (
+            <ProjectCard
+              key={project.id}
+              project={project}
+              onEdit={handleOpenModal}
+              onDelete={handleDeleteClick}
+              onReactivate={handleReactivate}
+              onAssign={handleOpenAssignModal}
+            />
+          ))}
+        </ResponsiveGrid>
+      ) : (
+        /* Vista desktop: Tabla */
+        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+          <div className="overflow-x-auto scrollbar-thin">
+          <table className="min-w-full leading-normal">
+            <caption className="sr-only">Lista de proyectos</caption>
           <thead>
             <tr>
               <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -252,7 +280,9 @@ const ProjectsPage: React.FC = () => {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
+      )}
 
       <Modal isOpen={isModalOpen} onClose={handleCloseModal}>
         <h2 className="text-2xl font-bold mb-4">
