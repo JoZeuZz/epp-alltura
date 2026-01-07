@@ -574,7 +574,9 @@ router.post('/', isAdminOrSupervisor, upload.single('assembly_image'), async (re
     if (progress_percentage !== undefined && progress_percentage !== null) {
       if (progress_percentage === 100) {
         assembly_status = 'assembled';
-        card_status = 'green';
+        // Los andamios armados al 100% se crean con tarjeta ROJA por defecto
+        // El supervisor debe habilitarlos manualmente cambiando a tarjeta verde
+        card_status = 'red';
       } else if (progress_percentage > 0 && progress_percentage < 100) {
         assembly_status = 'in_progress';
         card_status = 'red';

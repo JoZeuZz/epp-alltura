@@ -21,9 +21,9 @@ export default function ScaffoldFilters({ filters, onFilterChange }: ScaffoldFil
   };
 
   return (
-    <div className="bg-white p-4 rounded-lg shadow mb-6">
-      <h3 className="text-lg font-medium text-gray-900 mb-4">Filtros</h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div>
+      <h3 className="text-base md:text-lg font-medium text-gray-900 mb-3 md:mb-4">Filtros</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         <div>
           <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
             Estado
@@ -33,7 +33,7 @@ export default function ScaffoldFilters({ filters, onFilterChange }: ScaffoldFil
             name="status"
             value={filters.status}
             onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-blue focus:border-primary-blue"
+            className="w-full p-2 md:p-2.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-blue focus:border-primary-blue"
           >
             <option value="all">Todos</option>
             <option value="assembled">Armado</option>
@@ -51,7 +51,7 @@ export default function ScaffoldFilters({ filters, onFilterChange }: ScaffoldFil
             name="startDate"
             value={filters.startDate}
             onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-blue focus:border-primary-blue"
+            className="w-full p-2 md:p-2.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-blue focus:border-primary-blue"
           />
         </div>
         <div>
@@ -64,7 +64,7 @@ export default function ScaffoldFilters({ filters, onFilterChange }: ScaffoldFil
             name="endDate"
             value={filters.endDate}
             onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary-blue focus:border-primary-blue"
+            className="w-full p-2 md:p-2.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-primary-blue focus:border-primary-blue"
           />
         </div>
       </div>

@@ -5,11 +5,15 @@ import { User } from '../../types/api';
 import UserForm from '../../components/UserForm';
 import Modal from '../../components/Modal';
 import ConfirmationModal from '../../components/ConfirmationModal';
+import { UserCard } from '../../components/cards';
+import { ResponsiveGrid } from '../../components/layout';
+import { useBreakpoints } from '../../hooks';
 
 const UsersPage: React.FC = () => {
   const { users } = useLoaderData() as { users: User[] };
   const actionData = useActionData() as { success?: boolean; message?: string } | undefined;
   const navigate = useNavigate();
+  const { isMobile } = useBreakpoints();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -47,6 +51,10 @@ const UsersPage: React.FC = () => {
     setIsDeleteModalOpen(true);
   }, []);
 
+  const handleHistory = useCallback((userId: number) => {
+    navigate(`/admin/users/${userId}/history`);
+  }, [navigate]);
+
   // Filtrar usuarios por rol con useMemo
   const filteredUsers = useMemo(() => 
     users?.filter(user => 
@@ -75,10 +83,10 @@ const UsersPage: React.FC = () => {
       </div>
 
       {/* Filtro por rol */}
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 grid grid-cols-2 lg:grid-cols-4 gap-2">
         <button
           onClick={() => setRoleFilter('all')}
-          className={`px-4 py-2 rounded-lg transition-colors ${
+          className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
             roleFilter === 'all'
               ? 'bg-primary-blue text-white'
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -88,17 +96,17 @@ const UsersPage: React.FC = () => {
         </button>
         <button
           onClick={() => setRoleFilter('admin')}
-          className={`px-4 py-2 rounded-lg transition-colors ${
+          className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
             roleFilter === 'admin'
               ? 'bg-red-600 text-white'
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
           }`}
         >
-          Administradores ({userCounts.admin})
+          Admins ({userCounts.admin})
         </button>
         <button
           onClick={() => setRoleFilter('supervisor')}
-          className={`px-4 py-2 rounded-lg transition-colors ${
+          className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
             roleFilter === 'supervisor'
               ? 'bg-blue-600 text-white'
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -108,19 +116,39 @@ const UsersPage: React.FC = () => {
         </button>
         <button
           onClick={() => setRoleFilter('client')}
-          className={`px-4 py-2 rounded-lg transition-colors ${
+          className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
             roleFilter === 'client'
               ? 'bg-green-600 text-white'
               : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
           }`}
         >
-          Usuarios Cliente ({userCounts.client})
+          Clientes ({userCounts.client})
         </button>
       </div>
 
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full leading-normal">
-          <caption className="sr-only">Lista de usuarios del sistema</caption>
+      {/* Vista móvil: Cards */}
+      {isMobile ? (
+        <ResponsiveGrid variant="wide" gap="md">
+          {filteredUsers.map((user) => (
+            <UserCard
+              key={user.id}
+              user={user}
+              onEdit={handleOpenModal}
+              onDelete={(userId) => {
+                const user = users.find(u => u.id === userId);
+                if (user) handleDelete(user);
+              }}
+              onHistory={handleHistory}
+              currentUserRole={user.role}
+            />
+          ))}
+        </ResponsiveGrid>
+      ) : (
+        /* Vista desktop: Tabla */
+        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+          <div className="overflow-x-auto scrollbar-thin">
+          <table className="min-w-full leading-normal">
+            <caption className="sr-only">Lista de usuarios del sistema</caption>
           <thead>
             <tr>
               <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -193,8 +221,10 @@ const UsersPage: React.FC = () => {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
+      )}
       <Modal isOpen={isModalOpen} onClose={handleCloseModal}>
         <h2 className="text-2xl font-bold mb-4">
           {selectedUser ? 'Editar Usuario' : 'Nuevo Usuario'}

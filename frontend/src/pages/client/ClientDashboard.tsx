@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLoaderData } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Project } from '../../types/api';
+import { ResponsiveGrid } from '../../components/layout';
 
 /**
  * Dashboard para usuarios cliente
@@ -14,17 +15,17 @@ const ClientDashboard: React.FC = () => {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-dark-blue mb-2">
+        <h1 className="heading-1 text-dark-blue mb-2">
           Bienvenido, {user?.first_name} {user?.last_name}
         </h1>
-        <p className="text-gray-600">
+        <p className="body-large text-gray-600">
           Visualiza los andamios de los proyectos asignados a tu empresa
         </p>
       </div>
 
       {/* Proyectos asignados */}
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-bold text-dark-blue mb-4">Mis Proyectos</h2>
+        <h2 className="heading-2 text-dark-blue mb-4">Mis Proyectos</h2>
         
         {!projects || projects.length === 0 ? (
           <div className="text-center py-12">
@@ -41,13 +42,13 @@ const ClientDashboard: React.FC = () => {
                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
             </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No hay proyectos asignados</h3>
-            <p className="mt-1 text-sm text-gray-500">
+            <h3 className="mt-2 body-base font-medium text-gray-900">No hay proyectos asignados</h3>
+            <p className="mt-1 body-small text-gray-500">
               Aún no tienes proyectos asignados. Contacta al administrador.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <ResponsiveGrid variant="cards" gap="md">
             {projects.map((project) => (
               <Link
                 key={project.id}
@@ -56,10 +57,10 @@ const ClientDashboard: React.FC = () => {
               >
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="text-lg font-bold text-dark-blue mb-2">
+                    <h3 className="heading-4 text-dark-blue mb-2">
                       {project.name}
                     </h3>
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="body-small text-gray-600 mb-3">
                       {project.client_name}
                     </p>
                   </div>
@@ -92,7 +93,7 @@ const ClientDashboard: React.FC = () => {
                 </div>
               </Link>
             ))}
-          </div>
+          </ResponsiveGrid>
         )}
       </div>
 
