@@ -81,6 +81,32 @@ const Client = {
     );
     
     return rows[0];
+  },
+
+  /**
+   * Obtener un cliente por su nombre
+   * @param {string} name - Nombre del cliente
+   * @returns {Promise<object|undefined>} Cliente encontrado o undefined
+   */
+  async getByName(name) {
+    const { rows } = await db.query(
+      'SELECT * FROM clients WHERE LOWER(name) = LOWER($1)',
+      [name]
+    );
+    return rows[0];
+  },
+
+  /**
+   * Obtener cantidad de proyectos asociados a un cliente
+   * @param {number} clientId - ID del cliente
+   * @returns {Promise<number>} Número de proyectos
+   */
+  async getProjectCount(clientId) {
+    const { rows } = await db.query(
+      'SELECT COUNT(*) as count FROM projects WHERE client_id = $1',
+      [clientId]
+    );
+    return parseInt(rows[0].count, 10);
   }
 };
 
