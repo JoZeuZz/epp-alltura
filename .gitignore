@@ -4,3 +4,4 @@ postgres-data/
 .github/
 docs/
 dist/
+legacy/

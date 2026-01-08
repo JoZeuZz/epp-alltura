@@ -7,15 +7,15 @@ const redisClient = require('./lib/redis');
 const { createSecurityMiddleware } = require('./middleware/security');
 const { sanitizeStrict } = require('./middleware/sanitization');
 
-// Importar rutas
-const authRoutes = require('./routes/auth');
-const clientRoutes = require('./routes/clients');
-const projectRoutes = require('./routes/projects');
-const scaffoldRoutes = require('./routes/scaffolds');
-const userRoutes = require('./routes/users');
-const dashboardRoutes = require('./routes/dashboard');
-const supervisorDashboardRoutes = require('./routes/SupervisorDashboard');
-const notificationRoutes = require('./routes/notifications');
+// Importar rutas (Arquitectura 3-Capas)
+const authRoutes = require('./routes/auth.routes');
+const clientRoutes = require('./routes/clients.routes');
+const projectRoutes = require('./routes/projects.routes');
+const scaffoldRoutes = require('./routes/scaffolds.routes');
+const userRoutes = require('./routes/users.routes');
+const dashboardRoutes = require('./routes/dashboard.routes');
+const supervisorDashboardRoutes = require('./routes/supervisorDashboard.routes');
+const notificationRoutes = require('./routes/notification.routes');
 const healthRoutes = require('./routes/health');
 const { initializeDatabase } = require('./db/initialize');
 
