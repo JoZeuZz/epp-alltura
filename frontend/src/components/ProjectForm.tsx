@@ -1,4 +1,4 @@
-import { Form, useNavigation } from 'react-router-dom';
+import { Form, useNavigation, useActionData } from 'react-router-dom';
 import { useState } from 'react';
 import { Project, Client, User } from '../types/api';
 import Modal from './Modal';
@@ -13,9 +13,21 @@ interface ProjectFormProps {
 
 export default function ProjectForm({ project, clients, supervisors, clientUsers, onCancel }: ProjectFormProps) {
   const navigation = useNavigation();
+  const actionData = useActionData() as { success?: boolean; fieldErrors?: Record<string, string> } | undefined;
   const isSubmitting = navigation.state === 'submitting';
   const [showWarning, setShowWarning] = useState(false);
   const [forceSubmit, setForceSubmit] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState<number | null>(
+    project?.client_id || (clients.length > 0 ? clients[0].id : null)
+  );
+
+  // Obtener errores de validación
+  const errors = actionData?.fieldErrors || {};
+
+  // Filtrar usuarios cliente según la empresa seleccionada
+  const filteredClientUsers = clientUsers.filter(
+    (user) => user.client_id === selectedClientId
+  );
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     // Si el usuario confirmó, permitir submit
@@ -64,10 +76,15 @@ export default function ProjectForm({ project, clients, supervisors, clientUsers
             id="name"
             name="name"
             defaultValue={project?.name || ''}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+            className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
+              errors.name ? 'border-red-500 focus:border-red-500' : 'focus:border-primary-blue'
+            }`}
             required
             disabled={isSubmitting}
           />
+          {errors.name && (
+            <p className="text-red-500 text-xs italic mt-1">{errors.name}</p>
+          )}
         </div>
 
         <div className="mb-4">
@@ -77,8 +94,11 @@ export default function ProjectForm({ project, clients, supervisors, clientUsers
           <select
             id="client_id"
             name="client_id"
-            defaultValue={project?.client_id || (clients.length > 0 ? clients[0].id : '')}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+            value={selectedClientId || ''}
+            onChange={(e) => setSelectedClientId(Number(e.target.value))}
+            className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
+              errors.client_id ? 'border-red-500 focus:border-red-500' : 'focus:border-primary-blue'
+            }`}
             required
             disabled={isSubmitting}
           >
@@ -91,6 +111,9 @@ export default function ProjectForm({ project, clients, supervisors, clientUsers
               </option>
             ))}
           </select>
+          {errors.client_id && (
+            <p className="text-red-500 text-xs italic mt-1">{errors.client_id}</p>
+          )}
         </div>
 
         <div className="mb-6">
@@ -106,8 +129,10 @@ export default function ProjectForm({ project, clients, supervisors, clientUsers
           >
             <option value="active">Activo</option>
             <option value="completed">Completado</option>
-            <option value="inactive">Inactivo</option>
           </select>
+          <p className="mt-2 text-sm text-gray-600">
+            ℹ️ Para desactivar un proyecto, usa el botón "Eliminar" en la lista de proyectos
+          </p>
         </div>
 
         <div className="mb-4">
@@ -142,12 +167,17 @@ export default function ProjectForm({ project, clients, supervisors, clientUsers
             disabled={isSubmitting}
           >
             <option value="">Sin asignar</option>
-            {clientUsers.map((clientUser) => (
+            {filteredClientUsers.map((clientUser) => (
               <option key={clientUser.id} value={clientUser.id}>
                 {clientUser.first_name} {clientUser.last_name}
               </option>
             ))}
           </select>
+          {filteredClientUsers.length === 0 && selectedClientId && (
+            <p className="mt-2 text-sm text-yellow-600">
+              ⚠️ No hay usuarios cliente registrados para esta empresa
+            </p>
+          )}
         </div>
 
         <div className="flex items-center justify-end">

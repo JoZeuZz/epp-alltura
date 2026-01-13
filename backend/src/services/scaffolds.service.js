@@ -40,18 +40,18 @@ class ScaffoldService {
    * @returns {object} { assembly_status, card_status }
    */
   static determineAssemblyState(progressPercentage) {
-    let assembly_status = 'disassembled';
-    let card_status = 'red';
+    let assembly_status;
+    let card_status = 'red'; // Siempre por defecto rojo
 
     if (progressPercentage === 100) {
+      // 100% = Armado completo
       assembly_status = 'assembled';
-      card_status = 'red'; // Por defecto rojo, supervisor debe activar manualmente
     } else if (progressPercentage > 0 && progressPercentage < 100) {
+      // 1-99% = En proceso de armado
       assembly_status = 'in_progress';
-      card_status = 'red';
     } else {
+      // 0% = Desarmado
       assembly_status = 'disassembled';
-      card_status = 'red';
     }
 
     return { assembly_status, card_status };

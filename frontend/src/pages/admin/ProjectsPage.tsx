@@ -12,7 +12,7 @@ import { useBreakpoints } from '../../hooks';
 
 const ProjectsPage: React.FC = () => {
   const { projects, clients, users } = useLoaderData() as { projects: Project[], clients: Client[], users: User[] };
-  const actionData = useActionData() as { success?: boolean; message?: string } | undefined;
+  const actionData = useActionData() as { success?: boolean; message?: string; fieldErrors?: Record<string, string> } | undefined;
   const submit = useSubmit();
   const { isMobile } = useBreakpoints();
   
@@ -41,7 +41,12 @@ const ProjectsPage: React.FC = () => {
         setProjectToAssign(null);
         setProjectToDelete(null);
       } else {
-        toast.error(actionData.message || 'Error en la operación');
+        // Solo mostrar toast si no hay errores de campo específicos
+        const hasFieldErrors = actionData.fieldErrors && Object.keys(actionData.fieldErrors).length > 0;
+        if (!hasFieldErrors) {
+          toast.error(actionData.message || 'Error en la operación');
+        }
+        // Los errores de campo se muestran inline en el formulario
       }
     }
   }, [actionData]);

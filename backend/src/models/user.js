@@ -10,6 +10,7 @@ class User {
     this.email = data.email;
     this.password_hash = data.password_hash;
     this.role = data.role;
+    this.client_id = data.client_id;
     this.created_at = data.created_at;
     this.rut = data.rut;
     this.phone_number = data.phone_number;
@@ -22,14 +23,14 @@ class User {
     this.last_login_user_agent = data.last_login_user_agent;
   }
 
-  static async create({ first_name, last_name, email, password, role }) {
+  static async create({ first_name, last_name, email, password, role, client_id }) {
     const password_hash = await bcrypt.hash(password, PASSWORD_CONFIG.BCRYPT_ROUNDS);
 
     const { rows } = await db.query(
-      `INSERT INTO users (first_name, last_name, email, password_hash, role) 
-       VALUES ($1, $2, $3, $4, $5) 
+      `INSERT INTO users (first_name, last_name, email, password_hash, role, client_id) 
+       VALUES ($1, $2, $3, $4, $5, $6) 
        RETURNING *`,
-      [first_name, last_name, email, password_hash, role]
+      [first_name, last_name, email, password_hash, role, client_id || null]
     );
     return new User(rows[0]);
   }
@@ -45,12 +46,22 @@ class User {
   }
 
   static async getAll(filters = {}) {
-    let query = 'SELECT id, first_name, last_name, email, role FROM users';
+    let query = 'SELECT id, first_name, last_name, email, role, client_id FROM users';
     const queryParams = [];
+    const conditions = [];
     
     if (filters.role) {
-      query += ' WHERE role = $1';
       queryParams.push(filters.role);
+      conditions.push(`role = $${queryParams.length}`);
+    }
+    
+    if (filters.client_id !== undefined) {
+      queryParams.push(filters.client_id);
+      conditions.push(`client_id = $${queryParams.length}`);
+    }
+    
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
     }
     
     query += ' ORDER BY first_name, last_name';
@@ -59,7 +70,7 @@ class User {
     return rows;
   }
 
-  static async update(id, { first_name, last_name, email, role, password, rut, phone_number, profile_picture_url }) {
+  static async update(id, { first_name, last_name, email, role, password, rut, phone_number, profile_picture_url, client_id }) {
     const fields = [];
     const values = [];
     let query = 'UPDATE users SET ';
@@ -78,6 +89,7 @@ class User {
     addField('rut', rut);
     addField('phone_number', phone_number);
     addField('profile_picture_url', profile_picture_url);
+    addField('client_id', client_id);
 
     if (password) {
       const password_hash = await bcrypt.hash(password, PASSWORD_CONFIG.BCRYPT_ROUNDS);

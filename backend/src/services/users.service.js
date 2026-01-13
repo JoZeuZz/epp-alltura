@@ -116,6 +116,17 @@ class UserService {
   }
 
   /**
+   * Obtener usuarios cliente por empresa cliente
+   * @param {number} clientId - ID de la empresa cliente
+   * @returns {Promise<Array>} Lista de usuarios cliente de esa empresa
+   */
+  static async getUsersByClientId(clientId) {
+    const users = await User.getAll({ role: 'client', client_id: clientId });
+    logger.info(`Se obtuvieron ${users.length} usuarios cliente para empresa ${clientId}`);
+    return users;
+  }
+
+  /**
    * Crear un nuevo usuario (solo admin)
    * @param {object} userData - Datos del nuevo usuario
    * @returns {Promise<object>} Usuario creado
@@ -125,6 +136,20 @@ class UserService {
     const existingUser = await User.findByEmail(userData.email);
     if (existingUser) {
       const error = new Error('User with this email already exists');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Validar que usuarios con rol 'client' tengan client_id
+    if (userData.role === 'client' && !userData.client_id) {
+      const error = new Error('Los usuarios cliente deben estar vinculados a una empresa cliente');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Validar que usuarios con rol diferente a 'client' NO tengan client_id (ignorar null/undefined)
+    if (userData.role !== 'client' && userData.client_id !== null && userData.client_id !== undefined) {
+      const error = new Error('Solo los usuarios con rol cliente pueden estar vinculados a una empresa');
       error.statusCode = 400;
       throw error;
     }
@@ -165,6 +190,28 @@ class UserService {
         error.statusCode = 400;
         throw error;
       }
+    }
+
+    // Validar cambios de rol y client_id
+    const newRole = updateData.role || existingUser.role;
+    
+    // Si se está cambiando a rol 'client', debe tener client_id
+    if (newRole === 'client' && !updateData.client_id && !existingUser.client_id) {
+      const error = new Error('Los usuarios cliente deben estar vinculados a una empresa cliente');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Si se está cambiando de 'client' a otro rol, limpiar client_id
+    if (newRole !== 'client' && existingUser.role === 'client') {
+      updateData.client_id = null;
+    }
+
+    // Validar que usuarios con rol diferente a 'client' NO tengan client_id (ignorar null/undefined)
+    if (newRole !== 'client' && updateData.client_id !== null && updateData.client_id !== undefined) {
+      const error = new Error('Solo los usuarios con rol cliente pueden estar vinculados a una empresa');
+      error.statusCode = 400;
+      throw error;
     }
 
     const updatedUser = await User.update(userId, updateData);

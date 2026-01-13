@@ -127,6 +127,30 @@ class UserController {
   }
 
   /**
+   * GET /api/users/by-client/:clientId
+   * Obtener usuarios cliente por empresa cliente (solo admin)
+   */
+  static async getUsersByClientId(req, res, next) {
+    try {
+      const clientId = parseInt(req.params.clientId, 10);
+
+      if (isNaN(clientId)) {
+        return res.status(400).json({ 
+          error: 'Invalid client ID',
+          message: 'Client ID must be a valid number' 
+        });
+      }
+
+      const users = await UserService.getUsersByClientId(clientId);
+
+      return res.status(200).json(users);
+    } catch (error) {
+      logger.error(`Error al obtener usuarios cliente para empresa ${req.params.clientId}:`, error);
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/users
    * Crear nuevo usuario (solo admin)
    */
@@ -138,7 +162,12 @@ class UserController {
 
       return res.status(201).json(newUser);
     } catch (error) {
-      logger.error('Error al crear un nuevo usuario:', error);
+      logger.error('Error al crear un nuevo usuario:', {
+        message: error.message,
+        stack: error.stack,
+        statusCode: error.statusCode,
+        userData: req.body
+      });
       next(error);
     }
   }

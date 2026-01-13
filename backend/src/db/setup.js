@@ -17,7 +17,17 @@ const setupDatabase = async () => {
   try {
     await client.query('BEGIN');
 
-    // Create users table
+    // Create clients table FIRST (needed for foreign key in users)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS clients (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) UNIQUE NOT NULL,
+        contact_info TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+
+    // Create users table (references clients)
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
           id SERIAL PRIMARY KEY,
@@ -29,18 +39,14 @@ const setupDatabase = async () => {
           phone_number VARCHAR(50),
           profile_picture_url VARCHAR(255),
           role VARCHAR(50) NOT NULL CHECK(role IN ('admin', 'supervisor', 'client')),
+          client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
     `);
 
-    // Create clients table
+    // Create index for client_id
     await client.query(`
-      CREATE TABLE IF NOT EXISTS clients (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) UNIQUE NOT NULL,
-        contact_info TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      );
+      CREATE INDEX IF NOT EXISTS idx_users_client_id ON users(client_id);
     `);
 
     // Create projects table

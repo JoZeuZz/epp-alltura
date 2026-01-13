@@ -32,9 +32,11 @@ export default function AssignSupervisorsForm({
   );
 
   useEffect(() => {
-    if (assignedUsers && supervisors && clientUsers) {
+    if (assignedUsers && supervisors && clientUsers && project) {
       const supervisorIds = supervisors.map(s => s.id);
-      const clientIds = clientUsers.map(c => c.id);
+      // Filtrar usuarios cliente por la empresa del proyecto
+      const filteredClients = clientUsers.filter(c => c.client_id === project.client_id);
+      const clientIds = filteredClients.map(c => c.id);
       
       const supervisorSet = new Set(assignedUsers.filter(id => supervisorIds.includes(id)));
       const clientSet = new Set(assignedUsers.filter(id => clientIds.includes(id)));
@@ -42,7 +44,7 @@ export default function AssignSupervisorsForm({
       setAssignedSupervisors(supervisorSet);
       setAssignedClients(clientSet);
     }
-  }, [assignedUsers, supervisors, clientUsers]);
+  }, [assignedUsers, supervisors, clientUsers, project]);
 
   const handleSupervisorChange = (supervisorId: number) => {
     setAssignedSupervisors((prev) => {
@@ -75,6 +77,9 @@ export default function AssignSupervisorsForm({
       onSubmit({ projectId: project.id, userIds: allAssigned });
     }
   };
+
+  // Filtrar usuarios cliente para mostrar solo los de la misma empresa del proyecto
+  const filteredClientUsers = clientUsers?.filter(user => user.client_id === project?.client_id) || [];
 
   const isLoading = supervisorsLoading || clientUsersLoading || assignedUsersLoading;
 
@@ -121,8 +126,8 @@ export default function AssignSupervisorsForm({
           Usuarios Cliente
         </h3>
         <div className="max-h-48 overflow-y-auto border rounded-lg p-4 space-y-2 bg-green-50">
-          {clientUsers && clientUsers.length > 0 ? (
-            clientUsers.map((client) => (
+          {filteredClientUsers && filteredClientUsers.length > 0 ? (
+            filteredClientUsers.map((client) => (
               <label
                 key={client.id}
                 className="flex items-center space-x-3 p-2 rounded-md hover:bg-green-100 cursor-pointer"
@@ -137,7 +142,11 @@ export default function AssignSupervisorsForm({
               </label>
             ))
           ) : (
-            <p className="text-neutral-gray text-sm">No hay usuarios cliente disponibles para asignar.</p>
+            <p className="text-neutral-gray text-sm">
+              {project?.client_id 
+                ? 'No hay usuarios cliente disponibles para esta empresa.' 
+                : 'Seleccione una empresa cliente para ver los usuarios disponibles.'}
+            </p>
           )}
         </div>
       </div>

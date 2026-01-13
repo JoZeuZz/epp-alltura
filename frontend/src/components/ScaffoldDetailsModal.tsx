@@ -250,8 +250,8 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
               </div>
             )}
 
-            {/* Switch: Desarmar (solo si está armado o en proceso) */}
-            {assemblyStatus !== 'disassembled' && (
+            {/* Switch: Desarmar (solo si está armado al 100%) */}
+            {assemblyStatus === 'assembled' && progressPercentage === 100 && (
               <div className="bg-white p-4 rounded-lg shadow-sm">
                 <label className="flex items-center justify-between cursor-pointer">
                   <div className="flex-1">
@@ -271,15 +271,15 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
               </div>
             )}
 
-            {/* Switch Estado de Tarjeta - Solo disponible si está armado */}
+            {/* Switch Estado de Tarjeta - Solo disponible si está armado al 100% */}
             <div className="bg-white p-4 rounded-lg shadow-sm">
-              <label className={`flex items-center justify-between ${assemblyStatus !== 'assembled' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+              <label className={`flex items-center justify-between ${assemblyStatus !== 'assembled' || progressPercentage !== 100 ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                 <div className="flex-1">
                   <span className="font-semibold text-gray-700 block mb-1">Estado de Tarjeta</span>
                   <span className="text-sm text-gray-500">
                     {cardStatus === 'green' ? 'Tarjeta Verde ✓' : 'Tarjeta Roja ✗'}
                   </span>
-                  {assemblyStatus !== 'assembled' && (
+                  {(assemblyStatus !== 'assembled' || progressPercentage !== 100) && (
                     <span className="block text-xs text-red-600 mt-1">
                       * Solo disponible cuando esté armado al 100%
                     </span>
@@ -290,14 +290,14 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
                     type="checkbox"
                     checked={cardStatus === 'green'}
                     onChange={handleToggleCardStatus}
-                    disabled={isUpdating || assemblyStatus !== 'assembled'}
+                    disabled={isUpdating || assemblyStatus !== 'assembled' || progressPercentage !== 100}
                     className="sr-only peer"
                   />
                   <div className={`w-14 h-7 rounded-full transition-all duration-300 ${
                     cardStatus === 'green' 
                       ? 'bg-green-500' 
                       : 'bg-red-500'
-                  } ${(isUpdating || assemblyStatus !== 'assembled') ? 'opacity-50' : ''}`}></div>
+                  } ${(isUpdating || assemblyStatus !== 'assembled' || progressPercentage !== 100) ? 'opacity-50' : ''}`}></div>
                   <div className={`absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition-transform duration-300 ${
                     cardStatus === 'green' ? 'translate-x-7' : 'translate-x-0'
                   }`}></div>

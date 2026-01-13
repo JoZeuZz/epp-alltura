@@ -172,7 +172,7 @@ const updateScaffoldStatusSchema = Joi.object({
 const validateBody = (schema) => {
   return async (req, res, next) => {
     try {
-      req.body = await schema.validateAsync(req.body);
+      req.body = await schema.validateAsync(req.body, { convert: true });
       next();
     } catch (err) {
       if (err.isJoi) {

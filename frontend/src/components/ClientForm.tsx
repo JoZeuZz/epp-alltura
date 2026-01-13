@@ -1,4 +1,4 @@
-import { Form, useNavigation } from 'react-router-dom';
+import { Form, useNavigation, useActionData } from 'react-router-dom';
 import { Client } from '../types/api';
 
 interface ClientFormProps {
@@ -8,7 +8,11 @@ interface ClientFormProps {
 
 export default function ClientForm({ client, onCancel }: ClientFormProps) {
   const navigation = useNavigation();
+  const actionData = useActionData() as { success?: boolean; fieldErrors?: Record<string, string> } | undefined;
   const isSubmitting = navigation.state === 'submitting';
+  
+  // Obtener errores de validación
+  const errors = actionData?.fieldErrors || {};
 
   return (
     <Form method="post">
@@ -25,10 +29,15 @@ export default function ClientForm({ client, onCancel }: ClientFormProps) {
           id="name"
           name="name"
           defaultValue={client?.name || ''}
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+          className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
+            errors.name ? 'border-red-500 focus:border-red-500' : 'focus:border-primary-blue'
+          }`}
           required
           disabled={isSubmitting}
         />
+        {errors.name && (
+          <p className="text-red-500 text-xs italic mt-1">{errors.name}</p>
+        )}
       </div>
 
       <div className="mb-4">
@@ -40,9 +49,14 @@ export default function ClientForm({ client, onCancel }: ClientFormProps) {
           id="email"
           name="email"
           defaultValue={client?.email || ''}
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+          className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
+            errors.email ? 'border-red-500 focus:border-red-500' : 'focus:border-primary-blue'
+          }`}
           disabled={isSubmitting}
         />
+        {errors.email && (
+          <p className="text-red-500 text-xs italic mt-1">{errors.email}</p>
+        )}
       </div>
 
       <div className="mb-4">

@@ -111,6 +111,20 @@ router.get('/', authMiddleware, ProjectController.getAllProjects);
  */
 router.get('/:id', authMiddleware, ProjectController.getProjectById);
 
+/**
+ * @route   GET /api/projects/:id/report/pdf
+ * @desc    Generar reporte PDF de un proyecto
+ * @access  Private (Admin y Cliente del proyecto)
+ */
+router.get('/:id/report/pdf', authMiddleware, ProjectController.generatePDFReport);
+
+/**
+ * @route   GET /api/projects/:id/report/excel
+ * @desc    Generar reporte Excel de un proyecto
+ * @access  Private (Admin y Cliente del proyecto)
+ */
+router.get('/:id/report/excel', authMiddleware, ProjectController.generateExcelReport);
+
 // ============================================
 // RUTAS ADMINISTRATIVAS (solo admin)
 // ============================================
@@ -180,19 +194,5 @@ router.patch('/:id/assign-client', ProjectController.assignClient);
  * @access  Private (Admin)
  */
 router.patch('/:id/assign-supervisor', ProjectController.assignSupervisor);
-
-/**
- * @route   GET /api/projects/:id/report/pdf
- * @desc    Generar reporte PDF de un proyecto
- * @access  Private (Admin)
- */
-router.get('/:id/report/pdf', ProjectController.generatePDFReport);
-
-/**
- * @route   GET /api/projects/:id/report/excel
- * @desc    Generar reporte Excel de un proyecto
- * @access  Private (Admin)
- */
-router.get('/:id/report/excel', ProjectController.generateExcelReport);
 
 module.exports = router;

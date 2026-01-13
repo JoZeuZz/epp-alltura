@@ -11,7 +11,7 @@ import { useBreakpoints } from '../../hooks';
 
 const ClientsPage: React.FC = () => {
   const { clients } = useLoaderData() as { clients: Client[] };
-  const actionData = useActionData() as { success?: boolean; message?: string; warning?: boolean } | undefined;
+  const actionData = useActionData() as { success?: boolean; message?: string; warning?: boolean; fieldErrors?: Record<string, string> } | undefined;
   const submit = useSubmit();
   const { isMobile } = useBreakpoints();
   
@@ -39,7 +39,12 @@ const ClientsPage: React.FC = () => {
         setClientToDelete(null);
         setClientToReactivate(null);
       } else {
-        toast.error(actionData.message || 'Error en la operación');
+        // Solo mostrar toast si no hay errores de campo específicos
+        const hasFieldErrors = actionData.fieldErrors && Object.keys(actionData.fieldErrors).length > 0;
+        if (!hasFieldErrors) {
+          toast.error(actionData.message || 'Error en la operación');
+        }
+        // Los errores de campo se muestran inline en el formulario
       }
     }
   }, [actionData]);

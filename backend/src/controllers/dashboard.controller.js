@@ -48,6 +48,33 @@ class DashboardController {
       });
     }
   }
+
+  /**
+   * GET /api/dashboard/project/:projectId
+   * Obtener resumen del dashboard de un proyecto específico
+   */
+  static async getProjectSummary(req, res, _next) {
+    try {
+      const { projectId } = req.params;
+
+      if (!projectId || isNaN(parseInt(projectId))) {
+        return res.status(400).json({
+          error: 'Bad Request',
+          message: 'ID de proyecto inválido'
+        });
+      }
+
+      const summary = await DashboardService.getProjectDashboardSummary(parseInt(projectId));
+
+      return res.status(200).json(summary);
+    } catch (error) {
+      logger.error(`Error fetching project ${req.params.projectId} dashboard summary:`, error);
+      return res.status(500).json({
+        error: 'Server Error',
+        message: 'Error al obtener el resumen del proyecto'
+      });
+    }
+  }
 }
 
 module.exports = DashboardController;
