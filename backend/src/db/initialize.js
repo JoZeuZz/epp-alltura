@@ -1,7 +1,6 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const { Pool } = require('pg');
-const bcrypt = require('bcryptjs');
 const { logger } = require('../lib/logger');
 
 const pool = new Pool({
@@ -35,7 +34,21 @@ const initializeDatabase = async () => {
   try {
     await client.query('BEGIN');
 
-    // Crear tabla de usuarios si no existe
+    // Crear tabla de clientes PRIMERO (necesaria para foreign key en users)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS clients (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) UNIQUE NOT NULL,
+        email VARCHAR(255),
+        phone VARCHAR(50),
+        address TEXT,
+        specialty VARCHAR(255),
+        active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      )
+    `);
+
+    // Crear tabla de usuarios (referencia a clients)
     await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -47,6 +60,7 @@ const initializeDatabase = async () => {
         phone_number VARCHAR(50),
         profile_picture_url VARCHAR(255),
         role VARCHAR(50) NOT NULL CHECK(role IN ('admin', 'supervisor', 'client')),
+        client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL,
         must_change_password BOOLEAN DEFAULT FALSE,
         failed_login_attempts INTEGER DEFAULT 0,
         account_locked_until TIMESTAMP WITH TIME ZONE,
@@ -57,17 +71,9 @@ const initializeDatabase = async () => {
       )
     `);
 
-    // Crear tabla de clientes si no existe
+    // Índice para mejorar búsquedas por empresa cliente
     await client.query(`
-      CREATE TABLE IF NOT EXISTS clients (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) UNIQUE NOT NULL,
-        email VARCHAR(255),
-        phone VARCHAR(50),
-        address TEXT,
-        specialty VARCHAR(255),
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-      )
+      CREATE INDEX IF NOT EXISTS idx_users_client_id ON users(client_id)
     `);
 
     // Crear tabla de proyectos si no existe
@@ -77,6 +83,7 @@ const initializeDatabase = async () => {
         client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
         name VARCHAR(255) NOT NULL,
         status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed')),
+        active BOOLEAN DEFAULT true,
         assigned_client_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         assigned_supervisor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -99,7 +106,7 @@ const initializeDatabase = async () => {
         cubic_meters DECIMAL NOT NULL,
         progress_percentage INTEGER NOT NULL DEFAULT 100 CHECK(progress_percentage >= 0 AND progress_percentage <= 100),
         card_status VARCHAR(50) NOT NULL DEFAULT 'green' CHECK(card_status IN ('green', 'red')),
-        assembly_status VARCHAR(50) NOT NULL DEFAULT 'assembled' CHECK(assembly_status IN ('assembled', 'disassembled')),
+        assembly_status VARCHAR(50) NOT NULL DEFAULT 'assembled' CHECK(assembly_status IN ('assembled', 'disassembled', 'in_progress')),
         assembly_image_url VARCHAR(255) NOT NULL,
         assembly_notes TEXT,
         assembly_created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -116,12 +123,16 @@ const initializeDatabase = async () => {
     await client.query(`
       CREATE TABLE IF NOT EXISTS scaffold_history (
         id SERIAL PRIMARY KEY,
-        scaffold_id INTEGER NOT NULL REFERENCES scaffolds(id) ON DELETE CASCADE,
+        scaffold_id INTEGER REFERENCES scaffolds(id) ON DELETE SET NULL,
         user_id INTEGER NOT NULL REFERENCES users(id),
         change_type VARCHAR(100) NOT NULL,
         previous_data JSONB,
         new_data JSONB,
         description TEXT,
+        scaffold_number VARCHAR(255),
+        project_name VARCHAR(255),
+        area VARCHAR(255),
+        tag VARCHAR(255),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       )
     `);
@@ -145,6 +156,59 @@ const initializeDatabase = async () => {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         UNIQUE(user_id)
       )
+    `);
+
+    // Agregar columnas faltantes a scaffold_history si no existen
+    await client.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'scaffold_history' AND column_name = 'scaffold_number'
+        ) THEN
+          ALTER TABLE scaffold_history ADD COLUMN scaffold_number VARCHAR(255);
+        END IF;
+        
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'scaffold_history' AND column_name = 'project_name'
+        ) THEN
+          ALTER TABLE scaffold_history ADD COLUMN project_name VARCHAR(255);
+        END IF;
+        
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'scaffold_history' AND column_name = 'area'
+        ) THEN
+          ALTER TABLE scaffold_history ADD COLUMN area VARCHAR(255);
+        END IF;
+        
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns 
+          WHERE table_name = 'scaffold_history' AND column_name = 'tag'
+        ) THEN
+          ALTER TABLE scaffold_history ADD COLUMN tag VARCHAR(255);
+        END IF;
+      END $$;
+    `);
+
+    // Actualizar CHECK constraint de assembly_status para permitir 'in_progress'
+    await client.query(`
+      DO $$ 
+      BEGIN
+        -- Eliminar el constraint anterior si existe
+        IF EXISTS (
+          SELECT 1 FROM information_schema.table_constraints 
+          WHERE constraint_name = 'scaffolds_assembly_status_check' 
+          AND table_name = 'scaffolds'
+        ) THEN
+          ALTER TABLE scaffolds DROP CONSTRAINT scaffolds_assembly_status_check;
+        END IF;
+        
+        -- Agregar el nuevo constraint con 'in_progress'
+        ALTER TABLE scaffolds ADD CONSTRAINT scaffolds_assembly_status_check 
+        CHECK (assembly_status IN ('assembled', 'disassembled', 'in_progress'));
+      END $$;
     `);
 
     // ⚠️  SEGURIDAD: NO crear usuarios por defecto con contraseñas hardcodeadas

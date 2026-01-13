@@ -22,13 +22,14 @@ class ProjectService {
   // ============================================
 
   /**
-   * Validar que un usuario sea de tipo client
+   * Validar que un usuario sea de tipo client y pertenezca a la empresa correcta
    * @param {number} userId - ID del usuario
-   * @returns {Promise<boolean>}
-   * @throws {Error} Si el usuario no existe o no es client
+   * @param {number} projectClientId - ID de la empresa cliente del proyecto (opcional)
+   * @returns {Promise<object>} Datos del usuario
+   * @throws {Error} Si el usuario no existe, no es client, o no pertenece a la empresa
    */
-  static async validateClientUser(userId) {
-    const { rows } = await db.query('SELECT role FROM users WHERE id = $1', [userId]);
+  static async validateClientUser(userId, projectClientId = null) {
+    const { rows } = await db.query('SELECT role, client_id FROM users WHERE id = $1', [userId]);
     
     if (rows.length === 0) {
       const error = new Error('Usuario no encontrado');
@@ -36,13 +37,30 @@ class ProjectService {
       throw error;
     }
     
-    if (rows[0].role !== 'client') {
+    const user = rows[0];
+    
+    if (user.role !== 'client') {
       const error = new Error('El usuario debe tener rol de cliente');
       error.statusCode = 400;
       throw error;
     }
     
-    return true;
+    // Si se proporciona projectClientId, validar que el usuario pertenezca a esa empresa
+    if (projectClientId !== null) {
+      if (!user.client_id) {
+        const error = new Error('El usuario cliente no está vinculado a ninguna empresa');
+        error.statusCode = 400;
+        throw error;
+      }
+      
+      if (user.client_id !== projectClientId) {
+        const error = new Error('El usuario cliente no pertenece a la empresa cliente de este proyecto');
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+    
+    return user;
   }
 
   /**
@@ -261,8 +279,16 @@ class ProjectService {
    * @returns {Promise<object>} Proyecto actualizado
    */
   static async assignClient(projectId, clientId) {
-    // Validar que el usuario sea tipo client
-    await this.validateClientUser(clientId);
+    // Obtener el proyecto para conocer su client_id (empresa cliente)
+    const project = await Project.findById(projectId);
+    if (!project) {
+      const error = new Error('Proyecto no encontrado');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // Validar que el usuario sea tipo client y pertenezca a la empresa del proyecto
+    await this.validateClientUser(clientId, project.client_id);
 
     // Asignar cliente al proyecto
     const updated = await Project.assignClient(projectId, clientId);

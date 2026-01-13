@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
-const { isAdmin } = require('../middleware/roles');
+const { isAdmin, isAdminOrSupervisor } = require('../middleware/roles');
 const DashboardController = require('../controllers/dashboard.controller');
 
 /**
@@ -15,9 +15,8 @@ const DashboardController = require('../controllers/dashboard.controller');
  * PROHIBIDO: No debe contener lógica de negocio
  */
 
-// Todas las rutas del dashboard requieren autenticación y rol admin
+// Todas las rutas del dashboard requieren autenticación
 router.use(authMiddleware);
-router.use(isAdmin);
 
 /**
  * GET /api/dashboard/summary
@@ -28,7 +27,7 @@ router.use(isAdmin);
  * - Últimos 5 andamios creados
  * - Solo admin
  */
-router.get('/summary', DashboardController.getSummary);
+router.get('/summary', isAdmin, DashboardController.getSummary);
 
 /**
  * GET /api/dashboard/cubic-meters
@@ -38,6 +37,17 @@ router.get('/summary', DashboardController.getSummary);
  * - Conteos de tarjetas verdes y rojas
  * - Solo admin
  */
-router.get('/cubic-meters', DashboardController.getCubicMetersStats);
+router.get('/cubic-meters', isAdmin, DashboardController.getCubicMetersStats);
+
+/**
+ * GET /api/dashboard/project/:projectId
+ * Obtener resumen del dashboard de un proyecto específico
+ * - Métricas de metros cúbicos del proyecto
+ * - Estadísticas de andamios del proyecto
+ * - Progreso promedio del proyecto
+ * - Últimos 5 andamios creados en el proyecto
+ * - Admin, supervisor o cliente asignado al proyecto
+ */
+router.get('/project/:projectId', DashboardController.getProjectSummary);
 
 module.exports = router;

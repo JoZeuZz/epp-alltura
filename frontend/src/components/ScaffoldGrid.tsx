@@ -105,15 +105,15 @@ export default function ScaffoldGrid({
                       : 'bg-gray-100 text-gray-800'
                   }`}
                 >
-                  {scaffold.assembly_status === 'assembled' ? 'Armado 100%' : 
+                  {scaffold.assembly_status === 'assembled' ? `Armado ${scaffold.progress_percentage}%` : 
                    scaffold.assembly_status === 'in_progress' ? `En Proceso ${scaffold.progress_percentage}%` : 
                    'Desarmado 0%'}
                 </span>
               </div>
             </button>
 
-            {/* Controles de acción - Solo si está armado */}
-            {scaffold.assembly_status === 'assembled' && (permissions.canToggleCard || permissions.canDisassemble) && (
+            {/* Controles de acción - Solo si está 100% armado */}
+            {scaffold.assembly_status === 'assembled' && scaffold.progress_percentage === 100 && (permissions.canToggleCard || permissions.canDisassemble) && (
               <div className="border-t border-gray-200 p-3 bg-gray-50">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {/* Switch de tarjeta */}

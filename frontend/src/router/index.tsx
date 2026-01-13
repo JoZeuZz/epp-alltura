@@ -52,13 +52,39 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
+    // Intentar extraer el mensaje de error del backend
+    let errorMessage = 'Error del servidor';
+    let validationErrors: Array<{ field: string; message: string }> = [];
+    
+    try {
+      const errorData = await response.json();
+      // El backend puede enviar: { error, message, errors }
+      if (errorData.errors && Array.isArray(errorData.errors) && errorData.errors.length > 0) {
+        validationErrors = errorData.errors;
+        errorMessage = errorData.message || 'Error de validación';
+      } else if (errorData.message) {
+        errorMessage = errorData.message;
+      }
+    } catch (e) {
+      // Si no se puede parsear la respuesta, usar mensaje genérico
+      console.error('Error parsing error response:', e);
+    }
+
     if (response.status === 401) {
-      throw new Response('No autorizado', { status: 401 });
+      const error = new Error('No autorizado') as any;
+      error.validationErrors = validationErrors;
+      throw error;
     }
     if (response.status === 404) {
-      throw new Response('No encontrado', { status: 404 });
+      const error = new Error('No encontrado') as any;
+      error.validationErrors = validationErrors;
+      throw error;
     }
-    throw new Response('Error del servidor', { status: 500 });
+    
+    // Lanzar error con el mensaje detallado del backend y los errores de validación
+    const error = new Error(errorMessage) as any;
+    error.validationErrors = validationErrors;
+    throw error;
   }
 
   return response.json();
@@ -241,12 +267,31 @@ async function clientsPageAction({ request }: ActionFunctionArgs) {
       default:
         throw new Response('Acción no válida', { status: 400 });
     }
-  } catch (error: unknown) {
-    console.error('Error in clients action:', error);
-    const message = error instanceof Error ? error.message : 'Error al procesar la solicitud';
+  } catch (error: any) {
+    // Solo loguear errores inesperados, no errores de validación
+    const isValidationError = error.validationErrors && Array.isArray(error.validationErrors) && error.validationErrors.length > 0;
+    if (!isValidationError) {
+      console.error('Error in clients action:', error);
+    }
+    
+    let message = 'Error al procesar la solicitud';
+    let fieldErrors: Record<string, string> = {};
+    
+    if (error instanceof Error) {
+      message = error.message;
+    }
+    
+    // Extraer errores de validación si existen
+    if (error.validationErrors && Array.isArray(error.validationErrors)) {
+      error.validationErrors.forEach((err: { field: string; message: string }) => {
+        fieldErrors[err.field] = err.message;
+      });
+    }
+    
     return { 
       success: false, 
-      message
+      message,
+      fieldErrors
     };
   }
 }
@@ -353,24 +398,46 @@ async function projectsPageAction({ request }: ActionFunctionArgs) {
       default:
         throw new Response('Acción no válida', { status: 400 });
     }
-  } catch (error: unknown) {
-    console.error('Error in projects action:', error);
-    const message = error instanceof Error ? error.message : 'Error al procesar la solicitud';
+  } catch (error: any) {
+    // Solo loguear errores inesperados, no errores de validación
+    const isValidationError = error.validationErrors && Array.isArray(error.validationErrors) && error.validationErrors.length > 0;
+    if (!isValidationError) {
+      console.error('Error in projects action:', error);
+    }
+    
+    let message = 'Error al procesar la solicitud';
+    let fieldErrors: Record<string, string> = {};
+    
+    if (error instanceof Error) {
+      message = error.message;
+    }
+    
+    // Extraer errores de validación si existen
+    if (error.validationErrors && Array.isArray(error.validationErrors)) {
+      error.validationErrors.forEach((err: { field: string; message: string }) => {
+        fieldErrors[err.field] = err.message;
+      });
+    }
+    
     return { 
       success: false, 
-      message
+      message,
+      fieldErrors
     };
   }
 }
 
-// Loader para UsersPage - obtener lista de usuarios
+// Loader para UsersPage - obtener lista de usuarios y clientes
 async function usersPageLoader() {
   const user = getUserFromToken();
   if (!user) throw redirect('/login');
 
   try {
-    const users = await fetchAPI('/users');
-    return { user, users };
+    const [users, clients] = await Promise.all([
+      fetchAPI('/users'),
+      fetchAPI('/clients')
+    ]);
+    return { user, users, clients };
   } catch (error) {
     console.error('Error loading users:', error);
     throw error;
@@ -389,10 +456,12 @@ async function usersPageAction({ request }: ActionFunctionArgs) {
     switch (intent) {
       case 'create': {
         const userData = {
-          name: formData.get('name'),
+          first_name: formData.get('first_name'),
+          last_name: formData.get('last_name'),
           email: formData.get('email'),
           password: formData.get('password'),
           role: formData.get('role'),
+          client_id: formData.get('client_id') || null,
         };
         await fetchAPI('/users', {
           method: 'POST',
@@ -404,11 +473,19 @@ async function usersPageAction({ request }: ActionFunctionArgs) {
       case 'update': {
         const id = formData.get('id');
         const userData: Partial<User> = {
-          first_name: formData.get('name') as string,
-          last_name: formData.get('name') as string, // Backend espera first_name/last_name
+          first_name: formData.get('first_name') as string,
+          last_name: formData.get('last_name') as string,
           email: formData.get('email') as string,
           role: formData.get('role') as User['role'],
         };
+        
+        // Solo incluir client_id si se proporcionó
+        const clientId = formData.get('client_id');
+        if (clientId && clientId !== '') {
+          userData.client_id = parseInt(clientId as string, 10);
+        } else {
+          userData.client_id = null;
+        }
         
         // Solo incluir contraseña si se proporcionó
         const password = formData.get('password');
@@ -434,12 +511,31 @@ async function usersPageAction({ request }: ActionFunctionArgs) {
       default:
         throw new Response('Acción no válida', { status: 400 });
     }
-  } catch (error: unknown) {
-    console.error('Error in users action:', error);
-    const message = error instanceof Error ? error.message : 'Error al procesar la solicitud';
+  } catch (error: any) {
+    // Solo loguear errores inesperados, no errores de validación
+    const isValidationError = error.validationErrors && Array.isArray(error.validationErrors) && error.validationErrors.length > 0;
+    if (!isValidationError) {
+      console.error('Error in users action:', error);
+    }
+    
+    let message = 'Error al procesar la solicitud';
+    let fieldErrors: Record<string, string> = {};
+    
+    if (error instanceof Error) {
+      message = error.message;
+    }
+    
+    // Extraer errores de validación si existen
+    if (error.validationErrors && Array.isArray(error.validationErrors)) {
+      error.validationErrors.forEach((err: { field: string; message: string }) => {
+        fieldErrors[err.field] = err.message;
+      });
+    }
+    
     return { 
       success: false, 
-      message
+      message,
+      fieldErrors
     };
   }
 }
@@ -608,18 +704,19 @@ async function clientDashboardLoader() {
   }
 }
 
-// Loader para ClientProjectScaffoldsPage - obtener proyecto y andamios
+// Loader para ClientProjectScaffoldsPage - obtener proyecto, andamios y métricas
 async function clientProjectScaffoldsPageLoader({ params }: LoaderFunctionArgs) {
   const user = getUserFromToken();
   if (!user) throw redirect('/login');
 
   try {
     const { projectId } = params;
-    const [project, scaffolds] = await Promise.all([
+    const [project, scaffolds, summary] = await Promise.all([
       fetchAPI(`/projects/${projectId}`),
       fetchAPI(`/scaffolds/project/${projectId}`),
+      fetchAPI(`/dashboard/project/${projectId}`),
     ]);
-    return { user, project, scaffolds };
+    return { user, project, scaffolds, summary };
   } catch (error) {
     console.error('Error loading client project scaffolds:', error);
     throw error;

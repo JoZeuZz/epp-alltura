@@ -11,7 +11,7 @@ import { useBreakpoints } from '../../hooks';
 
 const UsersPage: React.FC = () => {
   const { users } = useLoaderData() as { users: User[] };
-  const actionData = useActionData() as { success?: boolean; message?: string } | undefined;
+  const actionData = useActionData() as { success?: boolean; message?: string; fieldErrors?: Record<string, string> } | undefined;
   const navigate = useNavigate();
   const { isMobile } = useBreakpoints();
   
@@ -31,7 +31,12 @@ const UsersPage: React.FC = () => {
         setSelectedUser(null);
         setUserToDelete(null);
       } else {
-        toast.error(actionData.message || 'Error en la operación');
+        // Solo mostrar toast si no hay errores de campo específicos (errores de validación inline)
+        const hasFieldErrors = actionData.fieldErrors && Object.keys(actionData.fieldErrors).length > 0;
+        if (!hasFieldErrors) {
+          toast.error(actionData.message || 'Error en la operación');
+        }
+        // Los errores de campo se muestran inline en el formulario
       }
     }
   }, [actionData]);

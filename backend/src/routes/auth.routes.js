@@ -1,8 +1,8 @@
 const express = require('express');
 const Joi = require('joi');
 const AuthController = require('../controllers/auth.controller');
-const authMiddleware = require('../middleware/auth');
-const passwordValidationMiddleware = require('../middleware/passwordPolicy');
+const { authMiddleware } = require('../middleware/auth');
+const { passwordValidationMiddleware } = require('../middleware/passwordPolicy');
 const rateLimit = require('express-rate-limit');
 
 /**

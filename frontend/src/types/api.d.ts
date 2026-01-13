@@ -5,6 +5,7 @@ export interface User {
   email: string;
   role: 'admin' | 'supervisor' | 'client'; // Actualizado: agregado 'client', cambiado 'technician' a 'supervisor'
   password?: string;
+  client_id?: number | null; // ID de la empresa cliente (solo para role='client')
   created_at: string;
   rut?: string;
   phone_number?: string;

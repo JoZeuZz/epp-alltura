@@ -9,12 +9,17 @@ import ScaffoldGrid from '../../components/ScaffoldGrid';
 import ScaffoldDetailsModal from '../../components/ScaffoldDetailsModal';
 import { useAuth } from '../../context/AuthContext';
 
+interface LoaderData {
+  project: Project;
+  scaffolds: Scaffold[];
+}
+
 const ProjectScaffoldsPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const revalidator = useRevalidator();
-  const { project, scaffolds: initialScaffolds } = useLoaderData() as { project: Project, scaffolds: Scaffold[] };
+  const { project, scaffolds: initialScaffolds } = useLoaderData() as LoaderData;
   const [scaffolds, setScaffolds] = useState<Scaffold[]>(initialScaffolds);
   const [selectedScaffold, setSelectedScaffold] = useState<Scaffold | null>(null);
   const [scaffoldToDisassemble, setScaffoldToDisassemble] = useState<number | null>(null);
@@ -128,50 +133,63 @@ const ProjectScaffoldsPage: React.FC = () => {
       <button onClick={() => navigate(-1)} className="mb-4 text-primary-blue hover:underline">
         &larr; Volver a Mis Proyectos
       </button>
-      
+
       {/* Alerta si proyecto desactivado */}
       {project && (!project.active || !project.client_active) && (
         <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
           <div className="flex items-start">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
               </svg>
             </div>
             <div className="ml-3">
               <h3 className="text-sm font-medium text-yellow-800">Proyecto en modo solo lectura</h3>
               <p className="mt-1 text-sm text-yellow-700">
-                {!project.client_active 
-                  ? 'El cliente empresa está desactivado. No se pueden crear ni editar andamios.' 
+                {!project.client_active
+                  ? 'El cliente empresa está desactivado. No se pueden crear ni editar andamios.'
                   : 'Este proyecto está desactivado. No se pueden crear ni editar andamios.'}
               </p>
             </div>
           </div>
         </div>
       )}
-      
+
       {/* Header responsive: vertical en móvil, horizontal en desktop */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">{project?.name}</h1>
           <p className="text-sm sm:text-base text-neutral-gray">Cliente: {project?.client_name}</p>
         </div>
-        <button
-          onClick={() => navigate(`/supervisor/project/${projectId}/create-scaffold`)}
-          disabled={!project?.active || !project?.client_active}
-          className="bg-primary-blue text-white px-4 py-2.5 sm:px-6 sm:py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-lg text-center text-sm sm:text-base whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          + Reportar Montaje
-        </button>
+
+        {/* Botones de acción */}
+        <div className="flex gap-2">
+          {/* Botón Crear */}
+          <button
+            onClick={() => navigate(`/supervisor/project/${projectId}/create-scaffold`)}
+            disabled={!project?.active || !project?.client_active}
+            className="bg-primary-blue text-white px-4 py-2.5 rounded-lg font-bold hover:bg-700 transition-colors shadow-lg text-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            + Reportar
+          </button>
+        </div>
       </div>
 
-      <h2 className="text-xl sm:text-2xl font-bold text-dark-blue mb-4">Andamios Reportados</h2>
+      <h2 className="text-xl sm:text-2xl font-bold text-dark-blue mb-4">
+        Andamios Reportados
+      </h2>
       {scaffolds?.length === 0 ? (
-        <p className="text-neutral-gray">Aún no se han reportado andamios para este proyecto.</p>
+        <p className="text-neutral-gray">
+          Aún no se han reportado andamios para este proyecto.
+        </p>
       ) : (
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-          <ScaffoldGrid 
-            scaffolds={scaffolds} 
+          <ScaffoldGrid
+            scaffolds={scaffolds}
             onScaffoldSelect={setSelectedScaffold}
             onToggleCard={handleToggleCard}
             onDisassemble={handleDisassemble}

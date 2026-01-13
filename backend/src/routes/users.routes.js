@@ -52,9 +52,9 @@ const createUserSchema = Joi.object({
     .pattern(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
     .messages({
       'string.empty': 'El nombre es obligatorio',
-      'string.min': 'El nombre debe tener al menos 2 caracteres',
+      'string.min': 'El nombre debe tener al menos 1 carácter',
       'string.max': 'El nombre no puede exceder 100 caracteres',
-      'string.pattern.base': 'El nombre solo puede contener letras',
+      'string.pattern.base': 'El nombre solo puede contener letras y espacios (no se permiten números)',
       'any.required': 'El nombre es obligatorio',
     }),
   last_name: Joi.string()
@@ -65,9 +65,9 @@ const createUserSchema = Joi.object({
     .pattern(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/)
     .messages({
       'string.empty': 'El apellido es obligatorio',
-      'string.min': 'El apellido debe tener al menos 2 caracteres',
+      'string.min': 'El apellido debe tener al menos 1 carácter',
       'string.max': 'El apellido no puede exceder 100 caracteres',
-      'string.pattern.base': 'El apellido solo puede contener letras',
+      'string.pattern.base': 'El apellido solo puede contener letras y espacios (no se permiten números)',
       'any.required': 'El apellido es obligatorio',
     }),
   email: Joi.string()
@@ -98,6 +98,17 @@ const createUserSchema = Joi.object({
     .messages({
       'any.only': 'El rol debe ser admin, supervisor o client',
     }),
+  client_id: Joi.number()
+    .integer()
+    .positive()
+    .allow(null, '')
+    .empty('')
+    .default(null)
+    .messages({
+      'number.base': 'El ID de la empresa cliente debe ser un número',
+      'number.integer': 'El ID de la empresa cliente debe ser un número entero',
+      'number.positive': 'El ID de la empresa cliente debe ser un número positivo',
+    }),
   rut: Joi.string()
     .trim()
     .pattern(/^[0-9]{1,2}\.[0-9]{3}\.[0-9]{3}-[0-9Kk]$/)
@@ -127,7 +138,7 @@ const updateUserSchema = Joi.object({
     .messages({
       'string.min': 'El nombre debe tener al menos 2 caracteres',
       'string.max': 'El nombre no puede exceder 100 caracteres',
-      'string.pattern.base': 'El nombre solo puede contener letras',
+      'string.pattern.base': 'El nombre solo puede contener letras y espacios (no se permiten números)',
     }),
   last_name: Joi.string()
     .trim()
@@ -137,7 +148,7 @@ const updateUserSchema = Joi.object({
     .messages({
       'string.min': 'El apellido debe tener al menos 2 caracteres',
       'string.max': 'El apellido no puede exceder 100 caracteres',
-      'string.pattern.base': 'El apellido solo puede contener letras',
+      'string.pattern.base': 'El apellido solo puede contener letras y espacios (no se permiten números)',
     }),
   email: Joi.string()
     .trim()
@@ -159,6 +170,17 @@ const updateUserSchema = Joi.object({
     .valid('admin', 'supervisor', 'client')
     .messages({
       'any.only': 'El rol debe ser admin, supervisor o client',
+    }),
+  client_id: Joi.number()
+    .integer()
+    .positive()
+    .allow(null, '')
+    .empty('')
+    .default(null)
+    .messages({
+      'number.base': 'El ID de la empresa cliente debe ser un número',
+      'number.integer': 'El ID de la empresa cliente debe ser un número entero',
+      'number.positive': 'El ID de la empresa cliente debe ser un número positivo',
     }),
   rut: Joi.string()
     .trim()
@@ -186,14 +208,20 @@ const updateUserSchema = Joi.object({
 const validateBody = (schema) => {
   return async (req, res, next) => {
     try {
-      const validatedData = await schema.validateAsync(req.body);
+      const validatedData = await schema.validateAsync(req.body, { abortEarly: false });
       req.body = validatedData; // Reemplazar con datos validados
       next();
     } catch (error) {
       if (error.isJoi) {
+        const { logger } = require('../lib/logger');
+        logger.error('Validation error:', {
+          errors: error.details.map(d => ({ field: d.path.join('.'), message: d.message })),
+          receivedData: req.body
+        });
         return res.status(400).json({ 
           error: 'Validation failed',
-          message: error.details[0].message 
+          message: error.details[0].message,
+          errors: error.details.map(d => ({ field: d.path.join('.'), message: d.message }))
         });
       }
       next(error);
@@ -242,6 +270,14 @@ router.post('/me/picture', authMiddleware, upload.single('profile_picture'), Use
  * - Retorna: lista de usuarios
  */
 router.get('/', authMiddleware, isAdmin, UserController.getAllUsers);
+
+/**
+ * GET /api/users/by-client/:clientId
+ * Obtener usuarios cliente por empresa cliente (solo admin)
+ * - Requiere: clientId válido
+ * - Retorna: lista de usuarios cliente de esa empresa
+ */
+router.get('/by-client/:clientId', authMiddleware, isAdmin, UserController.getUsersByClientId);
 
 /**
  * GET /api/users/:id

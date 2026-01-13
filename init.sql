@@ -12,29 +12,35 @@ CREATE TABLE IF NOT EXISTS users (
     phone_number VARCHAR(50),
     profile_picture_url VARCHAR(255),
     role VARCHAR(50) NOT NULL CHECK(role IN ('admin', 'supervisor', 'client')),
+    client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Índice para mejorar búsquedas por empresa cliente
+CREATE INDEX IF NOT EXISTS idx_users_client_id ON users(client_id);
+
 -- Creación de la tabla de clientes (empresas mandantes)
 CREATE TABLE IF NOT EXISTS clients (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) UNIQUE NOT NULL,
-    email VARCHAR(255),
-    phone VARCHAR(50),
-    address TEXT,
-    specialty VARCHAR(255),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) UNIQUE NOT NULL,
+  email VARCHAR(255),
+  phone VARCHAR(50),
+  address TEXT,
+  specialty VARCHAR(255),
+  active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Creación de la tabla de proyectos
 CREATE TABLE IF NOT EXISTS projects (
-    id SERIAL PRIMARY KEY,
-    client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-    name VARCHAR(255) NOT NULL,
-    status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed')),
-    assigned_client_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    assigned_supervisor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  id SERIAL PRIMARY KEY,
+  client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed')),
+  active BOOLEAN DEFAULT true,
+  assigned_client_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  assigned_supervisor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Creación de la tabla de andamios (anteriormente 'reports')

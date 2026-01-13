@@ -69,6 +69,106 @@ class DashboardService {
     }
   }
 
+  /**
+   * Obtener resumen completo del dashboard de un proyecto específico
+   * @param {number} projectId - ID del proyecto
+   * @returns {Promise<object>} Métricas del proyecto
+   */
+  static async getProjectDashboardSummary(projectId) {
+    try {
+      // 1. Estadísticas de metros cúbicos por estado en el proyecto
+      const cubicMetersResult = await db.query(
+        `SELECT 
+          COALESCE(SUM(cubic_meters), 0) as total_cubic_meters,
+          COALESCE(SUM(CASE WHEN assembly_status = 'assembled' THEN cubic_meters ELSE 0 END), 0) as assembled_cubic_meters,
+          COALESCE(SUM(CASE WHEN assembly_status = 'disassembled' THEN cubic_meters ELSE 0 END), 0) as disassembled_cubic_meters,
+          COALESCE(SUM(CASE WHEN assembly_status = 'in_progress' THEN cubic_meters ELSE 0 END), 0) as in_progress_cubic_meters
+        FROM scaffolds
+        WHERE project_id = $1`,
+        [projectId]
+      );
+
+      // 2. Estadísticas de andamios por estado en el proyecto
+      const scaffoldStatsResult = await db.query(
+        `SELECT 
+          COUNT(*)::int as total_scaffolds,
+          COUNT(CASE WHEN assembly_status = 'assembled' THEN 1 END)::int as assembled_scaffolds,
+          COUNT(CASE WHEN assembly_status = 'disassembled' THEN 1 END)::int as disassembled_scaffolds,
+          COUNT(CASE WHEN assembly_status = 'in_progress' THEN 1 END)::int as in_progress_scaffolds,
+          COUNT(CASE WHEN card_status = 'green' THEN 1 END)::int as green_cards,
+          COUNT(CASE WHEN card_status = 'red' THEN 1 END)::int as red_cards
+        FROM scaffolds
+        WHERE project_id = $1`,
+        [projectId]
+      );
+
+      // 3. Andamios creados en las últimas 24 horas
+      const recentScaffoldsResult = await db.query(
+        `SELECT COUNT(*)::int as recent_count
+        FROM scaffolds
+        WHERE project_id = $1 
+        AND assembly_created_at >= NOW() - INTERVAL '24 hours'`,
+        [projectId]
+      );
+
+      // 4. Últimos 5 andamios creados en el proyecto
+      const recentScaffoldsListResult = await db.query(
+        `SELECT 
+          s.id, s.scaffold_number, s.area, s.tag, 
+          s.width, s.length, s.height, s.cubic_meters,
+          s.assembly_status, s.card_status, s.progress_percentage,
+          s.assembly_image_url, s.disassembly_image_url,
+          s.assembly_created_at, s.updated_at,
+          u.first_name as creator_first_name,
+          u.last_name as creator_last_name
+        FROM scaffolds s
+        LEFT JOIN users u ON s.created_by = u.id
+        WHERE s.project_id = $1
+        ORDER BY s.assembly_created_at DESC
+        LIMIT 5`,
+        [projectId]
+      );
+
+      // 5. Progreso promedio del proyecto
+      const progressResult = await db.query(
+        `SELECT 
+          COALESCE(AVG(progress_percentage), 0) as avg_progress
+        FROM scaffolds
+        WHERE project_id = $1`,
+        [projectId]
+      );
+
+      const cubicMetersStats = cubicMetersResult.rows[0];
+      const scaffoldStats = scaffoldStatsResult.rows[0];
+      const recentCount = recentScaffoldsResult.rows[0].recent_count;
+      const avgProgress = Math.round(parseFloat(progressResult.rows[0].avg_progress) || 0);
+
+      return {
+        // Métricas de metros cúbicos
+        totalCubicMeters: parseFloat(cubicMetersStats.total_cubic_meters) || 0,
+        assembledCubicMeters: parseFloat(cubicMetersStats.assembled_cubic_meters) || 0,
+        disassembledCubicMeters: parseFloat(cubicMetersStats.disassembled_cubic_meters) || 0,
+        inProgressCubicMeters: parseFloat(cubicMetersStats.in_progress_cubic_meters) || 0,
+
+        // Métricas de andamios
+        totalScaffolds: scaffoldStats.total_scaffolds || 0,
+        assembledScaffolds: scaffoldStats.assembled_scaffolds || 0,
+        disassembledScaffolds: scaffoldStats.disassembled_scaffolds || 0,
+        inProgressScaffolds: scaffoldStats.in_progress_scaffolds || 0,
+        greenCards: scaffoldStats.green_cards || 0,
+        redCards: scaffoldStats.red_cards || 0,
+
+        // Métricas adicionales
+        recentScaffoldsCount: recentCount || 0,
+        recentScaffolds: recentScaffoldsListResult.rows || [],
+        avgProgress: avgProgress,
+      };
+    } catch (error) {
+      logger.error('Error al obtener resumen del proyecto:', error);
+      throw error;
+    }
+  }
+
   // ============================================
   // MÉTRICAS DE METROS CÚBICOS
   // ============================================

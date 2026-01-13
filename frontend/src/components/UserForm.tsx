@@ -1,6 +1,6 @@
-import { Form, useNavigation } from 'react-router-dom';
+import { Form, useNavigation, useLoaderData, useActionData } from 'react-router-dom';
 import { useState } from 'react';
-import { User } from '../types/api';
+import { User, Client } from '../types/api';
 import PasswordStrength from './PasswordStrength';
 
 interface UserFormProps {
@@ -10,9 +10,17 @@ interface UserFormProps {
 
 export default function UserForm({ user, onCancel }: UserFormProps) {
   const navigation = useNavigation();
+  const loaderData = useLoaderData() as { users: User[]; clients?: Client[] };
+  const actionData = useActionData() as { success?: boolean; fieldErrors?: Record<string, string> } | undefined;
+  const clients = loaderData?.clients || [];
+  
   const isSubmitting = navigation.state === 'submitting';
   const isEditing = !!user;
   const [password, setPassword] = useState('');
+  const [selectedRole, setSelectedRole] = useState<string>(user?.role || 'supervisor');
+  
+  // Obtener errores de validación
+  const errors = actionData?.fieldErrors || {};
 
   return (
     <Form method="post">
@@ -29,10 +37,15 @@ export default function UserForm({ user, onCancel }: UserFormProps) {
           id="first_name"
           name="first_name"
           defaultValue={user?.first_name || ''}
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+          className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
+            errors.first_name ? 'border-red-500 focus:border-red-500' : 'focus:border-primary-blue'
+          }`}
           required
           disabled={isSubmitting}
         />
+        {errors.first_name && (
+          <p className="text-red-500 text-xs italic mt-1">{errors.first_name}</p>
+        )}
       </div>
 
       <div className="mb-4">
@@ -44,10 +57,15 @@ export default function UserForm({ user, onCancel }: UserFormProps) {
           id="last_name"
           name="last_name"
           defaultValue={user?.last_name || ''}
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+          className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
+            errors.last_name ? 'border-red-500 focus:border-red-500' : 'focus:border-primary-blue'
+          }`}
           required
           disabled={isSubmitting}
         />
+        {errors.last_name && (
+          <p className="text-red-500 text-xs italic mt-1">{errors.last_name}</p>
+        )}
       </div>
 
       <div className="mb-4">
@@ -59,10 +77,15 @@ export default function UserForm({ user, onCancel }: UserFormProps) {
           id="email"
           name="email"
           defaultValue={user?.email || ''}
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+          className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
+            errors.email ? 'border-red-500 focus:border-red-500' : 'focus:border-primary-blue'
+          }`}
           required
           disabled={isSubmitting}
         />
+        {errors.email && (
+          <p className="text-red-500 text-xs italic mt-1">{errors.email}</p>
+        )}
       </div>
 
       <div className="mb-4">
@@ -75,12 +98,17 @@ export default function UserForm({ user, onCancel }: UserFormProps) {
           name="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+          className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
+            errors.password ? 'border-red-500 focus:border-red-500' : 'focus:border-primary-blue'
+          }`}
           required={!isEditing}
           minLength={isEditing ? 0 : 8}
           disabled={isSubmitting}
         />
-        {!isEditing && password && (
+        {errors.password && (
+          <p className="text-red-500 text-xs italic mt-1">{errors.password}</p>
+        )}
+        {!isEditing && password && !errors.password && (
           <PasswordStrength password={password} />
         )}
       </div>
@@ -92,7 +120,8 @@ export default function UserForm({ user, onCancel }: UserFormProps) {
         <select
           id="role"
           name="role"
-          defaultValue={user?.role || 'supervisor'}
+          value={selectedRole}
+          onChange={(e) => setSelectedRole(e.target.value)}
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
           disabled={isSubmitting}
         >
@@ -101,9 +130,43 @@ export default function UserForm({ user, onCancel }: UserFormProps) {
           <option value="client">Usuario Cliente</option>
         </select>
         <p className="mt-2 text-sm text-gray-600">
-          ℹ️ {user?.role === 'client' || 'El Usuario Cliente solo puede visualizar andamios de proyectos asignados.'}
+          ℹ️ El Usuario Cliente solo puede visualizar andamios de proyectos asignados.
         </p>
       </div>
+
+      {/* Campo condicional: Empresa Cliente (solo para rol client) */}
+      {selectedRole === 'client' && (
+        <div className="mb-6">
+          <label htmlFor="client_id" className="block text-gray-700 text-sm font-bold mb-2">
+            Empresa Cliente *
+          </label>
+          <select
+            id="client_id"
+            name="client_id"
+            defaultValue={user?.client_id?.toString() || ''}
+            className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
+              errors.client_id ? 'border-red-500 focus:border-red-500' : 'focus:border-primary-blue'
+            }`}
+            required
+            disabled={isSubmitting}
+          >
+            <option value="">Seleccione una empresa</option>
+            {clients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name}
+              </option>
+            ))}
+          </select>
+          {errors.client_id && (
+            <p className="text-red-500 text-xs italic mt-1">{errors.client_id}</p>
+          )}
+          {!errors.client_id && (
+            <p className="mt-2 text-sm text-gray-600">
+              Este usuario solo podrá acceder a proyectos de esta empresa.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-end">
         <button
