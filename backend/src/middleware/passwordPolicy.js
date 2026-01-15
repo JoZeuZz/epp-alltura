@@ -58,7 +58,10 @@ async function validatePasswordStrength(password) {
     } catch (error) {
       // Si HaveIBeenPwned no está disponible, continuamos (fail open)
       // pero logueamos el error
-      console.warn('Error verificando contraseña contra HaveIBeenPwned:', error.message);
+      logger.warn('Error verificando contraseña contra HaveIBeenPwned', { 
+        error: error.message,
+        stack: error.stack 
+      });
     }
   }
 

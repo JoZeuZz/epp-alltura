@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const Joi = require('joi');
 const { authMiddleware } = require('../middleware/auth');
-const { isAdmin } = require('../middleware/roles');
+const { isAdmin, checkProjectAccess } = require('../middleware/roles');
 const ProjectController = require('../controllers/projects.controller');
+const ClientNotesController = require('../controllers/clientNotes.controller');
+const { id, entityName, projectStatus, idArray } = require('../validation');
 
 /**
  * Rutas de Projects (Proyectos)
@@ -21,55 +23,19 @@ const ProjectController = require('../controllers/projects.controller');
 // ============================================
 
 const projectSchema = Joi.object({
-  client_id: Joi.number()
-    .integer()
-    .positive()
-    .required()
-    .messages({
-      'number.base': 'El ID del cliente debe ser un número',
-      'number.integer': 'El ID del cliente debe ser un número entero',
-      'number.positive': 'El ID del cliente debe ser un número positivo',
-      'any.required': 'El cliente es obligatorio',
-    }),
-  name: Joi.string()
-    .trim()
-    .min(3)
-    .max(255)
-    .required()
-    .messages({
-      'string.empty': 'El nombre del proyecto es obligatorio',
-      'string.min': 'El nombre debe tener al menos 3 caracteres',
-      'string.max': 'El nombre no puede exceder 255 caracteres',
-      'any.required': 'El nombre del proyecto es obligatorio',
-    }),
-  status: Joi.string()
-    .valid('active', 'inactive', 'completed')
-    .default('active')
-    .messages({
-      'any.only': 'El estado debe ser active, inactive o completed',
-    }),
-  assigned_client_id: Joi.number()
-    .integer()
-    .positive()
-    .allow(null)
-    .messages({
-      'number.base': 'El ID del cliente asignado debe ser un número',
-      'number.integer': 'El ID del cliente asignado debe ser un número entero',
-      'number.positive': 'El ID del cliente asignado debe ser un número positivo',
-    }),
-  assigned_supervisor_id: Joi.number()
-    .integer()
-    .positive()
-    .allow(null)
-    .messages({
-      'number.base': 'El ID del supervisor asignado debe ser un número',
-      'number.integer': 'El ID del supervisor asignado debe ser un número entero',
-      'number.positive': 'El ID del supervisor asignado debe ser un número positivo',
-    }),
+  client_id: id.required().messages({
+    'any.required': 'El cliente es obligatorio',
+  }),
+  name: entityName.required().messages({
+    'any.required': 'El nombre del proyecto es obligatorio',
+  }),
+  status: projectStatus.default('active'),
+  assigned_client_id: id.allow(null),
+  assigned_supervisor_id: id.allow(null),
 });
 
 const assignUsersSchema = Joi.object({
-  userIds: Joi.array().items(Joi.number().integer().positive()).required(),
+  userIds: idArray.required(),
 });
 
 // ============================================
@@ -107,23 +73,23 @@ router.get('/', authMiddleware, ProjectController.getAllProjects);
 /**
  * @route   GET /api/projects/:id
  * @desc    Obtener un proyecto específico por ID
- * @access  Private
+ * @access  Private (validación de acceso al proyecto)
  */
-router.get('/:id', authMiddleware, ProjectController.getProjectById);
+router.get('/:id', authMiddleware, checkProjectAccess, ProjectController.getProjectById);
 
 /**
  * @route   GET /api/projects/:id/report/pdf
  * @desc    Generar reporte PDF de un proyecto
- * @access  Private (Admin y Cliente del proyecto)
+ * @access  Private (validación de acceso al proyecto)
  */
-router.get('/:id/report/pdf', authMiddleware, ProjectController.generatePDFReport);
+router.get('/:id/report/pdf', authMiddleware, checkProjectAccess, ProjectController.generatePDFReport);
 
 /**
  * @route   GET /api/projects/:id/report/excel
  * @desc    Generar reporte Excel de un proyecto
- * @access  Private (Admin y Cliente del proyecto)
+ * @access  Private (validación de acceso al proyecto)
  */
-router.get('/:id/report/excel', authMiddleware, ProjectController.generateExcelReport);
+router.get('/:id/report/excel', authMiddleware, checkProjectAccess, ProjectController.generateExcelReport);
 
 // ============================================
 // RUTAS ADMINISTRATIVAS (solo admin)
@@ -194,5 +160,26 @@ router.patch('/:id/assign-client', ProjectController.assignClient);
  * @access  Private (Admin)
  */
 router.patch('/:id/assign-supervisor', ProjectController.assignSupervisor);
+
+/**
+ * @route   GET /api/projects/:projectId/notes
+ * @desc    Obtener notas de un proyecto
+ * @access  Private (Client: sus notas, Supervisor/Admin: todas)
+ */
+router.get('/:projectId/notes', authMiddleware, ClientNotesController.getNotesByProject);
+
+/**
+ * @route   GET /api/projects/:projectId/notes/unresolved
+ * @desc    Obtener notas no resueltas de un proyecto
+ * @access  Private (Supervisor/Admin)
+ */
+router.get('/:projectId/notes/unresolved', authMiddleware, ClientNotesController.getUnresolvedNotes);
+
+/**
+ * @route   GET /api/projects/:projectId/notes/stats
+ * @desc    Obtener estadísticas de notas del proyecto
+ * @access  Private (Supervisor/Admin)
+ */
+router.get('/:projectId/notes/stats', authMiddleware, ClientNotesController.getStats);
 
 module.exports = router;

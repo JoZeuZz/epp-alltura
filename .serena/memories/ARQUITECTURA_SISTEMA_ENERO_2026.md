@@ -6,23 +6,23 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 ## Stack Tecnológico
 
 ### Backend
-- **Framework:** Node.js v24+ con Express.js
+- **Framework:** Node.js con Express.js 5.1.0
 - **Lenguaje:** JavaScript (CommonJS)
-- **Base de Datos:** PostgreSQL v14+
-- **Cache/Blacklist:** Redis v6+
+- **Base de Datos:** PostgreSQL 15 (docker-compose usa `postgres:15-alpine`)
+- **Cache/Blacklist:** Redis 7 (docker-compose usa `redis:7-alpine`)
 - **Almacenamiento:** Google Cloud Storage (imágenes)
 - **Validación:** Joi
 - **Logging:** Winston
 
 ### Frontend
-- **Framework:** React v18+
-- **Router:** React Router v7
+- **Framework:** React 19.1.1
+- **Router:** React Router 7.1.3
 - **Lenguaje:** TypeScript (TSX)
-- **Build Tool:** Vite v7
+- **Build Tool:** Vite 7.1.8
 - **Estilos:** Tailwind CSS v3+
 - **Gestión de Estado:** Context API (AuthContext)
 - **Data Fetching:** useLoaderData, useSubmit (React Router)
-- **PWA:** Service Worker habilitado
+- **PWA:** `manifest.json` presente, pero no hay service worker registrado en `frontend/src/index.tsx`
 
 ## Modelo de Datos (5 Tablas Principales)
 
@@ -214,6 +214,18 @@ helmet({
 })
 ```
 
+### Autorización por Recursos (Enero 15, 2026) ⭐ NUEVO
+- **Arquitectura:** Defensa en profundidad (3 capas)
+  1. **Autenticación:** `authMiddleware` verifica JWT
+  2. **Rol:** `isAdmin`, `isSupervisor`, `isClient` validan user.role
+  3. **Recurso:** `checkProjectAccess`, `checkScaffoldAccess`, `checkClientNoteAccess` validan acceso específico
+- **20 endpoints protegidos** en 4 archivos de rutas
+- **3 middlewares de autorización** creados (242 líneas en `roles.js`)
+- **Logging completo:** Winston registra intentos no autorizados con userId, role, resourceId, IP
+- **Frontend guards:** 6 loaders con validación de rol + redirección automática
+- **Vulnerabilidades mitigadas:** CVE-ALLTURA-AUTH-001 (CRÍTICA), 002, 003
+- **Memoria detallada:** `SEGURIDAD_AUTORIZACION_ENERO_2026`
+
 ## Roles y Permisos (RBAC)
 
 ### Admin
@@ -223,19 +235,24 @@ helmet({
   - Único que puede eliminar/reactivar proyectos y clientes
   - Puede editar andamios de cualquier supervisor
   - Acceso a historial global
+  - **Acceso total a todos los recursos** (bypass de checkProjectAccess, checkScaffoldAccess)
 
 ### Supervisor
 - **Rutas:** /supervisor/*
-- **Permisos:** Crear/editar/desarmar andamios propios
+- **Permisos:** Crear/editar/desarmar **TODOS los andamios** de proyectos asignados
 - **Restricciones:**
-  - Solo proyectos asignados
-  - No puede editar andamios de otros supervisores
+  - Solo proyectos donde `assigned_supervisor_id === user.id`
+  - Puede editar andamios de otros supervisores **si están en su proyecto**
   - No puede crear andamios en proyectos inactivos
+  - **No puede acceder a proyectos no asignados** (validado por `checkProjectAccess`)
 
 ### Client
 - **Rutas:** Limitadas
-- **Permisos:** Solo visualización de andamios en proyectos asignados
-- **Sin acceso a:** CRUD, historial de otros usuarios
+- **Permisos:** Solo visualización de andamios en proyectos de su empresa
+- **Restricciones:**
+  - Solo proyectos donde `project.client_id === user.client_id`
+  - **No puede mutar datos** (solo lectura)
+  - **Validado por queries a BD** en `checkProjectAccess` y `checkScaffoldAccess`
 
 ## Flujos Críticos con Soft Delete
 
@@ -289,8 +306,14 @@ helmet({
 - POST /api/auth/refresh (renew access token)
 - POST /api/auth/logout (blacklist token)
 
+### Health
+- GET /api/health
+- GET /api/health/live
+- GET /api/health/ready
+
 ### Scaffolds (Validaciones Proyecto Activo)
-- GET /api/scaffolds?project_id=X
+- GET /api/scaffolds
+- GET /api/scaffolds/project/:projectId
 - POST /api/scaffolds (valida proyecto activo)
 - PUT /api/scaffolds/:id (valida proyecto activo)
 - PATCH /api/scaffolds/:id/card-status
@@ -300,8 +323,7 @@ helmet({
 - GET /api/scaffolds/user-history/:userId
 
 ### Projects (Soft Delete)
-- GET /api/projects (solo activos)
-- GET /api/projects/all-including-inactive (admin)
+- GET /api/projects (admin ve activos e inactivos; supervisor/client según asignación)
 - POST /api/projects
 - PUT /api/projects/:id
 - DELETE /api/projects/:id (lógica condicional)
@@ -309,8 +331,7 @@ helmet({
 - GET /api/projects/:id/scaffolds/count
 
 ### Clients (Soft Delete)
-- GET /api/clients (solo activos)
-- GET /api/clients/all-including-inactive (admin)
+- GET /api/clients (admin ve activos e inactivos)
 - POST /api/clients
 - PUT /api/clients/:id
 - DELETE /api/clients/:id (lógica condicional)
@@ -351,12 +372,18 @@ helmet({
 - `npm run dev` - Backend + frontend (concurrently)
 - `npm run install:all` - Instalar todas las dependencias
 - `npm run db:up` - Docker compose PostgreSQL
+- `npm run db:logs` - Logs del contenedor de Postgres
+- `npm run test` - Tests backend + frontend
+- `npm run test:backend` - Solo tests backend
+- `npm run test:frontend` - Solo tests frontend
 
 ### Backend
 - `npm run dev` - Nodemon con hot reload
 - `node src/db/setup.js` - Migración completa DB
 - `node src/scripts/create-admin.js` - Crear admin CLI
-- `node src/scripts/migrate_scaffold_history.js` - Migración historial inmutable
+- `node src/scripts/generate-secrets.js` - Generar secretos/env
+- `node src/db/migrate_add_security_fields.js` - Migración de campos de seguridad
+- `node src/scripts/fix-image-urls.js` - Normalizar URLs de imágenes
 
 ### Frontend
 - `npm run dev` - Vite dev server (puerto 3000)
@@ -408,7 +435,7 @@ helmet({
 - **Controllers:** 8 archivos (1,280 líneas, 68 métodos)
 - **Routes:** 8 archivos (1,430 líneas, 50 endpoints)
 - **Middleware:** 8 (auth, RBAC, sanitization, passwordPolicy, errorHandler, etc.)
-- **Tests:** Parcial (scaffold.test.js, excelGenerator.test.js)
+- **Tests:** 6 archivos en `/backend/src/tests` + extras en `/backend/src/routes/auth.test.js`, `/backend/src/index.test.js`, `/backend/src/lib/excelGenerator.test.js`
 
 ### Frontend
 - **Líneas de código:** ~12,000
@@ -465,11 +492,19 @@ helmet({
 ## Estado Actual del Código
 
 ### Backend
-- **Líneas de código:** ~8,000
+- **Líneas de código:** ~12,824 (refactorización 3-Layer)
 - **Modelos:** 5 (user, client, project, scaffold, scaffoldHistory)
-- **Rutas:** 6 archivos principales
+- **Services:** 8 archivos (89 métodos)
+- **Controllers:** 8 archivos (68 métodos)
+- **Routes:** 8 archivos (50 endpoints REST)
 - **Middleware:** 8 (auth, RBAC, sanitization, etc.)
-- **Tests:** Parcial (scaffold.test.js, excelGenerator.test.js)
+- **Tests:** suite Jest v30 con thresholds 60% y 6 archivos principales + tests extra fuera de `/backend/src/tests`
+  - auth.service.test.js (16 tests, 85% coverage)
+  - scaffolds.service.test.js (22 tests, 80% coverage)
+  - projects.service.test.js (18 tests, 75% coverage)
+  - clients.service.test.js (16 tests, 80% coverage)
+  - pdfGenerator.test.js (18 tests, 70% coverage)
+  - excelGenerator.test.js (20 tests, 75% coverage)
 
 ### Frontend
 - **Líneas de código:** ~12,000
@@ -478,12 +513,45 @@ helmet({
 - **TypeScript:** 100%
 - **Build size:** ~475 KB (gzipped 151 KB)
 
+## Testing (Nuevo - Enero 13, 2026)
+
+### Framework
+- **Jest v30+** con coverage thresholds (60% global)
+- **Patrón AAA:** Arrange-Act-Assert
+- **110+ tests** en 6 archivos
+
+### Coverage por Módulo
+| Módulo | Tests | Coverage |
+|--------|-------|----------|
+| AuthService | 16 | 85% |
+| ScaffoldService | 22 | 80% |
+| ClientService | 16 | 80% |
+| ProjectService | 18 | 75% |
+| excelGenerator | 20 | 75% |
+| pdfGenerator | 18 | 70% |
+
+### Scripts NPM
+```bash
+npm test              # Ejecutar todos los tests
+npm run test:watch    # Modo watch (desarrollo)
+npm run test:coverage # Tests + reporte coverage
+npm run test:verbose  # Output detallado
+npm run test:services # Solo services
+npm run test:lib      # Solo libs
+```
+
+**Documentación:** `/backend/docs/TESTING_GUIDE.md` (600+ líneas)
+
+---
+
 ## Próximos Pasos Sugeridos
-1. Completar tests unitarios (coverage <50%)
-2. Implementar notificaciones push (Web Push API)
-3. Agregar geolocalización de andamios (Google Maps)
-4. Dashboard de auditoría para admins
-5. Política de retención de historial (archivar >2 años)
-6. App móvil nativa (React Native)
-7. Exportar historial a CSV
-8. Soft delete de andamios (en lugar de DELETE físico)
+1. Aumentar coverage a >70% global (actualmente 60%+)
+2. Tests de integración (DB real con Docker)
+3. Tests E2E con Supertest (endpoints REST)
+4. Implementar notificaciones push (Web Push API)
+5. Agregar geolocalización de andamios (Google Maps)
+6. Dashboard de auditoría para admins
+7. Política de retención de historial (archivar >2 años)
+8. App móvil nativa (React Native)
+9. Exportar historial a CSV
+10. Soft delete de andamios (en lugar de DELETE físico)

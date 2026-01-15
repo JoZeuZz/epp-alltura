@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import logoWhite from '../assets/logo-alltura-white.png';
 import UserIcon from '../components/icons/UserIcon';
+import NotificationBell from '../components/NotificationBell';
 
 // --- Iconos SVG ---
 const MenuIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -321,7 +322,7 @@ const AppLayout = () => {
           {/* Botón de menú: solo visible en móvil/tablet */}
           <button 
             onClick={() => setSidebarOpen(!isSidebarOpen)} 
-            className="text-white lg:hidden"
+            className="text-white lg:hidden p-2 -ml-2"
             aria-label={isSidebarOpen ? "Cerrar menú de navegación" : "Abrir menú de navegación"}
             aria-expanded={isSidebarOpen}
           >
@@ -329,7 +330,14 @@ const AppLayout = () => {
           </button>
           {/* Logo centrado en móvil, a la izquierda en desktop */}
           <img src={logoWhite} alt="Alltura Logo" className="h-8 w-auto lg:ml-0" />
-          <div className="w-6 lg:hidden"></div> {/* Espaciador para centrar el logo solo en móvil */}
+          
+          {/* Notification Bell - visible para todos los usuarios autenticados */}
+          <div className="lg:hidden p-2 -mr-2">
+            <NotificationBell variant="dark" />
+          </div>
+          <div className="hidden lg:block">
+            <NotificationBell variant="dark" />
+          </div>
         </header>
 
         {/* --- Main Content --- */}

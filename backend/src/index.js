@@ -1,3 +1,6 @@
+// Cargar variables de entorno PRIMERO
+require('dotenv').config();
+
 const express = require('express');
 const path = require('path');
 const { requestLogger, logger } = require('./lib/logger');
@@ -6,6 +9,7 @@ const redisClient = require('./lib/redis');
 // Importar middlewares de seguridad
 const { createSecurityMiddleware } = require('./middleware/security');
 const { sanitizeStrict } = require('./middleware/sanitization');
+const errorHandler = require('./middleware/errorHandler');
 
 // Importar rutas (Arquitectura 3-Capas)
 const authRoutes = require('./routes/auth.routes');
@@ -16,8 +20,14 @@ const userRoutes = require('./routes/users.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const supervisorDashboardRoutes = require('./routes/supervisorDashboard.routes');
 const notificationRoutes = require('./routes/notification.routes');
+const clientNotesRoutes = require('./routes/clientNotes.routes');
+const scaffoldModificationRoutes = require('./routes/scaffold-modifications.routes');
 const healthRoutes = require('./routes/health');
 const { initializeDatabase } = require('./db/initialize');
+
+// Swagger/OpenAPI
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -81,24 +91,78 @@ app.use('/uploads', (req, res, next) => {
 // Logging de requests
 app.use(requestLogger);
 
+// ============================================
+// DOCUMENTACIÓN API (SWAGGER/OPENAPI)
+// ============================================
+
+// Swagger UI en /api-docs
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Alltura API Docs',
+  customfavIcon: '/favicon.ico',
+}));
+
+// JSON spec disponible en /api-docs.json
+app.get('/api-docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
+// ============================================
+// RUTAS DE LA APLICACIÓN
+// ============================================
+
 // Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/clients', clientRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/scaffolds', scaffoldRoutes);
+app.use('/api', scaffoldModificationRoutes); // Incluye /scaffolds/:id/modifications y /scaffold-modifications/*
 app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/supervisor-dashboard', supervisorDashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/client-notes', clientNotesRoutes);
 app.use('/health', healthRoutes);
 
 // Endpoint para métricas (nuevo endpoint que faltaba)
 app.post('/api/metrics', (req, res) => {
   // Por ahora solo acepta las métricas sin procesarlas
   // En el futuro podrías almacenarlas en base de datos
-  console.log('Métricas recibidas:', req.body.metrics?.length || 0);
+  logger.info('Métricas recibidas del cliente', { 
+    metricsCount: req.body.metrics?.length || 0,
+    ip: req.ip 
+  });
   res.json({ success: true });
 });
+
+// ============================================
+// ERROR HANDLERS (DEBEN IR AL FINAL)
+// ============================================
+
+// 404 Handler - Rutas no encontradas
+// IMPORTANTE: Debe ir DESPUÉS de todas las rutas pero ANTES del error handler
+app.use((req, res) => {
+  logger.warn(`Ruta no encontrada: ${req.method} ${req.originalUrl}`, {
+    ip: req.ip,
+    userAgent: req.get('user-agent')
+  });
+  
+  res.status(404).json({
+    success: false,
+    status: 404,
+    message: 'Ruta no encontrada',
+    error: {
+      path: req.originalUrl,
+      method: req.method,
+      timestamp: new Date().toISOString()
+    }
+  });
+});
+
+// Error Handler Global
+// IMPORTANTE: Debe ser el ÚLTIMO middleware (4 parámetros)
+app.use(errorHandler);
 
 // Inicializar base de datos y luego iniciar el servidor
 const startServer = async () => {

@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, redirect, LoaderFunctionArgs, ActionFunctionArgs } from 'react-router-dom';
+import { createBrowserRouter, redirect, LoaderFunctionArgs, ActionFunctionArgs } from 'react-router-dom';
 import { lazy } from 'react';
 import AppLayout from '../layouts/AppLayout';
 import LoginPage from '../pages/LoginPage';
@@ -27,6 +27,8 @@ const ClientProjectScaffoldsPage = lazy(() => import('../pages/client/ClientProj
 // Shared Pages (lazy loaded)
 const ProfilePage = lazy(() => import('../pages/ProfilePage'));
 const UserFormPage = lazy(() => import('../pages/UserFormPage'));
+const NotificationsPage = lazy(() => import('../pages/NotificationsPage'));
+const NotFoundPage = lazy(() => import('../pages/NotFoundPage'));
 
 // API Base URL - usar /api directamente para que Vite proxy maneje la redirección
 const API_URL = '/api';
@@ -175,6 +177,15 @@ async function rootLoader() {
 async function adminDashboardLoader() {
   const user = getUserFromToken();
   if (!user) throw redirect('/login');
+  
+  // Validar que el usuario sea admin
+  if (user.role !== 'admin') {
+    console.warn('Intento de acceso no autorizado a admin dashboard', {
+      userId: user.id,
+      role: user.role
+    });
+    throw redirect(`/${user.role}/dashboard`);
+  }
 
   try {
     const summary = await fetchAPI('/dashboard/summary');
@@ -189,6 +200,15 @@ async function adminDashboardLoader() {
 async function clientsPageLoader() {
   const user = getUserFromToken();
   if (!user) throw redirect('/login');
+  
+  // Validar que el usuario sea admin
+  if (user.role !== 'admin') {
+    console.warn('Intento de acceso no autorizado a clients page', {
+      userId: user.id,
+      role: user.role
+    });
+    throw redirect(`/${user.role}/dashboard`);
+  }
 
   try {
     const clients = await fetchAPI('/clients');
@@ -300,6 +320,15 @@ async function clientsPageAction({ request }: ActionFunctionArgs) {
 async function projectsPageLoader() {
   const user = getUserFromToken();
   if (!user) throw redirect('/login');
+  
+  // Validar que el usuario sea admin
+  if (user.role !== 'admin') {
+    console.warn('Intento de acceso no autorizado a projects page', {
+      userId: user.id,
+      role: user.role
+    });
+    throw redirect(`/${user.role}/dashboard`);
+  }
 
   try {
     const [projects, clients, users] = await Promise.all([
@@ -431,6 +460,15 @@ async function projectsPageAction({ request }: ActionFunctionArgs) {
 async function usersPageLoader() {
   const user = getUserFromToken();
   if (!user) throw redirect('/login');
+  
+  // Validar que el usuario sea admin
+  if (user.role !== 'admin') {
+    console.warn('Intento de acceso no autorizado a users page', {
+      userId: user.id,
+      role: user.role
+    });
+    throw redirect(`/${user.role}/dashboard`);
+  }
 
   try {
     const [users, clients] = await Promise.all([
@@ -579,6 +617,15 @@ async function scaffoldsPageLoader() {
 async function supervisorDashboardLoader() {
   const user = getUserFromToken();
   if (!user) throw redirect('/login');
+  
+  // Validar que el usuario sea supervisor
+  if (user.role !== 'supervisor') {
+    console.warn('Intento de acceso no autorizado a supervisor dashboard', {
+      userId: user.id,
+      role: user.role
+    });
+    throw redirect(`/${user.role}/dashboard`);
+  }
 
   try {
     const projects = await fetchAPI('/projects/');
@@ -694,6 +741,15 @@ async function historyPageLoader() {
 async function clientDashboardLoader() {
   const user = getUserFromToken();
   if (!user) throw redirect('/login');
+  
+  // Validar que el usuario sea client
+  if (user.role !== 'client') {
+    console.warn('Intento de acceso no autorizado a client dashboard', {
+      userId: user.id,
+      role: user.role
+    });
+    throw redirect(`/${user.role}/dashboard`);
+  }
 
   try {
     const projects = await fetchAPI('/projects/');
@@ -782,6 +838,10 @@ export const router = createBrowserRouter([
         loader: scaffoldsPageLoader,
       },
       {
+        path: 'notifications',
+        element: <NotificationsPage />,
+      },
+      {
         path: 'project/:projectId/create-scaffold',
         element: <CreateScaffoldPage />,
         loader: createScaffoldPageLoader,
@@ -825,6 +885,10 @@ export const router = createBrowserRouter([
         loader: historyPageLoader,
       },
       {
+        path: 'notifications',
+        element: <NotificationsPage />,
+      },
+      {
         path: 'profile',
         element: <ProfilePage />,
       },
@@ -847,6 +911,10 @@ export const router = createBrowserRouter([
         loader: clientProjectScaffoldsPageLoader,
       },
       {
+        path: 'notifications',
+        element: <NotificationsPage />,
+      },
+      {
         path: 'profile',
         element: <ProfilePage />,
       },
@@ -854,7 +922,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '*',
-    element: <Navigate to="/" replace />,
+    element: <NotFoundPage />,
   },
 ], {
   future: {

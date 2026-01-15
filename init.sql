@@ -1,6 +1,18 @@
 -- Archivo: init.sql
 -- Este script crea todas las tablas necesarias para la aplicación Alltura Reports.
 
+-- Creación de la tabla de clientes (empresas mandantes) - PRIMERO
+CREATE TABLE IF NOT EXISTS clients (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) UNIQUE NOT NULL,
+  email VARCHAR(255),
+  phone VARCHAR(50),
+  address TEXT,
+  specialty VARCHAR(255),
+  active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Creación de la tabla de usuarios (Actualizado)
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
@@ -18,18 +30,6 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Índice para mejorar búsquedas por empresa cliente
 CREATE INDEX IF NOT EXISTS idx_users_client_id ON users(client_id);
-
--- Creación de la tabla de clientes (empresas mandantes)
-CREATE TABLE IF NOT EXISTS clients (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) UNIQUE NOT NULL,
-  email VARCHAR(255),
-  phone VARCHAR(50),
-  address TEXT,
-  specialty VARCHAR(255),
-  active BOOLEAN DEFAULT true,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
 
 -- Creación de la tabla de proyectos
 CREATE TABLE IF NOT EXISTS projects (
@@ -106,6 +106,107 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(user_id)
 );
+
+-- ================================================================
+-- SISTEMA DE NOTAS DE CLIENTES Y NOTIFICACIONES IN-APP
+-- ================================================================
+
+-- Tabla de notas de clientes (polimórfica: para scaffolds o proyectos)
+CREATE TABLE IF NOT EXISTS client_notes (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    target_type VARCHAR(20) NOT NULL CHECK(target_type IN ('scaffold', 'project')),
+    scaffold_id INTEGER REFERENCES scaffolds(id) ON DELETE CASCADE,
+    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    note_text TEXT NOT NULL CHECK(LENGTH(note_text) >= 1 AND LENGTH(note_text) <= 5000),
+    is_resolved BOOLEAN DEFAULT false,
+    resolved_at TIMESTAMP WITH TIME ZONE,
+    resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    resolution_notes TEXT CHECK(LENGTH(resolution_notes) <= 1000),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT check_target_exactly_one CHECK (
+        (target_type = 'scaffold' AND scaffold_id IS NOT NULL AND project_id IS NULL) OR
+        (target_type = 'project' AND project_id IS NOT NULL AND scaffold_id IS NULL)
+    )
+);
+
+-- Índices para client_notes
+CREATE INDEX IF NOT EXISTS idx_client_notes_user ON client_notes(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_client_notes_scaffold ON client_notes(scaffold_id, created_at DESC) WHERE scaffold_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_client_notes_project ON client_notes(project_id, created_at DESC) WHERE project_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_client_notes_unresolved ON client_notes(is_resolved, created_at DESC) WHERE is_resolved = false;
+CREATE INDEX IF NOT EXISTS idx_client_notes_target_type ON client_notes(target_type, created_at DESC);
+
+-- Trigger para actualizar updated_at automáticamente
+CREATE OR REPLACE FUNCTION update_client_notes_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_client_notes_updated_at
+    BEFORE UPDATE ON client_notes
+    FOR EACH ROW
+    EXECUTE FUNCTION update_client_notes_updated_at();
+
+-- Tabla de notificaciones in-app persistentes
+CREATE TABLE IF NOT EXISTS notifications (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL CHECK(type IN ('new_client_note', 'note_resolved', 'scaffold_updated', 'project_assigned', 'note_urgent', 'system', 'scaffold_modification_added', 'modification_pending_approval', 'modification_approved', 'modification_rejected')),
+    title VARCHAR(200) NOT NULL,
+    message TEXT NOT NULL CHECK(LENGTH(message) >= 1 AND LENGTH(message) <= 1000),
+    metadata JSONB,
+    link VARCHAR(500),
+    is_read BOOLEAN DEFAULT false,
+    read_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Índices para notifications
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(user_id, is_read, created_at DESC) WHERE is_read = false;
+CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(user_id, type, created_at DESC);
+
+-- Tabla de modificaciones de andamios (metros cúbicos adicionales)
+CREATE TABLE IF NOT EXISTS scaffold_modifications (
+    id SERIAL PRIMARY KEY,
+    scaffold_id INTEGER NOT NULL REFERENCES scaffolds(id) ON DELETE CASCADE,
+    created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE SET NULL,
+    height DECIMAL NOT NULL CHECK(height > 0),
+    width DECIMAL NOT NULL CHECK(width > 0),
+    length DECIMAL NOT NULL CHECK(length > 0),
+    cubic_meters DECIMAL NOT NULL CHECK(cubic_meters > 0),
+    reason TEXT,
+    approval_status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK(approval_status IN ('pending', 'approved', 'rejected')),
+    approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    approved_at TIMESTAMP WITH TIME ZONE,
+    rejection_reason TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Índices para scaffold_modifications
+CREATE INDEX IF NOT EXISTS idx_scaffold_mods_scaffold ON scaffold_modifications(scaffold_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_scaffold_mods_pending ON scaffold_modifications(approval_status, created_at DESC) WHERE approval_status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_scaffold_mods_status ON scaffold_modifications(scaffold_id, approval_status);
+
+-- Trigger para auto-update de updated_at en scaffold_modifications
+CREATE OR REPLACE FUNCTION update_scaffold_modifications_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_scaffold_modifications_updated_at
+    BEFORE UPDATE ON scaffold_modifications
+    FOR EACH ROW
+    EXECUTE FUNCTION update_scaffold_modifications_updated_at();
 
 -- ================================================================
 -- DATOS INICIALES - Empresas Clientes (Empresas Mandantes)

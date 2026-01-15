@@ -132,3 +132,162 @@ export const getCubicMetersStats = () => get('/dashboard/cubic-meters');
  */
 export const getUsersByRole = (role: 'admin' | 'supervisor' | 'client') =>
   get(`/users?role=${role}`);
+
+// ============ CLIENT NOTES ENDPOINTS ============
+
+/**
+ * Crea una nueva nota de cliente
+ */
+export const createClientNote = (data: {
+  target_type: 'scaffold' | 'project';
+  scaffold_id?: number;
+  project_id?: number;
+  note_text: string;
+}) => post('/client-notes', data);
+
+/**
+ * Obtiene las notas del cliente autenticado
+ */
+export const getMyClientNotes = (params?: { unresolved_only?: boolean }) =>
+  get('/client-notes/my-notes', params);
+
+/**
+ * Obtiene notas de un andamio
+ */
+export const getScaffoldNotes = (scaffoldId: number) =>
+  get(`/scaffolds/${scaffoldId}/notes`);
+
+/**
+ * Obtiene notas de un proyecto
+ */
+export const getProjectNotes = (projectId: number) =>
+  get(`/projects/${projectId}/notes`);
+
+/**
+ * Obtiene notas no resueltas de un proyecto
+ */
+export const getUnresolvedProjectNotes = (projectId: number) =>
+  get(`/projects/${projectId}/notes/unresolved`);
+
+/**
+ * Obtiene estadísticas de notas de un proyecto
+ */
+export const getProjectNoteStats = (projectId: number) =>
+  get(`/projects/${projectId}/notes/stats`);
+
+/**
+ * Actualiza una nota
+ */
+export const updateClientNote = (noteId: number, data: { note_text: string }) =>
+  put(`/client-notes/${noteId}`, data);
+
+/**
+ * Resuelve una nota
+ */
+export const resolveClientNote = (noteId: number, data?: { resolution_notes?: string }) =>
+  put(`/client-notes/${noteId}/resolve`, data);
+
+/**
+ * Reabre una nota
+ */
+export const reopenClientNote = (noteId: number) =>
+  put(`/client-notes/${noteId}/reopen`, {});
+
+/**
+ * Elimina una nota (solo admin)
+ */
+export const deleteClientNote = (noteId: number) =>
+  del(`/client-notes/${noteId}`);
+
+// ============ IN-APP NOTIFICATIONS ENDPOINTS ============
+
+/**
+ * Obtiene notificaciones in-app del usuario
+ */
+export const getInAppNotifications = (params?: {
+  unread_only?: boolean;
+  limit?: number;
+  offset?: number;
+}) => get('/notifications/in-app', params);
+
+/**
+ * Obtiene cantidad de notificaciones no leídas
+ */
+export const getUnreadNotificationsCount = () =>
+  get<{ count: number }>('/notifications/in-app/unread-count');
+
+/**
+ * Obtiene estadísticas de notificaciones
+ */
+export const getNotificationStats = () =>
+  get('/notifications/in-app/stats');
+
+/**
+ * Marca una notificación como leída
+ */
+export const markNotificationAsRead = (notificationId: number) =>
+  put(`/notifications/in-app/${notificationId}/read`, {});
+
+/**
+ * Marca todas las notificaciones como leídas
+ */
+export const markAllNotificationsAsRead = () =>
+  put('/notifications/in-app/mark-all-read', {});
+
+/**
+ * Elimina una notificación
+ */
+export const deleteNotification = (notificationId: number) =>
+  del(`/notifications/in-app/${notificationId}`);
+
+/**
+ * Elimina todas las notificaciones leídas
+ */
+export const deleteAllReadNotifications = () =>
+  del('/notifications/in-app/clear-read');
+
+// ============ SCAFFOLD MODIFICATIONS ENDPOINTS ============
+
+/**
+ * Crea una nueva modificación de andamio
+ */
+export const createScaffoldModification = (
+  scaffoldId: number,
+  data: { height: number; width: number; length: number; reason?: string }
+) => post(`/scaffolds/${scaffoldId}/modifications`, data);
+
+/**
+ * Obtiene modificaciones de un andamio
+ */
+export const getScaffoldModifications = (
+  scaffoldId: number,
+  status?: 'pending' | 'approved' | 'rejected'
+) => {
+  const params = status ? { status } : {};
+  return get(`/scaffolds/${scaffoldId}/modifications`, params);
+};
+
+/**
+ * Obtiene todas las modificaciones pendientes (admin/supervisor)
+ */
+export const getPendingModifications = () =>
+  get('/scaffold-modifications/pending');
+
+/**
+ * Aprueba una modificación (solo admin)
+ */
+export const approveModification = (modificationId: number) =>
+  patch(`/scaffold-modifications/${modificationId}/approve`, {});
+
+/**
+ * Rechaza una modificación (solo admin)
+ */
+export const rejectModification = (modificationId: number, rejection_reason: string) =>
+  patch(`/scaffold-modifications/${modificationId}/reject`, { rejection_reason });
+
+/**
+ * Elimina una modificación pendiente
+ */
+export const deleteModification = (modificationId: number) =>
+  del(`/scaffold-modifications/${modificationId}`);
+

@@ -106,8 +106,8 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ summary, projectNam
         </div>
       )}
 
-      {/* Métricas Principales - Grid responsive */}
-      <CustomGrid cols={1} mdCols={2} lgCols={4} gap="md">
+      {/* Métricas Principales - Grid responsive 2x2 en móvil */}
+      <CustomGrid cols={2} mdCols={2} lgCols={4} gap="md">
         <MetricCard
           title="Total Andamios"
           value={summary.totalScaffolds}

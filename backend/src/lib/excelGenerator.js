@@ -1,6 +1,6 @@
 const excel = require('exceljs');
 
-async function generateReportExcel(project, scaffolds) {
+async function generateReportExcel(project, scaffolds, modifications = []) {
   const workbook = new excel.Workbook();
   const worksheet = workbook.addWorksheet(`Reporte ${project.name}`);
 
@@ -21,7 +21,9 @@ async function generateReportExcel(project, scaffolds) {
     { header: 'Alto (m)', key: 'height', width: 10 },
     { header: 'Ancho (m)', key: 'width', width: 10 },
     { header: 'Largo (m)', key: 'length', width: 10 },
-    { header: 'Metros Cúbicos (m³)', key: 'cubic_meters', width: 18 },
+    { header: 'm³ Base', key: 'cubic_meters', width: 12 },
+    { header: 'm³ Adicionales', key: 'additional_cubic_meters', width: 15 },
+    { header: 'Total m³', key: 'total_cubic_meters', width: 12 },
     { header: 'Fecha Creación', key: 'date_created', width: 18 },
     { header: 'Creado Por', key: 'user', width: 30 },
     { header: 'Notas Montaje', key: 'notes', width: 50 },
@@ -66,6 +68,8 @@ async function generateReportExcel(project, scaffolds) {
       width: parseFloat(scaffold.width),
       length: parseFloat(scaffold.length || scaffold.depth),
       cubic_meters: parseFloat(scaffold.cubic_meters),
+      additional_cubic_meters: parseFloat(scaffold.additional_cubic_meters || 0),
+      total_cubic_meters: parseFloat(scaffold.total_cubic_meters || scaffold.cubic_meters),
       date_created: new Date(scaffold.assembly_created_at),
       user: scaffold.created_by_name || scaffold.user_name,
       notes: scaffold.assembly_notes || '',
@@ -102,6 +106,8 @@ async function generateReportExcel(project, scaffolds) {
     row.getCell('width').numFmt = '0.00';
     row.getCell('length').numFmt = '0.00';
     row.getCell('cubic_meters').numFmt = '0.00';
+    row.getCell('additional_cubic_meters').numFmt = '0.00';
+    row.getCell('total_cubic_meters').numFmt = '0.00';
 
     // Formatear fechas
     row.getCell('date_created').numFmt = 'dd/mm/yyyy hh:mm';
@@ -131,7 +137,11 @@ async function generateReportExcel(project, scaffolds) {
   const inProgressCount = scaffolds.filter(s => s.assembly_status === 'in_progress').length;
   const disassembledCount = scaffolds.filter(s => s.assembly_status === 'disassembled').length;
   const totalM3 = scaffolds.reduce((sum, s) => sum + parseFloat(s.cubic_meters), 0);
+  const totalAdditionalM3 = scaffolds.reduce((sum, s) => sum + parseFloat(s.additional_cubic_meters || 0), 0);
+  const totalCombinedM3 = scaffolds.reduce((sum, s) => sum + parseFloat(s.total_cubic_meters || s.cubic_meters), 0);
   const assembledM3 = scaffolds.filter(s => s.assembly_status === 'assembled').reduce((sum, s) => sum + parseFloat(s.cubic_meters), 0);
+  const assembledAdditionalM3 = scaffolds.filter(s => s.assembly_status === 'assembled').reduce((sum, s) => sum + parseFloat(s.additional_cubic_meters || 0), 0);
+  const assembledTotalM3 = scaffolds.filter(s => s.assembly_status === 'assembled').reduce((sum, s) => sum + parseFloat(s.total_cubic_meters || s.cubic_meters), 0);
   const greenCards = scaffolds.filter(s => s.card_status === 'green').length;
   const redCards = scaffolds.filter(s => s.card_status === 'red').length;
 
@@ -182,23 +192,159 @@ async function generateReportExcel(project, scaffolds) {
   summarySheet.getCell('A13').value = 'Metros Cúbicos';
   summarySheet.getCell('A13').font = { bold: true, size: 14, color: { argb: 'FF1e3a8a' } };
   
-  summarySheet.getCell('A15').value = 'Total m³:';
+  summarySheet.getCell('A15').value = 'Total m³ Base:';
   summarySheet.getCell('B15').value = totalM3.toFixed(2);
   
-  summarySheet.getCell('A16').value = 'm³ Armados:';
-  summarySheet.getCell('B16').value = assembledM3.toFixed(2);
+  summarySheet.getCell('A16').value = 'Total m³ Adicionales:';
+  summarySheet.getCell('B16').value = totalAdditionalM3.toFixed(2);
+  summarySheet.getCell('B16').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3CD' } };
+  
+  summarySheet.getCell('A17').value = 'Total m³ Combinado:';
+  summarySheet.getCell('A17').font = { bold: true };
+  summarySheet.getCell('B17').value = totalCombinedM3.toFixed(2);
+  summarySheet.getCell('B17').font = { bold: true };
+  summarySheet.getCell('B17').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+  
+  summarySheet.getCell('A19').value = 'm³ Base Armados:';
+  summarySheet.getCell('B19').value = assembledM3.toFixed(2);
+  
+  summarySheet.getCell('A20').value = 'm³ Adicionales Armados:';
+  summarySheet.getCell('B20').value = assembledAdditionalM3.toFixed(2);
+  
+  summarySheet.getCell('A21').value = 'Total m³ Armados:';
+  summarySheet.getCell('A21').font = { bold: true };
+  summarySheet.getCell('B21').value = assembledTotalM3.toFixed(2);
+  summarySheet.getCell('B21').font = { bold: true };
 
   // Estadísticas de tarjetas
-  summarySheet.getCell('A18').value = 'Tarjetas de Seguridad';
-  summarySheet.getCell('A18').font = { bold: true, size: 14, color: { argb: 'FF1e3a8a' } };
+  summarySheet.getCell('A23').value = 'Tarjetas de Seguridad';
+  summarySheet.getCell('A23').font = { bold: true, size: 14, color: { argb: 'FF1e3a8a' } };
   
-  summarySheet.getCell('A20').value = 'Tarjetas Verdes:';
-  summarySheet.getCell('B20').value = greenCards;
-  summarySheet.getCell('B20').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } };
+  summarySheet.getCell('A25').value = 'Tarjetas Verdes:';
+  summarySheet.getCell('B25').value = greenCards;
+  summarySheet.getCell('B25').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } };
   
-  summarySheet.getCell('A21').value = 'Tarjetas Rojas:';
-  summarySheet.getCell('B21').value = redCards;
-  summarySheet.getCell('B21').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE' } };
+  summarySheet.getCell('A26').value = 'Tarjetas Rojas:';
+  summarySheet.getCell('B26').value = redCards;
+  summarySheet.getCell('B26').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE' } };
+
+  // Estadísticas de modificaciones (si existen)
+  if (modifications && modifications.length > 0) {
+    summarySheet.getCell('A28').value = 'Modificaciones de m³';
+    summarySheet.getCell('A28').font = { bold: true, size: 14, color: { argb: 'FF059669' } };
+    
+    summarySheet.getCell('A30').value = 'Total Modificaciones Aprobadas:';
+    summarySheet.getCell('B30').value = modifications.length;
+    summarySheet.getCell('B30').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+    
+    const totalModificationM3 = modifications.reduce((sum, mod) => sum + parseFloat(mod.cubic_meters), 0);
+    summarySheet.getCell('A31').value = 'Total m³ de Modificaciones:';
+    summarySheet.getCell('B31').value = totalModificationM3.toFixed(2);
+    summarySheet.getCell('B31').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3CD' } };
+  }
+
+  // Agregar hoja de modificaciones aprobadas si existen
+  if (modifications && modifications.length > 0) {
+    const modSheet = workbook.addWorksheet('Modificaciones Aprobadas');
+    
+    // Configurar columnas
+    modSheet.columns = [
+      { header: 'Nº Andamio', key: 'scaffold_number', width: 15 },
+      { header: 'Área', key: 'area', width: 20 },
+      { header: 'TAG', key: 'tag', width: 15 },
+      { header: 'Alto (m)', key: 'height', width: 10 },
+      { header: 'Ancho (m)', key: 'width', width: 10 },
+      { header: 'Largo (m)', key: 'length', width: 10 },
+      { header: 'Metros Cúbicos (m³)', key: 'cubic_meters', width: 18 },
+      { header: 'Motivo', key: 'reason', width: 40 },
+      { header: 'Creado Por', key: 'created_by', width: 30 },
+      { header: 'Fecha Creación', key: 'created_at', width: 18 },
+      { header: 'Aprobado Por', key: 'approved_by', width: 30 },
+      { header: 'Fecha Aprobación', key: 'approved_at', width: 18 },
+    ];
+
+    // Estilo del encabezado
+    const modHeaderRow = modSheet.getRow(1);
+    modHeaderRow.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+    modHeaderRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF059669' } // Verde para modificaciones
+    };
+    modHeaderRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    modHeaderRow.height = 25;
+
+    // Agregar filas de modificaciones
+    modifications.forEach(mod => {
+      const row = modSheet.addRow({
+        scaffold_number: mod.scaffold_number || '',
+        area: mod.area || '',
+        tag: mod.tag || '',
+        height: parseFloat(mod.height),
+        width: parseFloat(mod.width),
+        length: parseFloat(mod.length),
+        cubic_meters: parseFloat(mod.cubic_meters),
+        reason: mod.reason || '',
+        created_by: mod.created_by_name || '',
+        created_at: new Date(mod.created_at),
+        approved_by: mod.approved_by_name || '',
+        approved_at: new Date(mod.approved_at)
+      });
+
+      // Formatear celdas numéricas
+      row.getCell('height').numFmt = '0.00';
+      row.getCell('width').numFmt = '0.00';
+      row.getCell('length').numFmt = '0.00';
+      row.getCell('cubic_meters').numFmt = '0.00';
+
+      // Formatear fechas
+      row.getCell('created_at').numFmt = 'dd/mm/yyyy hh:mm';
+      row.getCell('approved_at').numFmt = 'dd/mm/yyyy hh:mm';
+
+      // Color de fondo verde claro
+      row.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD1FAE5' }
+      };
+    });
+
+    // Agregar bordes a todas las celdas
+    modSheet.eachRow((row, _rowNumber) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          right: { style: 'thin', color: { argb: 'FFE5E7EB' } }
+        };
+      });
+    });
+
+    // Agregar fila de totales
+    const totalRow = modSheet.addRow({
+      scaffold_number: '',
+      area: '',
+      tag: '',
+      height: '',
+      width: '',
+      length: 'TOTAL:',
+      cubic_meters: modifications.reduce((sum, mod) => sum + parseFloat(mod.cubic_meters), 0),
+      reason: '',
+      created_by: '',
+      created_at: '',
+      approved_by: '',
+      approved_at: ''
+    });
+
+    totalRow.font = { bold: true };
+    totalRow.getCell('cubic_meters').numFmt = '0.00';
+    totalRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFFBBF24' } // Amarillo para totales
+    };
+  }
 
   // Return buffer
   return await workbook.xlsx.writeBuffer();

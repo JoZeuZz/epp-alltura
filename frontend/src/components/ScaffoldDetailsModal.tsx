@@ -2,6 +2,11 @@ import React, { useState } from 'react';
 import { Scaffold } from '../types/api';
 import ConfirmationModal from './ConfirmationModal';
 import ScaffoldTimeline from './ScaffoldTimeline';
+import AddModificationModal from './AddModificationModal';
+import ModificationsList from './ModificationsList';
+import ClientNotesList from './ClientNotesList';
+import { useScaffoldModifications } from '../hooks/useScaffoldModifications';
+import { useClientNotes } from '../hooks/useClientNotes';
 import { put } from '../services/apiService';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -31,7 +36,44 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
   const [isEditingProgress, setIsEditingProgress] = useState(false);
   const [tempProgress, setTempProgress] = useState(scaffold.progress_percentage);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showAddModificationModal, setShowAddModificationModal] = useState(false);
 
+  // Hook para gestionar modificaciones
+  const {
+    modifications,
+    loading: modsLoading,
+    error: modsError,
+    createModification,
+    approve,
+    reject,
+    deleteModif,
+    pendingCount,
+    totalAdditionalCubicMeters,
+  } = useScaffoldModifications({
+    scaffoldId: scaffold.id,
+    autoFetch: true,
+  });
+  // Hook para gestionar notas de cliente
+  const {
+    notes: clientNotes,
+    loading: notesLoading,
+    createNote,
+    updateNote: updateNoteHook,
+    resolveNote: resolveNoteHook,
+    reopenNote,
+    deleteNote
+  } = useClientNotes({
+    scaffoldId: scaffold.id
+  });
+
+  // Wrappers para adaptar las firmas de callbacks
+  const handleUpdateNote = async (noteId: number, noteText: string) => {
+    await updateNoteHook(noteId, { note_text: noteText });
+  };
+
+  const handleResolveNote = async (noteId: number, resolutionNotes?: string) => {
+    await resolveNoteHook(noteId, resolutionNotes ? { resolution_notes: resolutionNotes } : undefined);
+  };
   const getImageUrl = (url: string | null | undefined) => {
     if (!url) return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo imagen%3C/text%3E%3C/svg%3E';
     return url.startsWith('http') ? url : `http://localhost:5000${url}`;
@@ -388,11 +430,92 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
             <p className="text-xl md:text-2xl font-bold text-primary-blue">{scaffold.length}m</p>
           </div>
           <div className="text-center p-2 md:p-3 bg-white rounded-lg shadow-sm">
-            <p className="text-gray-600 text-xs md:text-sm">Volumen</p>
+            <p className="text-gray-600 text-xs md:text-sm">Volumen Base</p>
             <p className="text-xl md:text-2xl font-bold text-primary-blue">{scaffold.cubic_meters} m³</p>
           </div>
         </div>
+        
+        {/* Total con modificaciones */}
+        {totalAdditionalCubicMeters > 0 && (
+          <div className="mt-4 p-3 bg-blue-50 border-2 border-blue-200 rounded-lg">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-xs text-gray-600">m³ Base</p>
+                <p className="text-lg font-bold text-gray-700">{parseFloat(String(scaffold.cubic_meters)).toFixed(2)} m³</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-600">m³ Adicionales</p>
+                <p className="text-lg font-bold text-blue-600">+{totalAdditionalCubicMeters.toFixed(2)} m³</p>
+              </div>
+              <div className="md:col-span-1">
+                <p className="text-xs text-gray-600">Total m³</p>
+                <p className="text-2xl font-bold text-blue-700">
+                  {(parseFloat(String(scaffold.cubic_meters)) + totalAdditionalCubicMeters).toFixed(2)} m³
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Metros Cúbicos Adicionales - Solo si está assembled */}
+      {assemblyStatus === 'assembled' && canEdit && (
+        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-4 md:p-6 rounded-lg mb-4 md:mb-6 border-2 border-blue-200">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-bold text-blue-900 text-base md:text-lg flex items-center gap-2">
+                <span className="text-2xl">📐</span>
+                Metros Cúbicos Adicionales
+              </h3>
+              <p className="text-sm text-blue-700 mt-1">
+                Agregar nuevas dimensiones a este andamio armado
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAddModificationModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center gap-2 text-sm md:text-base"
+              disabled={modsLoading}
+            >
+              <span className="text-lg">+</span>
+              Agregar m³
+            </button>
+          </div>
+
+          {/* Lista de modificaciones */}
+          {modsLoading ? (
+            <div className="text-center py-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-sm text-gray-500 mt-2">Cargando modificaciones...</p>
+            </div>
+          ) : modsError ? (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              {modsError}
+            </div>
+          ) : modifications.length > 0 ? (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-3">
+                Modificaciones ({modifications.length}/5):
+                {pendingCount > 0 && (
+                  <span className="ml-2 text-yellow-700">
+                    ({pendingCount} pendiente{pendingCount > 1 ? 's' : ''})
+                  </span>
+                )}
+              </p>
+              <ModificationsList
+                modifications={modifications}
+                currentUserRole={user?.role || 'client'}
+                onApprove={approve}
+                onReject={reject}
+                onDelete={deleteModif}
+              />
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 text-center py-4">
+              No hay modificaciones registradas aún
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Porcentaje de Avance */}
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 md:p-6 rounded-lg mb-4 md:mb-6 border-2 border-purple-200">
@@ -557,6 +680,30 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
         </div>
       )}
 
+      {/* Notas de Cliente - Visible para todos los usuarios */}
+      <div className="mt-6 pt-6 border-t-2 border-gray-200">
+        <h3 className="font-bold text-blue-700 mb-4 text-lg flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+          </svg>
+          Notas del Cliente
+        </h3>
+        <ClientNotesList
+          notes={clientNotes}
+          loading={notesLoading}
+          currentUserId={user?.id}
+          currentUserRole={user?.role}
+          showCreateForm={true}
+          targetType="scaffold"
+          targetId={scaffold.id}
+          onCreateNote={createNote}
+          onUpdateNote={handleUpdateNote}
+          onResolveNote={handleResolveNote}
+          onReopenNote={reopenNote}
+          onDeleteNote={deleteNote}
+        />
+      </div>
+
       {/* Línea de Tiempo - Visible para todos, especialmente útil para clientes */}
       {user?.role === 'client' && (
         <div className="mt-6 pt-6 border-t-2 border-gray-200">
@@ -578,6 +725,15 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
           </button>
         </div>
       )}
+
+      {/* Modal para agregar modificación */}
+      <AddModificationModal
+        isOpen={showAddModificationModal}
+        onClose={() => setShowAddModificationModal(false)}
+        onSubmit={createModification}
+        scaffoldCubicMeters={parseFloat(String(scaffold.cubic_meters))}
+        currentModificationsCount={modifications.filter(m => m.approval_status !== 'rejected').length}
+      />
     </div>
   );
 };

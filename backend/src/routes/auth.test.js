@@ -1,36 +1,53 @@
-const request = require('supertest');
-const server = require('../index');
-const User = require('../models/user');
+jest.mock('isomorphic-dompurify', () => () => ({ sanitize: (value) => value }));
 
-jest.mock('../models/user');
+const express = require('express');
+const request = require('supertest');
+const authRoutes = require('./auth.routes');
+const errorHandler = require('../middleware/errorHandler');
+const AuthService = require('../services/auth.service');
+
+jest.mock('../services/auth.service');
+jest.mock('../lib/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+  },
+}));
 
 describe('POST /api/auth/login', () => {
-  afterAll((done) => {
-    server.close(done);
+  let app;
+
+  beforeEach(() => {
+    app = express();
+    app.use(express.json());
+    app.use('/api/auth', authRoutes);
+    app.use(errorHandler);
+    jest.clearAllMocks();
   });
 
-  it('should return a token with valid credentials', async () => {
-    const mockUser = {
-      id: 1,
-      name: 'Test User',
-      email: 'test@example.com',
-      role: 'admin',
-      comparePassword: jest.fn().mockResolvedValue(true),
-    };
-    User.findByEmail.mockResolvedValue(mockUser);
+  it('should return tokens with valid credentials', async () => {
+    AuthService.loginUser.mockResolvedValue({
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      user: { id: 1, email: 'test@example.com', role: 'admin' },
+    });
 
-    const res = await request(server)
+    const res = await request(app)
       .post('/api/auth/login')
       .send({ email: 'test@example.com', password: 'password123' });
 
     expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveProperty('token');
+    expect(res.body).toHaveProperty('accessToken', 'access-token');
+    expect(res.body).toHaveProperty('refreshToken', 'refresh-token');
   });
 
   it('should return 401 with invalid credentials', async () => {
-    User.findByEmail.mockResolvedValue(null);
+    const error = new Error('Invalid credentials.');
+    error.statusCode = 401;
+    AuthService.loginUser.mockRejectedValue(error);
 
-    const res = await request(server)
+    const res = await request(app)
       .post('/api/auth/login')
       .send({ email: 'wrong@example.com', password: 'wrongpassword' });
 

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
+const { isSupervisor } = require('../middleware/roles');
 const SupervisorDashboardController = require('../controllers/supervisorDashboard.controller');
 
 /**
@@ -8,13 +9,13 @@ const SupervisorDashboardController = require('../controllers/supervisorDashboar
  * Capa de Rutas - Definición de Endpoints y Middlewares
  * Responsabilidades:
  * - Definir endpoints para supervisores
- * - Aplicar autenticación
+ * - Aplicar autenticación y validación de rol
  * 
  * PROHIBIDO: No debe contener lógica de negocio
  */
 
-// Proteger todas las rutas con autenticación
-router.use(authMiddleware);
+// Proteger todas las rutas con autenticación y validación de rol supervisor
+router.use(authMiddleware, isSupervisor);
 
 /**
  * GET /api/supervisor-dashboard/summary

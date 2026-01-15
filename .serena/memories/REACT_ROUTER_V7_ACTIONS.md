@@ -4,6 +4,11 @@
 
 Implementación completa de React Router v7 Actions para manejo de mutaciones de datos (POST, PUT, DELETE) en la aplicación de gestión de andamios.
 
+## Correcciones según código actual (auditoría)
+- `API_URL` es `'/api'` (proxy Vite), no `import.meta.env.VITE_API_URL`.
+- `fetchAPI` lanza `Error` con `validationErrors` adjuntos (no `Response`).
+- `createScaffoldPageAction` usa `POST /scaffolds` con `FormData` y fetch manual; no usa `/scaffolds/project/:projectId`.
+
 ## Estado de Implementación: ✅ COMPLETADO
 
 **Última actualización**: 5 de enero de 2026
@@ -58,11 +63,11 @@ Todas las actions fueron agregadas al archivo `/home/proyectos/reportes/frontend
 
 #### 4. **createScaffoldPageAction** (línea ~336)
 - **Intent**: Crear andamio con archivos adjuntos
-- **Endpoint**: POST `/scaffolds/project/:projectId`
+- **Endpoint**: POST `/scaffolds`
 - **Características especiales**:
   - Manejo de `FormData` (multipart/form-data) para upload de archivos
   - No establece `Content-Type` (navegador lo hace automáticamente con boundary)
-  - Redirect automático a `/supervisor/projects/:projectId/scaffolds` después de crear
+  - Redirect automático según rol (`/admin/scaffolds?projectId=...` o `/supervisor/project/:projectId`)
 
 ### ✅ Router Configurado
 
@@ -121,13 +126,24 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Response('No autorizado', { status: 401 });
+    let errorMessage = 'Error del servidor';
+    let validationErrors: Array<{ field: string; message: string }> = [];
+
+    try {
+      const errorData = await response.json();
+      if (errorData.errors && Array.isArray(errorData.errors) && errorData.errors.length > 0) {
+        validationErrors = errorData.errors;
+        errorMessage = errorData.message || 'Error de validación';
+      } else if (errorData.message) {
+        errorMessage = errorData.message;
+      }
+    } catch (e) {
+      console.error('Error parsing error response:', e);
     }
-    if (response.status === 404) {
-      throw new Response('No encontrado', { status: 404 });
-    }
-    throw new Response('Error del servidor', { status: 500 });
+
+    const error = new Error(errorMessage) as any;
+    error.validationErrors = validationErrors;
+    throw error;
   }
 
   return response.json();

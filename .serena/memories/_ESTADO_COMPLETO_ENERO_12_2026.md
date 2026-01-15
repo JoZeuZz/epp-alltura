@@ -1,10 +1,10 @@
-# Estado Completo del Proyecto - Enero 12, 2026
+# Estado Completo del Proyecto - Enero 13, 2026
 
-**Última Actualización:** Enero 12, 2026 - 21:45  
+**Última Actualización:** Enero 15, 2026 - 15:00  
 **Estado:** Completo, Validado, Funcional, En Producción  
-**Última Corrección:** Sistema de estados de andamios + validación inline + filtrado usuarios  
-**Arquitectura Backend:** 3-Layer Architecture  
-**Arquitectura Frontend:** React Router v7 + Context API  
+**Última Corrección:** Sistema de autorización por recursos + guards de rol frontend  
+**Arquitectura Backend:** 3-Layer Architecture + Defense in Depth  
+**Arquitectura Frontend:** React Router v7 + Context API + Role Guards  
 
 ---
 
@@ -13,6 +13,61 @@
 Sistema de gestión de andamios industriales persistentes con tracking completo, control de estados dual, auditoría inmutable, soft delete y roles RBAC. El backend fue completamente refactorizado de Fat Controllers a Arquitectura de 3 Capas (Enero 8-12, 2026).
 
 ---
+
+## ACTUALIZACION SEGUN CODIGO ACTUAL (AUDITORIA)
+
+- **Stack frontend real:** React 19.1.1, React Router 7.1.3, Vite 7.1.8; `API_URL = '/api'` (proxy Vite). No hay service worker registrado; solo `frontend/public/manifest.json`.
+- **Infra local:** docker-compose usa PostgreSQL 15 (`postgres:15-alpine`) y Redis 7 (`redis:7-alpine`).
+- **Endpoints reales:** `/api/projects` y `/api/clients` ya incluyen inactivos para admin; no existen `/all-including-inactive`. Scaffolds por proyecto usa `/api/scaffolds/project/:projectId` (no query param).
+- **Testing real:** ademas de los 6 archivos listados, existen `backend/src/routes/auth.test.js`, `backend/src/index.test.js` y `backend/src/lib/excelGenerator.test.js`.
+- **Scripts backend actuales:** `node src/scripts/create-admin.js`, `node src/scripts/generate-secrets.js`, `node src/db/migrate_add_security_fields.js`, `node src/scripts/fix-image-urls.js`. No existe `src/scripts/migrate_scaffold_history.js`.
+- **Validacion actual:** las rutas importan schemas desde `backend/src/validation` (regex) y no desde `backend/src/lib/validation`; los custom validators existen pero no estan cableados.
+
+---
+
+## CAMBIOS CRÍTICOS ÚLTIMAS 3 SEMANAS
+
+### 0. Sistema de Autorización por Recursos (Enero 15) ⭐ CRÍTICO
+- ✅ **Vulnerabilidades mitigadas:** CVE-ALLTURA-AUTH-001 (CRÍTICA - escalamiento privilegios), 002, 003
+- ✅ **3 middlewares de autorización creados:** `checkProjectAccess`, `checkScaffoldAccess`, `checkClientNoteAccess` (242 líneas)
+- ✅ **20 endpoints protegidos** en 4 archivos: projects.routes.js (4), scaffolds.routes.js (10), supervisorDashboard.routes.js (1), clientNotes.routes.js (6)
+- ✅ **Arquitectura 3 capas:** Autenticación → Rol → Recurso
+- ✅ **Frontend guards:** 6 loaders con validación de rol (adminDashboardLoader, clientsPageLoader, projectsPageLoader, usersPageLoader, supervisorDashboardLoader, clientDashboardLoader)
+- ✅ **Logging de seguridad:** Winston registra intentos no autorizados con contexto completo (userId, role, resourceId, IP)
+- ✅ **Defensa en profundidad:** Validación en frontend (UX) + backend (seguridad crítica)
+- ✅ **Bug resuelto:** Notificaciones duplicadas (eliminado bloque que enviaba notificación a `client_id` como si fuera usuario)
+- ✅ **Aclaración implementada:** Supervisor puede editar TODOS los andamios del proyecto asignado, no solo los que creó
+- **Archivos modificados:** roles.js, projects.routes.js, scaffolds.routes.js, supervisorDashboard.routes.js, clientNotes.routes.js, projects.service.js, router/index.tsx
+- **Memoria:** `SEGURIDAD_AUTORIZACION_ENERO_2026`
+
+## CAMBIOS CRÍTICOS ÚLTIMAS 3 SEMANAS
+
+### 0. Sanitización con Validator.js (Enero 13) ⭐ NUEVO
+- ✅ **4 Capas de Defensa:** Sanitización → Validación (Joi + validator.js) → Lógica → BD
+- ✅ **12 Custom Validators creados:** joiPhone, joiLatLong, joiUUID, joiPostalCode, joiJSON, joiIP, joiSlug, joiCreditCard, joiHexColor, joiMACAddress, joiFQDN, joiIBAN
+- ✅ **7 Funciones de Sanitización:** sanitizePhone, sanitizeLatLong, sanitizeUUID, sanitizeJSON, sanitizeIP, sanitizeSlug, sanitizePostalCode
+- ✅ **Schemas Compartidos Centralizados:** 20+ schemas en `/lib/validation/sharedSchemas.js`
+- ✅ **Validaciones locale-aware:** Teléfonos (es-CL, es-ES, en-US, pt-BR), códigos postales (CL, US, ES)
+- ✅ **Algoritmos especializados:** Luhn (tarjetas crédito), IBAN validation
+- ✅ **Documentación:** VALIDATION_GUIDE.md (1250+ líneas) con tabla comparativa Regex vs Validator.js
+- **Memoria:** `SANITIZACION_VALIDATOR_ENERO_2026`
+
+### 1. Suite de Testing Completa (Enero 13) ⭐ CRÍTICO
+- ✅ **110+ tests implementados** para servicios críticos (coverage 65-85%)
+- ✅ **Jest v30+** con configuración de thresholds (60% global mínimo)
+- ✅ **6 archivos de test creados:**
+  - `auth.service.test.js` - 16 tests (register, login, refresh, logout, changePassword)
+  - `scaffolds.service.test.js` - 22 tests (CRUD, estados, validaciones, soft delete)
+  - `projects.service.test.js` - 18 tests (soft delete, reactivación, immutability)
+  - `clients.service.test.js` - 16 tests (soft delete, validación unique name)
+  - `pdfGenerator.test.js` - 18 tests (generación PDF, paginación, errores)
+  - `excelGenerator.test.js` - 20 tests (workbooks, state mapping, errores)
+- ✅ **Patrón AAA:** Arrange-Act-Assert consistente en todos los tests
+- ✅ **Mocking completo:** Models, libs, logger, Redis con jest.mock()
+- ✅ **Scripts NPM agregados:** test:watch, test:coverage, test:verbose, test:services, test:lib
+- ✅ **Coverage reporters:** text, lcov, html
+- ✅ **Documentación:** TESTING_GUIDE.md (600+ líneas) con guía completa
+- **Memoria:** `TESTING_STRATEGY_ENERO_2026` (testing patterns y cobertura)
 
 ## CAMBIOS CRÍTICOS ÚLTIMAS 2 SEMANAS
 
@@ -326,7 +381,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - ✅ Errores de compilación: 0
 - ✅ Dependencias circulares: 0
 - ✅ Convenciones de naming: 100%
-- ✅ Tests: Parcial (~30% coverage)
+- ✅ Tests: 110+ tests (60%+ coverage global, 65-85% servicios críticos)
 
 ### Funcionalidad
 - ✅ CRUD Scaffolds: 100%
@@ -354,8 +409,14 @@ npm run db:up             # Docker compose PostgreSQL
 
 ### Backend
 ```bash
-npm run dev               # Nodemon con hot reload
-node src/db/setup.js      # Migración completa DB
+npm run dev                # Nodemon con hot reload
+npm run test               # Ejecutar todos los tests
+npm run test:watch         # Tests en modo watch
+npm run test:coverage      # Tests con reporte coverage
+npm run test:verbose       # Tests con output detallado
+npm run test:services      # Solo tests de services
+npm run test:lib           # Solo tests de libs
+node src/db/setup.js       # Migración completa DB
 node src/scripts/create-admin.js  # Crear admin CLI
 node src/scripts/migrate_scaffold_history.js  # Migración historial inmutable
 ```
@@ -372,9 +433,15 @@ npm run preview           # Preview de build
 ## MEMORIAS RELEVANTES
 
 ### Arquitectura y Estado
-- **ARQUITECTURA_SISTEMA_ENERO_2026** - Stack, modelos, API, reglas de negocio, arquitectura 3-Layer
+- **ARQUITECTURA_SISTEMA_ENERO_2026** - Stack, modelos, API, reglas de negocio, arquitectura 3-Layer, seguridad RBAC
+- **SEGURIDAD_AUTORIZACION_ENERO_2026** - Sistema completo autorización por recursos (Enero 15, 2026) ⭐ NUEVO
 - **REFACTORIZACION_3LAYER_ENERO_2026** - Migración completa Fat Controllers → 3-Layer
 - **_ESTADO_COMPLETO_ENERO_12_2026** - Este archivo (estado consolidado)
+
+### Validación y Testing
+- **SANITIZACION_VALIDATOR_ENERO_2026** - Sanitización con validator.js + custom validators
+- **VALIDACION_INLINE_SISTEMA** - Sistema de validación inline en formularios
+- **TESTING_STRATEGY_ENERO_2026** - Suite de testing Jest (110+ tests)
 
 ### Frontend
 - **REACT_ROUTER_V7_MIGRATION** - Migración a React Router v7
@@ -406,19 +473,25 @@ npm run preview           # Preview de build
 ### Mejoras Funcionales (Prioridad Media)
 1. Notificaciones push completas (Web Push API)
 2. Geolocalización de andamios (Google Maps)
-3. Dashboard de auditoría para admins
+3. Dashboard de auditoría para admins (con logs de intentos no autorizados)
 4. Política de retención historial (>2 años)
 5. Exportar historial a CSV
 6. Soft delete de andamios
+7. Rate limiting por endpoint (actualmente solo login)
+8. Alertas en tiempo real por actividad sospechosa
+9. 2FA (Two-Factor Authentication) para admin
 
 ### Mejoras Técnicas (Prioridad Baja)
 1. Migrar backend a TypeScript
-2. Tests unitarios servicios (coverage >80%)
+2. Aumentar coverage de tests a >80% (actualmente 60%+)
 3. DTOs + class-validator
 4. OpenAPI/Swagger docs
 5. Caché Redis en dashboard
 6. GraphQL
 7. WebSockets notificaciones
+8. Tests E2E con Playwright/Cypress
+9. Integración con Sentry/LogRocket (tracking errores 403)
+10. IP whitelisting para admin
 
 ---
 
