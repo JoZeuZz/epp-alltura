@@ -396,6 +396,161 @@ const sanitizeDate = (value) => {
 };
 
 /**
+ * Sanitiza y valida números de teléfono
+ * @param {string} phone - Teléfono a validar
+ * @param {string} locale - Locale para validación (ej: 'es-CL', 'any')
+ * @returns {string|null} Teléfono sanitizado o null si es inválido
+ */
+const sanitizePhone = (phone, locale = 'any') => {
+  if (!phone || typeof phone !== 'string') {
+    return null;
+  }
+
+  phone = phone.trim();
+
+  // Validar formato con validator.js
+  if (!validator.isMobilePhone(phone, locale, { strictMode: false })) {
+    logger.warn('Invalid phone number', { phone, locale });
+    return null;
+  }
+
+  return phone;
+};
+
+/**
+ * Sanitiza y valida coordenadas geográficas
+ * @param {string} latLong - Coordenadas en formato "lat,long"
+ * @returns {string|null} Coordenadas sanitizadas o null si son inválidas
+ */
+const sanitizeLatLong = (latLong) => {
+  if (!latLong || typeof latLong !== 'string') {
+    return null;
+  }
+
+  latLong = latLong.trim();
+
+  // Validar formato con validator.js
+  if (!validator.isLatLong(latLong)) {
+    logger.warn('Invalid lat/long format', { latLong });
+    return null;
+  }
+
+  return latLong;
+};
+
+/**
+ * Sanitiza y valida UUIDs
+ * @param {string} uuid - UUID a validar
+ * @param {number|string} version - Versión UUID (1, 3, 4, 5) o 'all'
+ * @returns {string|null} UUID sanitizado o null si es inválido
+ */
+const sanitizeUUID = (uuid, version = 4) => {
+  if (!uuid || typeof uuid !== 'string') {
+    return null;
+  }
+
+  uuid = uuid.trim().toLowerCase();
+
+  // Validar con validator.js
+  if (!validator.isUUID(uuid, version)) {
+    logger.warn('Invalid UUID format', { uuid, version });
+    return null;
+  }
+
+  return uuid;
+};
+
+/**
+ * Sanitiza y valida strings JSON
+ * @param {string} jsonString - String JSON a validar
+ * @returns {string|null} JSON sanitizado o null si es inválido
+ */
+const sanitizeJSON = (jsonString) => {
+  if (!jsonString || typeof jsonString !== 'string') {
+    return null;
+  }
+
+  jsonString = jsonString.trim();
+
+  // Validar con validator.js
+  if (!validator.isJSON(jsonString)) {
+    logger.warn('Invalid JSON format');
+    return null;
+  }
+
+  return jsonString;
+};
+
+/**
+ * Sanitiza y valida direcciones IP
+ * @param {string} ip - Dirección IP a validar
+ * @param {number|string} version - Versión IP (4, 6) o 'all'
+ * @returns {string|null} IP sanitizada o null si es inválida
+ */
+const sanitizeIP = (ip, version = 'all') => {
+  if (!ip || typeof ip !== 'string') {
+    return null;
+  }
+
+  ip = ip.trim();
+
+  // Validar con validator.js
+  const isValid = version === 'all' 
+    ? validator.isIP(ip) 
+    : validator.isIP(ip, version);
+
+  if (!isValid) {
+    logger.warn('Invalid IP address', { ip, version });
+    return null;
+  }
+
+  return ip;
+};
+
+/**
+ * Sanitiza y valida slugs URL-friendly
+ * @param {string} slug - Slug a validar
+ * @returns {string|null} Slug sanitizado o null si es inválido
+ */
+const sanitizeSlug = (slug) => {
+  if (!slug || typeof slug !== 'string') {
+    return null;
+  }
+
+  slug = slug.trim().toLowerCase();
+
+  // Validar con validator.js
+  if (!validator.isSlug(slug)) {
+    logger.warn('Invalid slug format', { slug });
+    return null;
+  }
+
+  return slug;
+};
+
+/**
+ * Sanitiza y valida códigos postales
+ * @param {string} postalCode - Código postal a validar
+ * @param {string} locale - Locale para validación (ej: 'CL', 'US')
+ * @returns {string|null} Código postal sanitizado o null si es inválido
+ */
+const sanitizePostalCode = (postalCode, locale = 'any') => {
+  if (!postalCode || typeof postalCode !== 'string') {
+    return null;
+  }
+
+  postalCode = postalCode.trim();
+
+  // Validar con validator.js
+  if (!validator.isPostalCode(postalCode, locale)) {
+    logger.warn('Invalid postal code', { postalCode, locale });
+    return null;
+  }
+
+  return postalCode;
+};
+
+/**
  * Middleware para validar y sanitizar rutas con IDs
  * Previene SQL injection via route params
  */
@@ -449,6 +604,27 @@ const createFieldSanitizer = (fieldConfig) => {
           case 'id':
             value = sanitizeID(value);
             break;
+          case 'phone':
+            value = sanitizePhone(value, config.locale || 'any');
+            break;
+          case 'latlong':
+            value = sanitizeLatLong(value);
+            break;
+          case 'uuid':
+            value = sanitizeUUID(value, config.version || 4);
+            break;
+          case 'json':
+            value = sanitizeJSON(value);
+            break;
+          case 'ip':
+            value = sanitizeIP(value, config.version || 'all');
+            break;
+          case 'slug':
+            value = sanitizeSlug(value);
+            break;
+          case 'postalcode':
+            value = sanitizePostalCode(value, config.locale || 'any');
+            break;
           case 'html':
             value = sanitizeValue(value, { allowHTML: true, richHTML: config.rich || false });
             break;
@@ -497,6 +673,13 @@ module.exports = {
   sanitizeNumber,
   sanitizeID,
   sanitizeDate,
+  sanitizePhone,
+  sanitizeLatLong,
+  sanitizeUUID,
+  sanitizeJSON,
+  sanitizeIP,
+  sanitizeSlug,
+  sanitizePostalCode,
   
   // Utilidades
   createFieldSanitizer,

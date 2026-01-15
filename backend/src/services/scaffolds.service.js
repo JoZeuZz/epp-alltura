@@ -1,5 +1,6 @@
 const Scaffold = require('../models/scaffold');
 const ScaffoldHistory = require('../models/scaffoldHistory');
+const ScaffoldModification = require('../models/scaffoldModification');
 const Project = require('../models/project');
 const { uploadFile } = require('../lib/googleCloud');
 const { logger } = require('../lib/logger');
@@ -254,21 +255,54 @@ class ScaffoldService {
   }
 
   /**
-   * Obtener un andamio por ID
+   * Obtener un andamio por ID con metros cúbicos adicionales
    * @param {number} scaffoldId - ID del andamio
-   * @returns {Promise<object|null>} Andamio o null si no existe
+   * @returns {Promise<object|null>} Andamio con additional_cubic_meters y total_cubic_meters
    */
   static async getScaffoldById(scaffoldId) {
-    return await Scaffold.getById(scaffoldId);
+    const scaffold = await Scaffold.getById(scaffoldId);
+    if (!scaffold) {
+      return null;
+    }
+
+    // Obtener metros cúbicos adicionales aprobados
+    const additionalCubicMeters = await ScaffoldModification.getTotalApprovedCubicMeters(scaffoldId);
+    
+    // Calcular total
+    const baseCubicMeters = parseFloat(scaffold.cubic_meters);
+    const totalCubicMeters = baseCubicMeters + additionalCubicMeters;
+
+    return {
+      ...scaffold,
+      additional_cubic_meters: additionalCubicMeters,
+      total_cubic_meters: totalCubicMeters
+    };
   }
 
   /**
-   * Obtener andamios por proyecto
+   * Obtener andamios por proyecto con metros cúbicos adicionales
    * @param {number} projectId - ID del proyecto
-   * @returns {Promise<Array>} Lista de andamios
+   * @returns {Promise<Array>} Lista de andamios con totales
    */
   static async getScaffoldsByProject(projectId) {
-    return await Scaffold.getByProject(projectId);
+    const scaffolds = await Scaffold.getByProject(projectId);
+    
+    // Enriquecer cada andamio con metros cúbicos adicionales
+    const enrichedScaffolds = await Promise.all(
+      scaffolds.map(async (scaffold) => {
+        const additionalCubicMeters = await ScaffoldModification.getTotalApprovedCubicMeters(scaffold.id);
+        const baseCubicMeters = parseFloat(scaffold.cubic_meters);
+        const totalCubicMeters = baseCubicMeters + additionalCubicMeters;
+
+        return {
+          ...scaffold,
+          additional_cubic_meters: additionalCubicMeters,
+          total_cubic_meters: totalCubicMeters
+        };
+      })
+    );
+
+    return enrichedScaffolds;
   }
 
   /**

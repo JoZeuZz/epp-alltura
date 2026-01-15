@@ -171,6 +171,32 @@ class ProjectService {
   static async createProject(projectData) {
     const newProject = await Project.create(projectData);
     logger.info(`Proyecto ${newProject.id} creado: ${newProject.name}`);
+    
+    // Notificar al supervisor si fue asignado al crear el proyecto
+    if (newProject.assigned_supervisor_id) {
+      try {
+        const NotificationService = require('./notification.service');
+        await NotificationService.createInAppNotification({
+          user_id: newProject.assigned_supervisor_id,
+          type: 'project_assigned',
+          title: '📋 Asignado a nuevo proyecto',
+          message: `Has sido asignado como supervisor del proyecto "${newProject.name}"`,
+          metadata: {
+            project_id: newProject.id,
+            assigned_role: 'supervisor'
+          },
+          link: `/supervisor/project/${newProject.id}`
+        });
+        logger.info(`Supervisor ${newProject.assigned_supervisor_id} notificado sobre asignación al proyecto ${newProject.id}`);
+      } catch (notifError) {
+        logger.error('Error enviando notificación de asignación de supervisor', {
+          error: notifError.message,
+          supervisorId: newProject.assigned_supervisor_id,
+          projectId: newProject.id
+        });
+      }
+    }
+    
     return newProject;
   }
 
@@ -298,8 +324,32 @@ class ProjectService {
       error.statusCode = 404;
       throw error;
     }
-    
+
     logger.info(`Cliente ${clientId} asignado al proyecto ${projectId}`);
+    
+    // Notificar al cliente sobre su asignación
+    try {
+      const NotificationService = require('./notification.service');
+      await NotificationService.createInAppNotification({
+        user_id: clientId,
+        type: 'project_assigned',
+        title: '📋 Acceso a nuevo proyecto',
+        message: `Ahora tienes acceso al proyecto "${updated.name}"`,
+        metadata: {
+          project_id: updated.id,
+          assigned_role: 'client'
+        },
+        link: `/client/project/${updated.id}`
+      });
+      logger.info(`Cliente ${clientId} notificado sobre asignación al proyecto ${projectId}`);
+    } catch (notifError) {
+      logger.error('Error enviando notificación de asignación de cliente', {
+        error: notifError.message,
+        clientId,
+        projectId
+      });
+    }
+    
     return updated;
   }
 
@@ -323,26 +373,58 @@ class ProjectService {
     }
     
     logger.info(`Supervisor ${supervisorId} asignado al proyecto ${projectId}`);
+    
+    // Notificar al supervisor sobre su asignación
+    try {
+      const NotificationService = require('./notification.service');
+      await NotificationService.createInAppNotification({
+        user_id: supervisorId,
+        type: 'project_assigned',
+        title: '📋 Asignado a nuevo proyecto',
+        message: `Has sido asignado como supervisor del proyecto "${updated.name}"`,
+        metadata: {
+          project_id: updated.id,
+          assigned_role: 'supervisor'
+        },
+        link: `/supervisor/project/${updated.id}`
+      });
+      logger.info(`Supervisor ${supervisorId} notificado sobre asignación al proyecto ${projectId}`);
+    } catch (notifError) {
+      logger.error('Error enviando notificación de asignación de supervisor', {
+        error: notifError.message,
+        supervisorId,
+        projectId
+      });
+    }
+    
     return updated;
   }
 
-  // ============================================
-  // GENERACIÓN DE REPORTES
-  // ============================================
-
   /**
-   * Obtener datos de andamios para reporte con filtros
+   * Obtener andamios de un proyecto con paginación, filtrado y búsqueda
    * @param {number} projectId - ID del proyecto
-   * @param {object} filters - Filtros { status, startDate, endDate }
-   * @returns {Promise<Array>} Lista de andamios con información completa
+   * @param {object} filters - Filtros (status, etc)
+   * @param {object} pagination - Paginación (page, limit)
+   * @param {string} search - Término de búsqueda
+   * @returns {Promise<object>} Andamios con metadatos de paginación
    */
-  static async getScaffoldsForReport(projectId, filters = {}) {
-    // Construir query con filtros
+  static async getProjectScaffolds(projectId, filters = {}, pagination = {}, search = '') {
+    const page = parseInt(pagination.page) || 1;
+    const limit = parseInt(pagination.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    // Query base para contar total de registros
+    let countQuery = `
+      SELECT COUNT(*) as total
+      FROM scaffolds s
+      WHERE s.project_id = $1
+    `;
+
+    // Query base para obtener los datos
     let query = `
       SELECT 
         s.*,
-        u.first_name || ' ' || u.last_name as user_name,
-        creator.first_name || ' ' || creator.last_name as created_by_name,
+        u.first_name || ' ' || u.last_name as created_by_username,
         creator.role as creator_role,
         c.name as company_name,
         supervisor.first_name || ' ' || supervisor.last_name as supervisor_name
@@ -422,8 +504,26 @@ class ProjectService {
     // Obtener todos los andamios (sin filtros para Excel)
     const scaffolds = await this.getScaffoldsForReport(projectId);
 
-    // Generar Excel
-    const buffer = await generateReportExcel(project, scaffolds);
+    // Obtener modificaciones aprobadas del proyecto
+    const modificationsQuery = `
+      SELECT 
+        sm.*,
+        s.scaffold_number,
+        s.area,
+        s.tag,
+        u.first_name || ' ' || u.last_name as created_by_name,
+        approver.first_name || ' ' || approver.last_name as approved_by_name
+      FROM scaffold_modifications sm
+      JOIN scaffolds s ON sm.scaffold_id = s.id
+      JOIN users u ON sm.created_by = u.id
+      LEFT JOIN users approver ON sm.approved_by = approver.id
+      WHERE s.project_id = $1 AND sm.approval_status = 'approved'
+      ORDER BY sm.approved_at DESC
+    `;
+    const { rows: modifications } = await db.query(modificationsQuery, [projectId]);
+
+    // Generar Excel con modificaciones
+    const buffer = await generateReportExcel(project, scaffolds, modifications);
     logger.info(`Reporte Excel generado para proyecto ${projectId}`);
     return buffer;
   }

@@ -10,7 +10,9 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     process.env.VAPID_PRIVATE_KEY
   );
 } else {
-  console.warn('VAPID keys not configured. Push notifications will not work.');
+  logger.warn('VAPID keys not configured. Push notifications will not work.', {
+    env: process.env.NODE_ENV
+  });
 }
 
 class PushNotificationService {

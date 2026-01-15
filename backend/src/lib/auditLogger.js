@@ -1,9 +1,11 @@
 const fs = require('fs');
 const path = require('path');
+const { logger } = require('./logger');
 
 /**
  * Sistema de logging y auditoría para el backend
- * Registra acciones importantes del sistema
+ * Registra acciones importantes del sistema en archivos separados
+ * Complementa a Winston logger con auditoría en archivos específicos
  */
 
 const LOG_DIR = path.join(__dirname, '../logs');
@@ -35,7 +37,10 @@ function writeToLog(filePath, message) {
   try {
     fs.appendFileSync(filePath, message, 'utf8');
   } catch (error) {
-    console.error('Error writing to log file:', error);
+    logger.error('Error writing to audit log file', { 
+      error: error.message,
+      filePath 
+    });
   }
 }
 
@@ -48,7 +53,7 @@ function logAudit(action, userId, details = {}) {
     ...details,
   });
   writeToLog(AUDIT_LOG_FILE, message);
-  console.log(message.trim());
+  logger.info('Audit event', { action, userId, ...details });
 }
 
 /**
@@ -60,7 +65,11 @@ function logError(error, context = {}) {
     ...context,
   });
   writeToLog(ERROR_LOG_FILE, message);
-  console.error(message.trim());
+  logger.error('Audit error logged', { 
+    error: error.message || error,
+    stack: error.stack,
+    ...context 
+  });
 }
 
 /**
@@ -81,7 +90,7 @@ function logAccess(method, path, userId, statusCode, duration) {
 function logInfo(message, metadata = {}) {
   const formattedMessage = formatLogMessage('INFO', message, metadata);
   writeToLog(AUDIT_LOG_FILE, formattedMessage);
-  console.log(formattedMessage.trim());
+  logger.info('Audit info', { message, ...metadata });
 }
 
 /**

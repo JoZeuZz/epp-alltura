@@ -4,6 +4,7 @@ const AuthController = require('../controllers/auth.controller');
 const { authMiddleware } = require('../middleware/auth');
 const { passwordValidationMiddleware } = require('../middleware/passwordPolicy');
 const rateLimit = require('express-rate-limit');
+const { email, password, personName, rut, phoneNumber, userRole } = require('../validation');
 
 /**
  * AuthRoutes
@@ -37,24 +38,18 @@ const authLimiter = rateLimit({
 // ============================================
 
 const registerSchema = Joi.object({
-  first_name: Joi.string().min(2).max(100).required(),
-  last_name: Joi.string().min(2).max(100).required(),
-  email: Joi.string().email().max(255).required(),
-  password: Joi.string().min(8).max(255).required(),
-  role: Joi.string().valid('admin', 'supervisor', 'client').required(),
-  rut: Joi.string()
-    .pattern(/^\d{7,8}-[\dkK]$/)
-    .required(),
-  phone_number: Joi.string()
-    .pattern(/^\+?[\d\s-()]+$/)
-    .min(8)
-    .max(20)
-    .allow(null, ''),
+  first_name: personName.required(),
+  last_name: personName.required(),
+  email: email.required(),
+  password: password.required(),
+  role: userRole.required(),
+  rut: rut.required(),
+  phone_number: phoneNumber,
 });
 
 const loginSchema = Joi.object({
-  email: Joi.string().email().required(),
-  password: Joi.string().required(),
+  email: email.required(),
+  password: Joi.string().required(), // No usar schema de password aquí, solo validar que existe
 });
 
 const refreshSchema = Joi.object({
@@ -63,7 +58,7 @@ const refreshSchema = Joi.object({
 
 const changePasswordSchema = Joi.object({
   currentPassword: Joi.string().required(),
-  newPassword: Joi.string().min(8).max(255).required(),
+  newPassword: password.required(),
 });
 
 // ============================================

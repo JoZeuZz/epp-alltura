@@ -121,134 +121,155 @@ const ClientProjectScaffoldsPage: React.FC = () => {
   });
 
   return (
-    <div>
-      {/* Header con navegación */}
-      <div className="mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-          <div>
-            <h1 className="text-3xl font-bold text-dark-blue mb-2">
-              {project?.name || 'Proyecto'}
-            </h1>
-            <p className="text-gray-600">Cliente: {project?.client_name}</p>
-          </div>
-
-          {/* Toggle Dashboard/Andamios */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowDashboard(true)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                showDashboard
-                  ? 'bg-primary-blue text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              <svg
-                className="inline-block w-5 h-5 mr-2"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
-              </svg>
-              Dashboard
-            </button>
-            <button
-              onClick={() => setShowDashboard(false)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                !showDashboard
-                  ? 'bg-primary-blue text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              <svg
-                className="inline-block w-5 h-5 mr-2"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
-              </svg>
-              Andamios
-            </button>
-          </div>
-        </div>
-
-        {/* Botones de exportación - Solo visible en vista de Andamios */}
-        {!showDashboard && (
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={handleExportPDF}
-              disabled={exporting}
-              className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
-              {exporting ? 'Generando...' : 'Exportar PDF'}
-            </button>
-            
-            <button
-              onClick={handleExportExcel}
-              disabled={exportingExcel}
-              className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              {exportingExcel ? 'Generando...' : 'Exportar Excel'}
-            </button>
-          </div>
-        )}
+    <div className="pb-4">
+      {/* Header compacto */}
+      <div className="mb-3 sm:mb-4">
+        <h1 className="text-lg sm:text-3xl font-bold text-dark-blue">
+          {project?.name || 'Proyecto'}
+        </h1>
+        <p className="text-xs sm:text-base text-gray-500">Cliente: {project?.client_name}</p>
       </div>
+
+      {/* Toggle Dashboard/Andamios - Ultra compacto en móvil */}
+      <div className="flex gap-1.5 mb-3 sm:mb-4">
+        <button
+          onClick={() => setShowDashboard(true)}
+          className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
+            showDashboard
+              ? 'bg-primary-blue text-white shadow-md'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <svg
+            className="w-4 h-4"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+          </svg>
+          <span>Dashboard</span>
+        </button>
+        <button
+          onClick={() => setShowDashboard(false)}
+          className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
+            !showDashboard
+              ? 'bg-primary-blue text-white shadow-md'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          <svg
+            className="w-4 h-4"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+          </svg>
+          <span>Andamios</span>
+        </button>
+      </div>
+
+      {/* Botones de exportación - Solo visible cuando HAY andamios */}
+      {!showDashboard && scaffolds && scaffolds.length > 0 && (
+        <div className="flex gap-2 mb-3">
+          <button
+            onClick={handleExportPDF}
+            disabled={exporting}
+            className="bg-red-500 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs sm:text-sm font-medium shadow-sm transition-all flex items-center justify-center gap-1.5 flex-1 sm:flex-none"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            <span className="hidden sm:inline">{exporting ? 'Generando...' : 'Exportar PDF'}</span>
+            <span className="sm:hidden">PDF</span>
+          </button>
+          
+          <button
+            onClick={handleExportExcel}
+            disabled={exportingExcel}
+            className="bg-green-500 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs sm:text-sm font-medium shadow-sm transition-all flex items-center justify-center gap-1.5 flex-1 sm:flex-none"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span className="hidden sm:inline">{exportingExcel ? 'Generando...' : 'Exportar Excel'}</span>
+            <span className="sm:hidden">Excel</span>
+          </button>
+        </div>
+      )}
 
       {/* Dashboard o Lista de Andamios */}
       {showDashboard ? (
         <ProjectDashboard summary={summary} projectName={project?.name} />
       ) : (
         <>
-          {/* Filtros */}
-          <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setStatusFilter('all')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  statusFilter === 'all'
-                    ? 'bg-primary-blue text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                Todos ({scaffolds?.length || 0})
-              </button>
-              <button
-                onClick={() => setStatusFilter('assembled')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  statusFilter === 'assembled'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                Armados ({scaffolds?.filter((s) => s.assembly_status === 'assembled').length || 0})
-              </button>
-              <button
-                onClick={() => setStatusFilter('in_progress')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  statusFilter === 'in_progress'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                En Proceso ({scaffolds?.filter((s) => s.assembly_status === 'in_progress').length || 0})
-              </button>
-              <button
-                onClick={() => setStatusFilter('disassembled')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  statusFilter === 'disassembled'
-                    ? 'bg-yellow-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                Desarmados ({scaffolds?.filter((s) => s.assembly_status === 'disassembled').length || 0})
-              </button>
+          {/* Filtros - Solo visible cuando HAY andamios */}
+          {scaffolds && scaffolds.length > 0 && (
+            <div className="mb-3 sm:mb-4">
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-2">
+                <button
+                  onClick={() => setStatusFilter('all')}
+                  className={`px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-sm ${
+                    statusFilter === 'all'
+                      ? 'bg-primary-blue text-white shadow-md'
+                      : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1.5">
+                    <span>Todos</span>
+                    <span className={`text-xs font-bold ${
+                      statusFilter === 'all' ? 'text-white/90' : 'text-gray-500'
+                    }`}>({scaffolds?.length || 0})</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setStatusFilter('assembled')}
+                  className={`px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-sm ${
+                    statusFilter === 'assembled'
+                      ? 'bg-green-600 text-white shadow-md'
+                      : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1.5">
+                    <span>Armados</span>
+                    <span className={`text-xs font-bold ${
+                      statusFilter === 'assembled' ? 'text-white/90' : 'text-gray-500'
+                    }`}>({scaffolds?.filter((s) => s.assembly_status === 'assembled').length || 0})</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setStatusFilter('in_progress')}
+                  className={`px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-sm ${
+                    statusFilter === 'in_progress'
+                      ? 'bg-blue-600 text-white shadow-md'
+                      : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1.5">
+                    <span className="hidden sm:inline">En Proceso</span>
+                    <span className="sm:hidden">Proceso</span>
+                    <span className={`text-xs font-bold ${
+                      statusFilter === 'in_progress' ? 'text-white/90' : 'text-gray-500'
+                    }`}>({scaffolds?.filter((s) => s.assembly_status === 'in_progress').length || 0})</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setStatusFilter('disassembled')}
+                  className={`px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all shadow-sm ${
+                    statusFilter === 'disassembled'
+                      ? 'bg-yellow-600 text-white shadow-md'
+                      : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1.5">
+                    <span>Desarmados</span>
+                    <span className={`text-xs font-bold ${
+                      statusFilter === 'disassembled' ? 'text-white/90' : 'text-gray-500'
+                    }`}>({scaffolds?.filter((s) => s.assembly_status === 'disassembled').length || 0})</span>
+                  </div>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Grid de andamios */}
           {!filteredScaffolds || filteredScaffolds.length === 0 ? (

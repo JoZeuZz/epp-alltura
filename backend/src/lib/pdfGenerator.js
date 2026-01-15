@@ -139,10 +139,14 @@ function generateScaffoldsPDF(project, scaffolds, res, filters = {}) {
 
   // Calcular estadísticas
   const totalCubicMeters = scaffolds.reduce((sum, s) => sum + parseFloat(s.cubic_meters), 0);
+  const totalAdditionalM3 = scaffolds.reduce((sum, s) => sum + parseFloat(s.additional_cubic_meters || 0), 0);
+  const totalCombinedM3 = scaffolds.reduce((sum, s) => sum + parseFloat(s.total_cubic_meters || s.cubic_meters), 0);
   const assembledCount = scaffolds.filter(s => s.assembly_status === 'assembled').length;
   const inProgressCount = scaffolds.filter(s => s.assembly_status === 'in_progress').length;
   const disassembledCount = scaffolds.filter(s => s.assembly_status === 'disassembled').length;
   const assembledM3 = scaffolds.filter(s => s.assembly_status === 'assembled').reduce((sum, s) => sum + parseFloat(s.cubic_meters), 0);
+  const assembledAdditionalM3 = scaffolds.filter(s => s.assembly_status === 'assembled').reduce((sum, s) => sum + parseFloat(s.additional_cubic_meters || 0), 0);
+  const assembledTotalM3 = scaffolds.filter(s => s.assembly_status === 'assembled').reduce((sum, s) => sum + parseFloat(s.total_cubic_meters || s.cubic_meters), 0);
   const greenCards = scaffolds.filter(s => s.card_status === 'green').length;
   const redCards = scaffolds.filter(s => s.card_status === 'red').length;
 
@@ -182,14 +186,14 @@ function generateScaffoldsPDF(project, scaffolds, res, filters = {}) {
 
   // Tarjeta 5: Total m³
   drawStatCard(doc, 40, secondRowY, cardWidth, cardHeight, 
-    `${totalCubicMeters.toFixed(1)} m³`, 
-    'Total Metros Cúbicos', 
+    `${totalCombinedM3.toFixed(1)} m³`, 
+    'Total m³ (Base + Adicionales)', 
     COLORS.secondary);
 
   // Tarjeta 6: m³ Armados
   drawStatCard(doc, 40 + cardWidth + cardGap, secondRowY, cardWidth, cardHeight, 
-    `${assembledM3.toFixed(1)} m³`, 
-    'm³ Armados', 
+    `${assembledTotalM3.toFixed(1)} m³`, 
+    'm³ Armados Totales', 
     COLORS.accent);
 
   // Tarjeta 7: Tarjetas Verdes
@@ -371,10 +375,26 @@ function generateScaffoldsPDF(project, scaffolds, res, filters = {}) {
     contentY += 15;
 
     doc.font('Helvetica').fillColor(COLORS.textLight)
-       .text('Volumen: ', rightColX, contentY, { continued: true })
+       .text('m³ Base: ', rightColX, contentY, { continued: true })
        .font('Helvetica-Bold').fillColor(COLORS.text)
        .text(`${parseFloat(scaffold.cubic_meters).toFixed(2)} m³`);
     contentY += 15;
+
+    const additionalM3 = parseFloat(scaffold.additional_cubic_meters || 0);
+    if (additionalM3 > 0) {
+      doc.font('Helvetica').fillColor(COLORS.textLight)
+         .text('m³ Adicionales: ', rightColX, contentY, { continued: true })
+         .font('Helvetica-Bold').fillColor('#f59e0b')
+         .text(`${additionalM3.toFixed(2)} m³`);
+      contentY += 15;
+
+      const totalM3 = parseFloat(scaffold.total_cubic_meters || scaffold.cubic_meters);
+      doc.font('Helvetica').fillColor(COLORS.textLight)
+         .text('Total m³: ', rightColX, contentY, { continued: true })
+         .font('Helvetica-Bold').fillColor(COLORS.accent)
+         .text(`${totalM3.toFixed(2)} m³`);
+      contentY += 15;
+    }
 
     doc.font('Helvetica').fillColor(COLORS.textLight)
        .text('Fecha Creación: ', rightColX, contentY, { continued: true })

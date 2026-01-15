@@ -3,9 +3,20 @@ const router = express.Router();
 const Joi = require('joi');
 const multer = require('multer');
 const { authMiddleware } = require('../middleware/auth');
-const { isAdminOrSupervisor, isAdmin, isSupervisor } = require('../middleware/roles');
+const { isAdminOrSupervisor, isAdmin, isSupervisor, checkProjectAccess, checkScaffoldAccess } = require('../middleware/roles');
 const { trackScaffoldChanges } = require('../middleware/scaffoldHistory');
 const ScaffoldController = require('../controllers/scaffolds.controller');
+const ClientNotesController = require('../controllers/clientNotes.controller');
+const { 
+  id, 
+  shortText, 
+  dimension, 
+  percentage, 
+  longText, 
+  address,
+  assemblyStatus,
+  cardStatus 
+} = require('../validation');
 
 /**
  * Rutas de Scaffolds (Andamios)
@@ -30,125 +41,33 @@ const upload = multer({ storage: multerStorage });
 // ============================================
 
 const createScaffoldSchema = Joi.object({
-  project_id: Joi.number()
-    .integer()
-    .positive()
-    .required()
-    .messages({
-      'number.base': 'El ID del proyecto debe ser un número',
-      'number.integer': 'El ID del proyecto debe ser un número entero',
-      'number.positive': 'El ID del proyecto debe ser un número positivo',
-      'any.required': 'El proyecto es obligatorio',
-    }),
-  scaffold_number: Joi.string()
-    .trim()
-    .max(255)
-    .allow('', null)
-    .messages({
-      'string.max': 'El número de andamio no puede exceder 255 caracteres',
-    }),
-  area: Joi.string()
-    .trim()
-    .max(255)
-    .allow('', null)
-    .messages({
-      'string.max': 'El área no puede exceder 255 caracteres',
-    }),
-  tag: Joi.string()
-    .trim()
-    .max(255)
-    .allow('', null)
-    .messages({
-      'string.max': 'El TAG no puede exceder 255 caracteres',
-    }),
-  height: Joi.number()
-    .positive()
-    .max(999.99)
-    .required()
-    .messages({
-      'number.base': 'La altura debe ser un número',
-      'number.positive': 'La altura debe ser un número positivo',
-      'number.max': 'La altura no puede exceder 999.99 metros',
-      'any.required': 'La altura es obligatoria',
-    }),
-  width: Joi.number()
-    .positive()
-    .max(999.99)
-    .required()
-    .messages({
-      'number.base': 'El ancho debe ser un número',
-      'number.positive': 'El ancho debe ser un número positivo',
-      'number.max': 'El ancho no puede exceder 999.99 metros',
-      'any.required': 'El ancho es obligatorio',
-    }),
-  length: Joi.number()
-    .positive()
-    .max(999.99)
-    .required()
-    .messages({
-      'number.base': 'El largo debe ser un número',
-      'number.positive': 'El largo debe ser un número positivo',
-      'number.max': 'El largo no puede exceder 999.99 metros',
-      'any.required': 'El largo es obligatorio',
-    }),
-  progress_percentage: Joi.number()
-    .integer()
-    .min(0)
-    .max(100)
-    .required()
-    .messages({
-      'number.base': 'El porcentaje de avance debe ser un número',
-      'number.integer': 'El porcentaje de avance debe ser un número entero',
-      'number.min': 'El porcentaje de avance debe ser al menos 0',
-      'number.max': 'El porcentaje de avance no puede exceder 100',
-      'any.required': 'El porcentaje de avance es obligatorio',
-    }),
-  assembly_notes: Joi.string()
-    .trim()
-    .max(2000)
-    .allow('', null)
-    .messages({
-      'string.max': 'Las notas de montaje no pueden exceder 2000 caracteres',
-    }),
-  location: Joi.string()
-    .trim()
-    .max(500)
-    .allow('', null)
-    .messages({
-      'string.max': 'La ubicación no puede exceder 500 caracteres',
-    }),
-  observations: Joi.string()
-    .trim()
-    .max(2000)
-    .allow('', null)
-    .messages({
-      'string.max': 'Las observaciones no pueden exceder 2000 caracteres',
-    }),
+  project_id: id.required().messages({
+    'any.required': 'El proyecto es obligatorio',
+  }),
+  scaffold_number: shortText.allow('', null),
+  area: shortText.allow('', null),
+  tag: shortText.allow('', null),
+  height: dimension.required().messages({
+    'any.required': 'La altura es obligatoria',
+  }),
+  width: dimension.required().messages({
+    'any.required': 'El ancho es obligatorio',
+  }),
+  length: dimension.required().messages({
+    'any.required': 'El largo es obligatorio',
+  }),
+  progress_percentage: percentage.required().messages({
+    'any.required': 'El porcentaje de avance es obligatorio',
+  }),
+  assembly_notes: longText.allow('', null),
+  location: address.allow('', null),
+  observations: longText.allow('', null),
 });
 
 const updateScaffoldStatusSchema = Joi.object({
-  assembly_status: Joi.string()
-    .valid('assembled', 'in_progress', 'disassembled')
-    .optional()
-    .messages({
-      'any.only': 'El estado de armado debe ser "assembled", "in_progress" o "disassembled"',
-    }),
-  card_status: Joi.string()
-    .valid('green', 'red')
-    .optional()
-    .messages({
-      'any.only': 'El estado de la tarjeta debe ser "green" o "red"',
-    }),
-  progress_percentage: Joi.number()
-    .integer()
-    .min(0)
-    .max(100)
-    .optional()
-    .messages({
-      'number.base': 'El porcentaje de avance debe ser un número',
-      'number.min': 'El porcentaje de avance debe ser al menos 0',
-      'number.max': 'El porcentaje de avance no puede ser mayor a 100',
-    }),
+  assembly_status: assemblyStatus.optional(),
+  card_status: cardStatus.optional(),
+  progress_percentage: percentage.optional(),
 })
   .or('assembly_status', 'card_status', 'progress_percentage')
   .custom((value, helpers) => {
@@ -204,9 +123,9 @@ router.get('/', ScaffoldController.getAllScaffolds);
 /**
  * @route   GET /api/scaffolds/project/:projectId
  * @desc    Obtener andamios de un proyecto específico
- * @access  Private
+ * @access  Private (validación de acceso al proyecto)
  */
-router.get('/project/:projectId', ScaffoldController.getScaffoldsByProject);
+router.get('/project/:projectId', checkProjectAccess, ScaffoldController.getScaffoldsByProject);
 
 /**
  * @route   GET /api/scaffolds/my-scaffolds
@@ -232,16 +151,16 @@ router.get('/user-history/:userId', isAdmin, ScaffoldController.getUserHistory);
 /**
  * @route   GET /api/scaffolds/:id
  * @desc    Obtener un andamio específico por ID
- * @access  Private
+ * @access  Private (validación de acceso al andamio)
  */
-router.get('/:id', ScaffoldController.getScaffoldById);
+router.get('/:id', checkScaffoldAccess, ScaffoldController.getScaffoldById);
 
 /**
  * @route   GET /api/scaffolds/:id/history
  * @desc    Obtener historial de cambios de un andamio
- * @access  Private
+ * @access  Private (validación de acceso al andamio)
  */
-router.get('/:id/history', ScaffoldController.getScaffoldHistory);
+router.get('/:id/history', checkScaffoldAccess, ScaffoldController.getScaffoldHistory);
 
 /**
  * @route   POST /api/scaffolds
@@ -259,10 +178,11 @@ router.post(
 /**
  * @route   PUT /api/scaffolds/:id
  * @desc    Actualizar un andamio existente
- * @access  Private (Admin o Supervisor propietario)
+ * @access  Private (validación de acceso + Admin o Supervisor del proyecto)
  */
 router.put(
   '/:id',
+  checkScaffoldAccess,
   isAdminOrSupervisor,
   // Middleware de validación dinámica
   async (req, res, next) => {
@@ -291,17 +211,18 @@ router.put(
 /**
  * @route   PATCH /api/scaffolds/:id/card-status
  * @desc    Cambiar estado de tarjeta (verde/roja)
- * @access  Private (Admin o Supervisor propietario)
+ * @access  Private (validación de acceso + Admin o Supervisor del proyecto)
  */
-router.patch('/:id/card-status', isAdminOrSupervisor, ScaffoldController.updateCardStatus);
+router.patch('/:id/card-status', checkScaffoldAccess, isAdminOrSupervisor, ScaffoldController.updateCardStatus);
 
 /**
  * @route   PATCH /api/scaffolds/:id/assembly-status
  * @desc    Cambiar estado de armado (assembled/disassembled)
- * @access  Private (Admin o Supervisor propietario)
+ * @access  Private (validación de acceso + Admin o Supervisor del proyecto)
  */
 router.patch(
   '/:id/assembly-status',
+  checkScaffoldAccess,
   isAdminOrSupervisor,
   upload.single('disassembly_image'),
   ScaffoldController.updateAssemblyStatus
@@ -310,10 +231,11 @@ router.patch(
 /**
  * @route   PUT /api/scaffolds/:id/disassemble
  * @desc    Desarmar andamio con foto y notas de prueba
- * @access  Private (Admin o Supervisor propietario)
+ * @access  Private (validación de acceso + Admin o Supervisor del proyecto)
  */
 router.put(
   '/:id/disassemble',
+  checkScaffoldAccess,
   isAdminOrSupervisor,
   upload.single('disassembly_image'),
   ScaffoldController.disassembleScaffold
@@ -322,8 +244,15 @@ router.put(
 /**
  * @route   DELETE /api/scaffolds/:id
  * @desc    Eliminar un andamio permanentemente
- * @access  Private (Admin only)
+ * @access  Private (validación de acceso + Admin only)
  */
-router.delete('/:id', isAdmin, ScaffoldController.deleteScaffold);
+router.delete('/:id', checkScaffoldAccess, isAdmin, ScaffoldController.deleteScaffold);
+
+/**
+ * @route   GET /api/scaffolds/:scaffoldId/notes
+ * @desc    Obtener notas de un andamio
+ * @access  Private (validación de acceso al andamio)
+ */
+router.get('/:scaffoldId/notes', authMiddleware, checkScaffoldAccess, ClientNotesController.getNotesByScaffold);
 
 module.exports = router;
