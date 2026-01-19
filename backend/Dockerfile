@@ -1,5 +1,5 @@
 # Builder stage: install dependencies
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /usr/src/app
 COPY package*.json ./
 # Use modern npm flag to omit dev dependencies and keep layer caching small
@@ -7,7 +7,7 @@ RUN npm ci --silent --omit=dev
 COPY . .
 
 # Runtime stage: smaller image using only production files
-FROM node:18-alpine AS runtime
+FROM node:20-alpine AS runtime
 WORKDIR /usr/src/app
 COPY --from=builder /usr/src/app .
 # Install curl for healthchecks
