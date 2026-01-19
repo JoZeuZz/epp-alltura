@@ -1,8 +1,8 @@
 # Estado Completo del Proyecto - Enero 13, 2026
 
-**Última Actualización:** Enero 15, 2026 - 15:00  
+**Última Actualización:** Enero 15, 2026 - 16:30  
 **Estado:** Completo, Validado, Funcional, En Producción  
-**Última Corrección:** Sistema de autorización por recursos + guards de rol frontend  
+**Última Corrección:** Sistema de notificaciones mobile + progressive disclosure UI  
 **Arquitectura Backend:** 3-Layer Architecture + Defense in Depth  
 **Arquitectura Frontend:** React Router v7 + Context API + Role Guards  
 
@@ -27,7 +27,27 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 
 ## CAMBIOS CRÍTICOS ÚLTIMAS 3 SEMANAS
 
-### 0. Sistema de Autorización por Recursos (Enero 15) ⭐ CRÍTICO
+### 0. Sistema de Notificaciones Mobile + Progressive Disclosure (Enero 15) ⭐ NUEVO
+- ✅ **NotificationBell responsive:** Fullscreen modal en mobile (<640px) con overlay oscuro, dropdown normal en desktop
+- ✅ **NotificationsPage paginación:** 10 items/página, botón "Limpiar" fijo en footer, evita scroll infinito
+- ✅ **AppLayout header simétrico:** MenuIcon y NotificationBell con padding negativo equivalente (-ml-2/-mr-2)
+- ✅ **Backend route ordering fix:** `/in-app/clear-read` ANTES de `/:notificationId` (Express specificity)
+- ✅ **useNotifications hook:** Agregado soporte para limit/offset/total (paginación)
+- ✅ **ClientProjectScaffoldsPage progressive disclosure:**
+  - Botones exportación: Solo visibles cuando `scaffolds.length > 0`
+  - Filtros de estado: Solo visibles cuando `scaffolds.length > 0`
+  - Header ultra compacto: text-lg mobile, text-3xl desktop
+  - Tabs simplificados: Sin container bg-gray, solo flex gap-1.5
+  - Texto abreviado mobile: "PDF", "Excel", "Proceso" (vs desktop completo)
+  - Space efficiency: 56% reducción de UI chrome en estado vacío (8 líneas → 3.5 líneas)
+- ✅ **ProjectDashboard consistencia:** cols={2} en mobile (2x2 grid igual que admin)
+- ✅ **Filosofía establecida:** "Para el cliente lo más importante es poder ver sus andamios" - content over chrome
+- **Archivos modificados:**
+  - Frontend: NotificationBell.tsx, NotificationsPage.tsx, NotificationItem.tsx, AppLayout.tsx, ClientProjectScaffoldsPage.tsx, ProjectDashboard.tsx, useNotifications.ts
+  - Backend: notification.routes.js (route ordering)
+- **Memoria:** `RESPONSIVE_DESIGN_ENERO_2026` (secciones 13-14 nuevas)
+
+### 1. Sistema de Autorización por Recursos (Enero 15) ⭐ CRÍTICO
 - ✅ **Vulnerabilidades mitigadas:** CVE-ALLTURA-AUTH-001 (CRÍTICA - escalamiento privilegios), 002, 003
 - ✅ **3 middlewares de autorización creados:** `checkProjectAccess`, `checkScaffoldAccess`, `checkClientNoteAccess` (242 líneas)
 - ✅ **20 endpoints protegidos** en 4 archivos: projects.routes.js (4), scaffolds.routes.js (10), supervisorDashboard.routes.js (1), clientNotes.routes.js (6)
@@ -448,7 +468,8 @@ npm run preview           # Preview de build
 - **REACT_ROUTER_V7_ACTIONS** - Patrones de actions/loaders
 - **REACT_HOOK_FORM_PATTERNS** - Formularios con react-hook-form
 - **ACCESSIBILITY_IMPLEMENTATION_PHASE1** - Accesibilidad WCAG
-- **RESPONSIVE_DESIGN_ENERO_2026** - Diseño responsive mobile-first
+- **RESPONSIVE_DESIGN_ENERO_2026** - Diseño responsive mobile-first (incluye notificaciones mobile + progressive disclosure)
+- **PROGRESSIVE_DISCLOSURE_PATTERNS** - Patrones de UI revelación progresiva (Enero 15, 2026) ⭐ NUEVO
 - **PERFORMANCE_OPTIMIZATION_PATTERNS** - Optimización performance
 
 ### Convenciones
@@ -456,6 +477,9 @@ npm run preview           # Preview de build
 
 ### Estados de Andamios
 - **scaffold_assembly_states** - Documentación completa de lógica de estados, tarjetas, y flujos de trabajo
+
+### ACTUALIZADAS (Enero 15, 2026)
+- **RESPONSIVE_DESIGN_ENERO_2026** - Agregadas secciones 13-14: Sistema notificaciones mobile + Progressive disclosure patterns
 
 ### OBSOLETAS (borrar para evitar redundancia)
 - ~~SOFT_DELETE_SISTEMA_PROYECTOS_CLIENTES~~ (info en ARQUITECTURA_SISTEMA_ENERO_2026)
@@ -471,7 +495,7 @@ npm run preview           # Preview de build
 3. Eliminar /routes/legacy después de 1-2 meses
 
 ### Mejoras Funcionales (Prioridad Media)
-1. Notificaciones push completas (Web Push API)
+1. ~~Notificaciones push completas (Web Push API)~~ ✅ Sistema mobile responsive implementado (Enero 15)
 2. Geolocalización de andamios (Google Maps)
 3. Dashboard de auditoría para admins (con logs de intentos no autorizados)
 4. Política de retención historial (>2 años)

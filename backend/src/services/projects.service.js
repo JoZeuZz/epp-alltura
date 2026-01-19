@@ -1,4 +1,5 @@
 const Project = require('../models/project');
+const Scaffold = require('../models/scaffold');
 const db = require('../db');
 const { logger } = require('../lib/logger');
 const { generateScaffoldsPDF } = require('../lib/pdfGenerator');
@@ -479,8 +480,8 @@ class ProjectService {
       throw error;
     }
 
-    // Obtener andamios con filtros
-    const scaffolds = await this.getScaffoldsForReport(projectId, filters);
+    // Obtener andamios con filtros (usar Scaffold.getByProject directamente)
+    const scaffolds = await Scaffold.getByProject(projectId);
 
     // Generar PDF (requiere res para streaming)
     generateScaffoldsPDF(project, scaffolds, res, filters);
@@ -502,7 +503,7 @@ class ProjectService {
     }
 
     // Obtener todos los andamios (sin filtros para Excel)
-    const scaffolds = await this.getScaffoldsForReport(projectId);
+    const scaffolds = await Scaffold.getByProject(projectId);
 
     // Obtener modificaciones aprobadas del proyecto
     const modificationsQuery = `

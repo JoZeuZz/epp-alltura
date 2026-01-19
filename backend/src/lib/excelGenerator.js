@@ -8,12 +8,14 @@ async function generateReportExcel(project, scaffolds, modifications = []) {
   workbook.creator = 'Alltura - Sistema de Gestión de Andamios';
   workbook.created = new Date();
 
-  // Add columns
+  // Add columns (orden actualizado según requerimientos)
   worksheet.columns = [
+    { header: 'Notas Montaje', key: 'notes', width: 50 },
     { header: 'Nº Andamio', key: 'scaffold_number', width: 15 },
     { header: 'Área', key: 'area', width: 20 },
     { header: 'TAG', key: 'tag', width: 15 },
     { header: 'Empresa Solicitante', key: 'company_name', width: 30 },
+    { header: 'Usuario Solicitante', key: 'client_user_name', width: 30 },
     { header: 'Supervisor de Obra', key: 'supervisor_name', width: 30 },
     { header: 'Estado Armado', key: 'assembly_status', width: 15 },
     { header: 'Tarjeta', key: 'card_status', width: 12 },
@@ -25,8 +27,8 @@ async function generateReportExcel(project, scaffolds, modifications = []) {
     { header: 'm³ Adicionales', key: 'additional_cubic_meters', width: 15 },
     { header: 'Total m³', key: 'total_cubic_meters', width: 12 },
     { header: 'Fecha Creación', key: 'date_created', width: 18 },
+    { header: 'Fecha Montaje', key: 'assembly_date', width: 18 },
     { header: 'Creado Por', key: 'user', width: 30 },
-    { header: 'Notas Montaje', key: 'notes', width: 50 },
     { header: 'Fecha Desarmado', key: 'disassembled_at', width: 18 },
     { header: 'Notas Desarmado', key: 'disassembly_notes', width: 50 },
   ];
@@ -54,11 +56,18 @@ async function generateReportExcel(project, scaffolds, modifications = []) {
       supervisorObra = scaffold.created_by_name || scaffold.user_name || '';
     }
     
+    // Validar fecha de montaje: solo si está armado y existe la fecha
+    const assemblyDate = (scaffold.assembly_status === 'assembled' && scaffold.assembly_date) 
+      ? new Date(scaffold.assembly_date) 
+      : '';
+
     const row = worksheet.addRow({
+      notes: scaffold.assembly_notes || '',
       scaffold_number: scaffold.scaffold_number || '',
       area: scaffold.area || '',
       tag: scaffold.tag || '',
       company_name: scaffold.company_name || '',
+      client_user_name: scaffold.client_user_name || '',
       supervisor_name: supervisorObra,
       assembly_status: scaffold.assembly_status === 'assembled' ? 'Armado' : 
                        scaffold.assembly_status === 'in_progress' ? 'En Proceso' : 'Desarmado',
@@ -71,8 +80,8 @@ async function generateReportExcel(project, scaffolds, modifications = []) {
       additional_cubic_meters: parseFloat(scaffold.additional_cubic_meters || 0),
       total_cubic_meters: parseFloat(scaffold.total_cubic_meters || scaffold.cubic_meters),
       date_created: new Date(scaffold.assembly_created_at),
+      assembly_date: assemblyDate,
       user: scaffold.created_by_name || scaffold.user_name,
-      notes: scaffold.assembly_notes || '',
       disassembled_at: scaffold.disassembled_at ? new Date(scaffold.disassembled_at) : '',
       disassembly_notes: scaffold.disassembly_notes || ''
     });
@@ -111,6 +120,9 @@ async function generateReportExcel(project, scaffolds, modifications = []) {
 
     // Formatear fechas
     row.getCell('date_created').numFmt = 'dd/mm/yyyy hh:mm';
+    if (scaffold.assembly_date && scaffold.assembly_status === 'assembled') {
+      row.getCell('assembly_date').numFmt = 'dd/mm/yyyy hh:mm';
+    }
     if (scaffold.disassembled_at) {
       row.getCell('disassembled_at').numFmt = 'dd/mm/yyyy hh:mm';
     }

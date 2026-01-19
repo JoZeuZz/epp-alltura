@@ -1981,7 +1981,523 @@ router.patch('/:id/card-status', async (req, res) => {
 
 ---
 
-## 13. RECURSOS Y REFERENCIAS
+## 13. SISTEMA DE NOTIFICACIONES MOBILE - Enero 15, 2026 ⭐ NUEVO
+
+### 13.1 NotificationBell - Dropdown Mobile-Responsive
+
+**Ubicación:** `frontend/src/components/NotificationBell.tsx`
+
+**Características:**
+- **Mobile (<640px)**: Modal fullscreen desde abajo con overlay oscuro (estilo WhatsApp)
+- **Desktop (≥640px)**: Dropdown normal con ancho fijo (w-96)
+- **Header simétrico**: Alineado con MenuIcon usando padding equivalente (-ml-2/-mr-2)
+
+**Implementación Modal Mobile:**
+```tsx
+{isOpen && (
+  <>
+    {/* Overlay oscuro solo en mobile */}
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 z-40 sm:hidden" 
+      onClick={close} 
+    />
+    
+    {/* Container responsive */}
+    <div className="fixed inset-x-0 bottom-0 sm:absolute sm:right-0 sm:w-96 max-h-[80vh] z-50">
+      <div className="bg-white sm:rounded-lg shadow-xl">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="text-lg font-semibold">Notificaciones</h3>
+          <button onClick={close} className="sm:hidden">×</button>
+        </div>
+        
+        {/* Lista notificaciones */}
+        <div className="overflow-y-auto max-h-[calc(80vh-120px)]">
+          {/* NotificationItems */}
+        </div>
+        
+        {/* Footer */}
+        <div className="border-t p-3">
+          <Link to="/notifications">Ver todas</Link>
+        </div>
+      </div>
+    </div>
+  </>
+)}
+```
+
+**Clases Condicionales:**
+- Mobile: `fixed inset-x-0 bottom-0` (fullscreen desde abajo)
+- Desktop: `sm:absolute sm:right-0 sm:w-96` (dropdown posicionado)
+- Overlay: Solo visible en mobile con `sm:hidden`
+- Botón cerrar: Solo visible en mobile
+
+---
+
+### 13.2 NotificationsPage - Paginación y Layout Optimizado
+
+**Ubicación:** `frontend/src/pages/NotificationsPage.tsx`
+
+**Características Principales:**
+- **Paginación:** 10 notificaciones por página (evita scroll infinito)
+- **Layout flex:** Estructura con header fijo, contenido scrollable, footer fijo
+- **Filtros segmentados:** Estilo iOS con fondo gris y selección blanca
+- **Botón "Limpiar":** Fijo en footer, siempre visible
+
+**Estructura de Layout:**
+```tsx
+<div className="h-full flex flex-col">
+  {/* Header - flex-shrink-0 */}
+  <div className="flex-shrink-0 py-3 sm:py-8">
+    <h1 className="text-2xl sm:text-3xl font-bold">Notificaciones</h1>
+  </div>
+  
+  {/* Filtros - flex-shrink-0 */}
+  <div className="flex-shrink-0 mb-4">
+    <div className="bg-gray-100 p-1 rounded-lg inline-flex gap-1">
+      <button className={`px-4 py-2 rounded-md ${active ? 'bg-white' : ''}`}>
+        Todas
+      </button>
+      <button>No leídas</button>
+    </div>
+  </div>
+  
+  {/* Lista - flex-1 overflow-y-auto (scrollable) */}
+  <div className="flex-1 overflow-y-auto mb-4">
+    {notifications.map(n => <NotificationItem key={n.id} />)}
+  </div>
+  
+  {/* Footer - flex-shrink-0 */}
+  <div className="flex-shrink-0 border-t pt-4">
+    <div className="flex items-center justify-between gap-4">
+      {/* Paginación */}
+      <div className="flex gap-2">
+        <button disabled={currentPage === 1}>Anterior</button>
+        <span>Página {currentPage} de {totalPages}</span>
+        <button disabled={currentPage === totalPages}>Siguiente</button>
+      </div>
+      
+      {/* Botón limpiar */}
+      <button className="bg-red-500 text-white px-4 py-2">
+        Limpiar leídas
+      </button>
+    </div>
+  </div>
+</div>
+```
+
+**Paginación Backend:**
+```typescript
+// useNotifications hook
+const { notifications, total } = await getInAppNotifications({
+  limit: 10,
+  offset: (currentPage - 1) * 10,
+  unread_only: filter === 'unread'
+});
+
+const totalPages = Math.ceil(total / 10);
+```
+
+**Lógica de Filtros:**
+- **"Todas"**: `unread_only: false` → Muestra todas las notificaciones
+- **"No leídas"**: `unread_only: true` → Solo notificaciones no leídas
+
+---
+
+### 13.3 NotificationItem - Componente Compacto
+
+**Ubicación:** `frontend/src/components/NotificationItem.tsx`
+
+**Optimizaciones Mobile:**
+```tsx
+<div className="py-3 px-4 hover:bg-gray-50 border-b">
+  <div className="flex items-start gap-3">
+    {/* Icono */}
+    <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+      <BellIcon className="w-5 h-5 text-blue-600" />
+    </div>
+    
+    {/* Contenido */}
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-medium text-gray-900">{notification.title}</p>
+      <p className="text-xs text-gray-600 mt-1">{notification.message}</p>
+      <p className="text-xs text-gray-400 mt-2">
+        {formatDistanceToNow(new Date(notification.created_at))}
+      </p>
+    </div>
+    
+    {/* Badge no leído */}
+    {!notification.read && (
+      <div className="flex-shrink-0 w-2 h-2 bg-blue-600 rounded-full" />
+    )}
+  </div>
+</div>
+```
+
+**Tamaños Responsive:**
+- Padding vertical: `py-3` (compacto en todos los tamaños)
+- Título: `text-sm` (óptimo para mobile)
+- Mensaje: `text-xs` (ahorra espacio)
+- Timestamp: `text-xs text-gray-400` (sutil)
+
+---
+
+### 13.4 AppLayout - Header Simétrico
+
+**Ubicación:** `frontend/src/layouts/AppLayout.tsx`
+
+**Corrección de Simetría:**
+```tsx
+{/* Header Mobile */}
+<div className="lg:hidden flex items-center justify-between px-4 py-3">
+  {/* Menu button - izquierda */}
+  <button className="text-white p-2 -ml-2">
+    <MenuIcon className="w-6 h-6" />
+  </button>
+  
+  {/* Logo - centro */}
+  <img src={logoWhite} className="h-8" alt="Logo" />
+  
+  {/* NotificationBell - derecha */}
+  <div className="p-2 -mr-2">
+    <NotificationBell variant="dark" />
+  </div>
+</div>
+```
+
+**Cambios Aplicados:**
+- **Eliminado:** `<div className="w-6 lg:hidden"></div>` (espaciador asimétrico)
+- **Agregado:** Padding negativo simétrico (-ml-2 y -mr-2) para alineación perfecta
+- **Resultado:** MenuIcon y NotificationBell equidistantes de los bordes
+
+---
+
+### 13.5 Backend - Route Ordering Fix
+
+**Ubicación:** `backend/src/routes/notification.routes.js`
+
+**Problema Crítico:**
+```javascript
+// ❌ MAL - "clear-read" se capturaba como :notificationId
+router.delete('/in-app/:notificationId', ...);  // Esta ruta primero
+router.delete('/in-app/clear-read', ...);       // Esta nunca se alcanzaba
+```
+
+**Solución:**
+```javascript
+// ✅ BIEN - Ruta específica ANTES de ruta parametrizada
+router.delete('/in-app/clear-read', NotificationController.deleteAllRead);
+router.delete('/in-app/:notificationId', NotificationController.deleteNotification);
+```
+
+**Lección Aprendida:**
+- Express evalúa rutas en orden de definición
+- Rutas literales/específicas deben ir ANTES de rutas con parámetros
+- Error original: `parseInt("clear-read")` → `NaN` → Error 500 PostgreSQL
+
+---
+
+### 13.6 useNotifications Hook - Paginación
+
+**Ubicación:** `frontend/src/hooks/useNotifications.ts`
+
+**Cambios Implementados:**
+```typescript
+export const useNotifications = () => {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [total, setTotal] = useState(0);  // ⭐ NUEVO
+  
+  const fetchNotifications = useCallback(async (params?: {
+    unreadOnly?: boolean;
+    limit?: number;      // ⭐ NUEVO
+    offset?: number;     // ⭐ NUEVO
+  }) => {
+    const response = await getInAppNotifications({
+      unread_only: params?.unreadOnly,
+      limit: params?.limit || 20,
+      offset: params?.offset || 0,
+    });
+    
+    setNotifications(response.data);
+    setTotal(response.total);  // ⭐ NUEVO
+  }, []);
+  
+  return {
+    notifications,
+    unreadCount,
+    total,              // ⭐ NUEVO - Para calcular totalPages
+    fetchNotifications,
+    markAsRead,
+    clearRead,
+  };
+};
+```
+
+**Contrato API Backend:**
+```typescript
+// Backend debe retornar:
+{
+  data: Notification[],
+  total: number  // Total de registros (no solo los de la página)
+}
+```
+
+---
+
+### 13.7 Responsive Breakpoints Notificaciones
+
+**Mobile (<640px):**
+- NotificationBell: Modal fullscreen desde abajo
+- NotificationsPage: Header compacto (text-2xl, py-3)
+- Filtros: Botones más pequeños (px-3 py-1.5)
+- Paginación: Botones apilados verticalmente si no caben
+
+**Tablet (640-1024px):**
+- NotificationBell: Dropdown normal (w-96)
+- NotificationsPage: Header normal (text-3xl, py-8)
+- Filtros: Botones estándar (px-4 py-2)
+- Paginación: Horizontal con espacio
+
+**Desktop (≥1024px):**
+- Igual que tablet
+- NotificationBell solo visible en header (sidebar no tiene notificaciones)
+
+---
+
+## 14. CLIENTPROJECTSCAFFOLDSPAGE - Progressive Disclosure ⭐ NUEVO
+
+### 14.1 Filosofía de Diseño
+
+**Principio Core:** "Para el cliente lo más importante es poder ver sus andamios"
+
+**Problemas Identificados:**
+- Botones de exportación (PDF/Excel) ocupaban ~2 líneas en mobile
+- Filtros de estado (4 botones) ocupaban ~2 líneas adicionales
+- Total: ~4-6 líneas de UI chrome sin ningún andamio visible
+- Resultado: "la mitad de la pantalla solo en esa cantidad ingente de botones"
+
+**Solución Implementada:**
+- **Progressive Disclosure:** Mostrar controles solo cuando hay datos
+- Ocultar botones de exportación cuando `scaffolds.length === 0`
+- Ocultar filtros de estado cuando `scaffolds.length === 0`
+- Resultado: Estado vacío ocupa ~2-3 líneas (solo header + tabs)
+
+---
+
+### 14.2 Estructura Minimalista
+
+**Ubicación:** `frontend/src/pages/client/ClientProjectScaffoldsPage.tsx`
+
+**Header Ultra Compacto:**
+```tsx
+{/* Header */}
+<div className="mb-3 sm:mb-4">
+  <h1 className="text-lg sm:text-3xl font-bold text-dark-blue">
+    {project?.name || 'Proyecto'}
+  </h1>
+  <p className="text-xs sm:text-base text-gray-500">
+    Cliente: {project?.client_name}
+  </p>
+</div>
+```
+
+**Mejoras:**
+- Mobile: `text-lg` título (era text-xl)
+- Desktop: `sm:text-3xl` (mantiene legibilidad)
+- Subtítulo: `text-xs sm:text-base` (más compacto en mobile)
+- Spacing reducido: `mb-3 sm:mb-4`
+
+---
+
+### 14.3 Tabs Simplificados
+
+**Implementación:**
+```tsx
+{/* Toggle Dashboard/Andamios */}
+<div className="flex gap-1.5 mb-3 sm:mb-4">
+  <button className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg ${
+    showDashboard ? 'bg-primary-blue text-white shadow-md' : 'bg-gray-100 text-gray-600'
+  }`}>
+    <svg className="w-4 h-4" />
+    <span>Dashboard</span>
+  </button>
+  
+  <button className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg ${
+    !showDashboard ? 'bg-primary-blue text-white shadow-md' : 'bg-gray-100 text-gray-600'
+  }`}>
+    <svg className="w-4 h-4" />
+    <span>Andamios</span>
+  </button>
+</div>
+```
+
+**Cambios vs Versión Anterior:**
+- Eliminado: Container con `bg-gray-100 p-1` (segmented control style)
+- Ahora: Simple `flex gap-1.5` (más aire, menos carga visual)
+- Botones: `flex-1` en mobile (ocupan 50% cada uno)
+- Botones: `sm:flex-none` en desktop (ancho automático)
+
+---
+
+### 14.4 Botones de Exportación - Conditional Rendering
+
+**Implementación:**
+```tsx
+{/* Botones de exportación - Solo visible cuando HAY andamios */}
+{!showDashboard && scaffolds && scaffolds.length > 0 && (
+  <div className="flex gap-2 mb-3">
+    <button className="bg-red-500 text-white px-3 sm:px-4 py-2 rounded-lg flex-1 sm:flex-none">
+      <svg className="w-4 h-4" />
+      <span className="hidden sm:inline">
+        {exporting ? 'Generando...' : 'Exportar PDF'}
+      </span>
+      <span className="sm:hidden">PDF</span>
+    </button>
+    
+    <button className="bg-green-500 text-white px-3 sm:px-4 py-2 rounded-lg flex-1 sm:flex-none">
+      <svg className="w-4 h-4" />
+      <span className="hidden sm:inline">
+        {exportingExcel ? 'Generando...' : 'Exportar Excel'}
+      </span>
+      <span className="sm:hidden">Excel</span>
+    </button>
+  </div>
+)}
+```
+
+**Características:**
+- **Conditional:** Solo renderiza si `scaffolds.length > 0`
+- **Layout:** Horizontal en todos los tamaños (era vertical en mobile)
+- **Texto responsive:** "Exportar PDF" en desktop, "PDF" en mobile
+- **Flex:** `flex-1` en mobile (50% cada botón), `sm:flex-none` en desktop
+
+---
+
+### 14.5 Filtros de Estado - Conditional Rendering
+
+**Implementación:**
+```tsx
+{/* Filtros - Solo visible cuando HAY andamios */}
+{scaffolds && scaffolds.length > 0 && (
+  <div className="mb-3 sm:mb-4">
+    <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-2">
+      <button className={`px-2.5 sm:px-4 py-2 rounded-lg ${
+        statusFilter === 'all' ? 'bg-primary-blue text-white' : 'bg-gray-100 text-gray-700'
+      }`}>
+        Todos
+      </button>
+      
+      <button className="...">Armados</button>
+      
+      <button className="...">
+        <span className="hidden sm:inline">En Proceso</span>
+        <span className="sm:hidden">Proceso</span>
+      </button>
+      
+      <button className="...">Desarmados</button>
+    </div>
+  </div>
+)}
+```
+
+**Características:**
+- **Conditional:** Solo renderiza si `scaffolds.length > 0`
+- **Grid mobile:** `grid-cols-2` (2x2, más compacto)
+- **Flex desktop:** `sm:flex sm:flex-wrap` (horizontal)
+- **Texto abreviado:** "En Proceso" → "Proceso" en mobile
+- **Padding reducido:** `px-2.5 py-2` en mobile, `sm:px-4` en desktop
+- **Gap mínimo:** `gap-1.5` (era gap-2)
+
+---
+
+### 14.6 Comparación Antes/Después (Estado Vacío)
+
+**ANTES (Sin Andamios):**
+```
+┌─────────────────────────────┐
+│ Proyecto X                  │ ← 2 líneas (header)
+│ Cliente: ABC                │
+├─────────────────────────────┤
+│ [Dashboard] [Andamios]      │ ← 1 línea (tabs)
+├─────────────────────────────┤
+│ [Exportar PDF    ]          │ ← 2 líneas (export)
+│ [Exportar Excel  ]          │
+├─────────────────────────────┤
+│ [Todos]     [Armados]       │ ← 2 líneas (filtros)
+│ [Proceso]   [Desarmados]    │
+├─────────────────────────────┤
+│ No hay andamios...          │ ← 1 línea (mensaje)
+└─────────────────────────────┘
+TOTAL: ~8 líneas ocupadas (50% UI chrome)
+```
+
+**DESPUÉS (Sin Andamios):**
+```
+┌─────────────────────────────┐
+│ Proyecto X                  │ ← 1.5 líneas (header compacto)
+│ Cliente: ABC                │
+├─────────────────────────────┤
+│ [Dashboard] [Andamios]      │ ← 1 línea (tabs)
+├─────────────────────────────┤
+│ No hay andamios...          │ ← 1 línea (mensaje)
+└─────────────────────────────┘
+TOTAL: ~3.5 líneas ocupadas (minimal chrome)
+GANANCIA: ~55% de espacio vertical
+```
+
+---
+
+### 14.7 ProjectDashboard - Grid 2x2
+
+**Ubicación:** `frontend/src/components/ProjectDashboard.tsx`
+
+**Cambio Simple:**
+```tsx
+// Antes
+<CustomGrid cols={1} mdCols={2} lgCols={4}>
+
+// Después
+<CustomGrid cols={2} mdCols={2} lgCols={4}>
+```
+
+**Resultado:**
+- Mobile: 2x2 grid de métricas (igual que admin dashboard)
+- Tablet: 2x2 grid (sin cambio)
+- Desktop: 1x4 horizontal (sin cambio)
+
+**Contexto:**
+- Usuario reportó que dashboard de cliente no se veía igual al de admin
+- Admin tenía `cols={2}`, cliente tenía `cols={1}`
+- Ahora ambos consistentes
+
+---
+
+### 14.8 Beneficios UX Implementados
+
+**Space Efficiency:**
+- Estado vacío: De ~8 líneas a ~3.5 líneas (56% reducción)
+- Prioriza contenido sobre controles
+- Menos scroll necesario en mobile
+
+**Progressive Disclosure:**
+- Exportar: Solo útil cuando hay datos → oculto cuando vacío
+- Filtros: Solo útiles cuando hay múltiples items → ocultos cuando vacío
+- Alineado con principios Material Design y iOS HIG
+
+**Text Optimization:**
+- "Exportar PDF" → "PDF" (67% reducción en mobile)
+- "Exportar Excel" → "Excel" (71% reducción)
+- "En Proceso" → "Proceso" (38% reducción)
+
+**Layout Optimization:**
+- Exportar: Horizontal (era vertical) → ahorra 1 línea
+- Filtros: Grid 2x2 (era flex wrap) → más predecible
+- Header: Títulos más pequeños → ahorra espacio vertical
+
+---
+
+## 15. RECURSOS Y REFERENCIAS
 
 ### 13.1 Documentación
 
