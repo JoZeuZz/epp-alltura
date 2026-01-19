@@ -16,10 +16,9 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
 
-    # Mapeo de puertos: conecta el puerto 5432 del contenedor
-    # al puerto 5432 de tu máquina local.
-    ports:
-      - "5432:5432"
+    # Internal port exposure (no external binding - Coolify handles this)
+    expose:
+      - "5432"
 
     # Volúmenes para persistencia de datos:
     # Guarda los datos de la base de datos en una carpeta local './postgres-data'.
@@ -53,9 +52,9 @@ services:
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
 
-    # Mapeo de puertos
-    ports:
-      - "6379:6379"
+    # Internal port exposure only
+    expose:
+      - "6379"
 
     # Volumen para persistencia de datos
     volumes:
