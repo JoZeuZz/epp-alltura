@@ -78,40 +78,12 @@ services:
       - alltura_network
 
   # Servicio Backend (API)
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: alltura_backend
-    env_file: ./backend/.env
-    environment:
-      - DB_HOST=postgres_db
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
-      - DB_PORT=5432
-      - PORT=5000
-      - REDIS_URL=redis://redis:6379
-    ports:
-      - "5000:5000"
-    depends_on:
-      - postgres_db
-      - redis
-    restart: unless-stopped
-    networks:
-      - alltura_network
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-
-  # Servicio Frontend (Static + Nginx)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NODE_ENV: development
     container_name: alltura_frontend
     environment:
       - BACKEND_URL=http://backend:5000
@@ -123,7 +95,33 @@ services:
     networks:
       - alltura_network
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost/"]
+      test: ["CMD","/bin/sh","-c","curl -fsS http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
+    container_name: alltura_backend
+    env_file: ./backend/.env
+    environment:
+      - DB_HOST=postgres_db
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - "5000:5000"
+    depends_on:
+      - redis
+      - postgres_db
+    restart: unless-stopped
+    networks:
+      - alltura_network
+    healthcheck:
+      test: ["CMD","/bin/sh","-c","curl -fsS http://localhost:5000/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
