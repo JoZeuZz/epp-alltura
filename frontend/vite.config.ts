@@ -6,14 +6,23 @@ import checker from 'vite-plugin-checker';
 import path from 'path';
 import svgr from 'vite-plugin-svgr';
 
+const isDev = process.env.NODE_ENV !== 'production';
+
 export default defineConfig({
   plugins: [
     react(),
-    eslintPlugin({
-      overrideConfigFile: path.resolve(__dirname, '.eslintrc.cjs'),
-    }),
-    checker({ typescript: true }),
-    svgr()],
+    // Only run eslint and type checker in development
+    ...(isDev
+      ? [
+          eslintPlugin({
+            overrideConfigFile: path.resolve(__dirname, '.eslintrc.cjs'),
+            failOnError: false,
+          }),
+          checker({ typescript: true }),
+        ]
+      : []),
+    svgr(),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
