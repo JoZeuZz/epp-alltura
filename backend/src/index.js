@@ -33,6 +33,9 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
+// Trust proxy - importante cuando estamos detrás de reverse proxies (Cloudflare, Traefik, nginx)
+app.set('trust proxy', true);
+
 // Configurar middlewares de seguridad (FASE 3)
 const allowedOrigins = [
   'http://localhost:3000',
