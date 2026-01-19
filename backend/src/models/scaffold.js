@@ -99,15 +99,27 @@ const Scaffold = {
         s.*, 
         u.first_name || ' ' || u.last_name as user_name,
         creator.first_name || ' ' || creator.last_name as created_by_name,
+        creator.role as creator_role,
         p.name as project_name,
         c.name as company_name,
-        supervisor.first_name || ' ' || supervisor.last_name as supervisor_name
+        supervisor.first_name || ' ' || supervisor.last_name as supervisor_name,
+        client_user.first_name || ' ' || client_user.last_name as client_user_name,
+        (
+          SELECT sh.created_at 
+          FROM scaffold_history sh 
+          WHERE sh.scaffold_id = s.id 
+            AND sh.change_type = 'assembly_status'
+            AND sh.new_data->>'assembly_status' = 'assembled'
+          ORDER BY sh.created_at ASC
+          LIMIT 1
+        ) as assembly_date
       FROM scaffolds s 
       JOIN users u ON s.user_id = u.id 
       LEFT JOIN users creator ON s.created_by = creator.id
       LEFT JOIN projects p ON s.project_id = p.id
       LEFT JOIN clients c ON p.client_id = c.id
       LEFT JOIN users supervisor ON p.assigned_supervisor_id = supervisor.id
+      LEFT JOIN users client_user ON p.assigned_client_id = client_user.id
       WHERE s.project_id = $1 
       ORDER BY s.assembly_created_at DESC
     `;

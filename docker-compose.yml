@@ -12,7 +12,7 @@ services:
     container_name: alltura_postgres
 
     # Variables de entorno para configurar la base de datos
-    environment:
+    environment:      
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
@@ -77,7 +77,7 @@ services:
     networks:
       - alltura_network
 
-# Definición de redes
+# Definición de redes  
 networks:
   alltura_network:
     driver: bridge
@@ -86,4 +86,3 @@ networks:
 volumes:
   redis_data:
     driver: local
-
