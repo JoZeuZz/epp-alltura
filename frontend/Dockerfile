@@ -1,34 +1,25 @@
 # Stage: builder
 FROM node:18-alpine AS builder
-ARG NODE_ENV=development
-ENV NODE_ENV=${NODE_ENV}
-ENV NPM_CONFIG_PRODUCTION=false
 WORKDIR /app
 
-# Copiar package files para caché
+# Install dependencies first (better layer caching)
 COPY package*.json ./
-COPY yarn.lock* pnpm-lock.yaml* ./
+RUN npm ci
 
-# Instala según lockfile disponible
-RUN if [ -f pnpm-lock.yaml ]; then \
-      npm install -g pnpm && pnpm install --frozen-lockfile; \
-    elif [ -f yarn.lock ]; then \
-      npm install -g yarn && yarn install --frozen-lockfile --production=false; \
-    else \
-      npm ci; \
-    fi
-
+# Copy source code
 COPY . .
-# Ejecuta build y muestra archivos para debugging
-RUN npm run build && \
-    if [ -d /app/dist ]; then ls -la /app/dist; \
-    elif [ -d /app/build ]; then ls -la /app/build; \
-    else echo "ERROR: build output not found (expected /app/dist or /app/build)"; exit 1; fi
+
+# Set production environment and build
+ENV NODE_ENV=production
+RUN echo "Starting build..." && \
+  npm run build && \
+  echo "Build complete. Checking output..." && \
+  ls -la /app/dist || ls -la /app/build || (echo "ERROR: No build output found" && exit 1)
 
 # Normalizar salida a /app/output
 RUN rm -rf /app/output && mkdir -p /app/output && \
-    if [ -d /app/dist ]; then cp -a /app/dist/. /app/output; \
-    elif [ -d /app/build ]; then cp -a /app/build/. /app/output; fi
+  if [ -d /app/dist ]; then cp -a /app/dist/. /app/output; \
+  elif [ -d /app/build ]; then cp -a /app/build/. /app/output; fi
 
 # Stage: runtime (nginx)
 FROM nginx:alpine
