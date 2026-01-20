@@ -23,14 +23,15 @@ const router = express.Router();
 // RATE LIMITING (Protección contra Brute Force)
 // ============================================
 
-// Limitar intentos de login: 5 intentos cada 15 minutos en producción
+// Limitar intentos de login: 30 intentos cada 15 minutos en producción
+// (aumentado de 5 para evitar falsos positivos con flujo normal de uso)
 const authLimiter = rateLimit({
   windowMs: process.env.NODE_ENV === 'production' ? 15 * 60 * 1000 : 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 5 : 100,
+  max: process.env.NODE_ENV === 'production' ? 30 : 100,
   message: 'Demasiados intentos de inicio de sesión desde esta IP, intenta de nuevo en 15 minutos.',
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true,
+  skipSuccessfulRequests: true, // No contar intentos exitosos
 });
 
 // ============================================
