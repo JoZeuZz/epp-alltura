@@ -3,8 +3,10 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Install dependencies first (better layer caching)
+# Use --include=dev to ensure devDependencies (vite, etc) are installed
+# even when NODE_ENV=production is injected by Coolify
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 
 # Copy source code
 COPY . .

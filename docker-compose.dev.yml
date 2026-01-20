@@ -1,0 +1,142 @@
+# Docker Compose configuration for Coolify deployment
+
+# Definición de los servicios (contenedores) que se ejecutarán
+services:
+  # Nombre del servicio de la base de datos
+  postgres_db:
+    # Imagen de Docker que se utilizará. Usamos la versión 15 de PostgreSQL.
+    image: postgres:15-alpine
+
+    # Nombre del contenedor para identificarlo fácilmente
+    container_name: alltura_postgres
+
+    # Variables de entorno para configurar la base de datos
+    environment:      
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+
+    # Internal port exposure (no external binding - Coolify handles this)
+    expose:
+      - "5432"
+
+    # Volúmenes para persistencia de datos:
+    # Guarda los datos de la base de datos en una carpeta local './postgres-data'.
+    # Esto evita que pierdas los datos si el contenedor se detiene o se elimina.
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+      # Monta el script de inicialización para que se ejecute al crear la BD por primera vez
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+    # Política de reinicio:
+    # Siempre reinicia el contenedor si se detiene, a menos que lo detengas manualmente.
+    restart: unless-stopped
+
+    # Red personalizada para comunicación entre servicios
+    networks:
+      - alltura_network
+
+  # Servicio Redis para token blacklist y rate limiting
+  redis:
+    # Imagen oficial de Redis (Alpine para menor tamaño)
+    image: redis:7-alpine
+
+    # Nombre del contenedor
+    container_name: alltura_redis
+
+    # Comando para iniciar Redis con persistencia y configuración segura
+    command: >
+      redis-server
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+
+    # Internal port exposure only
+    expose:
+      - "6379"
+
+    # Volumen para persistencia de datos
+    volumes:
+      - redis_data:/data
+
+    # Política de reinicio
+    restart: unless-stopped
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+    # Red personalizada
+    networks:
+      - alltura_network
+
+  # Servicio Frontend (Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
+    container_name: alltura_frontend
+    labels:
+      - "coolify.managed=true"
+    environment:
+      - BACKEND_URL=http://backend:5000
+    # Coolify/Traefik handles external port mapping and SSL
+    expose:
+      - "80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - alltura_network
+      - coolify
+    healthcheck:
+      test: ["CMD","/bin/sh","-c","curl -fsS http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
+    container_name: alltura_backend
+    env_file: ./backend/.env
+    environment:
+      - DB_HOST=postgres_db
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - "5000:5000"
+    depends_on:
+      - redis
+      - postgres_db
+    restart: unless-stopped
+    networks:
+      - alltura_network
+    healthcheck:
+      test: ["CMD","/bin/sh","-c","curl -fsS http://localhost:5000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+# Definición de redes  
+networks:
+  alltura_network:
+    driver: bridge
+  coolify:
+    external: true
+
+# Definición de volúmenes
+volumes:
+  redis_data:
+    driver: local
