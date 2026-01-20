@@ -1,10 +1,12 @@
-# Estado Completo del Proyecto - Enero 13, 2026
+# Estado Completo del Proyecto - Enero 20, 2026
 
-**Última Actualización:** Enero 15, 2026 - 16:30  
-**Estado:** Completo, Validado, Funcional, En Producción  
-**Última Corrección:** Sistema de notificaciones mobile + progressive disclosure UI  
+**Última Actualización:** Enero 20, 2026 - 08:39  
+**Estado:** ✅ Desplegado en Producción (Coolify)  
+**URL Producción:** https://appandamios.alltura.cl  
+**Última Corrección:** Deploy Coolify + rate limiter ajustado  
 **Arquitectura Backend:** 3-Layer Architecture + Defense in Depth  
 **Arquitectura Frontend:** React Router v7 + Context API + Role Guards  
+**Infraestructura:** Coolify + Cloudflare Tunnel + Traefik
 
 ---
 
@@ -28,6 +30,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 ## CAMBIOS CRÍTICOS ÚLTIMAS 3 SEMANAS
 
 ### 0. Sistema de Notificaciones Mobile + Progressive Disclosure (Enero 15) ⭐ NUEVO
+
 - ✅ **NotificationBell responsive:** Fullscreen modal en mobile (<640px) con overlay oscuro, dropdown normal en desktop
 - ✅ **NotificationsPage paginación:** 10 items/página, botón "Limpiar" fijo en footer, evita scroll infinito
 - ✅ **AppLayout header simétrico:** MenuIcon y NotificationBell con padding negativo equivalente (-ml-2/-mr-2)
@@ -48,6 +51,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - **Memoria:** `RESPONSIVE_DESIGN_ENERO_2026` (secciones 13-14 nuevas)
 
 ### 1. Sistema de Autorización por Recursos (Enero 15) ⭐ CRÍTICO
+
 - ✅ **Vulnerabilidades mitigadas:** CVE-ALLTURA-AUTH-001 (CRÍTICA - escalamiento privilegios), 002, 003
 - ✅ **3 middlewares de autorización creados:** `checkProjectAccess`, `checkScaffoldAccess`, `checkClientNoteAccess` (242 líneas)
 - ✅ **20 endpoints protegidos** en 4 archivos: projects.routes.js (4), scaffolds.routes.js (10), supervisorDashboard.routes.js (1), clientNotes.routes.js (6)
@@ -63,6 +67,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 ## CAMBIOS CRÍTICOS ÚLTIMAS 3 SEMANAS
 
 ### 0. Sanitización con Validator.js (Enero 13) ⭐ NUEVO
+
 - ✅ **4 Capas de Defensa:** Sanitización → Validación (Joi + validator.js) → Lógica → BD
 - ✅ **12 Custom Validators creados:** joiPhone, joiLatLong, joiUUID, joiPostalCode, joiJSON, joiIP, joiSlug, joiCreditCard, joiHexColor, joiMACAddress, joiFQDN, joiIBAN
 - ✅ **7 Funciones de Sanitización:** sanitizePhone, sanitizeLatLong, sanitizeUUID, sanitizeJSON, sanitizeIP, sanitizeSlug, sanitizePostalCode
@@ -73,6 +78,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - **Memoria:** `SANITIZACION_VALIDATOR_ENERO_2026`
 
 ### 1. Suite de Testing Completa (Enero 13) ⭐ CRÍTICO
+
 - ✅ **110+ tests implementados** para servicios críticos (coverage 65-85%)
 - ✅ **Jest v30+** con configuración de thresholds (60% global mínimo)
 - ✅ **6 archivos de test creados:**
@@ -92,6 +98,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 ## CAMBIOS CRÍTICOS ÚLTIMAS 2 SEMANAS
 
 ### 1. Sistema Soft Delete (Enero 4-5)
+
 - ✅ Columnas `active` en clients y projects
 - ✅ Lógica condicional DELETE (elimina si no tiene dependencias, desactiva si tiene)
 - ✅ Métodos deactivate/reactivate en modelos
@@ -100,12 +107,14 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - **Memoria:** `SOFT_DELETE_SISTEMA_PROYECTOS_CLIENTES` ← OBSOLETA, info en `ARQUITECTURA_SISTEMA_ENERO_2026`
 
 ### 2. Validaciones Proyecto Inactivo (Enero 5-6)
+
 - ✅ Backend valida proyecto/cliente activo en POST/PUT/DISASSEMBLE scaffolds
 - ✅ Error 400 si proyecto desactivado
 - ✅ Frontend: banners amarillos, botones deshabilitados
 - ✅ Andamios inmutables en proyectos desactivados
 
 ### 3. Historial Inmutable (Enero 6)
+
 - ✅ FK constraint ON DELETE SET NULL (scaffold_id nullable)
 - ✅ Campos denormalizados: scaffold_number, project_name, area, tag
 - ✅ Registro tipo 'delete' ANTES de borrar andamio
@@ -114,6 +123,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - **Memoria:** `HISTORIAL_INMUTABLE_ANDAMIOS` ← OBSOLETA, info en `ARQUITECTURA_SISTEMA_ENERO_2026`
 
 ### 4. Validación Inline y Estados de Andamios (Enero 12) ⭐ CRÍTICO
+
 - ✅ **Sistema de validación inline:** Errores de campo aparecen debajo de inputs (no solo toast)
   - Backend retorna `{ error, message, errors: [{field, message}] }`
   - Frontend extrae fieldErrors en actions (usersPageAction, projectsPageAction, clientsPageAction)
@@ -134,6 +144,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - **Memoria:** `scaffold_assembly_states.md` (documentación completa de lógica de estados)
 
 ### 5. Refactorización 3-Layer (Enero 8-12) ⭐ CRÍTICO
+
 - ✅ **8/8 módulos migrados:** scaffolds, projects, clients, auth, users, dashboard, supervisorDashboard, notifications
 - ✅ **50 endpoints REST** refactorizados
 - ✅ **157 métodos creados:** 89 services + 68 controllers
@@ -178,6 +189,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 ```
 
 **Módulos Completos:**
+
 1. **Scaffolds:** 715L service, 291L controller, 330L routes (13 endpoints)
 2. **Projects:** 406L service, 298L controller, 267L routes (13 endpoints)
 3. **Clients:** 173L service, 131L controller, 145L routes (6 endpoints)
@@ -192,13 +204,15 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 ## STACK TECNOLÓGICO
 
 ### Backend
+
 - Node.js v24+ + Express.js (CommonJS)
 - PostgreSQL v14+ (5 tablas: users, clients, projects, scaffolds, scaffold_history)
 - Redis v6+ (JWT blacklist)
 - Google Cloud Storage (imágenes)
 - Joi (validación), Winston (logging)
 
-### Frontend  
+### Frontend
+
 - React v18+ + TypeScript
 - React Router v7 (loaders, actions)
 - Vite v7 + Tailwind CSS v3+
@@ -210,21 +224,25 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 ## MODELO DE DATOS
 
 ### 1. users (SIN soft delete)
+
 - Roles: admin | supervisor | client
 - Campos: id, first_name, last_name, email, password_hash, role, rut, phone_number, profile_picture_url
 
 ### 2. clients (CON soft delete)
+
 - Campos: id, name (unique), email, phone, address, specialty, **active BOOLEAN**
 - Constraint: Si tiene proyectos → desactivar (no eliminar)
 - Cascada: Cliente desactivado → Proyectos desactivados
 
 ### 3. projects (CON soft delete)
+
 - Campos: id, client_id (FK), name, status, assigned_client_id, assigned_supervisor_id, **active BOOLEAN**
 - Estados: active | completed
 - Constraint: Si tiene andamios → desactivar (no eliminar)
 - Query JOIN: Siempre incluye `c.active as client_active`
 
 ### 4. scaffolds (ENTIDAD NUCLEAR)
+
 - Identificación: scaffold_number, area, tag
 - Dimensiones: width, length, height, cubic_meters (calculado)
 - Estados Dual:
@@ -235,6 +253,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - Validación: No crear/editar/desarmar si proyecto/cliente inactivo
 
 ### 5. scaffold_history (HISTORIAL INMUTABLE)
+
 - FK: `scaffold_id REFERENCES scaffolds(id) ON DELETE SET NULL` (nullable)
 - Campos base: user_id, change_type, previous_data (JSONB), new_data (JSONB), description
 - Campos denormalizados: scaffold_number, project_name, area, tag
@@ -272,6 +291,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 ## API REST (50 ENDPOINTS)
 
 ### Autenticación (5 endpoints)
+
 - POST /api/auth/register
 - POST /api/auth/login
 - POST /api/auth/refresh
@@ -279,6 +299,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - POST /api/auth/change-password
 
 ### Scaffolds (13 endpoints)
+
 - GET /api/scaffolds
 - GET /api/scaffolds/project/:projectId
 - GET /api/scaffolds/my-scaffolds
@@ -294,6 +315,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - DELETE /api/scaffolds/:id (registra en historial antes)
 
 ### Projects (13 endpoints)
+
 - GET /api/projects
 - GET /api/projects/all-including-inactive (admin)
 - GET /api/projects/:id
@@ -310,6 +332,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - GET /api/projects/:id/report/excel
 
 ### Clients (6 endpoints)
+
 - GET /api/clients
 - GET /api/clients/all-including-inactive (admin)
 - GET /api/clients/:id
@@ -319,6 +342,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - POST /api/clients/:id/reactivate (admin)
 
 ### Users (8 endpoints)
+
 - GET /api/users/me
 - PUT /api/users/me
 - POST /api/users/me/picture
@@ -329,13 +353,16 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - DELETE /api/users/:id (admin)
 
 ### Dashboard (2 endpoints - admin)
+
 - GET /api/dashboard/summary
 - GET /api/dashboard/cubic-meters
 
 ### SupervisorDashboard (1 endpoint)
+
 - GET /api/supervisor-dashboard/summary
 
 ### Notifications (2 endpoints)
+
 - POST /api/notifications/subscribe
 - POST /api/notifications/test/:userId (admin)
 
@@ -344,6 +371,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 ## SEGURIDAD
 
 ### Autenticación JWT
+
 - Access Token: 15 minutos
 - Refresh Token: 7 días (Redis con TTL)
 - Blacklist: Redis con expiración automática
@@ -351,6 +379,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - Rate Limiting: 5 intentos / 15 min (login)
 
 ### Headers Helmet
+
 - CSP, HSTS, frameguard, etc.
 - CORS configurado para frontend
 
@@ -359,6 +388,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 ## FLUJOS CRÍTICOS
 
 ### Creación de Andamio
+
 1. Supervisor → POST /api/scaffolds (FormData + imagen)
 2. ScaffoldController.createScaffold() extrae datos
 3. ScaffoldService.createScaffold() valida proyecto activo
@@ -369,6 +399,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 8. Response 201 + scaffold creado
 
 ### Eliminación de Proyecto
+
 1. Admin → DELETE /api/projects/:id
 2. ProjectController.deleteProject() llama a service
 3. ProjectService.deleteOrDeactivateProject() verifica andamios
@@ -377,11 +408,12 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 6. Response con { deactivated: true } o { message: 'eliminado' }
 
 ### Eliminación de Andamio
+
 1. Admin → DELETE /api/scaffolds/:id
 2. ScaffoldController.deleteScaffold() llama a service
 3. ScaffoldService.deleteScaffold() obtiene andamio + proyecto
 4. ScaffoldHistory.create({ change_type: 'delete' }) ← ANTES de borrar
-5. _deleteScaffoldImages() elimina imágenes GCS
+5. \_deleteScaffoldImages() elimina imágenes GCS
 6. Scaffold.delete() → DELETE FROM scaffolds
 7. PostgreSQL ejecuta SET NULL en scaffold_history.scaffold_id
 8. Response 200
@@ -391,12 +423,14 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 ## MÉTRICAS FINALES
 
 ### Código
+
 - **Backend:** ~12,824 líneas (8 services + 8 controllers + 8 routes + 5 modelos + libs)
 - **Frontend:** ~12,000 líneas (15+ páginas, 20+ componentes)
 - **Total métodos backend:** 157 (89 services + 68 controllers)
 - **Total endpoints REST:** 50
 
 ### Calidad
+
 - ✅ Errores de linting: 0
 - ✅ Errores de compilación: 0
 - ✅ Dependencias circulares: 0
@@ -404,6 +438,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - ✅ Tests: 110+ tests (60%+ coverage global, 65-85% servicios críticos)
 
 ### Funcionalidad
+
 - ✅ CRUD Scaffolds: 100%
 - ✅ CRUD Projects: 100%
 - ✅ CRUD Clients: 100%
@@ -421,6 +456,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 ## SCRIPTS DISPONIBLES
 
 ### Raíz
+
 ```bash
 npm run dev               # Backend + frontend (concurrently)
 npm run install:all       # Instalar todas las dependencias
@@ -428,6 +464,7 @@ npm run db:up             # Docker compose PostgreSQL
 ```
 
 ### Backend
+
 ```bash
 npm run dev                # Nodemon con hot reload
 npm run test               # Ejecutar todos los tests
@@ -442,6 +479,7 @@ node src/scripts/migrate_scaffold_history.js  # Migración historial inmutable
 ```
 
 ### Frontend
+
 ```bash
 npm run dev               # Vite dev server (puerto 3000)
 npm run build             # Build de producción
@@ -452,18 +490,25 @@ npm run preview           # Preview de build
 
 ## MEMORIAS RELEVANTES
 
+### Infraestructura y Deploy
+
+- **DEPLOY_COOLIFY_ENERO_2026** - Deploy completo a Coolify con Cloudflare Tunnel (Enero 19-20, 2026) ⭐ NUEVO
+
 ### Arquitectura y Estado
+
 - **ARQUITECTURA_SISTEMA_ENERO_2026** - Stack, modelos, API, reglas de negocio, arquitectura 3-Layer, seguridad RBAC
-- **SEGURIDAD_AUTORIZACION_ENERO_2026** - Sistema completo autorización por recursos (Enero 15, 2026) ⭐ NUEVO
+- **SEGURIDAD_AUTORIZACION_ENERO_2026** - Sistema completo autorización por recursos (Enero 15, 2026)
 - **REFACTORIZACION_3LAYER_ENERO_2026** - Migración completa Fat Controllers → 3-Layer
-- **_ESTADO_COMPLETO_ENERO_12_2026** - Este archivo (estado consolidado)
+- **\_ESTADO_COMPLETO_ENERO_12_2026** - Este archivo (estado consolidado)
 
 ### Validación y Testing
+
 - **SANITIZACION_VALIDATOR_ENERO_2026** - Sanitización con validator.js + custom validators
 - **VALIDACION_INLINE_SISTEMA** - Sistema de validación inline en formularios
 - **TESTING_STRATEGY_ENERO_2026** - Suite de testing Jest (110+ tests)
 
 ### Frontend
+
 - **REACT_ROUTER_V7_MIGRATION** - Migración a React Router v7
 - **REACT_ROUTER_V7_ACTIONS** - Patrones de actions/loaders
 - **REACT_HOOK_FORM_PATTERNS** - Formularios con react-hook-form
@@ -473,15 +518,19 @@ npm run preview           # Preview de build
 - **PERFORMANCE_OPTIMIZATION_PATTERNS** - Optimización performance
 
 ### Convenciones
+
 - **code_style_and_conventions** - Estilo de código general
 
 ### Estados de Andamios
+
 - **scaffold_assembly_states** - Documentación completa de lógica de estados, tarjetas, y flujos de trabajo
 
 ### ACTUALIZADAS (Enero 15, 2026)
+
 - **RESPONSIVE_DESIGN_ENERO_2026** - Agregadas secciones 13-14: Sistema notificaciones mobile + Progressive disclosure patterns
 
 ### OBSOLETAS (borrar para evitar redundancia)
+
 - ~~SOFT_DELETE_SISTEMA_PROYECTOS_CLIENTES~~ (info en ARQUITECTURA_SISTEMA_ENERO_2026)
 - ~~HISTORIAL_INMUTABLE_ANDAMIOS~~ (info en ARQUITECTURA_SISTEMA_ENERO_2026)
 
@@ -490,11 +539,13 @@ npm run preview           # Preview de build
 ## PRÓXIMOS PASOS
 
 ### Limpieza (Prioridad Baja)
+
 1. Borrar memorias obsoletas (soft delete, historial inmutable)
 2. Remover middleware trackScaffoldChanges redundante
 3. Eliminar /routes/legacy después de 1-2 meses
 
 ### Mejoras Funcionales (Prioridad Media)
+
 1. ~~Notificaciones push completas (Web Push API)~~ ✅ Sistema mobile responsive implementado (Enero 15)
 2. Geolocalización de andamios (Google Maps)
 3. Dashboard de auditoría para admins (con logs de intentos no autorizados)
@@ -506,6 +557,7 @@ npm run preview           # Preview de build
 9. 2FA (Two-Factor Authentication) para admin
 
 ### Mejoras Técnicas (Prioridad Baja)
+
 1. Migrar backend a TypeScript
 2. Aumentar coverage de tests a >80% (actualmente 60%+)
 3. DTOs + class-validator

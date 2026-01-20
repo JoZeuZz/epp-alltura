@@ -129,16 +129,14 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/client-notes', clientNotesRoutes);
 app.use('/health', healthRoutes);
 
-// Endpoint para métricas (nuevo endpoint que faltaba)
-app.post('/api/metrics', (req, res) => {
-  // Por ahora solo acepta las métricas sin procesarlas
-  // En el futuro podrías almacenarlas en base de datos
-  logger.info('Métricas recibidas del cliente', { 
-    metricsCount: req.body.metrics?.length || 0,
-    ip: req.ip 
-  });
-  res.json({ success: true });
-});
+// Endpoint para métricas (deshabilitado - no se usa actualmente)
+// app.post('/api/metrics', (req, res) => {
+//   logger.info('Métricas recibidas del cliente', { 
+//     metricsCount: req.body.metrics?.length || 0,
+//     ip: req.ip 
+//   });
+//   res.json({ success: true });
+// });
 
 // ============================================
 // ERROR HANDLERS (DEBEN IR AL FINAL)
