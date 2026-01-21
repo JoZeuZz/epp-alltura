@@ -88,9 +88,10 @@ services:
     restart: unless-stopped
     networks:
       - alltura_network
-    ports:
-      # puerto fijo en el host de 192.168.1.7 para que cloudflared apunte aquí
-      - "8080:80"
+    # Use expose instead of ports - Coolify/Traefik routes via Docker network
+    # DO NOT bind host ports to avoid collision with coolify-proxy on 8080
+    expose:
+      - "80"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
       interval: 30s
