@@ -46,8 +46,6 @@ services:
       dockerfile: Dockerfile
       args:
         NODE_ENV: production
-    # Evitar env_file si quieres 100% control desde Coolify; si lo mantienes, ok.
-    # env_file: ./backend/.env
     environment:
       DB_HOST: postgres_db
       DB_USER: ${DB_USER}
@@ -56,7 +54,6 @@ services:
       DB_PORT: "5432"
       REDIS_URL: redis://redis:6379
       NODE_ENV: production
-      # agrega aquí tus JWT secrets / GCS / etc desde Coolify
     expose:
       - "5000"
     depends_on:
@@ -65,9 +62,9 @@ services:
     restart: unless-stopped
     networks:
       - alltura_network
+      - coolify
     healthcheck:
-      # usa wget/curl según lo que exista en tu imagen; aquí asumo wget está disponible
-      test: ["CMD-SHELL", "wget -qO- http://localhost:5000/health >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:5000/health >/dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -80,20 +77,17 @@ services:
       args:
         NODE_ENV: production
     environment:
-      # OJO: esto solo sirve si tu frontend realmente lee BACKEND_URL en runtime.
-      # En Vite normalmente se usa VITE_* en build-time.
       BACKEND_URL: http://backend:5000
     depends_on:
       - backend
     restart: unless-stopped
     networks:
       - alltura_network
-    # Use expose instead of ports - Coolify/Traefik routes via Docker network
-    # DO NOT bind host ports to avoid collision with coolify-proxy on 8080
+      - coolify
     expose:
       - "80"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:80/ >/dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -102,6 +96,8 @@ services:
 networks:
   alltura_network:
     driver: bridge
+  coolify:
+    external: true
 
 volumes:
   postgres_data:
