@@ -14,8 +14,19 @@ interface WebVitalEntry extends PerformanceEntry {
 class PerformanceService {
   private metrics: PerformanceMetric[] = [];
   private observer: PerformanceObserver | null = null;
+  private metricsEnabled: boolean;
+
+  constructor() {
+    // Feature flag: metrics disabled by default when VITE_ENABLE_METRICS is not set
+    this.metricsEnabled = import.meta.env.VITE_ENABLE_METRICS === 'true';
+  }
 
   initialize() {
+    // Skip initialization if metrics are disabled
+    if (!this.metricsEnabled) {
+      return;
+    }
+
     this.observeWebVitals();
     this.observeNavigationTiming();
     this.observeResourceTiming();
@@ -88,6 +99,8 @@ class PerformanceService {
   }
 
   recordMetric(name: string, value: number) {
+    if (!this.metricsEnabled) return;
+    
     this.metrics.push({
       name,
       value,
@@ -104,7 +117,7 @@ class PerformanceService {
   }
 
   private async sendMetrics() {
-    if (this.metrics.length === 0) return;
+    if (!this.metricsEnabled || this.metrics.length === 0) return;
     
     try {
       const metricsToSend = [...this.metrics];
@@ -119,10 +132,10 @@ class PerformanceService {
         body: JSON.stringify({ metrics: metricsToSend })
       });
     } catch (error) {
-      console.error('Error enviando métricas:', error);
-      // No reintegramos las métricas para evitar bucles infinitos
+      // Silently fail - don't spam console when metrics endpoint is not available
     }
   }
 }
 
 export const performanceService = new PerformanceService();
+
