@@ -1,20 +1,21 @@
 services:
   postgres_db:
-    image: postgres:15-alpine
+    build:
+      context: ./db/postgres
+      dockerfile: Dockerfile
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./db/init:/docker-entrypoint-initdb.d:ro
     expose:
       - "5432"
     restart: unless-stopped
     networks:
       - alltura_network
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U \"$DB_USER\" -d \"$DB_NAME\" -h 127.0.0.1 -p 5432 || exit 1" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} -h 127.0.0.1 -p 5432 || exit 1" ]
       interval: 10s
       timeout: 3s
       retries: 10
@@ -97,7 +98,6 @@ services:
       args:
         NODE_ENV: ${NODE_ENV:-production}
     environment:
-      # Para tu nginx.conf.template / entrypoint
       BACKEND_URL: ${BACKEND_URL:-http://backend:5000}
       SERVICE_FQDN_FRONTEND: ${SERVICE_FQDN_FRONTEND}
       SERVICE_URL_FRONTEND: ${SERVICE_URL_FRONTEND}
