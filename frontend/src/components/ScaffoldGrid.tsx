@@ -23,7 +23,8 @@ export default function ScaffoldGrid({
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
-    return `http://localhost:5000${url}`;
+    // Ruta relativa - el proxy Nginx redirige /api/* y /uploads/* al backend
+    return url;
   };
 
   // Handle image error by showing a placeholder
