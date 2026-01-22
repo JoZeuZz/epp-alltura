@@ -1,8 +1,8 @@
 services:
   postgres_db:
     build:
-      context: ./db/postgres
-      dockerfile: Dockerfile
+      context: ./db
+      dockerfile: postgres/Dockerfile
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -20,7 +20,6 @@ services:
       timeout: 3s
       retries: 10
       start_period: 10s
-
   redis:
     image: redis:7-alpine
     command:
@@ -46,7 +45,6 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
-
   backend:
     build:
       context: ./backend
@@ -90,7 +88,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-
   frontend:
     build:
       context: ./frontend
@@ -116,13 +113,11 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-
 networks:
   alltura_network:
     driver: bridge
   coolify:
     external: true
-
 volumes:
   postgres_data:
   redis_data:
