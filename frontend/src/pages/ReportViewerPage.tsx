@@ -15,7 +15,8 @@ const ReportViewerPage: React.FC = () => {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
-    return `http://localhost:5000${url}`;
+    // Ruta relativa - el proxy Nginx redirige al backend
+    return url;
   };
 
   // Handle image error
