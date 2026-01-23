@@ -2,11 +2,9 @@ const Scaffold = require('../models/scaffold');
 const ScaffoldHistory = require('../models/scaffoldHistory');
 const ScaffoldModification = require('../models/scaffoldModification');
 const Project = require('../models/project');
-const { uploadFile } = require('../lib/googleCloud');
+const { uploadFile, deleteFileByUrl } = require('../lib/googleCloud');
 const { logger } = require('../lib/logger');
 const db = require('../db');
-const fs = require('fs').promises;
-const path = require('path');
 
 /**
  * ScaffoldService
@@ -704,43 +702,9 @@ class ScaffoldService {
    * @private
    */
   static async _deleteScaffoldImages(scaffold) {
-    const deleteImageFile = async (imageUrl) => {
-      if (!imageUrl) return;
-
-      try {
-        let filename;
-
-        if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-          // Si es Google Cloud Storage, no eliminar localmente
-          if (imageUrl.includes('storage.googleapis.com')) {
-            logger.info(`Imagen en GCS, no se elimina localmente: ${imageUrl}`);
-            return;
-          }
-
-          // Extraer nombre del archivo de URL local
-          const urlParts = imageUrl.split('/uploads/');
-          if (urlParts.length > 1) {
-            filename = urlParts[1];
-          } else {
-            logger.warn(`No se pudo extraer filename de URL: ${imageUrl}`);
-            return;
-          }
-        } else {
-          filename = imageUrl.replace(/^\/uploads\//, '');
-        }
-
-        const fullPath = path.join(__dirname, '../../uploads', filename);
-        await fs.access(fullPath);
-        await fs.unlink(fullPath);
-        logger.info(`Imagen eliminada: ${fullPath}`);
-      } catch (err) {
-        logger.warn(`No se pudo eliminar la imagen ${imageUrl}: ${err.message}`);
-      }
-    };
-
     await Promise.all([
-      deleteImageFile(scaffold.assembly_image_url),
-      deleteImageFile(scaffold.disassembly_image_url),
+      deleteFileByUrl(scaffold.assembly_image_url),
+      deleteFileByUrl(scaffold.disassembly_image_url),
     ]);
   }
 }

@@ -8,3 +8,4 @@ postgres-data/
 docs/
 dist/
 legacy/
+service-account.json

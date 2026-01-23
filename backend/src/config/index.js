@@ -92,6 +92,15 @@ const envSchema = Joi.object({
     .optional()
     .description('Ruta al archivo de credenciales de Google Cloud'),
 
+  GCS_PREFIX: Joi.string()
+    .optional()
+    .description('Prefijo (carpeta) dentro del bucket para subir imágenes'),
+
+  IMAGE_STORAGE_PROVIDER: Joi.string()
+    .valid('local', 'gcs')
+    .optional()
+    .description('Proveedor de almacenamiento para imágenes: local o gcs'),
+
   // VAPID (Push Notifications)
   VAPID_PUBLIC_KEY: Joi.string()
     .optional()
@@ -204,7 +213,6 @@ const config = {
     IS_CONFIGURED: !!(
       validatedEnv.GCS_PROJECT_ID &&
       validatedEnv.GCS_BUCKET_NAME &&
-      validatedEnv.GOOGLE_APPLICATION_CREDENTIALS &&
       validatedEnv.GCS_PROJECT_ID !== 'your-gcp-project-id'
     ),
   },

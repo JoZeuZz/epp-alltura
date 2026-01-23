@@ -861,6 +861,42 @@ Para la subida de imágenes, necesitas configurar una cuenta de Google Cloud:
     GOOGLE_APPLICATION_CREDENTIALS=./ruta/a/tu/service-account-key.json
     ```
 
+6.  (Opcional) Para forzar el uso de GCS y evitar que se guarden imágenes en `/uploads`, añade:
+
+    ```
+    IMAGE_STORAGE_PROVIDER=gcs
+    ```
+
+7.  (Opcional) Si quieres subir a una carpeta dentro del bucket, usa un prefijo (no pongas `/` en el nombre del bucket):
+
+    ```
+    GCS_PREFIX=imagenes
+    ```
+
+### 4.1 Autenticación sin llaves (Workload Identity Federation)
+
+Si tu organización bloquea la creación de claves de cuentas de servicio, puedes usar **Workload Identity Federation** y evitar llaves JSON:
+
+1. Crea un **Workload Identity Pool** y un **Provider** (OIDC).
+2. Vincula el **Service Account** al proveedor usando `principalSet`.
+3. Genera el archivo de credenciales federadas en tu servidor (no es una llave privada):
+
+   ```bash
+   gcloud iam workload-identity-pools create-cred-config \
+     projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/providers/PROVIDER_ID \
+     --service-account=SERVICE_ACCOUNT_EMAIL \
+     --output-file=./gcp-wif-credentials.json \
+     --credential-source-file=./token.txt
+   ```
+
+4. Configura en `backend/.env`:
+
+   ```
+   GOOGLE_APPLICATION_CREDENTIALS=./gcp-wif-credentials.json
+   ```
+
+> Nota: el `token.txt` debe contener un JWT válido emitido por tu proveedor OIDC (por ejemplo, tu IdP). Google recomienda este enfoque sobre claves JSON en entornos productivos.
+
 ### 5. Configuración del Secreto JWT
 
 Añade una cadena de texto secreta y segura en `backend/.env` para la firma de los tokens:
