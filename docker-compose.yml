@@ -71,6 +71,8 @@ services:
       SESSION_SECRET: ${SESSION_SECRET}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+    volumes:
+      - /data/coolify/secrets/gcs/service-account.json:/app/service-account.json:ro
     expose:
       - "5000"
     depends_on:
