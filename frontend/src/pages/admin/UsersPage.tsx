@@ -8,6 +8,7 @@ import ConfirmationModal from '../../components/ConfirmationModal';
 import { UserCard } from '../../components/cards';
 import { ResponsiveGrid } from '../../components/layout';
 import { useBreakpoints } from '../../hooks';
+import { formatNameParts } from '../../utils/name';
 
 const UsersPage: React.FC = () => {
   const { users } = useLoaderData() as { users: User[] };
@@ -175,7 +176,7 @@ const UsersPage: React.FC = () => {
               <tr key={user.id}>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                   <p className="text-gray-900 whitespace-no-wrap">
-                    {`${user.first_name} ${user.last_name}`}
+                    {formatNameParts(user.first_name, user.last_name)}
                   </p>
                 </td>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
@@ -202,7 +203,7 @@ const UsersPage: React.FC = () => {
                       onClick={() => navigate(`/admin/users/${user.id}/history`)}
                       className="text-purple-600 hover:text-purple-900 mr-4"
                       title="Ver historial de cambios"
-                      aria-label={`Ver historial de ${user.first_name} ${user.last_name}`}
+                      aria-label={`Ver historial de ${formatNameParts(user.first_name, user.last_name)}`}
                     >
                       Historial
                     </button>
@@ -210,14 +211,14 @@ const UsersPage: React.FC = () => {
                   <button
                     onClick={() => handleOpenModal(user)}
                     className="text-indigo-600 hover:text-indigo-900 mr-4"
-                    aria-label={`Editar usuario ${user.first_name} ${user.last_name}`}
+                    aria-label={`Editar usuario ${formatNameParts(user.first_name, user.last_name)}`}
                   >
                     Editar
                   </button>
                   <button
                     onClick={() => handleDelete(user)}
                     className="text-red-600 hover:text-red-900"
-                    aria-label={`Eliminar usuario ${user.first_name} ${user.last_name}`}
+                    aria-label={`Eliminar usuario ${formatNameParts(user.first_name, user.last_name)}`}
                   >
                     Eliminar
                   </button>
@@ -242,7 +243,7 @@ const UsersPage: React.FC = () => {
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={() => {}}
         title="Eliminar Usuario"
-        message={`¿Está seguro de que desea eliminar el usuario "${userToDelete?.first_name} ${userToDelete?.last_name}"? Esta acción no se puede deshacer.`}
+        message={`¿Está seguro de que desea eliminar el usuario "${formatNameParts(userToDelete?.first_name, userToDelete?.last_name)}"? Esta acción no se puede deshacer.`}
         confirmText="Eliminar"
         variant="danger"
       >

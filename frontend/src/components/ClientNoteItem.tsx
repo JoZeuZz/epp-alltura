@@ -2,6 +2,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ClientNote } from '../types/clientNotes';
 import { useState } from 'react';
+import { formatNameParts, getInitials } from '../utils/name';
 
 interface ClientNoteItemProps {
   note: ClientNote;
@@ -35,6 +36,9 @@ export default function ClientNoteItem({
     (currentUserRole === 'supervisor' || currentUserRole === 'admin');
   const canReopen = isAuthor && note.is_resolved && currentUserRole === 'client';
   const canDelete = currentUserRole === 'admin';
+  const authorName = formatNameParts(note.first_name, note.last_name);
+  const authorInitials = getInitials(note.first_name, note.last_name);
+  const resolverName = formatNameParts(note.resolver_first_name, note.resolver_last_name);
 
   const handleUpdate = async () => {
     if (!onUpdate || editedText.trim() === note.note_text) {
@@ -107,18 +111,17 @@ export default function ClientNoteItem({
           {note.profile_picture_url ? (
             <img
               src={note.profile_picture_url}
-              alt={`${note.first_name} ${note.last_name}`}
+              alt={authorName || 'Usuario'}
               className="w-10 h-10 rounded-full object-cover"
             />
           ) : (
             <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
-              {note.first_name[0]}
-              {note.last_name[0]}
+              {authorInitials || '?'}
             </div>
           )}
           <div>
             <p className="font-medium text-gray-900">
-              {note.first_name} {note.last_name}
+              {authorName}
             </p>
             <p className="text-sm text-gray-500">
               {formatDistanceToNow(new Date(note.created_at), {
@@ -196,7 +199,7 @@ export default function ClientNoteItem({
       {note.is_resolved && note.resolver_first_name && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
           <p className="text-sm font-medium text-green-900 mb-1">
-            Resuelta por {note.resolver_first_name} {note.resolver_last_name}
+            Resuelta por {resolverName}
           </p>
           {note.resolution_notes && (
             <p className="text-sm text-green-800">{note.resolution_notes}</p>

@@ -10,6 +10,8 @@ import { useClientNotes } from '../hooks/useClientNotes';
 import { put } from '../services/apiService';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ImageWithFallback from './ImageWithFallback';
+import { buildImageUrl } from '../utils/image';
 
 interface ScaffoldDetailsModalProps {
   scaffold: Scaffold;
@@ -74,15 +76,8 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
   const handleResolveNote = async (noteId: number, resolutionNotes?: string) => {
     await resolveNoteHook(noteId, resolutionNotes ? { resolution_notes: resolutionNotes } : undefined);
   };
-  const getImageUrl = (url: string | null | undefined) => {
-    if (!url) return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo imagen%3C/text%3E%3C/svg%3E';
-    // Ruta relativa - el proxy Nginx redirige al backend
-    return url.startsWith('http') ? url : url;
-  };
-
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo imagen%3C/text%3E%3C/svg%3E';
-  };
+  const getImageUrl = (url: string | null | undefined, size: 'thumb' | 'medium' | 'full' = 'full') =>
+    buildImageUrl(url || '', size);
 
   const handleDeleteClick = () => {
     setShowDeleteConfirm(true);
@@ -354,11 +349,10 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
       {/* Imagen de Montaje */}
       <div className="mb-4 md:mb-6">
         <div className="bg-gray-50 rounded-lg p-3 md:p-4">
-          <img
-            src={getImageUrl(scaffold.assembly_image_url)}
+          <ImageWithFallback
+            src={getImageUrl(scaffold.assembly_image_url, 'medium')}
             alt="Foto de montaje"
             className="rounded-lg w-full object-contain max-h-[250px] sm:max-h-[350px] md:max-h-[400px] mx-auto shadow-lg"
-            onError={handleImageError}
           />
         </div>
       </div>
@@ -653,11 +647,10 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
           </h3>
           {scaffold.disassembly_image_url && (
             <div className="mb-4 bg-gray-50 rounded-lg p-4">
-              <img
-                src={getImageUrl(scaffold.disassembly_image_url)}
+              <ImageWithFallback
+                src={getImageUrl(scaffold.disassembly_image_url, 'medium')}
                 alt="Foto de desmontaje"
                 className="rounded-lg w-full object-contain max-h-[400px] mx-auto shadow-lg"
-                onError={handleImageError}
               />
             </div>
           )}

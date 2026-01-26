@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { Storage } = require('@google-cloud/storage');
 const { logger } = require('./logger');
+const { formatShortName } = require('./nameUtils');
 
 // Colores corporativos de Alltura Servicios Industriales
 const COLORS = {
@@ -20,9 +21,8 @@ const COLORS = {
   white: '#ffffff'
 };
 
-const IMAGE_SECTION_HEIGHT = 94;
-const IMAGE_LABEL_HEIGHT = 12;
-const IMAGE_PADDING_Y = 8;
+const IMAGE_PAGE_TITLE_Y = 120;
+const IMAGE_PAGE_PADDING = 20;
 
 let gcsStorage = null;
 const getGcsStorage = () => {
@@ -413,12 +413,7 @@ async function generateScaffoldsPDF(project, scaffolds, res, _filters = {}) {
   const imageCache = new Map();
 
   for (const [index, scaffold] of scaffolds.entries()) {
-    const hasImages = Boolean(scaffold.assembly_image_url || scaffold.disassembly_image_url);
     let cardHeight = 185;
-
-    if (hasImages) {
-      cardHeight += IMAGE_SECTION_HEIGHT + IMAGE_PADDING_Y;
-    }
 
     if (scaffold.assembly_notes && scaffold.disassembly_notes) {
       cardHeight += 50;
@@ -442,11 +437,21 @@ async function generateScaffoldsPDF(project, scaffolds, res, _filters = {}) {
       doc.page.width - 100,
       cardHeight,
       scaffold,
-      index + 1,
-      imageCache
+      index + 1
     );
 
     currentY += cardHeight + 18;
+
+    if (scaffold.assembly_image_url || scaffold.disassembly_image_url) {
+      await drawScaffoldImagesPage(
+        doc,
+        scaffold,
+        index + 1,
+        imageCache,
+        logoWhitePath,
+        logoWhiteExists
+      );
+    }
   }
   
 
@@ -704,7 +709,7 @@ function drawSummaryTable(doc, x, y, stats) {
 }
 
 // Tarjeta de andamio mejorada
-async function drawScaffoldCard(doc, x, y, width, height, scaffold, number, imageCache) {
+async function drawScaffoldCard(doc, x, y, width, height, scaffold, number) {
   // Sombra
   doc
     .fillColor('rgba(0,0,0,0.1)')
@@ -825,17 +830,18 @@ async function drawScaffoldCard(doc, x, y, width, height, scaffold, number, imag
 
   // Usuario Solicitante (NUEVO)
   if (scaffold.client_user_name) {
+    const clientUserName = formatShortName(scaffold.client_user_name);
     doc.font('Helvetica').fillColor(COLORS.textLight)
        .text('Usuario Solicitante:', leftCol, contentY)
        .font('Helvetica-Bold').fillColor(COLORS.text)
-       .text(scaffold.client_user_name, leftCol + 100, contentY, { width: width / 2 - 130, ellipsis: true });
+       .text(clientUserName, leftCol + 100, contentY, { width: width / 2 - 130, ellipsis: true });
     contentY += lineHeight;
   }
 
   // Supervisor de obra
   const supervisorObra = scaffold.creator_role === 'admin' 
-    ? (scaffold.supervisor_name || '')
-    : (scaffold.created_by_name || scaffold.user_name || '');
+    ? formatShortName(scaffold.supervisor_name || '')
+    : formatShortName(scaffold.created_by_name || scaffold.user_name || '');
   
   if (supervisorObra) {
     doc.font('Helvetica').fillColor(COLORS.textLight)
@@ -847,10 +853,11 @@ async function drawScaffoldCard(doc, x, y, width, height, scaffold, number, imag
 
   // Creado por
   if (scaffold.created_by_name) {
+    const createdByName = formatShortName(scaffold.created_by_name);
     doc.font('Helvetica').fillColor(COLORS.textLight)
        .text('Creado por:', leftCol, contentY)
        .font('Helvetica-Bold').fillColor(COLORS.text)
-       .text(scaffold.created_by_name, leftCol + 70, contentY, { width: width / 2 - 100, ellipsis: true });
+       .text(createdByName, leftCol + 70, contentY, { width: width / 2 - 100, ellipsis: true });
   }
 
   // === COLUMNA DERECHA ===
@@ -921,124 +928,6 @@ async function drawScaffoldCard(doc, x, y, width, height, scaffold, number, imag
        .text(new Date(scaffold.disassembled_at).toLocaleDateString('es-CL'), rightCol + 105, contentY);
   }
 
-  // === SECCIÓN DE IMÁGENES (ARMADO / DESARMADO) ===
-  const notesBlockHeight = scaffold.assembly_notes && scaffold.disassembly_notes
-    ? 100
-    : (scaffold.assembly_notes || scaffold.disassembly_notes)
-      ? 50
-      : 0;
-  const hasImages = Boolean(scaffold.assembly_image_url || scaffold.disassembly_image_url);
-  const imageSectionHeight = hasImages ? IMAGE_SECTION_HEIGHT : 0;
-
-  if (hasImages) {
-    const imagesY = y + height - notesBlockHeight - imageSectionHeight - 10;
-    const imageBoxHeight = IMAGE_SECTION_HEIGHT - IMAGE_LABEL_HEIGHT - IMAGE_PADDING_Y;
-    const imageGap = 12;
-    const imageBoxWidth = (width - 60 - imageGap) / 2;
-    const imageStartX = x + 20;
-
-    const assemblyImageBuffer = await getImageBuffer(scaffold.assembly_image_url, imageCache);
-    const disassemblyImageBuffer = await getImageBuffer(scaffold.disassembly_image_url, imageCache);
-
-    const drawImageBox = (label, imageBuffer, boxX) => {
-      doc
-        .fontSize(8)
-        .font('Helvetica-Bold')
-        .fillColor(COLORS.textLight)
-        .text(label, boxX, imagesY);
-
-      const boxY = imagesY + IMAGE_LABEL_HEIGHT;
-
-      doc
-        .strokeColor(COLORS.border)
-        .lineWidth(1)
-        .roundedRect(boxX, boxY, imageBoxWidth, imageBoxHeight, 4)
-        .stroke();
-
-      if (imageBuffer) {
-        doc.image(imageBuffer, boxX + 2, boxY + 2, {
-          fit: [imageBoxWidth - 4, imageBoxHeight - 4],
-          align: 'center',
-          valign: 'center',
-        });
-      } else {
-        doc
-          .fontSize(8)
-          .font('Helvetica')
-          .fillColor(COLORS.textMuted)
-          .text('Sin imagen', boxX, boxY + imageBoxHeight / 2 - 4, {
-            width: imageBoxWidth,
-            align: 'center',
-          });
-      }
-    };
-
-    if (scaffold.assembly_image_url && scaffold.disassembly_image_url) {
-      drawImageBox('Montaje', assemblyImageBuffer, imageStartX);
-      drawImageBox('Desarmado', disassemblyImageBuffer, imageStartX + imageBoxWidth + imageGap);
-    } else if (scaffold.assembly_image_url) {
-      const singleWidth = width - 60;
-      const boxX = imageStartX;
-      const boxY = imagesY + IMAGE_LABEL_HEIGHT;
-      doc
-        .fontSize(8)
-        .font('Helvetica-Bold')
-        .fillColor(COLORS.textLight)
-        .text('Montaje', boxX, imagesY);
-      doc
-        .strokeColor(COLORS.border)
-        .lineWidth(1)
-        .roundedRect(boxX, boxY, singleWidth, imageBoxHeight, 4)
-        .stroke();
-      if (assemblyImageBuffer) {
-        doc.image(assemblyImageBuffer, boxX + 2, boxY + 2, {
-          fit: [singleWidth - 4, imageBoxHeight - 4],
-          align: 'center',
-          valign: 'center',
-        });
-      } else {
-        doc
-          .fontSize(8)
-          .font('Helvetica')
-          .fillColor(COLORS.textMuted)
-          .text('Sin imagen', boxX, boxY + imageBoxHeight / 2 - 4, {
-            width: singleWidth,
-            align: 'center',
-          });
-      }
-    } else if (scaffold.disassembly_image_url) {
-      const singleWidth = width - 60;
-      const boxX = imageStartX;
-      const boxY = imagesY + IMAGE_LABEL_HEIGHT;
-      doc
-        .fontSize(8)
-        .font('Helvetica-Bold')
-        .fillColor(COLORS.textLight)
-        .text('Desarmado', boxX, imagesY);
-      doc
-        .strokeColor(COLORS.border)
-        .lineWidth(1)
-        .roundedRect(boxX, boxY, singleWidth, imageBoxHeight, 4)
-        .stroke();
-      if (disassemblyImageBuffer) {
-        doc.image(disassemblyImageBuffer, boxX + 2, boxY + 2, {
-          fit: [singleWidth - 4, imageBoxHeight - 4],
-          align: 'center',
-          valign: 'center',
-        });
-      } else {
-        doc
-          .fontSize(8)
-          .font('Helvetica')
-          .fillColor(COLORS.textMuted)
-          .text('Sin imagen', boxX, boxY + imageBoxHeight / 2 - 4, {
-            width: singleWidth,
-            align: 'center',
-          });
-      }
-    }
-  }
-
   // Notas de montaje (si existen)
   if (scaffold.assembly_notes) {
     const notesY = y + height - 50;
@@ -1076,6 +965,88 @@ async function drawScaffoldCard(doc, x, y, width, height, scaffold, number, imag
          ellipsis: true,
          lineBreak: true
        });
+  }
+}
+
+async function drawScaffoldImagesPage(doc, scaffold, number, imageCache, logoWhitePath, logoWhiteExists) {
+  doc.addPage();
+  addProfessionalHeader(doc, logoWhitePath, logoWhiteExists);
+
+  const title = `EVIDENCIAS FOTOGRÁFICAS - ANDAMIO #${number}`;
+
+  doc
+    .fontSize(18)
+    .font('Helvetica-Bold')
+    .fillColor(COLORS.primary)
+    .text(title, 50, IMAGE_PAGE_TITLE_Y);
+
+  const subtitleParts = [];
+  if (scaffold.project_name) subtitleParts.push(`Proyecto: ${scaffold.project_name}`);
+  if (scaffold.scaffold_number) subtitleParts.push(`N° ${scaffold.scaffold_number}`);
+  if (scaffold.area) subtitleParts.push(`Área: ${scaffold.area}`);
+
+  if (subtitleParts.length > 0) {
+    doc
+      .fontSize(10)
+      .font('Helvetica')
+      .fillColor(COLORS.textLight)
+      .text(subtitleParts.join(' • '), 50, IMAGE_PAGE_TITLE_Y + 22);
+  }
+
+  const hasAssembly = Boolean(scaffold.assembly_image_url);
+  const hasDisassembly = Boolean(scaffold.disassembly_image_url);
+  const contentOffset = subtitleParts.length > 0 ? 46 : 32;
+  const boxY = IMAGE_PAGE_TITLE_Y + contentOffset;
+  const pageWidth = doc.page.width;
+  const boxHeight = doc.page.height - boxY - 80;
+  const gap = 16;
+  const boxX = 50;
+
+  const drawImageBox = async (label, imageUrl, x, width) => {
+    doc
+      .fontSize(10)
+      .font('Helvetica-Bold')
+      .fillColor(COLORS.textLight)
+      .text(label, x, boxY);
+
+    const imageBoxY = boxY + 14;
+    const imageBoxHeight = boxHeight - 14;
+
+    doc
+      .strokeColor(COLORS.border)
+      .lineWidth(1)
+      .roundedRect(x, imageBoxY, width, imageBoxHeight, 8)
+      .stroke();
+
+    const imageBuffer = await getImageBuffer(imageUrl, imageCache);
+    if (imageBuffer) {
+      doc.image(imageBuffer, x + IMAGE_PAGE_PADDING, imageBoxY + IMAGE_PAGE_PADDING, {
+        fit: [width - IMAGE_PAGE_PADDING * 2, imageBoxHeight - IMAGE_PAGE_PADDING * 2],
+        align: 'center',
+        valign: 'center',
+      });
+    } else {
+      doc
+        .fontSize(12)
+        .font('Helvetica')
+        .fillColor(COLORS.textMuted)
+        .text('No se pudo cargar la imagen', x, imageBoxY + imageBoxHeight / 2 - 6, {
+          width,
+          align: 'center',
+        });
+    }
+  };
+
+  if (hasAssembly && hasDisassembly) {
+    const boxWidth = (pageWidth - 100 - gap) / 2;
+    await drawImageBox('Montaje', scaffold.assembly_image_url, boxX, boxWidth);
+    await drawImageBox('Desarmado', scaffold.disassembly_image_url, boxX + boxWidth + gap, boxWidth);
+  } else if (hasAssembly) {
+    const boxWidth = pageWidth - 100;
+    await drawImageBox('Montaje', scaffold.assembly_image_url, boxX, boxWidth);
+  } else if (hasDisassembly) {
+    const boxWidth = pageWidth - 100;
+    await drawImageBox('Desarmado', scaffold.disassembly_image_url, boxX, boxWidth);
   }
 }
 

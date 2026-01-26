@@ -79,14 +79,14 @@ export const useScaffoldValidation = () => {
   }, []);
 
   /**
-   * Valida tamaño de imagen (máximo 5MB)
+   * Valida tamaño de imagen (máximo 10MB)
    */
   const validateImageSize = useCallback((file: File): boolean => {
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    const maxSize = 10 * 1024 * 1024; // 10MB
     
     if (file.size > maxSize) {
       setErrors({
-        image: 'La imagen no puede superar los 5MB',
+        image: 'La imagen no puede superar los 10MB',
       });
       return false;
     }

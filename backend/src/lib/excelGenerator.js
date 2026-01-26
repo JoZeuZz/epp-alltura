@@ -1,4 +1,5 @@
 const excel = require('exceljs');
+const { formatShortName } = require('./nameUtils');
 
 async function generateReportExcel(project, scaffolds, modifications = []) {
   const workbook = new excel.Workbook();
@@ -55,6 +56,10 @@ async function generateReportExcel(project, scaffolds, modifications = []) {
     } else {
       supervisorObra = scaffold.created_by_name || scaffold.user_name || '';
     }
+
+    const clientUserName = formatShortName(scaffold.client_user_name || '');
+    const supervisorName = formatShortName(supervisorObra);
+    const createdByName = formatShortName(scaffold.created_by_name || scaffold.user_name || '');
     
     // Validar fecha de montaje: solo si está armado y existe la fecha
     const assemblyDate = (scaffold.assembly_status === 'assembled' && scaffold.assembly_date) 
@@ -67,8 +72,8 @@ async function generateReportExcel(project, scaffolds, modifications = []) {
       area: scaffold.area || '',
       tag: scaffold.tag || '',
       company_name: scaffold.company_name || '',
-      client_user_name: scaffold.client_user_name || '',
-      supervisor_name: supervisorObra,
+      client_user_name: clientUserName,
+      supervisor_name: supervisorName,
       assembly_status: scaffold.assembly_status === 'assembled' ? 'Armado' : 
                        scaffold.assembly_status === 'in_progress' ? 'En Proceso' : 'Desarmado',
       card_status: scaffold.card_status === 'green' ? 'Verde' : 'Roja',
@@ -81,7 +86,7 @@ async function generateReportExcel(project, scaffolds, modifications = []) {
       total_cubic_meters: parseFloat(scaffold.total_cubic_meters || scaffold.cubic_meters),
       date_created: new Date(scaffold.assembly_created_at),
       assembly_date: assemblyDate,
-      user: scaffold.created_by_name || scaffold.user_name,
+      user: createdByName,
       disassembled_at: scaffold.disassembled_at ? new Date(scaffold.disassembled_at) : '',
       disassembly_notes: scaffold.disassembly_notes || ''
     });

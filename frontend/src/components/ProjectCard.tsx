@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Project } from '../types/api';
+import { formatDisplayName } from '../utils/name';
 
 interface ProjectCardProps {
   project: Project;
@@ -100,7 +101,9 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, linkTo }) => {
             </svg>
             <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-500">Contacto Asignado</p>
-              <p className="text-sm font-medium text-gray-900 truncate">{project.assigned_client_name}</p>
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {formatDisplayName(project.assigned_client_name)}
+              </p>
             </div>
           </div>
         )}
@@ -113,7 +116,9 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, linkTo }) => {
             </svg>
             <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-500">Supervisor</p>
-              <p className="text-sm font-medium text-gray-900 truncate">{project.assigned_supervisor_name}</p>
+              <p className="text-sm font-medium text-gray-900 truncate">
+                {formatDisplayName(project.assigned_supervisor_name)}
+              </p>
             </div>
           </div>
         )}

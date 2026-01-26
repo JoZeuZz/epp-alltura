@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, useLoaderData } from 'react-router-dom';
 import { User } from '../../types/api';
+import { formatNameParts } from '../../utils/name';
 
 interface HistoryEntry {
   id: number;
@@ -60,7 +61,7 @@ const UserHistoryPage: React.FC = () => {
             <h1 className="text-3xl font-bold text-dark-blue">Historial de Cambios</h1>
             {user && (
               <p className="text-lg text-gray-600 mt-2">
-                {user.first_name} {user.last_name}
+                {formatNameParts(user.first_name, user.last_name)}
                 <span className={`ml-3 px-3 py-1 text-sm font-semibold rounded-full ${
                   user.role === 'admin' 
                     ? 'bg-red-100 text-red-800' 

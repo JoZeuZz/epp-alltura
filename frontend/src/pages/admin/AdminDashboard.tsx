@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLoaderData } from 'react-router-dom';
 import { Scaffold } from '../../types/api';
+import { formatDisplayName } from '../../utils/name';
 import { ResponsiveGrid } from '../../components/layout';
 
 interface DashboardSummary {
@@ -133,7 +134,7 @@ const RecentReportsTable: React.FC<{ reports: Scaffold[] }> = ({ reports }) => (
                       {report.project_name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-gray">
-                      {report.created_by_name || 'N/A'}
+                      {formatDisplayName(report.created_by_name) || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span
