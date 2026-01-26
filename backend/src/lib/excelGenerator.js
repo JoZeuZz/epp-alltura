@@ -24,9 +24,7 @@ async function generateReportExcel(project, scaffolds, modifications = []) {
     { header: 'Alto (m)', key: 'height', width: 10 },
     { header: 'Ancho (m)', key: 'width', width: 10 },
     { header: 'Largo (m)', key: 'length', width: 10 },
-    { header: 'm³ Base', key: 'cubic_meters', width: 12 },
-    { header: 'm³ Adicionales', key: 'additional_cubic_meters', width: 15 },
-    { header: 'Total m³', key: 'total_cubic_meters', width: 12 },
+    { header: 'm³', key: 'cubic_meters', width: 12 },
     { header: 'Fecha Creación', key: 'date_created', width: 18 },
     { header: 'Fecha Montaje', key: 'assembly_date', width: 18 },
     { header: 'Creado Por', key: 'user', width: 30 },
@@ -66,7 +64,7 @@ async function generateReportExcel(project, scaffolds, modifications = []) {
       ? new Date(scaffold.assembly_date) 
       : '';
 
-    const row = worksheet.addRow({
+    const baseRowData = {
       notes: scaffold.assembly_notes || '',
       scaffold_number: scaffold.scaffold_number || '',
       area: scaffold.area || '',
@@ -82,54 +80,66 @@ async function generateReportExcel(project, scaffolds, modifications = []) {
       width: parseFloat(scaffold.width),
       length: parseFloat(scaffold.length || scaffold.depth),
       cubic_meters: parseFloat(scaffold.cubic_meters),
-      additional_cubic_meters: parseFloat(scaffold.additional_cubic_meters || 0),
-      total_cubic_meters: parseFloat(scaffold.total_cubic_meters || scaffold.cubic_meters),
       date_created: new Date(scaffold.assembly_created_at),
       assembly_date: assemblyDate,
       user: createdByName,
       disassembled_at: scaffold.disassembled_at ? new Date(scaffold.disassembled_at) : '',
       disassembly_notes: scaffold.disassembly_notes || ''
-    });
+    };
 
-    // Colorear la fila según el estado
-    if (scaffold.assembly_status === 'assembled') {
-      row.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFE8F5E9' } // Verde claro
-      };
-    } else if (scaffold.assembly_status === 'in_progress') {
-      row.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFFFFBEA' } // Amarillo claro
-      };
-    } else if (scaffold.assembly_status === 'disassembled') {
-      row.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FFFEE' } // Rojo claro
-      };
-    }
+    const applyRowFormatting = (row) => {
+      // Colorear la fila según el estado
+      if (scaffold.assembly_status === 'assembled') {
+        row.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE8F5E9' } // Verde claro
+        };
+      } else if (scaffold.assembly_status === 'in_progress') {
+        row.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFFFFBEA' } // Amarillo claro
+        };
+      } else if (scaffold.assembly_status === 'disassembled') {
+        row.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFFEE' } // Rojo claro
+        };
+      }
 
-    // Formatear celdas de porcentaje
-    row.getCell('progress').numFmt = '0"%"';
-    
-    // Formatear celdas numéricas
-    row.getCell('height').numFmt = '0.00';
-    row.getCell('width').numFmt = '0.00';
-    row.getCell('length').numFmt = '0.00';
-    row.getCell('cubic_meters').numFmt = '0.00';
-    row.getCell('additional_cubic_meters').numFmt = '0.00';
-    row.getCell('total_cubic_meters').numFmt = '0.00';
+      // Formatear celdas de porcentaje
+      row.getCell('progress').numFmt = '0"%"';
+      
+      // Formatear celdas numéricas
+      row.getCell('height').numFmt = '0.00';
+      row.getCell('width').numFmt = '0.00';
+      row.getCell('length').numFmt = '0.00';
+      row.getCell('cubic_meters').numFmt = '0.00';
 
-    // Formatear fechas
-    row.getCell('date_created').numFmt = 'dd/mm/yyyy hh:mm';
-    if (scaffold.assembly_date && scaffold.assembly_status === 'assembled') {
-      row.getCell('assembly_date').numFmt = 'dd/mm/yyyy hh:mm';
-    }
-    if (scaffold.disassembled_at) {
-      row.getCell('disassembled_at').numFmt = 'dd/mm/yyyy hh:mm';
+      // Formatear fechas
+      row.getCell('date_created').numFmt = 'dd/mm/yyyy hh:mm';
+      if (scaffold.assembly_date && scaffold.assembly_status === 'assembled') {
+        row.getCell('assembly_date').numFmt = 'dd/mm/yyyy hh:mm';
+      }
+      if (scaffold.disassembled_at) {
+        row.getCell('disassembled_at').numFmt = 'dd/mm/yyyy hh:mm';
+      }
+    };
+
+    const baseRow = worksheet.addRow(baseRowData);
+    applyRowFormatting(baseRow);
+
+    const additionalM3 = parseFloat(scaffold.additional_cubic_meters || 0);
+    if (additionalM3 > 0) {
+      const additionalRow = worksheet.addRow({
+        ...baseRowData,
+        notes: 'm³ adicionales',
+        cubic_meters: additionalM3,
+        disassembly_notes: ''
+      });
+      applyRowFormatting(additionalRow);
     }
   });
 

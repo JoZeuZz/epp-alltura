@@ -37,8 +37,8 @@ describe('Excel Generator', () => {
     expect(reportSheet).toBeTruthy();
     expect(summarySheet).toBeTruthy();
 
-    expect(reportSheet.getCell('A2').value).toBe('A-001');
-    expect(reportSheet.getCell('F2').value).toBe('Armado');
-    expect(reportSheet.getCell('G2').value).toBe('Verde');
+    expect(reportSheet.getCell('B2').value).toBe('A-001');
+    expect(reportSheet.getCell('H2').value).toBe('Armado');
+    expect(reportSheet.getCell('I2').value).toBe('Verde');
   });
 });
