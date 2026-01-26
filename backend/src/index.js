@@ -83,6 +83,9 @@ app.use(express.urlencoded({
 // NoSQL injection protection está integrada en sanitizeStrict
 // app.use(sanitizeMongoOnly); // ⚠️ Deshabilitado: incompatible con Express 5.x
 
+// Proxy de imágenes debe ir ANTES de sanitización para no romper JWT token en query
+app.use('/api/image-proxy', imageProxyRoutes);
+
 // Sanitización estricta para rutas de API (excepto health)
 app.use('/api', sanitizeStrict);
 
@@ -128,7 +131,6 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/supervisor-dashboard', supervisorDashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/client-notes', clientNotesRoutes);
-app.use('/api', imageProxyRoutes);
 app.use('/health', healthRoutes);
 
 // Endpoint para métricas del cliente (performance monitoring)

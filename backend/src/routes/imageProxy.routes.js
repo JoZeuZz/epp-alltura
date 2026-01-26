@@ -18,7 +18,7 @@ if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
 
 const storage = new Storage(storageOptions);
 
-router.get('/image-proxy', async (req, res) => {
+router.get('/', async (req, res) => {
   if (!proxySecret) {
     return res.status(500).json({ message: 'Image proxy secret not configured' });
   }
