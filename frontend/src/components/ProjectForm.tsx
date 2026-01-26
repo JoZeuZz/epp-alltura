@@ -1,6 +1,7 @@
 import { Form, useNavigation, useActionData } from 'react-router-dom';
 import { useState } from 'react';
 import { Project, Client, User } from '../types/api';
+import { formatNameParts } from '../utils/name';
 import Modal from './Modal';
 
 interface ProjectFormProps {
@@ -149,7 +150,7 @@ export default function ProjectForm({ project, clients, supervisors, clientUsers
             <option value="">Sin asignar</option>
             {supervisors.map((supervisor) => (
               <option key={supervisor.id} value={supervisor.id}>
-                {supervisor.first_name} {supervisor.last_name}
+                {formatNameParts(supervisor.first_name, supervisor.last_name)}
               </option>
             ))}
           </select>
@@ -169,7 +170,7 @@ export default function ProjectForm({ project, clients, supervisors, clientUsers
             <option value="">Sin asignar</option>
             {filteredClientUsers.map((clientUser) => (
               <option key={clientUser.id} value={clientUser.id}>
-                {clientUser.first_name} {clientUser.last_name}
+                {formatNameParts(clientUser.first_name, clientUser.last_name)}
               </option>
             ))}
           </select>

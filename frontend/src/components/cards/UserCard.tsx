@@ -1,6 +1,7 @@
 import React from 'react';
 import { EntityCard, InfoField, CardAction } from './EntityCard';
 import type { User } from '../../types/api';
+import { formatNameParts } from '../../utils/name';
 
 interface UserCardProps {
   user: User;
@@ -85,7 +86,7 @@ export const UserCard: React.FC<UserCardProps> = ({
   
   return (
     <EntityCard
-      title={`${user.first_name} ${user.last_name}`}
+      title={formatNameParts(user.first_name, user.last_name)}
       badge={<RoleBadge role={user.role} />}
       fields={fields}
       actions={actions}

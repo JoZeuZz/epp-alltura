@@ -2,27 +2,15 @@ import React, { useState } from 'react';
 import { post } from '../services/apiService';
 import { Project, Report } from '../types/api';
 import { useGet } from '../hooks/useGet';
+import { formatDisplayName } from '../utils/name';
+import { buildImageUrl } from '../utils/image';
+import ImageWithFallback from '../components/ImageWithFallback';
 
 const ReportViewerPage: React.FC = () => {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-
-  // Helper para normalizar URLs de imágenes
-  const getImageUrl = (url: string | undefined | null): string => {
-    if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
-    }
-    // Ruta relativa - el proxy Nginx redirige al backend
-    return url;
-  };
-
-  // Handle image error
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" font-size="10" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ESin imagen%3C/text%3E%3C/svg%3E';
-  };
 
   const { data: projects } = useGet<Project[]>('projects', '/projects');
   const { data: reports } = useGet<Report[]>(
@@ -147,15 +135,16 @@ const ReportViewerPage: React.FC = () => {
                 className="bg-white rounded-lg shadow-md overflow-hidden cursor-pointer transform hover:-translate-y-1 transition-transform duration-300"
                 onClick={() => setSelectedReport(report)}
               >
-                <img
-                  src={getImageUrl(report.assembly_image_url)}
+                <ImageWithFallback
+                  src={buildImageUrl(report.assembly_image_url, 'thumb')}
                   alt="Reporte"
                   className="h-48 w-full object-cover"
-                  onError={handleImageError}
                 />
                 <div className="p-4">
                   <p className="text-lg font-bold text-dark-blue">{report.cubic_meters} m³</p>
-                  <p className="text-sm text-neutral-gray">{report.user_name || 'N/A'}</p>
+                  <p className="text-sm text-neutral-gray">
+                    {formatDisplayName(report.user_name) || 'N/A'}
+                  </p>
                   <p className="text-sm text-neutral-gray">
                     {new Date(report.assembly_created_at).toLocaleDateString()}
                   </p>
@@ -188,11 +177,10 @@ const ReportViewerPage: React.FC = () => {
           >
             <div className="p-4 sm:p-6">
               <h3 className="text-2xl font-bold text-dark-blue mb-4">Detalles del Reporte</h3>
-              <img
-                src={getImageUrl(selectedReport.assembly_image_url)}
+              <ImageWithFallback
+                src={buildImageUrl(selectedReport.assembly_image_url, 'full')}
                 alt="Reporte Detallado"
                 className="rounded-lg w-full object-contain max-h-[60vh]"
-                onError={handleImageError}
               />
               <div className="mt-4">
                 <p className="mt-2">
@@ -202,7 +190,7 @@ const ReportViewerPage: React.FC = () => {
                   <strong>Progreso:</strong> {selectedReport.progress_percentage}%
                 </p>
                 <p>
-                  <strong>Supervisor:</strong> {selectedReport.user_name || 'N/A'}
+                  <strong>Supervisor:</strong> {formatDisplayName(selectedReport.user_name) || 'N/A'}
                 </p>
                 <p>
                   <strong>Fecha:</strong>{' '}

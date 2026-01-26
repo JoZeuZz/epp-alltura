@@ -5,8 +5,21 @@ const { logger } = require('../lib/logger');
 
 const router = express.Router();
 
+let sharp = null;
+try {
+  // eslint-disable-next-line global-require
+  sharp = require('sharp');
+} catch (error) {
+  logger.warn('Sharp not available for image proxy resizing', { error: error.message });
+}
+
 const proxySecret = process.env.IMAGE_PROXY_SECRET || process.env.JWT_SECRET;
 const proxyTokenTtlSeconds = parseInt(process.env.IMAGE_PROXY_TTL_SECONDS || '2592000', 10);
+const proxyMaxCacheSeconds = Math.min(proxyTokenTtlSeconds, 3600);
+const sizePresets = {
+  thumb: { width: 320, height: 240 },
+  medium: { width: 1024, height: 768 },
+};
 
 const storageOptions = {};
 if (process.env.GCS_PROJECT_ID) {
@@ -38,6 +51,7 @@ router.get('/', async (req, res) => {
 
   const bucketName = payload.b;
   const objectName = payload.o;
+  const size = typeof req.query.size === 'string' ? req.query.size : '';
 
   if (!bucketName || !objectName) {
     return res.status(400).json({ message: 'Invalid image token payload' });
@@ -49,7 +63,28 @@ router.get('/', async (req, res) => {
 
     const [metadata] = await file.getMetadata();
     const contentType = metadata.contentType || 'application/octet-stream';
-    const cacheMaxAge = Math.min(proxyTokenTtlSeconds, 3600);
+    const cacheMaxAge = proxyMaxCacheSeconds;
+
+    if (size && sizePresets[size] && sharp) {
+      const [fileBuffer] = await file.download();
+      const preset = sizePresets[size];
+      const pipeline = sharp(fileBuffer, { failOnError: false })
+        .rotate()
+        .resize({
+          width: preset.width,
+          height: preset.height,
+          fit: 'inside',
+          withoutEnlargement: true,
+        });
+
+      const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
+      const resolvedContentType =
+        info.format === 'jpeg' ? 'image/jpeg' : info.format ? `image/${info.format}` : contentType;
+
+      res.setHeader('Content-Type', resolvedContentType);
+      res.setHeader('Cache-Control', metadata.cacheControl || `private, max-age=${cacheMaxAge}`);
+      return res.end(data);
+    }
 
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', metadata.cacheControl || `private, max-age=${cacheMaxAge}`);

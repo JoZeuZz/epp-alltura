@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { ScaffoldModification } from '../types/scaffoldModifications';
+import { formatDisplayName } from '../utils/name';
 
 interface ModificationsListProps {
   modifications: ScaffoldModification[];
@@ -130,7 +131,10 @@ export default function ModificationsList({
               {/* Metadata */}
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
                 <span>
-                  Creado por: {mod.created_by_name || mod.created_by_username || `Usuario #${mod.created_by}`}
+                  Creado por:{' '}
+                  {formatDisplayName(mod.created_by_name) ||
+                    mod.created_by_username ||
+                    `Usuario #${mod.created_by}`}
                 </span>
                 <span>
                   Fecha: {format(new Date(mod.created_at), "dd 'de' MMM yyyy, HH:mm", { locale: es })}
@@ -138,7 +142,9 @@ export default function ModificationsList({
                 {mod.approved_at && (
                   <span>
                     {mod.approval_status === 'approved' ? 'Aprobado' : 'Rechazado'} por:{' '}
-                    {mod.approved_by_name || mod.approved_by_username || `Usuario #${mod.approved_by}`}
+                    {formatDisplayName(mod.approved_by_name) ||
+                      mod.approved_by_username ||
+                      `Usuario #${mod.approved_by}`}
                     {' '}el {format(new Date(mod.approved_at), "dd 'de' MMM yyyy", { locale: es })}
                   </span>
                 )}

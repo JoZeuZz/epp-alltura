@@ -3,6 +3,7 @@ import { Link, useLoaderData } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Project } from '../../types/api';
 import { ResponsiveGrid } from '../../components/layout';
+import { formatNameParts } from '../../utils/name';
 
 /**
  * Dashboard para usuarios cliente
@@ -16,7 +17,7 @@ const ClientDashboard: React.FC = () => {
     <div>
       <div className="mb-6">
         <h1 className="heading-1 text-dark-blue mb-2">
-          Bienvenido, {user?.first_name} {user?.last_name}
+          Bienvenido, {formatNameParts(user?.first_name, user?.last_name)}
         </h1>
         <p className="body-large text-gray-600">
           Visualiza los andamios de los proyectos asignados a tu empresa

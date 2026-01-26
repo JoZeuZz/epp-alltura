@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGet } from '../hooks/useGet';
 import { User, Project } from '../types/api';
 import { AssignFormData } from '../types/components';
+import { formatNameParts } from '../utils/name';
 
 interface AssignSupervisorsFormProps {
   project: Project | null;
@@ -110,7 +111,9 @@ export default function AssignSupervisorsForm({
                   onChange={() => handleSupervisorChange(supervisor.id)}
                   className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                <span className="text-gray-700">{`${supervisor.first_name} ${supervisor.last_name}`}</span>
+                <span className="text-gray-700">
+                  {formatNameParts(supervisor.first_name, supervisor.last_name)}
+                </span>
               </label>
             ))
           ) : (
@@ -138,7 +141,9 @@ export default function AssignSupervisorsForm({
                   onChange={() => handleClientChange(client.id)}
                   className="h-5 w-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
                 />
-                <span className="text-gray-700">{`${client.first_name} ${client.last_name}`}</span>
+                <span className="text-gray-700">
+                  {formatNameParts(client.first_name, client.last_name)}
+                </span>
               </label>
             ))
           ) : (

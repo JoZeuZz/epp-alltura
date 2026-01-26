@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import logoWhite from '../assets/logo-alltura-white.png';
 import UserIcon from '../components/icons/UserIcon';
 import NotificationBell from '../components/NotificationBell';
+import { formatNameParts } from '../utils/name';
 
 // --- Iconos SVG ---
 const MenuIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -266,7 +267,9 @@ const AppLayout = () => {
                 )}
               </div>
               <div className={`ml-3 text-left flex-1 ${!isSidebarOpen ? 'lg:hidden' : ''}`}>
-                <p className="text-sm font-medium text-white truncate">{user?.first_name} {user?.last_name}</p>
+                <p className="text-sm font-medium text-white truncate">
+                  {formatNameParts(user?.first_name, user?.last_name)}
+                </p>
                 <p className="text-xs text-gray-400">
                   {user?.role === 'admin' ? 'Administrador' : user?.role === 'supervisor' ? 'Supervisor' : 'Cliente'}
                 </p>

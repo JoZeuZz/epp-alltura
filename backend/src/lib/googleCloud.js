@@ -41,6 +41,10 @@ const proxyTokenTtlSeconds = parseInt(process.env.IMAGE_PROXY_TTL_SECONDS || '25
 const proxySecret = process.env.IMAGE_PROXY_SECRET || process.env.JWT_SECRET || '';
 const losslessCompressionEnabled =
   (process.env.IMAGE_LOSSLESS_COMPRESSION || 'true').toLowerCase() !== 'false';
+const stripMetadataEnabled =
+  (process.env.IMAGE_STRIP_METADATA || 'true').toLowerCase() !== 'false';
+const maxImageBytes = parseInt(process.env.IMAGE_MAX_BYTES || '10485760', 10);
+const jpegQuality = parseInt(process.env.IMAGE_JPEG_QUALITY || '92', 10);
 
 const getSharp = () => {
   try {
@@ -122,16 +126,11 @@ const createProxyToken = (imageUrl) => {
 };
 
 const maybeCompressLossless = async (file) => {
-  if (!losslessCompressionEnabled) {
+  if (!losslessCompressionEnabled && !stripMetadataEnabled) {
     return file;
   }
 
   if (!file || !file.buffer || !file.mimetype || !file.mimetype.startsWith('image/')) {
-    return file;
-  }
-
-  // JPEG is inherently lossy on re-encode; keep original to preserve quality.
-  if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg') {
     return file;
   }
 
@@ -143,18 +142,31 @@ const maybeCompressLossless = async (file) => {
   try {
     let pipeline = sharp(file.buffer, { failOnError: false });
 
-    if (file.mimetype === 'image/png') {
+    if (stripMetadataEnabled) {
+      pipeline = pipeline.rotate();
+    }
+
+    if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg') {
+      pipeline = pipeline.jpeg({
+        quality: jpegQuality,
+        mozjpeg: true,
+      });
+    } else if (file.mimetype === 'image/png') {
       pipeline = pipeline.png({ compressionLevel: 9, adaptiveFiltering: true });
     } else if (file.mimetype === 'image/webp') {
-      pipeline = pipeline.webp({ lossless: true, quality: 100 });
+      pipeline = pipeline.webp({ lossless: losslessCompressionEnabled, quality: 100 });
     } else if (file.mimetype === 'image/avif') {
-      pipeline = pipeline.avif({ lossless: true });
+      pipeline = pipeline.avif({ lossless: losslessCompressionEnabled });
     } else {
       return file;
     }
 
     const outputBuffer = await pipeline.toBuffer();
-    if (!outputBuffer || outputBuffer.length >= file.buffer.length) {
+    if (!outputBuffer) {
+      return file;
+    }
+
+    if (!stripMetadataEnabled && outputBuffer.length >= file.buffer.length) {
       return file;
     }
 
@@ -178,8 +190,29 @@ const maybeCompressLossless = async (file) => {
  * @returns {Promise<string>} The public URL of the uploaded file.
  */
 const uploadFile = async (file) => {
+  if (!file || !file.buffer) {
+    throw new Error('Archivo inválido para carga de imagen.');
+  }
+
+  const incomingSize = file.size || file.buffer.length || 0;
+  if (maxImageBytes > 0 && incomingSize > maxImageBytes) {
+    const error = new Error(
+      `La imagen supera el tamaño máximo permitido (${Math.round(maxImageBytes / (1024 * 1024))} MB).`
+    );
+    error.statusCode = 413;
+    throw error;
+  }
+
   const preparedFile = await maybeCompressLossless(file);
   const { originalname, buffer } = preparedFile;
+  const processedSize = preparedFile.size || buffer.length || 0;
+  if (maxImageBytes > 0 && processedSize > maxImageBytes) {
+    const error = new Error(
+      `La imagen procesada supera el tamaño máximo permitido (${Math.round(maxImageBytes / (1024 * 1024))} MB).`
+    );
+    error.statusCode = 413;
+    throw error;
+  }
   const filename = Date.now() + path.extname(originalname);
 
   if (resolvedProvider === 'gcs' && !isGCSConfigured) {
