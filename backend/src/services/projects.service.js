@@ -484,7 +484,7 @@ class ProjectService {
     const scaffolds = await Scaffold.getByProject(projectId);
 
     // Generar PDF (requiere res para streaming)
-    generateScaffoldsPDF(project, scaffolds, res, filters);
+    await generateScaffoldsPDF(project, scaffolds, res, filters);
     logger.info(`Reporte PDF generado para proyecto ${projectId}`);
   }
 

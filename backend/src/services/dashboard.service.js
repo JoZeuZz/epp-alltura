@@ -1,5 +1,6 @@
 const db = require('../db');
 const { logger } = require('../lib/logger');
+const { resolveImageUrl } = require('../lib/googleCloud');
 
 /**
  * DashboardService
@@ -143,6 +144,14 @@ class DashboardService {
       const recentCount = recentScaffoldsResult.rows[0].recent_count;
       const avgProgress = Math.round(parseFloat(progressResult.rows[0].avg_progress) || 0);
 
+      const recentScaffolds = await Promise.all(
+        (recentScaffoldsListResult.rows || []).map(async (scaffold) => ({
+          ...scaffold,
+          assembly_image_url: await resolveImageUrl(scaffold.assembly_image_url),
+          disassembly_image_url: await resolveImageUrl(scaffold.disassembly_image_url),
+        }))
+      );
+
       return {
         // Métricas de metros cúbicos
         totalCubicMeters: parseFloat(cubicMetersStats.total_cubic_meters) || 0,
@@ -160,7 +169,7 @@ class DashboardService {
 
         // Métricas adicionales
         recentScaffoldsCount: recentCount || 0,
-        recentScaffolds: recentScaffoldsListResult.rows || [],
+        recentScaffolds,
         avgProgress: avgProgress,
       };
     } catch (error) {

@@ -42,27 +42,27 @@ describe('PDF Generator', () => {
     jest.clearAllMocks();
   });
 
-  it('debe configurar headers y generar PDF', () => {
+  it('debe configurar headers y generar PDF', async () => {
     const project = { name: 'Proyecto Test', client_name: 'Cliente Test S.A.' };
     const scaffolds = [];
 
-    generateScaffoldsPDF(project, scaffolds, res);
+    await generateScaffoldsPDF(project, scaffolds, res);
 
     expect(PDFDocument).toHaveBeenCalled();
     expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'application/pdf');
     expect(res.setHeader).toHaveBeenCalledWith(
       'Content-Disposition',
-      expect.stringContaining('Reporte-Proyecto-Proyecto_Test.pdf')
+      expect.stringContaining('Informe-Andamios-Proyecto-Test-')
     );
     expect(mockPdfDoc.pipe).toHaveBeenCalledWith(res);
     expect(mockPdfDoc.end).toHaveBeenCalled();
   });
 
-  it('debe escribir información del proyecto', () => {
+  it('debe escribir información del proyecto', async () => {
     const project = { name: 'Proyecto Test', client_name: 'Cliente Test S.A.' };
     const scaffolds = [];
 
-    generateScaffoldsPDF(project, scaffolds, res);
+    await generateScaffoldsPDF(project, scaffolds, res);
 
     const textCalls = mockPdfDoc.text.mock.calls.map((args) => args[0]);
     expect(textCalls).toEqual(

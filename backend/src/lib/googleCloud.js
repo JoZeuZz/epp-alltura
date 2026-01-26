@@ -1,4 +1,5 @@
 const { Storage } = require('@google-cloud/storage');
+const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
 const { logger } = require('./logger');
@@ -33,6 +34,25 @@ const gcsPrefix = (process.env.GCS_PREFIX || '').replace(/^\/+|\/+$/g, '');
 
 const isGcsUrl = (imageUrl) => imageUrl.includes('storage.googleapis.com');
 
+const signedUrlTtlMs = parseInt(process.env.GCS_SIGNED_URL_TTL_MS || '2592000000', 10); // 30 days default
+const signedUrlsEnabled = (process.env.GCS_SIGNED_URLS || 'true').toLowerCase() !== 'false';
+const proxyEnabled = (process.env.GCS_IMAGE_PROXY || 'true').toLowerCase() !== 'false';
+const proxyTokenTtlSeconds = parseInt(process.env.IMAGE_PROXY_TTL_SECONDS || '2592000', 10); // 30 days default
+const proxySecret = process.env.IMAGE_PROXY_SECRET || process.env.JWT_SECRET || '';
+const losslessCompressionEnabled =
+  (process.env.IMAGE_LOSSLESS_COMPRESSION || 'true').toLowerCase() !== 'false';
+
+const getSharp = () => {
+  try {
+    // Lazy-load to avoid hard failure if dependency isn't installed.
+    // eslint-disable-next-line global-require
+    return require('sharp');
+  } catch (error) {
+    logger.warn('Sharp not available for lossless compression', { error: error.message });
+    return null;
+  }
+};
+
 const getLocalFilePath = (imageUrl) => {
   let filename;
 
@@ -57,14 +77,98 @@ const getLocalFilePath = (imageUrl) => {
 const parseGcsUrl = (imageUrl) => {
   try {
     const parsed = new URL(imageUrl);
+    const host = parsed.hostname;
     const parts = parsed.pathname.split('/').filter(Boolean);
-    if (parts.length < 2) {
-      return null;
+
+    // https://storage.googleapis.com/<bucket>/<object>
+    if (host === 'storage.googleapis.com') {
+      if (parts.length < 2) {
+        return null;
+      }
+      const [bucketName, ...objectParts] = parts;
+      return { bucketName, objectName: decodeURIComponent(objectParts.join('/')) };
     }
-    const [bucketName, ...objectParts] = parts;
-    return { bucketName, objectName: decodeURIComponent(objectParts.join('/')) };
+
+    // https://<bucket>.storage.googleapis.com/<object>
+    if (host.endsWith('.storage.googleapis.com')) {
+      const bucketName = host.replace('.storage.googleapis.com', '');
+      if (!bucketName || parts.length < 1) {
+        return null;
+      }
+      return { bucketName, objectName: decodeURIComponent(parts.join('/')) };
+    }
+
+    return null;
   } catch (error) {
     return null;
+  }
+};
+
+const createProxyToken = (imageUrl) => {
+  if (!proxySecret) {
+    return null;
+  }
+
+  const gcsInfo = parseGcsUrl(imageUrl);
+  if (!gcsInfo) {
+    return null;
+  }
+
+  return jwt.sign(
+    { b: gcsInfo.bucketName, o: gcsInfo.objectName },
+    proxySecret,
+    { expiresIn: proxyTokenTtlSeconds }
+  );
+};
+
+const maybeCompressLossless = async (file) => {
+  if (!losslessCompressionEnabled) {
+    return file;
+  }
+
+  if (!file || !file.buffer || !file.mimetype || !file.mimetype.startsWith('image/')) {
+    return file;
+  }
+
+  // JPEG is inherently lossy on re-encode; keep original to preserve quality.
+  if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg') {
+    return file;
+  }
+
+  const sharp = getSharp();
+  if (!sharp) {
+    return file;
+  }
+
+  try {
+    let pipeline = sharp(file.buffer, { failOnError: false });
+
+    if (file.mimetype === 'image/png') {
+      pipeline = pipeline.png({ compressionLevel: 9, adaptiveFiltering: true });
+    } else if (file.mimetype === 'image/webp') {
+      pipeline = pipeline.webp({ lossless: true, quality: 100 });
+    } else if (file.mimetype === 'image/avif') {
+      pipeline = pipeline.avif({ lossless: true });
+    } else {
+      return file;
+    }
+
+    const outputBuffer = await pipeline.toBuffer();
+    if (!outputBuffer || outputBuffer.length >= file.buffer.length) {
+      return file;
+    }
+
+    return {
+      ...file,
+      buffer: outputBuffer,
+      size: outputBuffer.length,
+    };
+  } catch (error) {
+    logger.warn('Lossless compression failed, using original image', {
+      error: error.message,
+      mimetype: file.mimetype,
+    });
+    return file;
   }
 };
 
@@ -73,13 +177,15 @@ const parseGcsUrl = (imageUrl) => {
  * @param {object} file The file object from multer.
  * @returns {Promise<string>} The public URL of the uploaded file.
  */
-const uploadFile = (file) => new Promise((resolve, reject) => {
-  const { originalname, buffer } = file;
+const uploadFile = async (file) => {
+  const preparedFile = await maybeCompressLossless(file);
+  const { originalname, buffer } = preparedFile;
   const filename = Date.now() + path.extname(originalname);
 
   if (resolvedProvider === 'gcs' && !isGCSConfigured) {
-    reject('Google Cloud Storage no está configurado. Revisa GCS_PROJECT_ID, GCS_BUCKET_NAME y GOOGLE_APPLICATION_CREDENTIALS.');
-    return;
+    throw new Error(
+      'Google Cloud Storage no está configurado. Revisa GCS_PROJECT_ID, GCS_BUCKET_NAME y GOOGLE_APPLICATION_CREDENTIALS.'
+    );
   }
 
   // Si Google Cloud no está configurado o se fuerza local, guardar localmente
@@ -90,35 +196,85 @@ const uploadFile = (file) => new Promise((resolve, reject) => {
     }
 
     const filePath = path.join(localUploadsDir, filename);
-    
-    fs.writeFile(filePath, buffer, (err) => {
-      if (err) {
-        reject(`Unable to save image locally: ${err}`);
-      } else {
-        // Devolver URL absoluta usando BACKEND_URL o construyendo desde PORT
-        const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
-        const localUrl = `${backendUrl}/uploads/${filename}`;
-        resolve(localUrl);
-      }
-    });
-  } else {
-    // Usar Google Cloud Storage
-    const objectName = gcsPrefix ? `${gcsPrefix}/${filename}` : filename;
-    const blob = bucket.file(objectName);
-    const blobStream = blob.createWriteStream({
-      resumable: false,
-    });
 
-    blobStream.on('finish', () => {
-      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
-      resolve(publicUrl);
-    })
-    .on('error', (err) => {
-      reject(`Unable to upload image to GCS: ${err}`);
-    })
-    .end(buffer);
+    await fs.promises.writeFile(filePath, buffer);
+
+    // Devolver URL absoluta usando BACKEND_URL o construyendo desde PORT
+    const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+    return `${backendUrl}/uploads/${filename}`;
   }
-});
+
+  // Usar Google Cloud Storage
+  const objectName = gcsPrefix ? `${gcsPrefix}/${filename}` : filename;
+  const blob = bucket.file(objectName);
+  const blobStream = blob.createWriteStream({
+    resumable: false,
+    metadata: {
+      contentType: preparedFile.mimetype || 'application/octet-stream',
+    },
+  });
+
+  await new Promise((resolve, reject) => {
+    blobStream
+      .on('finish', resolve)
+      .on('error', (err) => reject(new Error(`Unable to upload image to GCS: ${err}`)))
+      .end(buffer);
+  });
+
+  return `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
+};
+
+/**
+ * Resolve an image URL to a signed URL when using GCS (for private buckets).
+ * Falls back to the original URL if signing is not available.
+ * @param {string} imageUrl
+ * @returns {Promise<string>}
+ */
+const resolveImageUrl = async (imageUrl) => {
+  if (!imageUrl) return imageUrl;
+
+  if (resolvedProvider !== 'gcs') {
+    return imageUrl;
+  }
+
+  if (proxyEnabled && isGcsUrl(imageUrl)) {
+    const token = createProxyToken(imageUrl);
+    if (token) {
+      return `/api/image-proxy?token=${token}`;
+    }
+  }
+
+  if (!signedUrlsEnabled) {
+    return imageUrl;
+  }
+
+  if (!isGCSConfigured || !storage) {
+    return imageUrl;
+  }
+
+  if (!isGcsUrl(imageUrl)) {
+    return imageUrl;
+  }
+
+  const gcsInfo = parseGcsUrl(imageUrl);
+  if (!gcsInfo) {
+    return imageUrl;
+  }
+
+  try {
+    const targetBucket = storage.bucket(gcsInfo.bucketName);
+    const file = targetBucket.file(gcsInfo.objectName);
+    const [signedUrl] = await file.getSignedUrl({
+      version: 'v4',
+      action: 'read',
+      expires: Date.now() + signedUrlTtlMs,
+    });
+    return signedUrl;
+  } catch (error) {
+    logger.warn(`No se pudo generar signed URL para ${imageUrl}: ${error.message}`);
+    return imageUrl;
+  }
+};
 
 /**
  * Deletes a file stored either locally or on Google Cloud Storage.
@@ -160,4 +316,4 @@ const deleteFileByUrl = async (imageUrl) => {
   }
 };
 
-module.exports = { uploadFile, deleteFileByUrl };
+module.exports = { uploadFile, deleteFileByUrl, resolveImageUrl };

@@ -2,7 +2,7 @@ const Scaffold = require('../models/scaffold');
 const ScaffoldHistory = require('../models/scaffoldHistory');
 const ScaffoldModification = require('../models/scaffoldModification');
 const Project = require('../models/project');
-const { uploadFile, deleteFileByUrl } = require('../lib/googleCloud');
+const { uploadFile, deleteFileByUrl, resolveImageUrl } = require('../lib/googleCloud');
 const { logger } = require('../lib/logger');
 const db = require('../db');
 
@@ -18,6 +18,29 @@ const db = require('../db');
  * PROHIBIDO: No debe contener objetos req o res
  */
 class ScaffoldService {
+  // ============================================
+  // UTILIDADES DE IMÁGENES
+  // ============================================
+
+  static async _resolveScaffoldImages(scaffold) {
+    if (!scaffold) return scaffold;
+
+    const [assemblyImageUrl, disassemblyImageUrl] = await Promise.all([
+      resolveImageUrl(scaffold.assembly_image_url),
+      resolveImageUrl(scaffold.disassembly_image_url),
+    ]);
+
+    return {
+      ...scaffold,
+      assembly_image_url: assemblyImageUrl,
+      disassembly_image_url: disassemblyImageUrl,
+    };
+  }
+
+  static async _resolveScaffoldsImages(scaffolds) {
+    if (!Array.isArray(scaffolds)) return scaffolds;
+    return Promise.all(scaffolds.map((scaffold) => this._resolveScaffoldImages(scaffold)));
+  }
   // ============================================
   // UTILIDADES Y CÁLCULOS
   // ============================================
@@ -228,11 +251,13 @@ class ScaffoldService {
     const { role, id: userId } = user;
 
     if (role === 'admin') {
-      return await Scaffold.getAll();
+      const scaffolds = await Scaffold.getAll();
+      return await this._resolveScaffoldsImages(scaffolds);
     }
 
     if (role === 'supervisor') {
-      return await Scaffold.getByCreator(userId);
+      const scaffolds = await Scaffold.getByCreator(userId);
+      return await this._resolveScaffoldsImages(scaffolds);
     }
 
     if (role === 'client') {
@@ -244,7 +269,7 @@ class ScaffoldService {
         const projectScaffolds = await Scaffold.getByProject(projectId);
         allScaffolds.push(...projectScaffolds);
       }
-      return allScaffolds;
+      return await this._resolveScaffoldsImages(allScaffolds);
     }
 
     const error = new Error('Rol no autorizado.');
@@ -270,8 +295,10 @@ class ScaffoldService {
     const baseCubicMeters = parseFloat(scaffold.cubic_meters);
     const totalCubicMeters = baseCubicMeters + additionalCubicMeters;
 
+    const resolvedScaffold = await this._resolveScaffoldImages(scaffold);
+
     return {
-      ...scaffold,
+      ...resolvedScaffold,
       additional_cubic_meters: additionalCubicMeters,
       total_cubic_meters: totalCubicMeters
     };
@@ -300,7 +327,7 @@ class ScaffoldService {
       })
     );
 
-    return enrichedScaffolds;
+    return await this._resolveScaffoldsImages(enrichedScaffolds);
   }
 
   /**
@@ -309,7 +336,8 @@ class ScaffoldService {
    * @returns {Promise<Array>} Lista de andamios
    */
   static async getScaffoldsByCreator(userId) {
-    return await Scaffold.getByCreator(userId);
+    const scaffolds = await Scaffold.getByCreator(userId);
+    return await this._resolveScaffoldsImages(scaffolds);
   }
 
   /**
@@ -393,7 +421,7 @@ class ScaffoldService {
     });
 
     logger.info(`Andamio ${scaffold.id} creado por usuario ${user.id}`);
-    return scaffold;
+    return await this._resolveScaffoldImages(scaffold);
   }
 
   /**
@@ -463,7 +491,7 @@ class ScaffoldService {
     });
 
     logger.info(`Andamio ${scaffoldId} actualizado por usuario ${user.id}`);
-    return updated;
+    return await this._resolveScaffoldImages(updated);
   }
 
   /**
@@ -513,7 +541,7 @@ class ScaffoldService {
     });
 
     logger.info(`Estado de tarjeta del andamio ${scaffoldId} cambiado a ${cardStatus}`);
-    return updated;
+    return await this._resolveScaffoldImages(updated);
   }
 
   /**
@@ -573,7 +601,7 @@ class ScaffoldService {
     });
 
     logger.info(`Estado de armado del andamio ${scaffoldId} cambiado a ${assemblyStatus}`);
-    return updated;
+    return await this._resolveScaffoldImages(updated);
   }
 
   /**
@@ -648,7 +676,7 @@ class ScaffoldService {
     });
 
     logger.info(`Andamio ${scaffoldId} desarmado por usuario ${user.id}`);
-    return updated;
+    return await this._resolveScaffoldImages(updated);
   }
 
   /**
