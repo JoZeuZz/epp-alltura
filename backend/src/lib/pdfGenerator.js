@@ -1,6 +1,8 @@
 const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
+const { Storage } = require('@google-cloud/storage');
+const { logger } = require('./logger');
 
 // Colores corporativos de Alltura Servicios Industriales
 const COLORS = {
@@ -18,7 +20,115 @@ const COLORS = {
   white: '#ffffff'
 };
 
-function generateScaffoldsPDF(project, scaffolds, res, _filters = {}) {
+const IMAGE_SECTION_HEIGHT = 94;
+const IMAGE_LABEL_HEIGHT = 12;
+const IMAGE_PADDING_Y = 8;
+
+let gcsStorage = null;
+const getGcsStorage = () => {
+  if (gcsStorage) return gcsStorage;
+  const storageOptions = {};
+
+  if (process.env.GCS_PROJECT_ID) {
+    storageOptions.projectId = process.env.GCS_PROJECT_ID;
+  }
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    storageOptions.keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  }
+
+  gcsStorage = new Storage(storageOptions);
+  return gcsStorage;
+};
+
+const parseGcsUrl = (imageUrl) => {
+  try {
+    const parsed = new URL(imageUrl);
+    const host = parsed.hostname;
+    const parts = parsed.pathname.split('/').filter(Boolean);
+
+    if (host === 'storage.googleapis.com') {
+      if (parts.length < 2) return null;
+      const [bucketName, ...objectParts] = parts;
+      return { bucketName, objectName: decodeURIComponent(objectParts.join('/')) };
+    }
+
+    if (host.endsWith('.storage.googleapis.com')) {
+      const bucketName = host.replace('.storage.googleapis.com', '');
+      if (!bucketName || parts.length < 1) return null;
+      return { bucketName, objectName: decodeURIComponent(parts.join('/')) };
+    }
+
+    return null;
+  } catch (_error) {
+    return null;
+  }
+};
+
+const getLocalFilePathFromUrl = (imageUrl) => {
+  if (!imageUrl) return null;
+  if (!imageUrl.includes('/uploads/')) return null;
+
+  const urlParts = imageUrl.split('/uploads/');
+  if (urlParts.length < 2) return null;
+  const filename = urlParts[1];
+  if (!filename) return null;
+
+  return path.join(__dirname, '../../uploads', filename);
+};
+
+const fetchBuffer = async (url, timeoutMs = 10000) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+const getImageBuffer = async (imageUrl, cache) => {
+  if (!imageUrl) return null;
+  if (cache.has(imageUrl)) return cache.get(imageUrl);
+
+  let buffer = null;
+
+  try {
+    if (imageUrl.includes('storage.googleapis.com')) {
+      const gcsInfo = parseGcsUrl(imageUrl);
+      if (gcsInfo) {
+        const storage = getGcsStorage();
+        const file = storage.bucket(gcsInfo.bucketName).file(gcsInfo.objectName);
+        const [fileBuffer] = await file.download();
+        buffer = fileBuffer;
+      }
+    } else {
+      const localPath = getLocalFilePathFromUrl(imageUrl);
+      if (localPath && fs.existsSync(localPath)) {
+        buffer = await fs.promises.readFile(localPath);
+      } else {
+        const baseUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+        const absoluteUrl = imageUrl.startsWith('http') ? imageUrl : `${baseUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+        buffer = await fetchBuffer(absoluteUrl);
+      }
+    }
+  } catch (error) {
+    logger.warn('No se pudo cargar imagen para PDF', {
+      error: error.message,
+      imageUrl,
+    });
+  }
+
+  cache.set(imageUrl, buffer);
+  return buffer;
+};
+
+async function generateScaffoldsPDF(project, scaffolds, res, _filters = {}) {
 
   
   const doc = new PDFDocument({ 
@@ -300,15 +410,20 @@ function generateScaffoldsPDF(project, scaffolds, res, _filters = {}) {
 
   let currentY = 180;
 
-  scaffolds.forEach((scaffold, index) => {
-    // Calcular altura necesaria dinámicamente
+  const imageCache = new Map();
+
+  for (const [index, scaffold] of scaffolds.entries()) {
+    const hasImages = Boolean(scaffold.assembly_image_url || scaffold.disassembly_image_url);
     let cardHeight = 185;
-    
-    // Ajustar altura si hay notas
+
+    if (hasImages) {
+      cardHeight += IMAGE_SECTION_HEIGHT + IMAGE_PADDING_Y;
+    }
+
     if (scaffold.assembly_notes && scaffold.disassembly_notes) {
-      cardHeight = 235; // Ambas notas
+      cardHeight += 50;
     } else if (scaffold.assembly_notes || scaffold.disassembly_notes) {
-      cardHeight = 195; // Una nota
+      cardHeight += 10;
     }
 
     // Verificar si necesitamos nueva página
@@ -320,10 +435,19 @@ function generateScaffoldsPDF(project, scaffolds, res, _filters = {}) {
     }
 
     // Dibujar tarjeta de andamio con diseño moderno
-    drawScaffoldCard(doc, 50, currentY, doc.page.width - 100, cardHeight, scaffold, index + 1);
+    await drawScaffoldCard(
+      doc,
+      50,
+      currentY,
+      doc.page.width - 100,
+      cardHeight,
+      scaffold,
+      index + 1,
+      imageCache
+    );
 
     currentY += cardHeight + 18;
-  });
+  }
   
 
 
@@ -580,7 +704,7 @@ function drawSummaryTable(doc, x, y, stats) {
 }
 
 // Tarjeta de andamio mejorada
-function drawScaffoldCard(doc, x, y, width, height, scaffold, number) {
+async function drawScaffoldCard(doc, x, y, width, height, scaffold, number, imageCache) {
   // Sombra
   doc
     .fillColor('rgba(0,0,0,0.1)')
@@ -795,6 +919,124 @@ function drawScaffoldCard(doc, x, y, width, height, scaffold, number) {
        .text('Fecha Desarmado:', rightCol, contentY)
        .font('Helvetica-Bold').fillColor(COLORS.danger)
        .text(new Date(scaffold.disassembled_at).toLocaleDateString('es-CL'), rightCol + 105, contentY);
+  }
+
+  // === SECCIÓN DE IMÁGENES (ARMADO / DESARMADO) ===
+  const notesBlockHeight = scaffold.assembly_notes && scaffold.disassembly_notes
+    ? 100
+    : (scaffold.assembly_notes || scaffold.disassembly_notes)
+      ? 50
+      : 0;
+  const hasImages = Boolean(scaffold.assembly_image_url || scaffold.disassembly_image_url);
+  const imageSectionHeight = hasImages ? IMAGE_SECTION_HEIGHT : 0;
+
+  if (hasImages) {
+    const imagesY = y + height - notesBlockHeight - imageSectionHeight - 10;
+    const imageBoxHeight = IMAGE_SECTION_HEIGHT - IMAGE_LABEL_HEIGHT - IMAGE_PADDING_Y;
+    const imageGap = 12;
+    const imageBoxWidth = (width - 60 - imageGap) / 2;
+    const imageStartX = x + 20;
+
+    const assemblyImageBuffer = await getImageBuffer(scaffold.assembly_image_url, imageCache);
+    const disassemblyImageBuffer = await getImageBuffer(scaffold.disassembly_image_url, imageCache);
+
+    const drawImageBox = (label, imageBuffer, boxX) => {
+      doc
+        .fontSize(8)
+        .font('Helvetica-Bold')
+        .fillColor(COLORS.textLight)
+        .text(label, boxX, imagesY);
+
+      const boxY = imagesY + IMAGE_LABEL_HEIGHT;
+
+      doc
+        .strokeColor(COLORS.border)
+        .lineWidth(1)
+        .roundedRect(boxX, boxY, imageBoxWidth, imageBoxHeight, 4)
+        .stroke();
+
+      if (imageBuffer) {
+        doc.image(imageBuffer, boxX + 2, boxY + 2, {
+          fit: [imageBoxWidth - 4, imageBoxHeight - 4],
+          align: 'center',
+          valign: 'center',
+        });
+      } else {
+        doc
+          .fontSize(8)
+          .font('Helvetica')
+          .fillColor(COLORS.textMuted)
+          .text('Sin imagen', boxX, boxY + imageBoxHeight / 2 - 4, {
+            width: imageBoxWidth,
+            align: 'center',
+          });
+      }
+    };
+
+    if (scaffold.assembly_image_url && scaffold.disassembly_image_url) {
+      drawImageBox('Montaje', assemblyImageBuffer, imageStartX);
+      drawImageBox('Desarmado', disassemblyImageBuffer, imageStartX + imageBoxWidth + imageGap);
+    } else if (scaffold.assembly_image_url) {
+      const singleWidth = width - 60;
+      const boxX = imageStartX;
+      const boxY = imagesY + IMAGE_LABEL_HEIGHT;
+      doc
+        .fontSize(8)
+        .font('Helvetica-Bold')
+        .fillColor(COLORS.textLight)
+        .text('Montaje', boxX, imagesY);
+      doc
+        .strokeColor(COLORS.border)
+        .lineWidth(1)
+        .roundedRect(boxX, boxY, singleWidth, imageBoxHeight, 4)
+        .stroke();
+      if (assemblyImageBuffer) {
+        doc.image(assemblyImageBuffer, boxX + 2, boxY + 2, {
+          fit: [singleWidth - 4, imageBoxHeight - 4],
+          align: 'center',
+          valign: 'center',
+        });
+      } else {
+        doc
+          .fontSize(8)
+          .font('Helvetica')
+          .fillColor(COLORS.textMuted)
+          .text('Sin imagen', boxX, boxY + imageBoxHeight / 2 - 4, {
+            width: singleWidth,
+            align: 'center',
+          });
+      }
+    } else if (scaffold.disassembly_image_url) {
+      const singleWidth = width - 60;
+      const boxX = imageStartX;
+      const boxY = imagesY + IMAGE_LABEL_HEIGHT;
+      doc
+        .fontSize(8)
+        .font('Helvetica-Bold')
+        .fillColor(COLORS.textLight)
+        .text('Desarmado', boxX, imagesY);
+      doc
+        .strokeColor(COLORS.border)
+        .lineWidth(1)
+        .roundedRect(boxX, boxY, singleWidth, imageBoxHeight, 4)
+        .stroke();
+      if (disassemblyImageBuffer) {
+        doc.image(disassemblyImageBuffer, boxX + 2, boxY + 2, {
+          fit: [singleWidth - 4, imageBoxHeight - 4],
+          align: 'center',
+          valign: 'center',
+        });
+      } else {
+        doc
+          .fontSize(8)
+          .font('Helvetica')
+          .fillColor(COLORS.textMuted)
+          .text('Sin imagen', boxX, boxY + imageBoxHeight / 2 - 4, {
+            width: singleWidth,
+            align: 'center',
+          });
+      }
+    }
   }
 
   // Notas de montaje (si existen)

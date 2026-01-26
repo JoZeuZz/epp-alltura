@@ -22,6 +22,7 @@ const supervisorDashboardRoutes = require('./routes/supervisorDashboard.routes')
 const notificationRoutes = require('./routes/notification.routes');
 const clientNotesRoutes = require('./routes/clientNotes.routes');
 const scaffoldModificationRoutes = require('./routes/scaffold-modifications.routes');
+const imageProxyRoutes = require('./routes/imageProxy.routes');
 const healthRoutes = require('./routes/health');
 const { initializeDatabase } = require('./db/initialize');
 
@@ -127,6 +128,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/supervisor-dashboard', supervisorDashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/client-notes', clientNotesRoutes);
+app.use('/api', imageProxyRoutes);
 app.use('/health', healthRoutes);
 
 // Endpoint para métricas del cliente (performance monitoring)
