@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CreateClientNoteDTO } from '../types/clientNotes';
 
 interface ClientNoteFormProps {
@@ -17,10 +17,15 @@ export default function ClientNoteForm({
   const [noteText, setNoteText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const characterCount = noteText.length;
   const maxCharacters = 5000;
   const isValid = characterCount >= 1 && characterCount <= maxCharacters;
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +69,7 @@ export default function ClientNoteForm({
         </label>
         <textarea
           id="note-text"
+          ref={textareaRef}
           value={noteText}
           onChange={(e) => setNoteText(e.target.value)}
           placeholder="Describe el problema o comentario que quieres reportar..."
@@ -72,6 +78,7 @@ export default function ClientNoteForm({
               ? 'border-red-300 focus:ring-red-500'
               : 'border-gray-300 focus:ring-blue-500'
           }`}
+          autoFocus
           disabled={isSubmitting}
         />
         <div className="flex justify-between items-center mt-1">

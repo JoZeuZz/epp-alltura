@@ -13,11 +13,16 @@ export default function Modal({ isOpen, onClose, children, title, description }:
   const previousActiveElement = useRef<HTMLElement | null>(null);
   const titleId = useRef(`modal-title-${Math.random().toString(36).substr(2, 9)}`);
   const descId = useRef(`modal-desc-${Math.random().toString(36).substr(2, 9)}`);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
       }
     };
 
@@ -38,7 +43,7 @@ export default function Modal({ isOpen, onClose, children, title, description }:
         previousActiveElement.current.focus();
       }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
