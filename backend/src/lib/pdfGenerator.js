@@ -4,6 +4,13 @@ const fs = require('fs');
 const { Storage } = require('@google-cloud/storage');
 const { logger } = require('./logger');
 const { formatShortName } = require('./nameUtils');
+let sharp = null;
+try {
+  // eslint-disable-next-line global-require
+  sharp = require('sharp');
+} catch (error) {
+  logger.warn('Sharp not available for PDF image layout detection', { error: error.message });
+}
 
 // Colores corporativos de Alltura Servicios Industriales
 const COLORS = {
@@ -414,11 +421,11 @@ async function generateScaffoldsPDF(project, scaffolds, res, _filters = {}) {
 
   for (const [index, scaffold] of scaffolds.entries()) {
     let cardHeight = 185;
-
-    if (scaffold.assembly_notes && scaffold.disassembly_notes) {
-      cardHeight += 50;
-    } else if (scaffold.assembly_notes || scaffold.disassembly_notes) {
-      cardHeight += 10;
+    const notesCount = (scaffold.assembly_notes ? 1 : 0) + (scaffold.disassembly_notes ? 1 : 0);
+    if (notesCount > 0) {
+      const singleNoteHeight = 46;
+      const notesGap = notesCount === 2 ? 8 : 0;
+      cardHeight += notesCount * singleNoteHeight + notesGap;
     }
 
     // Verificar si necesitamos nueva página
@@ -858,109 +865,113 @@ async function drawScaffoldCard(doc, x, y, width, height, scaffold, number) {
        .text('Creado por:', leftCol, contentY)
        .font('Helvetica-Bold').fillColor(COLORS.text)
        .text(createdByName, leftCol + 70, contentY, { width: width / 2 - 100, ellipsis: true });
+    contentY += lineHeight;
   }
+  const leftEndY = contentY;
 
   // === COLUMNA DERECHA ===
-  contentY = y + 50;
+  let contentYRight = y + 50;
 
   // Dimensiones
   const length = scaffold.length || scaffold.depth;
   doc.font('Helvetica').fillColor(COLORS.textLight)
-     .text('Dimensiones:', rightCol, contentY)
+     .text('Dimensiones:', rightCol, contentYRight)
      .font('Helvetica-Bold').fillColor(COLORS.text)
-     .text(`${scaffold.height}m × ${scaffold.width}m × ${length}m`, rightCol + 75, contentY);
-  contentY += lineHeight;
+     .text(`${scaffold.height}m × ${scaffold.width}m × ${length}m`, rightCol + 75, contentYRight);
+  contentYRight += lineHeight;
 
   // m³ Base
   doc.font('Helvetica').fillColor(COLORS.textLight)
-     .text('m³ Base:', rightCol, contentY)
+     .text('m³ Base:', rightCol, contentYRight)
      .font('Helvetica-Bold').fillColor(COLORS.text)
-     .text(`${parseFloat(scaffold.cubic_meters).toFixed(2)} m³`, rightCol + 75, contentY);
-  contentY += lineHeight;
+     .text(`${parseFloat(scaffold.cubic_meters).toFixed(2)} m³`, rightCol + 75, contentYRight);
+  contentYRight += lineHeight;
 
   // m³ Adicionales (si existe)
   const additionalM3 = parseFloat(scaffold.additional_cubic_meters || 0);
   if (additionalM3 > 0) {
     doc.font('Helvetica').fillColor(COLORS.textLight)
-       .text('m³ Adicionales:', rightCol, contentY)
+       .text('m³ Adicionales:', rightCol, contentYRight)
        .font('Helvetica-Bold').fillColor(COLORS.warning)
-       .text(`${additionalM3.toFixed(2)} m³`, rightCol + 75, contentY);
-    contentY += lineHeight;
+       .text(`${additionalM3.toFixed(2)} m³`, rightCol + 75, contentYRight);
+    contentYRight += lineHeight;
 
     const totalM3 = parseFloat(scaffold.total_cubic_meters || scaffold.cubic_meters);
     doc.font('Helvetica').fillColor(COLORS.textLight)
-       .text('Total m³:', rightCol, contentY)
+       .text('Total m³:', rightCol, contentYRight)
        .font('Helvetica-Bold').fillColor(COLORS.accent)
-       .text(`${totalM3.toFixed(2)} m³`, rightCol + 75, contentY);
-    contentY += lineHeight;
+       .text(`${totalM3.toFixed(2)} m³`, rightCol + 75, contentYRight);
+    contentYRight += lineHeight;
   }
 
   // Progreso
   doc.font('Helvetica').fillColor(COLORS.textLight)
-     .text('Progreso:', rightCol, contentY)
+     .text('Progreso:', rightCol, contentYRight)
      .font('Helvetica-Bold').fillColor(COLORS.text)
-     .text(`${scaffold.progress_percentage}%`, rightCol + 75, contentY);
-  contentY += lineHeight;
+     .text(`${scaffold.progress_percentage}%`, rightCol + 75, contentYRight);
+  contentYRight += lineHeight;
 
   // Fecha de Creación
   doc.font('Helvetica').fillColor(COLORS.textLight)
-     .text('Fecha Creación:', rightCol, contentY)
+     .text('Fecha Creación:', rightCol, contentYRight)
      .font('Helvetica-Bold').fillColor(COLORS.text)
-     .text(new Date(scaffold.assembly_created_at).toLocaleDateString('es-CL'), rightCol + 90, contentY);
-  contentY += lineHeight;
+     .text(new Date(scaffold.assembly_created_at).toLocaleDateString('es-CL'), rightCol + 90, contentYRight);
+  contentYRight += lineHeight;
 
   // Fecha de Montaje (NUEVO - solo si está armado)
   if (scaffold.assembly_status === 'assembled' && scaffold.assembly_date) {
     doc.font('Helvetica').fillColor(COLORS.textLight)
-       .text('Fecha Montaje:', rightCol, contentY)
+       .text('Fecha Montaje:', rightCol, contentYRight)
        .font('Helvetica-Bold').fillColor(COLORS.accent)
        .text(new Date(scaffold.assembly_date).toLocaleDateString('es-CL') + ' ' + 
              new Date(scaffold.assembly_date).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }), 
-             rightCol + 90, contentY);
-    contentY += lineHeight;
+             rightCol + 90, contentYRight);
+    contentYRight += lineHeight;
   }
 
   // Fecha de Desarmado (si existe)
   if (scaffold.disassembled_at) {
     doc.font('Helvetica').fillColor(COLORS.textLight)
-       .text('Fecha Desarmado:', rightCol, contentY)
+       .text('Fecha Desarmado:', rightCol, contentYRight)
        .font('Helvetica-Bold').fillColor(COLORS.danger)
-       .text(new Date(scaffold.disassembled_at).toLocaleDateString('es-CL'), rightCol + 105, contentY);
+       .text(new Date(scaffold.disassembled_at).toLocaleDateString('es-CL'), rightCol + 105, contentYRight);
+    contentYRight += lineHeight;
   }
+  const rightEndY = contentYRight;
+
+  const notesStartY = Math.max(leftEndY, rightEndY) + 8;
+  let notesCursorY = notesStartY;
 
   // Notas de montaje (si existen)
   if (scaffold.assembly_notes) {
-    const notesY = y + height - 50;
-    
-    // Fondo para notas
     doc
       .fillColor('#f3f4f6')
-      .roundedRect(x + 15, notesY, width - 30, 40, 5)
+      .roundedRect(x + 15, notesCursorY, width - 30, 40, 5)
       .fill();
 
     doc.fontSize(8).font('Helvetica-Bold').fillColor(COLORS.text)
-       .text('Notas de Montaje:', x + 25, notesY + 8);
+       .text('Notas de Montaje:', x + 25, notesCursorY + 8);
     doc.fontSize(8).font('Helvetica').fillColor(COLORS.textLight)
-       .text(scaffold.assembly_notes, x + 25, notesY + 20, { 
+       .text(scaffold.assembly_notes, x + 25, notesCursorY + 20, { 
          width: width - 50,
          ellipsis: true,
          lineBreak: true
        });
+
+    notesCursorY += 48;
   }
 
   // Notas de desarmado (si existen)
   if (scaffold.disassembly_notes) {
-    const notesY = scaffold.assembly_notes ? y + height - 100 : y + height - 50;
-    
     doc
       .fillColor('#fef2f2')
-      .roundedRect(x + 15, notesY, width - 30, 40, 5)
+      .roundedRect(x + 15, notesCursorY, width - 30, 40, 5)
       .fill();
 
     doc.fontSize(8).font('Helvetica-Bold').fillColor(COLORS.danger)
-       .text('Notas de Desarmado:', x + 25, notesY + 8);
+       .text('Notas de Desarmado:', x + 25, notesCursorY + 8);
     doc.fontSize(8).font('Helvetica').fillColor(COLORS.textLight)
-       .text(scaffold.disassembly_notes, x + 25, notesY + 20, { 
+       .text(scaffold.disassembly_notes, x + 25, notesCursorY + 20, { 
          width: width - 50,
          ellipsis: true,
          lineBreak: true
@@ -1002,15 +1013,16 @@ async function drawScaffoldImagesPage(doc, scaffold, number, imageCache, logoWhi
   const gap = 16;
   const boxX = 50;
 
-  const drawImageBox = async (label, imageUrl, x, width) => {
+  const labelHeight = 14;
+  const drawImageBox = async (label, imageBuffer, x, y, width, height) => {
     doc
       .fontSize(10)
       .font('Helvetica-Bold')
       .fillColor(COLORS.textLight)
-      .text(label, x, boxY);
+      .text(label, x, y);
 
-    const imageBoxY = boxY + 14;
-    const imageBoxHeight = boxHeight - 14;
+    const imageBoxY = y + labelHeight;
+    const imageBoxHeight = height - labelHeight;
 
     doc
       .strokeColor(COLORS.border)
@@ -1018,7 +1030,6 @@ async function drawScaffoldImagesPage(doc, scaffold, number, imageCache, logoWhi
       .roundedRect(x, imageBoxY, width, imageBoxHeight, 8)
       .stroke();
 
-    const imageBuffer = await getImageBuffer(imageUrl, imageCache);
     if (imageBuffer) {
       doc.image(imageBuffer, x + IMAGE_PAGE_PADDING, imageBoxY + IMAGE_PAGE_PADDING, {
         fit: [width - IMAGE_PAGE_PADDING * 2, imageBoxHeight - IMAGE_PAGE_PADDING * 2],
@@ -1037,16 +1048,99 @@ async function drawScaffoldImagesPage(doc, scaffold, number, imageCache, logoWhi
     }
   };
 
+  const assemblyBuffer = hasAssembly ? await getImageBuffer(scaffold.assembly_image_url, imageCache) : null;
+  const disassemblyBuffer = hasDisassembly ? await getImageBuffer(scaffold.disassembly_image_url, imageCache) : null;
+
+  const getImageMeta = async (buffer) => {
+    if (!buffer) return null;
+    if (sharp) {
+      try {
+        const meta = await sharp(buffer).metadata();
+        if (meta?.width && meta?.height) {
+          return { width: meta.width, height: meta.height };
+        }
+      } catch (error) {
+        logger.warn('No se pudo leer metadata de imagen con sharp', { error: error.message });
+      }
+    }
+    try {
+      const image = doc.openImage(buffer);
+      if (image?.width && image?.height) {
+        return { width: image.width, height: image.height };
+      }
+    } catch (error) {
+      logger.warn('No se pudo leer metadata de imagen con pdfkit', { error: error.message });
+    }
+    return null;
+  };
+
+  const assemblyMeta = await getImageMeta(assemblyBuffer);
+  const disassemblyMeta = await getImageMeta(disassemblyBuffer);
+
+  const layoutBoxWidth = pageWidth - 100;
+  const layoutBoxHeight = boxHeight;
+
+  const computeScore = (layout) => {
+    if (layout === 'side') {
+      const boxWidth = (layoutBoxWidth - gap) / 2;
+      const boxHeight = layoutBoxHeight;
+      const score = [assemblyMeta, disassemblyMeta].reduce((sum, meta) => {
+        if (!meta) return sum;
+        const scale = Math.min(
+          (boxWidth - IMAGE_PAGE_PADDING * 2) / meta.width,
+          (boxHeight - labelHeight - IMAGE_PAGE_PADDING * 2) / meta.height
+        );
+        return sum + meta.width * scale * meta.height * scale;
+      }, 0);
+      return score;
+    }
+    if (layout === 'stack') {
+      const boxWidth = layoutBoxWidth;
+      const boxHeight = (layoutBoxHeight - gap) / 2;
+      const score = [assemblyMeta, disassemblyMeta].reduce((sum, meta) => {
+        if (!meta) return sum;
+        const scale = Math.min(
+          (boxWidth - IMAGE_PAGE_PADDING * 2) / meta.width,
+          (boxHeight - labelHeight - IMAGE_PAGE_PADDING * 2) / meta.height
+        );
+        return sum + meta.width * scale * meta.height * scale;
+      }, 0);
+      return score;
+    }
+    return 0;
+  };
+
   if (hasAssembly && hasDisassembly) {
-    const boxWidth = (pageWidth - 100 - gap) / 2;
-    await drawImageBox('Montaje', scaffold.assembly_image_url, boxX, boxWidth);
-    await drawImageBox('Desarmado', scaffold.disassembly_image_url, boxX + boxWidth + gap, boxWidth);
+    const bothLandscape =
+      assemblyMeta && disassemblyMeta && assemblyMeta.width >= assemblyMeta.height && disassemblyMeta.width >= disassemblyMeta.height;
+    const bothPortrait =
+      assemblyMeta && disassemblyMeta && assemblyMeta.width < assemblyMeta.height && disassemblyMeta.width < disassemblyMeta.height;
+
+    let layout = 'side';
+    if (bothLandscape) {
+      layout = 'stack';
+    } else if (bothPortrait) {
+      layout = 'side';
+    } else {
+      const sideScore = computeScore('side');
+      const stackScore = computeScore('stack');
+      layout = stackScore > sideScore ? 'stack' : 'side';
+    }
+
+    if (layout === 'stack') {
+      const boxWidth = layoutBoxWidth;
+      const boxHeight = (layoutBoxHeight - gap) / 2;
+      await drawImageBox('Montaje', assemblyBuffer, boxX, boxY, boxWidth, boxHeight);
+      await drawImageBox('Desarmado', disassemblyBuffer, boxX, boxY + boxHeight + gap, boxWidth, boxHeight);
+    } else {
+      const boxWidth = (layoutBoxWidth - gap) / 2;
+      await drawImageBox('Montaje', assemblyBuffer, boxX, boxY, boxWidth, layoutBoxHeight);
+      await drawImageBox('Desarmado', disassemblyBuffer, boxX + boxWidth + gap, boxY, boxWidth, layoutBoxHeight);
+    }
   } else if (hasAssembly) {
-    const boxWidth = pageWidth - 100;
-    await drawImageBox('Montaje', scaffold.assembly_image_url, boxX, boxWidth);
+    await drawImageBox('Montaje', assemblyBuffer, boxX, boxY, layoutBoxWidth, layoutBoxHeight);
   } else if (hasDisassembly) {
-    const boxWidth = pageWidth - 100;
-    await drawImageBox('Desarmado', scaffold.disassembly_image_url, boxX, boxWidth);
+    await drawImageBox('Desarmado', disassemblyBuffer, boxX, boxY, layoutBoxWidth, layoutBoxHeight);
   }
 }
 
