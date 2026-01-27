@@ -96,6 +96,7 @@ services:
       dockerfile: Dockerfile
       args:
         NODE_ENV: ${NODE_ENV:-production}
+        VITE_IMAGE_MAX_MB: ${VITE_IMAGE_MAX_MB:-25}
     environment:
       BACKEND_URL: ${BACKEND_URL:-http://backend:5000}
       SERVICE_FQDN_FRONTEND: ${SERVICE_FQDN_FRONTEND}

@@ -82,6 +82,7 @@ services:
       dockerfile: Dockerfile
       args:
         NODE_ENV: production
+        VITE_IMAGE_MAX_MB: ${VITE_IMAGE_MAX_MB:-25}
     container_name: alltura_frontend
     labels:
       - "coolify.managed=true"

@@ -129,13 +129,13 @@ const validateImageFormat = (filename) => {
 };
 
 /**
- * Validar tamaño de archivo de imagen (máximo 10MB)
+ * Validar tamaño de archivo de imagen (máximo configurado)
  */
 const validateImageSize = (fileSize) => {
-  const maxSize = 10 * 1024 * 1024; // 10MB
-  
-  if (fileSize > maxSize) {
-    throw new Error('El tamaño de la imagen no puede exceder 10MB');
+  const maxSize = parseInt(process.env.IMAGE_MAX_BYTES || '26214400', 10); // 25MB default
+  if (maxSize > 0 && fileSize > maxSize) {
+    const maxMb = Math.round(maxSize / (1024 * 1024));
+    throw new Error(`El tamaño de la imagen no puede exceder ${maxMb}MB`);
   }
   return true;
 };

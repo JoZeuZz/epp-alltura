@@ -43,7 +43,7 @@ const losslessCompressionEnabled =
   (process.env.IMAGE_LOSSLESS_COMPRESSION || 'true').toLowerCase() !== 'false';
 const stripMetadataEnabled =
   (process.env.IMAGE_STRIP_METADATA || 'true').toLowerCase() !== 'false';
-const maxImageBytes = parseInt(process.env.IMAGE_MAX_BYTES || '10485760', 10);
+const maxImageBytes = parseInt(process.env.IMAGE_MAX_BYTES || '26214400', 10);
 const jpegQuality = parseInt(process.env.IMAGE_JPEG_QUALITY || '92', 10);
 
 const getSharp = () => {

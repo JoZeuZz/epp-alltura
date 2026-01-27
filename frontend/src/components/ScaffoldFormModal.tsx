@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Scaffold } from '../types/api';
+import { IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../config/imageLimits';
 
 interface ScaffoldFormModalProps {
   isOpen: boolean;
@@ -83,11 +84,11 @@ export const ScaffoldFormModal: React.FC<ScaffoldFormModalProps> = ({
       return;
     }
 
-    // Validar tamaño (máx 5MB)
-    if (file.size > 5 * 1024 * 1024) {
+    // Validar tamaño (máx configurado)
+    if (file.size > IMAGE_MAX_BYTES) {
       setErrors(prev => ({
         ...prev,
-        initial_image: 'La imagen no puede superar los 5MB',
+        initial_image: `La imagen no puede superar los ${IMAGE_MAX_LABEL}`,
       }));
       return;
     }
