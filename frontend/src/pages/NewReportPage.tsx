@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { useGet } from '../hooks/useGet';
 import { usePost } from '../hooks/useMutate';
 import { Project, Scaffold } from '../types/api';
+import { IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../config/imageLimits';
 
 const reportSchema = z.object({
   height: z.string()
@@ -29,8 +30,8 @@ const reportSchema = z.object({
     .custom<FileList>()
     .refine((files) => files?.length === 1, 'La imagen es requerida')
     .refine(
-      (files) => files?.[0]?.size <= 10 * 1024 * 1024,
-      'El archivo no debe superar 10MB'
+      (files) => files?.[0]?.size <= IMAGE_MAX_BYTES,
+      `El archivo no debe superar ${IMAGE_MAX_LABEL}`
     )
     .refine(
       (files) => ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(files?.[0]?.type),

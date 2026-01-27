@@ -6,6 +6,7 @@ import { z } from 'zod';
 import toast from 'react-hot-toast';
 import ImageUploadIcon from '../../components/icons/ImageUploadIcon';
 import LoadingOverlay from '../../components/LoadingOverlay';
+import { IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../../config/imageLimits';
 
 const disassembleSchema = z.object({
   disassembly_notes: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
@@ -13,8 +14,8 @@ const disassembleSchema = z.object({
     .custom<FileList>()
     .refine((files) => files?.length === 1, 'La imagen es requerida')
     .refine(
-      (files) => files?.[0]?.size <= 10 * 1024 * 1024,
-      'El archivo no debe superar 10MB'
+      (files) => files?.[0]?.size <= IMAGE_MAX_BYTES,
+      `El archivo no debe superar ${IMAGE_MAX_LABEL}`
     )
     .refine(
       (files) => ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(files?.[0]?.type),

@@ -2,6 +2,7 @@ import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { useParams, useNavigate, useLocation, useLoaderData, Form, useActionData, useNavigation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Project } from '../../types/api';
+import { IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../../config/imageLimits';
 
 /**
  * Página para crear un nuevo andamio
@@ -66,9 +67,9 @@ const CreateScaffoldPage: React.FC = () => {
         return;
       }
 
-      // Validar tamaño (máx 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('La imagen no puede superar los 5MB');
+      // Validar tamaño (máx configurado)
+      if (file.size > IMAGE_MAX_BYTES) {
+        toast.error(`La imagen no puede superar los ${IMAGE_MAX_LABEL}`);
         return;
       }
 

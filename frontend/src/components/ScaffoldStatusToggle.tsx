@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Scaffold } from '../types/api';
+import { IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../config/imageLimits';
 
 interface ScaffoldStatusToggleProps {
   scaffold: Scaffold;
@@ -214,9 +215,9 @@ const DisassembleModal: React.FC<DisassembleModalProps> = ({ onClose, onConfirm 
         return;
       }
 
-      // Validar tamaño (10MB máximo)
-      if (file.size > 10 * 1024 * 1024) {
-        alert('La imagen no puede exceder 10MB');
+      // Validar tamaño (máx configurado)
+      if (file.size > IMAGE_MAX_BYTES) {
+        alert(`La imagen no puede exceder ${IMAGE_MAX_LABEL}`);
         return;
       }
 

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../config/imageLimits';
 
 /**
  * Hook para manejar validaciones de formularios de andamios
@@ -79,14 +80,12 @@ export const useScaffoldValidation = () => {
   }, []);
 
   /**
-   * Valida tamaño de imagen (máximo 10MB)
+   * Valida tamaño de imagen (máximo configurado)
    */
   const validateImageSize = useCallback((file: File): boolean => {
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    
-    if (file.size > maxSize) {
+    if (file.size > IMAGE_MAX_BYTES) {
       setErrors({
-        image: 'La imagen no puede superar los 10MB',
+        image: `La imagen no puede superar los ${IMAGE_MAX_LABEL}`,
       });
       return false;
     }

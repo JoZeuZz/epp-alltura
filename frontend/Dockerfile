@@ -1,6 +1,8 @@
 # Stage: builder
 FROM node:20-alpine AS builder
 WORKDIR /app
+ARG VITE_IMAGE_MAX_MB
+ENV VITE_IMAGE_MAX_MB=${VITE_IMAGE_MAX_MB}
 
 # Install dependencies first (better layer caching)
 # Use --include=dev to ensure devDependencies (vite, etc) are installed
