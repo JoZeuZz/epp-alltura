@@ -2,6 +2,9 @@ server {
   listen 80;
   server_name _;
 
+  # Allow larger uploads for scaffold images
+  client_max_body_size 25m;
+
   root /usr/share/nginx/html;
   index index.html;
 
