@@ -211,8 +211,44 @@ const logCSPViolations = (req, res, next) => {
  * Configuración de CORS
  * Control estricto de qué orígenes pueden acceder a la API
  */
-const configureCORS = (allowedOrigins) => {
+const buildOriginVariants = (value) => {
+  if (!value) return [];
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return [trimmed];
+  }
+  return [`https://${trimmed}`, `http://${trimmed}`];
+};
+
+const collectAllowedOrigins = (allowedOrigins, environment = 'production') => {
+  const origins = [];
+
+  if (Array.isArray(allowedOrigins) && allowedOrigins.length) {
+    origins.push(...allowedOrigins);
+  } else {
+    origins.push(
+      ...buildOriginVariants(process.env.CLIENT_URL),
+      ...buildOriginVariants(process.env.SERVICE_URL_FRONTEND),
+      ...buildOriginVariants(process.env.SERVICE_FQDN_FRONTEND)
+    );
+  }
+
+  if (environment === 'development') {
+    origins.push(
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173'
+    );
+  }
+
+  return Array.from(new Set(origins.filter(Boolean)));
+};
+
+const configureCORS = (allowedOrigins, environment = 'production') => {
   const cors = require('cors');
+  const resolvedOrigins = collectAllowedOrigins(allowedOrigins, environment);
   
   const corsOptions = {
     origin: (origin, callback) => {
@@ -222,10 +258,10 @@ const configureCORS = (allowedOrigins) => {
       }
 
       // Verificar si el origin está en la lista permitida
-      if (allowedOrigins.includes(origin)) {
+      if (resolvedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        logger.warn('CORS: Origin blocked', { origin, ip: origin });
+        logger.warn('CORS: Origin blocked', { origin });
         callback(new Error('Not allowed by CORS policy'));
       }
     },
@@ -278,12 +314,12 @@ const configureHPP = () => {
 const createSecurityMiddleware = (config = {}) => {
   const {
     environment = process.env.NODE_ENV || 'production',
-    allowedOrigins = [process.env.CLIENT_URL || '0.0.0.0'],
+    allowedOrigins,
   } = config;
 
   return {
     helmet: configureHelmet(environment),
-    cors: configureCORS(allowedOrigins),
+    cors: configureCORS(allowedOrigins, environment),
     hpp: configureHPP(),
     additionalHeaders: additionalSecurityHeaders,
     cspLogger: logCSPViolations,

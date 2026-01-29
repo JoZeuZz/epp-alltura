@@ -479,8 +479,6 @@ En `/backend/.env`:
 ```env
 JWT_SECRET=tu_secreto_super_seguro_minimo_32_caracteres
 JWT_REFRESH_SECRET=otro_secreto_diferente_para_refresh
-JWT_EXPIRY=15m
-JWT_REFRESH_EXPIRY=7d
 ```
 
 ### 7. Configurar Redis
@@ -497,15 +495,13 @@ REDIS_URL=redis://localhost:6379
 # Base de Datos
 DB_USER=postgres
 DB_HOST=localhost
-DB_DATABASE=alltura_reports
+DB_NAME=alltura_reports
 DB_PASSWORD=tu_contraseña
 DB_PORT=5432
 
 # JWT
 JWT_SECRET=tu_secreto_super_seguro_minimo_32_caracteres
 JWT_REFRESH_SECRET=otro_secreto_diferente_para_refresh
-JWT_EXPIRY=15m
-JWT_REFRESH_EXPIRY=7d
 
 # Redis
 REDIS_URL=redis://localhost:6379
@@ -514,6 +510,9 @@ REDIS_URL=redis://localhost:6379
 GCS_PROJECT_ID=tu-gcp-project-id
 GCS_BUCKET_NAME=tu-gcs-bucket-name
 GOOGLE_APPLICATION_CREDENTIALS=./config/service-account-key.json
+IMAGE_MAX_BYTES=26214400
+IMAGE_STRIP_METADATA=true
+IMAGE_JPEG_QUALITY=92
 
 # Node Environment
 NODE_ENV=development
@@ -521,6 +520,13 @@ PORT=5000
 
 # Frontend URL (para CORS)
 CLIENT_URL=http://localhost:5173
+```
+
+### Frontend (.env)
+
+```env
+# Límite de tamaño de imagen en el frontend (MB)
+VITE_IMAGE_MAX_MB=25
 ```
 
 ### 9. Iniciar la Aplicación

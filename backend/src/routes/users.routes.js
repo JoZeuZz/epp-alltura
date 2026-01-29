@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const Joi = require('joi');
-const multer = require('multer');
 const { authMiddleware } = require('../middleware/auth');
 const { isAdmin } = require('../middleware/roles');
+const { imageUpload, validateImageMagic } = require('../middleware/upload');
 const UserController = require('../controllers/users.controller');
 const { 
   email, 
@@ -27,11 +27,8 @@ const {
  */
 
 // ============================================
-// CONFIGURACIÓN MULTER (Upload de imágenes)
+// UPLOAD DE IMÁGENES (configuración centralizada)
 // ============================================
-
-const multerStorage = multer.memoryStorage();
-const upload = multer({ storage: multerStorage });
 
 // ============================================
 // VALIDACIÓN SCHEMAS (JOI)
@@ -145,7 +142,13 @@ router.put('/me', authMiddleware, validateBody(selfUpdateUserSchema), UserContro
  * - Upload: Google Cloud Storage
  * - Retorna: usuario actualizado + nuevo token
  */
-router.post('/me/picture', authMiddleware, upload.single('profile_picture'), UserController.uploadProfilePicture);
+router.post(
+  '/me/picture',
+  authMiddleware,
+  imageUpload.single('profile_picture'),
+  validateImageMagic,
+  UserController.uploadProfilePicture
+);
 
 // ============================================
 // ADMIN ROUTES (Solo administradores)

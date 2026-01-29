@@ -3,14 +3,9 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
+const { getPoolConfig } = require('./poolConfig');
 
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
+const pool = new Pool(getPoolConfig());
 
 const setupDatabase = async () => {
   const client = await pool.connect();

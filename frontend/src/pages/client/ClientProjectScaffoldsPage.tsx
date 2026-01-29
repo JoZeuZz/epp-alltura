@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { useLoaderData, useRevalidator } from 'react-router-dom';
-import axios from 'axios';
+import { useLoaderData, useNavigate, useRevalidator } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import ScaffoldDetailsModal from '../../components/ScaffoldDetailsModal';
@@ -8,6 +7,7 @@ import { ProjectDashboard } from '../../components/dashboard';
 import { Project, Scaffold } from '../../types/api';
 import ImageWithFallback from '../../components/ImageWithFallback';
 import { buildImageUrl } from '../../utils/image';
+import { apiService } from '../../services/apiService';
 
 interface ProjectDashboardSummary {
   totalCubicMeters: number;
@@ -36,6 +36,7 @@ interface LoaderData {
  */
 const ClientProjectScaffoldsPage: React.FC = () => {
   const revalidator = useRevalidator();
+  const navigate = useNavigate();
   const { project, scaffolds, summary } = useLoaderData() as LoaderData;
   const [selectedScaffold, setSelectedScaffold] = useState<Scaffold | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -50,15 +51,9 @@ const ClientProjectScaffoldsPage: React.FC = () => {
   const handleExportPDF = async () => {
     setExporting(true);
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await axios.get(
-        `/api/projects/${project.id}/report/pdf`, 
-        {
-          responseType: 'blob',
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
+      const response = await apiService.get(
+        `/projects/${project.id}/report/pdf`,
+        { responseType: 'blob' },
       );
       
       const url = window.URL.createObjectURL(response.data);
@@ -85,15 +80,9 @@ const ClientProjectScaffoldsPage: React.FC = () => {
   const handleExportExcel = async () => {
     setExportingExcel(true);
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await axios.get(
-        `/api/projects/${project.id}/report/excel`,
-        {
-          responseType: 'blob',
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
+      const response = await apiService.get(
+        `/projects/${project.id}/report/excel`,
+        { responseType: 'blob' },
       );
       
       const url = window.URL.createObjectURL(response.data);
@@ -167,6 +156,19 @@ const ClientProjectScaffoldsPage: React.FC = () => {
             <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
           </svg>
           <span>Andamios</span>
+        </button>
+        <button
+          onClick={() => navigate(`/client/project/${project.id}/gallery`)}
+          className="flex-1 sm:flex-none px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path d="M4 3a2 2 0 00-2 2v8a2 2 0 002 2h1v2a1 1 0 001.447.894L10 16.118l3.553 1.776A1 1 0 0015 17v-2h1a2 2 0 002-2V5a2 2 0 00-2-2H4z" />
+          </svg>
+          <span>Galería</span>
         </button>
       </div>
 

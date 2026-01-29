@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { getCubicMetersStats } from '../services/apiService';
 
 interface CubicMetersStats {
   assembled_cubic_meters: number;
@@ -27,18 +28,8 @@ export const CubicMetersDashboard: React.FC = () => {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/dashboard/cubic-meters', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al cargar estadísticas');
-      }
-
-      const data = await response.json();
-      setStats(data);
+      const data = await getCubicMetersStats();
+      setStats(data as CubicMetersStats);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {

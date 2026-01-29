@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Scaffold } from '../types/api';
 import ConfirmationModal from './ConfirmationModal';
 import ScaffoldTimeline from './ScaffoldTimeline';
@@ -39,6 +39,11 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
   const [tempProgress, setTempProgress] = useState(scaffold.progress_percentage);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showAddModificationModal, setShowAddModificationModal] = useState(false);
+  const [activeImageKey, setActiveImageKey] = useState<'assembly' | 'disassembly' | null>(
+    scaffold.assembly_image_url ? 'assembly' : scaffold.disassembly_image_url ? 'disassembly' : null
+  );
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareValue, setCompareValue] = useState(50);
 
   // Hook para gestionar modificaciones
   const {
@@ -78,6 +83,42 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
   };
   const getImageUrl = (url: string | null | undefined, size: 'thumb' | 'medium' | 'full' = 'full') =>
     buildImageUrl(url || '', size);
+
+  const hasAssemblyImage = Boolean(scaffold.assembly_image_url);
+  const hasDisassemblyImage = Boolean(scaffold.disassembly_image_url);
+  const canCompare = hasAssemblyImage && hasDisassemblyImage;
+  const galleryItems = [
+    { key: 'assembly' as const, label: 'Montaje', url: scaffold.assembly_image_url },
+    { key: 'disassembly' as const, label: 'Desarmado', url: scaffold.disassembly_image_url },
+  ].filter((item) => item.url);
+  const activeImage =
+    galleryItems.find((item) => item.key === activeImageKey) || galleryItems[0] || null;
+
+  useEffect(() => {
+    if (!hasAssemblyImage && !hasDisassemblyImage) {
+      setActiveImageKey(null);
+      setCompareMode(false);
+      return;
+    }
+
+    if (activeImageKey === 'assembly' && !hasAssemblyImage) {
+      setActiveImageKey(hasDisassemblyImage ? 'disassembly' : null);
+    } else if (activeImageKey === 'disassembly' && !hasDisassemblyImage) {
+      setActiveImageKey(hasAssemblyImage ? 'assembly' : null);
+    } else if (!activeImageKey) {
+      setActiveImageKey(hasAssemblyImage ? 'assembly' : 'disassembly');
+    }
+
+    if (!canCompare) {
+      setCompareMode(false);
+    }
+  }, [
+    scaffold.id,
+    hasAssemblyImage,
+    hasDisassemblyImage,
+    canCompare,
+    activeImageKey,
+  ]);
 
   const handleDeleteClick = () => {
     setShowDeleteConfirm(true);
@@ -346,14 +387,112 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
         </div>
       )}
       
-      {/* Imagen de Montaje */}
+      {/* Galería de evidencias */}
       <div className="mb-4 md:mb-6">
         <div className="bg-gray-50 rounded-lg p-3 md:p-4">
-          <ImageWithFallback
-            src={getImageUrl(scaffold.assembly_image_url, 'medium')}
-            alt="Foto de montaje"
-            className="rounded-lg w-full object-contain max-h-[250px] sm:max-h-[350px] md:max-h-[400px] mx-auto shadow-lg"
-          />
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <h3 className="font-bold text-dark-blue text-base md:text-lg">Evidencias Fotográficas</h3>
+            {canCompare && (
+              <label className="flex items-center gap-2 text-xs text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={compareMode}
+                  onChange={(event) => setCompareMode(event.target.checked)}
+                  className="h-4 w-4 text-primary-blue"
+                />
+                Comparar antes/después
+              </label>
+            )}
+          </div>
+
+          {!hasAssemblyImage && !hasDisassemblyImage ? (
+            <div className="text-center text-sm text-gray-500 py-6">
+              Aún no hay imágenes registradas para este andamio.
+            </div>
+          ) : compareMode && canCompare ? (
+            <div>
+              <div className="relative w-full h-[260px] sm:h-[320px] md:h-[360px] bg-white rounded-lg overflow-hidden shadow-lg">
+                <ImageWithFallback
+                  src={getImageUrl(scaffold.assembly_image_url, 'medium')}
+                  alt="Montaje"
+                  className="absolute inset-0 w-full h-full object-contain"
+                />
+                <div
+                  className="absolute inset-0 overflow-hidden"
+                  style={{ width: `${compareValue}%` }}
+                >
+                  <ImageWithFallback
+                    src={getImageUrl(scaffold.disassembly_image_url, 'medium')}
+                    alt="Desarmado"
+                    className="absolute inset-0 w-full h-full object-contain"
+                  />
+                </div>
+                <div
+                  className="absolute inset-y-0"
+                  style={{ left: `calc(${compareValue}% - 1px)` }}
+                >
+                  <div className="w-0.5 h-full bg-primary-blue/60" />
+                  <div className="absolute -top-2 -ml-2 w-4 h-4 rounded-full bg-primary-blue shadow" />
+                </div>
+                <span className="absolute left-2 top-2 bg-white/80 text-xs font-semibold text-gray-700 px-2 py-1 rounded">
+                  Montaje
+                </span>
+                <span className="absolute right-2 top-2 bg-white/80 text-xs font-semibold text-gray-700 px-2 py-1 rounded">
+                  Desarmado
+                </span>
+              </div>
+              <input
+                type="range"
+                min={10}
+                max={90}
+                value={compareValue}
+                onChange={(event) => setCompareValue(Number(event.target.value))}
+                className="mt-3 w-full"
+              />
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg p-2 shadow-lg">
+              <ImageWithFallback
+                src={activeImage ? getImageUrl(activeImage.url, 'medium') : ''}
+                alt={activeImage?.label || 'Evidencia fotográfica'}
+                className="rounded-lg w-full object-contain max-h-[250px] sm:max-h-[350px] md:max-h-[400px] mx-auto"
+              />
+              {activeImage && (
+                <p className="mt-2 text-xs text-gray-500 text-center">
+                  {activeImage.label}
+                </p>
+              )}
+            </div>
+          )}
+
+          {galleryItems.length > 1 && (
+            <div className="grid grid-cols-2 gap-2 mt-3">
+              {galleryItems.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => {
+                    setActiveImageKey(item.key);
+                    setCompareMode(false);
+                  }}
+                  className={`rounded-lg border p-2 text-left transition ${
+                    activeImageKey === item.key
+                      ? 'border-primary-blue bg-white'
+                      : 'border-transparent bg-white/60 hover:border-primary-blue/40'
+                  }`}
+                >
+                  <ImageWithFallback
+                    src={getImageUrl(item.url, 'thumb')}
+                    alt={item.label}
+                    className="w-full h-24 object-cover rounded-md"
+                  />
+                  <span className="mt-2 block text-xs font-semibold text-gray-600">
+                    {item.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

@@ -70,6 +70,7 @@ const requestLogger = (req, res, next) => {
       duration,
       userAgent: req.get('User-Agent'),
       ip: req.ip,
+      requestId: req.requestId,
       userId: req.user?.id,
       userRole: req.user?.role
     });

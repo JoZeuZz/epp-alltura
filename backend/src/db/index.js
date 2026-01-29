@@ -1,17 +1,9 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 const { logger } = require('../lib/logger');
+const { getPoolConfig } = require('./poolConfig');
 
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-  max: 20, // Máximo de clientes en el pool
-  idleTimeoutMillis: 30000, // Cerrar clientes inactivos después de 30 segundos
-  connectionTimeoutMillis: 2000, // Error si no se establece conexión en 2 segundos
-});
+const pool = new Pool(getPoolConfig());
 
 // Manejo de errores del pool
 pool.on('error', (err, _client) => {

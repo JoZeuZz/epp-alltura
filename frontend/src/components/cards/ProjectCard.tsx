@@ -8,6 +8,7 @@ interface ProjectCardProps {
   onDelete: (projectId: number) => void;
   onReactivate: (projectId: number) => void;
   onAssign: (project: Project) => void;
+  onGallery?: (project: Project) => void;
 }
 
 const ProjectStatusBadge: React.FC<{ project: Project }> = ({ project }) => {
@@ -40,6 +41,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
   onDelete,
   onReactivate,
   onAssign,
+  onGallery,
 }) => {
   const fields: InfoField[] = [
     {
@@ -64,6 +66,21 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({
       icon: (
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      ),
+    });
+  }
+
+  if (onGallery) {
+    actions.push({
+      label: 'Galería',
+      onClick: () => onGallery(project),
+      variant: 'secondary',
+      show: true,
+      icon: (
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3l2 2h9a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11a3 3 0 100 6 3 3 0 000-6z" />
         </svg>
       ),
     });

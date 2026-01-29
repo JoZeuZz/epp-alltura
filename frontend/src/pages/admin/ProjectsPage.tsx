@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useLoaderData, useActionData, useSubmit } from 'react-router-dom';
+import { useLoaderData, useActionData, useNavigate, useSubmit, useRevalidator } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Client, Project, User } from '../../types/api';
 import ProjectForm from '../../components/ProjectForm';
@@ -9,11 +9,14 @@ import ConfirmationModal from '../../components/ConfirmationModal';
 import { ProjectCard } from '../../components/cards';
 import { ResponsiveGrid } from '../../components/layout';
 import { useBreakpoints } from '../../hooks';
+import { apiService } from '../../services/apiService';
 
 const ProjectsPage: React.FC = () => {
   const { projects, clients, users } = useLoaderData() as { projects: Project[], clients: Client[], users: User[] };
   const actionData = useActionData() as { success?: boolean; message?: string; fieldErrors?: Record<string, string> } | undefined;
+  const navigate = useNavigate();
   const submit = useSubmit();
+  const revalidator = useRevalidator();
   const { isMobile } = useBreakpoints();
   
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -85,26 +88,10 @@ const ProjectsPage: React.FC = () => {
     // Este método se mantiene temporalmente para AssignSupervisorsForm
     // TODO: migrar AssignSupervisorsForm a usar Form también
     try {
-      const token = localStorage.getItem('accessToken');
-      
-      const response = await fetch(`/api/projects/${projectId}/users`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userIds }),
-      });
-      
-      if (response.ok) {
-        toast.success('Usuarios asignados correctamente');
-        handleCloseAssignModal();
-        // Recargar la página para ver los cambios
-        window.location.reload();
-      } else {
-        const data = await response.json();
-        toast.error(data.error || 'Error al asignar usuarios');
-      }
+      await apiService.post(`/projects/${projectId}/users`, { userIds });
+      toast.success('Usuarios asignados correctamente');
+      handleCloseAssignModal();
+      revalidator.revalidate();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error al asignar usuarios';
       toast.error(message);
@@ -116,19 +103,8 @@ const ProjectsPage: React.FC = () => {
     
     // Obtener el conteo de andamios antes de mostrar el modal
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await fetch(`/api/projects/${projectId}/scaffolds/count`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setScaffoldCount(data.count);
-      } else {
-        setScaffoldCount(0);
-      }
+      const response = await apiService.get(`/projects/${projectId}/scaffolds/count`);
+      setScaffoldCount(response.data?.count ?? 0);
     } catch (err) {
       console.error('Error al obtener conteo de andamios:', err);
       setScaffoldCount(0);
@@ -192,6 +168,7 @@ const ProjectsPage: React.FC = () => {
               onDelete={handleDeleteClick}
               onReactivate={handleReactivate}
               onAssign={handleOpenAssignModal}
+              onGallery={(selected) => navigate(`/admin/project/${selected.id}/gallery`)}
             />
           ))}
         </ResponsiveGrid>
@@ -257,6 +234,17 @@ const ProjectsPage: React.FC = () => {
                     </>
                   ) : (
                     <>
+                      <button
+                        onClick={() => navigate(`/admin/project/${project.id}/gallery`)}
+                        className="text-gray-400 hover:text-indigo-600 mr-4"
+                        aria-label={`Ver galería del proyecto ${project.name}`}
+                        title="Galería"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3l2 2h9a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11a3 3 0 100 6 3 3 0 000-6z" />
+                        </svg>
+                      </button>
                       <button
                         onClick={() => handleOpenAssignModal(project)}
                         className="text-green-600 hover:text-green-900 mr-4"

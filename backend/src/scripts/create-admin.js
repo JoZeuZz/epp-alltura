@@ -20,15 +20,10 @@ require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 const { validatePasswordStrength, PASSWORD_CONFIG } = require('../middleware/passwordPolicy');
+const { getPoolConfig } = require('../db/poolConfig');
 
 // Configuración de base de datos
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
-});
+const pool = new Pool(getPoolConfig());
 
 // Colores para terminal
 const colors = {

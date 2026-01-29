@@ -5,6 +5,14 @@
 
 const { logger } = require('../lib/logger');
 
+const getMaxImageMb = () => {
+  const maxBytes = parseInt(process.env.IMAGE_MAX_BYTES || '0', 10);
+  if (!Number.isFinite(maxBytes) || maxBytes <= 0) {
+    return null;
+  }
+  return Math.max(1, Math.round(maxBytes / (1024 * 1024)));
+};
+
 // Middleware para errores de validación Joi
 const handleJoiValidationError = (err) => {
   // Mapear errores de Joi a un formato estructurado por campo
@@ -71,6 +79,25 @@ const handleAuthError = (err) => {
   };
 };
 
+// Errores de carga de archivos (multer)
+const handleMulterError = (err) => {
+  if (err.code === 'LIMIT_FILE_SIZE') {
+    const maxMb = getMaxImageMb();
+    const message = maxMb
+      ? `La imagen supera el tamaño máximo permitido (${maxMb} MB).`
+      : 'La imagen supera el tamaño máximo permitido.';
+    return {
+      status: 413,
+      message
+    };
+  }
+
+  return {
+    status: 400,
+    message: err.message || 'Error en la carga de archivos'
+  };
+};
+
 // Middleware global de manejo de errores
 const errorHandler = (err, req, res, _next) => {
   // Loggear el error usando el logger centralizado
@@ -79,7 +106,8 @@ const errorHandler = (err, req, res, _next) => {
     stack: err.stack,
     body: req.body,
     params: req.params,
-    query: req.query
+    query: req.query,
+    requestId: req.requestId,
   });
 
   // Determinar el tipo de error y manejarlo apropiadamente
@@ -90,6 +118,8 @@ const errorHandler = (err, req, res, _next) => {
     errorResponse = handleJoiValidationError(err);
   } else if (err.name === 'ValidationError') {
     errorResponse = handleValidationError(err);
+  } else if (err.name === 'MulterError' || err.code === 'LIMIT_FILE_SIZE') {
+    errorResponse = handleMulterError(err);
   } else if (err.name === 'DatabaseError' || err.code?.startsWith('23')) {
     errorResponse = handleDatabaseError(err);
   } else if (err.name === 'UnauthorizedError' || err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
@@ -108,6 +138,7 @@ const errorHandler = (err, req, res, _next) => {
   const response = {
     success: false,
     message: errorResponse.message,
+    requestId: req.requestId,
     ...(errorResponse.errors && { errors: errorResponse.errors }),
     ...(errorResponse.fieldErrors && { fieldErrors: errorResponse.fieldErrors }),
     ...(errorResponse.error && { error: errorResponse.error })

@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const Joi = require('joi');
-const multer = require('multer');
 const { authMiddleware } = require('../middleware/auth');
 const { isAdminOrSupervisor, isAdmin, isSupervisor, checkProjectAccess, checkScaffoldAccess } = require('../middleware/roles');
 const { trackScaffoldChanges } = require('../middleware/scaffoldHistory');
+const { imageUpload, validateImageMagic } = require('../middleware/upload');
 const ScaffoldController = require('../controllers/scaffolds.controller');
 const ClientNotesController = require('../controllers/clientNotes.controller');
 const { 
@@ -30,11 +30,8 @@ const {
  */
 
 // ============================================
-// CONFIGURACIÓN DE MULTER
+// UPLOAD DE IMÁGENES (configuración centralizada)
 // ============================================
-
-const multerStorage = multer.memoryStorage();
-const upload = multer({ storage: multerStorage });
 
 // ============================================
 // ESQUEMAS DE VALIDACIÓN JOI
@@ -170,7 +167,8 @@ router.get('/:id/history', checkScaffoldAccess, ScaffoldController.getScaffoldHi
 router.post(
   '/',
   isAdminOrSupervisor,
-  upload.single('assembly_image'),
+  imageUpload.single('assembly_image'),
+  validateImageMagic,
   validateBody(createScaffoldSchema),
   ScaffoldController.createScaffold
 );
@@ -224,7 +222,8 @@ router.patch(
   '/:id/assembly-status',
   checkScaffoldAccess,
   isAdminOrSupervisor,
-  upload.single('disassembly_image'),
+  imageUpload.single('disassembly_image'),
+  validateImageMagic,
   ScaffoldController.updateAssemblyStatus
 );
 
@@ -237,7 +236,8 @@ router.put(
   '/:id/disassemble',
   checkScaffoldAccess,
   isAdminOrSupervisor,
-  upload.single('disassembly_image'),
+  imageUpload.single('disassembly_image'),
+  validateImageMagic,
   ScaffoldController.disassembleScaffold
 );
 

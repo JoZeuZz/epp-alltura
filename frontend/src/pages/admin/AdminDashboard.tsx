@@ -177,6 +177,16 @@ const AdminDashboard: React.FC = () => {
     <div className="space-y-4 sm:space-y-6">
       <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Dashboard</h1>
 
+      {summary?.redCards > 0 && (
+        <div className="rounded-lg border-l-4 border-red-500 bg-red-50 p-4 text-sm text-red-700">
+          Hay {summary.redCards} andamio{summary.redCards === 1 ? '' : 's'} con tarjeta roja.{' '}
+          <Link to="/admin/scaffolds" className="font-semibold text-red-800 hover:underline">
+            Revisar ahora
+          </Link>
+          .
+        </div>
+      )}
+
       {/* Sección: Resumen General */}
       <div>
         <h2 className="text-lg sm:text-xl font-semibold text-dark-blue mb-2 sm:mb-3">Resumen General</h2>
