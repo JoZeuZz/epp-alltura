@@ -1,9 +1,9 @@
-# Estado Completo del Proyecto - Enero 20, 2026
+# Estado Completo del Proyecto - Enero 29, 2026
 
-**Última Actualización:** Enero 20, 2026 - 08:39  
+**Última Actualización:** Enero 29, 2026  
 **Estado:** ✅ Desplegado en Producción (Coolify)  
 **URL Producción:** https://appandamios.alltura.cl  
-**Última Corrección:** Deploy Coolify + rate limiter ajustado  
+**Última Corrección:** GCS + image-proxy firmado, mejoras PDF/Excel y UX de carga de imágenes  
 **Arquitectura Backend:** 3-Layer Architecture + Defense in Depth  
 **Arquitectura Frontend:** React Router v7 + Context API + Role Guards  
 **Infraestructura:** Coolify + Cloudflare Tunnel + Traefik
@@ -13,6 +13,33 @@
 ## RESUMEN EJECUTIVO
 
 Sistema de gestión de andamios industriales persistentes con tracking completo, control de estados dual, auditoría inmutable, soft delete y roles RBAC. El backend fue completamente refactorizado de Fat Controllers a Arquitectura de 3 Capas (Enero 8-12, 2026).
+
+---
+
+## CAMBIOS RECIENTES (Enero 21-29, 2026)
+
+- **Imágenes y almacenamiento (GCS + proxy):**
+  - Carga de fotos a GCS con service account.
+  - Endpoint `/api/image-proxy` con token firmado, TTL y caché controlada.
+  - Límite de tamaño configurable (`IMAGE_MAX_BYTES`) y metadatos opcionalmente strip (`IMAGE_STRIP_METADATA`).
+  - Compresión consistente en frontend (progreso visible + estado “comprimiendo”).
+
+- **PDF/Excel (reportes):**
+  - PDF incluye fotos de montaje/desmontaje por andamio con layout adaptable a orientación.
+  - Notas de montaje/desmontaje reordenadas para no solapar info.
+  - Se removieron “Emitido:” y numeración de páginas por problemas de paginación.
+  - Excel: m³ adicionales aparecen como **fila adicional** (no columna), y se aplican formatos/encabezados.
+
+- **UX / UI:**
+  - Progreso real de subida/compresión en todos los formularios con imágenes.
+  - Galería de fotos por proyecto (solo admin y cliente).
+  - Modal de andamio: carril de fotos montaje/desarmado como fuente principal (sin comparador).
+  - Panel de andamios admin más compacto: filtros colapsables, acciones en iconos, stats al final.
+  - Botón “Volver a Mis Proyectos” en supervisor ahora apunta siempre al dashboard.
+
+- **Infra / Deploy:**
+  - Healthcheck real en backend: `/health/ready`.
+  - Variables nuevas para pool DB y rate limits (ver `DEPLOY_COOLIFY_ENERO_2026`).
 
 ---
 
@@ -104,7 +131,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - ✅ Métodos deactivate/reactivate en modelos
 - ✅ Cascada: cliente desactivado → proyectos desactivados
 - ✅ UI: modales dinámicos, badges visuales, botón "Reactivar"
-- **Memoria:** `SOFT_DELETE_SISTEMA_PROYECTOS_CLIENTES` ← OBSOLETA, info en `ARQUITECTURA_SISTEMA_ENERO_2026`
+- **Memoria:** `ARQUITECTURA_SISTEMA_ENERO_2026` (sección soft delete)
 
 ### 2. Validaciones Proyecto Inactivo (Enero 5-6)
 
@@ -120,7 +147,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - ✅ Registro tipo 'delete' ANTES de borrar andamio
 - ✅ Query COALESCE para datos actuales vs denormalizados
 - ✅ Script de migración ejecutado exitosamente
-- **Memoria:** `HISTORIAL_INMUTABLE_ANDAMIOS` ← OBSOLETA, info en `ARQUITECTURA_SISTEMA_ENERO_2026`
+- **Memoria:** `ARQUITECTURA_SISTEMA_ENERO_2026` (sección historial inmutable)
 
 ### 4. Validación Inline y Estados de Andamios (Enero 12) ⭐ CRÍTICO
 
@@ -493,6 +520,7 @@ npm run preview           # Preview de build
 ### Infraestructura y Deploy
 
 - **DEPLOY_COOLIFY_ENERO_2026** - Deploy completo a Coolify con Cloudflare Tunnel (Enero 19-20, 2026) ⭐ NUEVO
+- **CAMBIOS_CHAT_ENERO_29_2026** - Resumen de mejoras de reportes, imagenes, UX y deploy (Enero 29, 2026)
 
 ### Arquitectura y Estado
 
@@ -529,20 +557,14 @@ npm run preview           # Preview de build
 
 - **RESPONSIVE_DESIGN_ENERO_2026** - Agregadas secciones 13-14: Sistema notificaciones mobile + Progressive disclosure patterns
 
-### OBSOLETAS (borrar para evitar redundancia)
-
-- ~~SOFT_DELETE_SISTEMA_PROYECTOS_CLIENTES~~ (info en ARQUITECTURA_SISTEMA_ENERO_2026)
-- ~~HISTORIAL_INMUTABLE_ANDAMIOS~~ (info en ARQUITECTURA_SISTEMA_ENERO_2026)
-
 ---
 
 ## PRÓXIMOS PASOS
 
 ### Limpieza (Prioridad Baja)
 
-1. Borrar memorias obsoletas (soft delete, historial inmutable)
-2. Remover middleware trackScaffoldChanges redundante
-3. Eliminar /routes/legacy después de 1-2 meses
+1. Remover middleware trackScaffoldChanges redundante
+2. Eliminar /routes/legacy después de 1-2 meses
 
 ### Mejoras Funcionales (Prioridad Media)
 
@@ -552,7 +574,7 @@ npm run preview           # Preview de build
 4. Política de retención historial (>2 años)
 5. Exportar historial a CSV
 6. Soft delete de andamios
-7. Rate limiting por endpoint (actualmente solo login)
+7. Revisar límites de rate limiting por endpoint en producción
 8. Alertas en tiempo real por actividad sospechosa
 9. 2FA (Two-Factor Authentication) para admin
 

@@ -61,6 +61,7 @@ const ScaffoldsPage: React.FC = () => {
   const [imageMeta, setImageMeta] = useState<ImageProcessingResult | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const uploadControllerRef = useRef<AbortController | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedScaffoldIds, setSelectedScaffoldIds] = useState<Set<number>>(new Set());
   const [bulkUpdating, setBulkUpdating] = useState(false);
@@ -534,6 +535,10 @@ const ScaffoldsPage: React.FC = () => {
 
   const isLoading = projectsLoading || scaffoldsLoading;
   const isDisassembleLocked = isDisassembling || uploadStage !== 'idle' || isProcessingImage;
+  const activeFiltersCount =
+    (filters.status && filters.status !== 'all' ? 1 : 0) +
+    (filters.startDate ? 1 : 0) +
+    (filters.endDate ? 1 : 0);
 
   // Calcular estadísticas para mostrar
   const stats = {
@@ -594,19 +599,19 @@ const ScaffoldsPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header con título y descripción */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg p-6 shadow-lg text-white">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">Visualizador de Andamios</h1>
-        <p className="text-blue-100 text-sm md:text-base">
-          Gestiona y visualiza todos los andamios del proyecto
+      {/* Header compacto */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg p-4 shadow-md text-white">
+        <h1 className="text-2xl md:text-3xl font-bold">Visualizador de Andamios</h1>
+        <p className="text-blue-100 text-xs md:text-sm">
+          Gestiona y visualiza los andamios del proyecto
         </p>
       </div>
 
-      {/* Selectores y Filtros */}
-      <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-        <h2 className="text-lg font-semibold text-dark-blue mb-4">Seleccionar Proyecto</h2>
-        <div className="space-y-4">
-          <div>
+      {/* Selector de proyecto + filtros compactos */}
+      <div className="bg-white rounded-lg shadow-md p-4 md:p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div className="flex-1">
+            <h2 className="text-sm font-semibold text-dark-blue mb-2">Proyecto</h2>
             <ProjectSelector
               projects={projects || []}
               selectedProjectId={selectedProjectId}
@@ -617,10 +622,31 @@ const ScaffoldsPage: React.FC = () => {
               }}
             />
           </div>
-          <div>
-            <ScaffoldFilters filters={filters} onFilterChange={setFilters} />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowFilters((prev) => !prev)}
+              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition ${
+                showFilters ? 'border-blue-500 text-blue-600 bg-blue-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h18M6 12h12M10 19h4" />
+              </svg>
+              Filtros
+              {activeFiltersCount > 0 && (
+                <span className="inline-flex items-center justify-center rounded-full bg-blue-600 text-white text-[10px] px-2 py-0.5">
+                  {activeFiltersCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
+        {showFilters && (
+          <div className="mt-4 border-t pt-4">
+            <ScaffoldFilters filters={filters} onFilterChange={setFilters} />
+          </div>
+        )}
       </div>
 
       {/* Alerta de proyecto desactivado */}
@@ -639,62 +665,6 @@ const ScaffoldsPage: React.FC = () => {
                   ? 'El cliente empresa está desactivado. No se pueden crear ni editar andamios.' 
                   : 'Este proyecto está desactivado. No se pueden crear ni editar andamios.'}
               </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Estadísticas del proyecto */}
-      {selectedProjectId && filteredScaffolds.length > 0 && (
-        <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-          <h2 className="text-lg font-semibold text-dark-blue mb-4">Estadísticas del Proyecto</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-            {/* Total Andamios */}
-            <div className="bg-gray-50 rounded-lg p-2.5 md:p-3 border-l-4 border-gray-500">
-              <p className="text-xs text-gray-600 mb-1">Total</p>
-              <p className="text-xl md:text-2xl font-bold text-gray-700">{stats.total}</p>
-            </div>
-            
-            {/* Armados */}
-            <div className="bg-green-50 rounded-lg p-2.5 md:p-3 border-l-4 border-green-500">
-              <p className="text-xs text-green-700 mb-1">Armados</p>
-              <p className="text-xl md:text-2xl font-bold text-green-600">{stats.assembled}</p>
-            </div>
-            
-            {/* En Proceso */}
-            <div className="bg-yellow-50 rounded-lg p-2.5 md:p-3 border-l-4 border-yellow-500">
-              <p className="text-xs text-yellow-700 mb-1">En Proceso</p>
-              <p className="text-xl md:text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
-            </div>
-            
-            {/* Desarmados */}
-            <div className="bg-red-50 rounded-lg p-2.5 md:p-3 border-l-4 border-red-500">
-              <p className="text-xs text-red-700 mb-1">Desarmados</p>
-              <p className="text-xl md:text-2xl font-bold text-red-600">{stats.disassembled}</p>
-            </div>
-            
-            {/* Total m³ */}
-            <div className="bg-blue-50 rounded-lg p-2.5 md:p-3 border-l-4 border-blue-500">
-              <p className="text-xs text-blue-700 mb-1">Total m³</p>
-              <p className="text-lg md:text-xl font-bold text-blue-600">{stats.totalM3.toFixed(1)}</p>
-            </div>
-            
-            {/* m³ Armados */}
-            <div className="bg-cyan-50 rounded-lg p-2.5 md:p-3 border-l-4 border-cyan-500">
-              <p className="text-xs text-cyan-700 mb-1">m³ Armados</p>
-              <p className="text-lg md:text-xl font-bold text-cyan-600">{stats.assembledM3.toFixed(1)}</p>
-            </div>
-            
-            {/* Tarjetas Verdes */}
-            <div className="bg-emerald-50 rounded-lg p-2.5 md:p-3 border-l-4 border-emerald-500">
-              <p className="text-xs text-emerald-700 mb-1">🟢 Verdes</p>
-              <p className="text-xl md:text-2xl font-bold text-emerald-600">{stats.greenCards}</p>
-            </div>
-            
-            {/* Tarjetas Rojas */}
-            <div className="bg-rose-50 rounded-lg p-2.5 md:p-3 border-l-4 border-rose-500">
-              <p className="text-xs text-rose-700 mb-1">🔴 Rojas</p>
-              <p className="text-xl md:text-2xl font-bold text-rose-600">{stats.redCards}</p>
             </div>
           </div>
         </div>
@@ -744,59 +714,67 @@ const ScaffoldsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Acciones principales */}
-      <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
-        <div className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-dark-blue">
-            {selectedProjectId 
-              ? `${filteredScaffolds.length} Andamio${filteredScaffolds.length !== 1 ? 's' : ''} Encontrado${filteredScaffolds.length !== 1 ? 's' : ''}`
-              : 'Selecciona un proyecto para comenzar'}
-          </h2>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+      {/* Acciones principales compactas */}
+      <div className="bg-white rounded-lg shadow-md p-3 md:p-4">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-dark-blue">
+              {selectedProjectId 
+                ? `${filteredScaffolds.length} Andamio${filteredScaffolds.length !== 1 ? 's' : ''} Encontrado${filteredScaffolds.length !== 1 ? 's' : ''}`
+                : 'Selecciona un proyecto para comenzar'}
+            </h2>
+            <p className="text-xs text-gray-500">
+              Accesos rápidos a creación, galería y exportación
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleCreateScaffold}
               disabled={!selectedProjectId || !selectedProject?.active || !selectedProject?.client_active}
-              className="bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2"
+              title="Crear andamio"
+              className="h-10 w-10 rounded-full bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-sm flex items-center justify-center"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Crear Andamio
+              <span className="sr-only">Crear Andamio</span>
             </button>
 
             <button
               onClick={() => selectedProjectId && navigate(`/admin/project/${selectedProjectId}/gallery`)}
               disabled={!selectedProjectId}
-              className="bg-indigo-600 text-white px-4 py-2.5 rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2"
+              title="Ver galería"
+              className="h-10 w-10 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-sm flex items-center justify-center"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3l2 2h9a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11a3 3 0 100 6 3 3 0 000-6z" />
               </svg>
-              Ver Galería
+              <span className="sr-only">Ver Galería</span>
             </button>
-            
+
             <button
               onClick={handleExportPDF}
               disabled={!selectedProjectId || exporting}
-              className="bg-red-500 text-white px-4 py-2.5 rounded-lg hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2"
+              title={exporting ? 'Generando PDF...' : 'Exportar PDF'}
+              className="h-10 w-10 rounded-full bg-red-500 text-white hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-sm flex items-center justify-center"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
-              {exporting ? 'Generando...' : 'Exportar PDF'}
+              <span className="sr-only">{exporting ? 'Generando PDF...' : 'Exportar PDF'}</span>
             </button>
-            
+
             <button
               onClick={handleExportExcel}
               disabled={!selectedProjectId || exportingExcel}
-              className="bg-green-500 text-white px-4 py-2.5 rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2 sm:col-span-2 lg:col-span-1"
+              title={exportingExcel ? 'Generando Excel...' : 'Exportar Excel'}
+              className="h-10 w-10 rounded-full bg-green-500 text-white hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed shadow-sm flex items-center justify-center"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-              {exportingExcel ? 'Generando...' : 'Exportar Excel'}
+              <span className="sr-only">{exportingExcel ? 'Generando Excel...' : 'Exportar Excel'}</span>
             </button>
           </div>
         </div>
@@ -883,7 +861,7 @@ const ScaffoldsPage: React.FC = () => {
         </div>
       ) : selectedProjectId ? (
         filteredScaffolds.length > 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+          <div className="bg-white rounded-lg shadow-md p-3 md:p-4">
             <ScaffoldGrid 
               scaffolds={filteredScaffolds} 
               onScaffoldSelect={setSelectedScaffold}
@@ -911,6 +889,47 @@ const ScaffoldsPage: React.FC = () => {
           </svg>
           <p className="mt-4 text-gray-600 font-medium">Selecciona un proyecto</p>
           <p className="mt-2 text-gray-500 text-sm">Elige un proyecto para visualizar sus andamios</p>
+        </div>
+      )}
+
+      {/* Estadísticas del proyecto (movidas al final) */}
+      {selectedProjectId && filteredScaffolds.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+          <h2 className="text-sm font-semibold text-dark-blue mb-3">Estadísticas del Proyecto</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+            <div className="bg-gray-50 rounded-lg p-2.5 md:p-3 border-l-4 border-gray-500">
+              <p className="text-xs text-gray-600 mb-1">Total</p>
+              <p className="text-xl md:text-2xl font-bold text-gray-700">{stats.total}</p>
+            </div>
+            <div className="bg-green-50 rounded-lg p-2.5 md:p-3 border-l-4 border-green-500">
+              <p className="text-xs text-green-700 mb-1">Armados</p>
+              <p className="text-xl md:text-2xl font-bold text-green-600">{stats.assembled}</p>
+            </div>
+            <div className="bg-yellow-50 rounded-lg p-2.5 md:p-3 border-l-4 border-yellow-500">
+              <p className="text-xs text-yellow-700 mb-1">En Proceso</p>
+              <p className="text-xl md:text-2xl font-bold text-yellow-600">{stats.inProgress}</p>
+            </div>
+            <div className="bg-red-50 rounded-lg p-2.5 md:p-3 border-l-4 border-red-500">
+              <p className="text-xs text-red-700 mb-1">Desarmados</p>
+              <p className="text-xl md:text-2xl font-bold text-red-600">{stats.disassembled}</p>
+            </div>
+            <div className="bg-blue-50 rounded-lg p-2.5 md:p-3 border-l-4 border-blue-500">
+              <p className="text-xs text-blue-700 mb-1">Total m³</p>
+              <p className="text-lg md:text-xl font-bold text-blue-600">{stats.totalM3.toFixed(1)}</p>
+            </div>
+            <div className="bg-cyan-50 rounded-lg p-2.5 md:p-3 border-l-4 border-cyan-500">
+              <p className="text-xs text-cyan-700 mb-1">m³ Armados</p>
+              <p className="text-lg md:text-xl font-bold text-cyan-600">{stats.assembledM3.toFixed(1)}</p>
+            </div>
+            <div className="bg-emerald-50 rounded-lg p-2.5 md:p-3 border-l-4 border-emerald-500">
+              <p className="text-xs text-emerald-700 mb-1">🟢 Verdes</p>
+              <p className="text-xl md:text-2xl font-bold text-emerald-600">{stats.greenCards}</p>
+            </div>
+            <div className="bg-rose-50 rounded-lg p-2.5 md:p-3 border-l-4 border-rose-500">
+              <p className="text-xs text-rose-700 mb-1">🔴 Rojas</p>
+              <p className="text-xl md:text-2xl font-bold text-rose-600">{stats.redCards}</p>
+            </div>
+          </div>
         </div>
       )}
 

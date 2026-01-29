@@ -1,7 +1,7 @@
-# Deploy a Coolify - Enero 19-20, 2026
+# Deploy a Coolify - Enero 19-29, 2026
 
-**Fecha:** Enero 19-20, 2026
-**Estado:** ✅ Completado (pendiente: rate limiter ajustado, needs redeploy)
+**Fecha:** Enero 19-29, 2026
+**Estado:** ✅ Completado
 **Dominio Producción:** https://appandamios.alltura.cl
 **Infraestructura:** Coolify + Cloudflare Tunnel
 
@@ -56,7 +56,7 @@ Deployment completo de la aplicación AppAndamios a Coolify con:
 │  ┌─────────────────────────▼───────────────────────────────┐│
 │  │               BACKEND (node:20-alpine)                   ││
 │  │  Puerto: 5000 (expuesto)                                 ││
-│  │  Health: /health                                         ││
+│  │  Health: /health/ready                                   ││
 │  └─────────────────────────┬───────────────────────────────┘│
 │                            │                                 │
 │  ┌─────────────────────────▼────────┬──────────────────────┐│
@@ -127,12 +127,6 @@ LXC: COOLIFY (192.168.1.11)
 **Solución:** Reconfigurar systemd service con ExecStart correcto
 **Archivo:** `/etc/systemd/system/cloudflared.service`
 
-### 8. Metrics Endpoint 401
-
-**Problema:** `/api/metrics` devuelve 401 (no usado)
-**Solución:** Comentar endpoint temporalmente
-**Archivo:** `backend/src/index.js`
-
 ---
 
 ## ARCHIVOS MODIFICADOS (DEPLOYMENT)
@@ -145,7 +139,7 @@ LXC: COOLIFY (192.168.1.11)
 ### Backend
 
 - `backend/Dockerfile` - Node 20
-- `backend/src/index.js` - trust proxy, metrics disabled
+- `backend/src/index.js` - trust proxy, health ready (/health/ready)
 - `backend/src/routes/auth.routes.js` - rate limit 30/15min
 
 ### Docker Compose
@@ -197,6 +191,28 @@ WantedBy=multi-user.target
 
 ## VARIABLES DE ENTORNO PRODUCCIÓN (Coolify)
 
+### Nuevas variables agregadas (Enero 2026)
+
+Backend / Infra:
+- `DB_POOL_MAX`
+- `DB_POOL_IDLE_MS`
+- `DB_POOL_CONN_TIMEOUT_MS`
+- `DB_POOL_MAX_USES` (opcional)
+- `LOG_LEVEL`
+
+Rate limiting:
+- `IMAGE_PROXY_RATE_LIMIT_MAX`
+- `IMAGE_PROXY_RATE_LIMIT_WINDOW_MS`
+- `REPORT_RATE_LIMIT_MAX`
+- `REPORT_RATE_LIMIT_WINDOW_MS`
+
+Imágenes:
+- `IMAGE_MAX_BYTES`
+- `IMAGE_STRIP_METADATA`
+- `IMAGE_JPEG_QUALITY`
+- `IMAGE_CACHE_CONTROL`
+- `VITE_IMAGE_MAX_MB` (frontend build)
+
 ```env
 DB_USER=alltura_user
 DB_PORT=5432
@@ -213,7 +229,7 @@ REDIS_URL=redis://redis:6379
 SESSION_SECRET=4c619bba38251f...
 VAPID_PUBLIC_KEY=BIoN1QT2gWkiiuTY...
 VAPID_PRIVATE_KEY=PDznXI1WXmcsySe...
-SERVICE_URL_FRONTEND=http://appandamios.alltura.cl
+SERVICE_URL_FRONTEND=https://appandamios.alltura.cl
 SERVICE_FQDN_FRONTEND=appandamios.alltura.cl
 ```
 
@@ -234,7 +250,7 @@ docker logs -f $(docker ps -q --filter "name=frontend")
 docker logs -f $(docker ps -q --filter "name=backend")
 
 # Test health
-curl -s http://localhost:5000/health
+curl -s http://localhost:5000/health/ready
 
 # Test login directo
 curl -X POST http://localhost:5000/api/auth/login \
@@ -286,14 +302,12 @@ docker logs --tail 50 coolify-proxy
 
 ---
 
-## PENDIENTES POST-DEPLOY
+## CHECKLIST POST-DEPLOY
 
-1. [ ] Commit y push últimos cambios (rate limit 30/15min, metrics disabled)
-2. [ ] Redeploy en Coolify
-3. [ ] Reiniciar Redis para limpiar rate limits existentes
-4. [ ] Verificar login funciona desde navegador
-5. [ ] Configurar backups automáticos PostgreSQL
-6. [ ] Monitoreo (uptime, logs)
+1. [ ] Verificar `/health/ready` desde el contenedor backend
+2. [ ] Probar login y carga de imágenes (proxy + GCS)
+3. [ ] Configurar backups automáticos PostgreSQL
+4. [ ] Monitoreo básico (uptime + logs)
 
 ---
 
@@ -306,4 +320,4 @@ docker logs --tail 50 coolify-proxy
 
 ---
 
-**ESTADO FINAL:** Deployment funcional. Frontend carga, backend responde, DB persiste datos entre deploys. Rate limiter necesita ajuste final (commit pendiente).
+**ESTADO FINAL:** Deployment funcional. Frontend carga, backend responde y DB persiste datos. Mantener `package-lock.json` sincronizado para evitar fallas en `npm ci`.
