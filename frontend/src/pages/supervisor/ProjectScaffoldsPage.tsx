@@ -158,7 +158,10 @@ const ProjectScaffoldsPage: React.FC = () => {
 
   return (
     <div>
-      <button onClick={() => navigate(-1)} className="mb-4 text-primary-blue hover:underline">
+      <button
+        onClick={() => navigate('/supervisor/dashboard')}
+        className="mb-4 text-primary-blue hover:underline"
+      >
         &larr; Volver a Mis Proyectos
       </button>
 

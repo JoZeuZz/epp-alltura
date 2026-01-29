@@ -42,8 +42,6 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
   const [activeImageKey, setActiveImageKey] = useState<'assembly' | 'disassembly' | null>(
     scaffold.assembly_image_url ? 'assembly' : scaffold.disassembly_image_url ? 'disassembly' : null
   );
-  const [compareMode, setCompareMode] = useState(false);
-  const [compareValue, setCompareValue] = useState(50);
 
   // Hook para gestionar modificaciones
   const {
@@ -86,7 +84,6 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
 
   const hasAssemblyImage = Boolean(scaffold.assembly_image_url);
   const hasDisassemblyImage = Boolean(scaffold.disassembly_image_url);
-  const canCompare = hasAssemblyImage && hasDisassemblyImage;
   const galleryItems = [
     { key: 'assembly' as const, label: 'Montaje', url: scaffold.assembly_image_url },
     { key: 'disassembly' as const, label: 'Desarmado', url: scaffold.disassembly_image_url },
@@ -97,7 +94,6 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
   useEffect(() => {
     if (!hasAssemblyImage && !hasDisassemblyImage) {
       setActiveImageKey(null);
-      setCompareMode(false);
       return;
     }
 
@@ -109,14 +105,10 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
       setActiveImageKey(hasAssemblyImage ? 'assembly' : 'disassembly');
     }
 
-    if (!canCompare) {
-      setCompareMode(false);
-    }
   }, [
     scaffold.id,
     hasAssemblyImage,
     hasDisassemblyImage,
-    canCompare,
     activeImageKey,
   ]);
 
@@ -392,63 +384,11 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
         <div className="bg-gray-50 rounded-lg p-3 md:p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h3 className="font-bold text-dark-blue text-base md:text-lg">Evidencias Fotográficas</h3>
-            {canCompare && (
-              <label className="flex items-center gap-2 text-xs text-gray-600">
-                <input
-                  type="checkbox"
-                  checked={compareMode}
-                  onChange={(event) => setCompareMode(event.target.checked)}
-                  className="h-4 w-4 text-primary-blue"
-                />
-                Comparar antes/después
-              </label>
-            )}
           </div>
 
           {!hasAssemblyImage && !hasDisassemblyImage ? (
             <div className="text-center text-sm text-gray-500 py-6">
               Aún no hay imágenes registradas para este andamio.
-            </div>
-          ) : compareMode && canCompare ? (
-            <div>
-              <div className="relative w-full h-[260px] sm:h-[320px] md:h-[360px] bg-white rounded-lg overflow-hidden shadow-lg">
-                <ImageWithFallback
-                  src={getImageUrl(scaffold.assembly_image_url, 'medium')}
-                  alt="Montaje"
-                  className="absolute inset-0 w-full h-full object-contain"
-                />
-                <div
-                  className="absolute inset-0 overflow-hidden"
-                  style={{ width: `${compareValue}%` }}
-                >
-                  <ImageWithFallback
-                    src={getImageUrl(scaffold.disassembly_image_url, 'medium')}
-                    alt="Desarmado"
-                    className="absolute inset-0 w-full h-full object-contain"
-                  />
-                </div>
-                <div
-                  className="absolute inset-y-0"
-                  style={{ left: `calc(${compareValue}% - 1px)` }}
-                >
-                  <div className="w-0.5 h-full bg-primary-blue/60" />
-                  <div className="absolute -top-2 -ml-2 w-4 h-4 rounded-full bg-primary-blue shadow" />
-                </div>
-                <span className="absolute left-2 top-2 bg-white/80 text-xs font-semibold text-gray-700 px-2 py-1 rounded">
-                  Montaje
-                </span>
-                <span className="absolute right-2 top-2 bg-white/80 text-xs font-semibold text-gray-700 px-2 py-1 rounded">
-                  Desarmado
-                </span>
-              </div>
-              <input
-                type="range"
-                min={10}
-                max={90}
-                value={compareValue}
-                onChange={(event) => setCompareValue(Number(event.target.value))}
-                className="mt-3 w-full"
-              />
             </div>
           ) : (
             <div className="bg-white rounded-lg p-2 shadow-lg">
@@ -473,7 +413,6 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
                   type="button"
                   onClick={() => {
                     setActiveImageKey(item.key);
-                    setCompareMode(false);
                   }}
                   className={`rounded-lg border p-2 text-left transition ${
                     activeImageKey === item.key
@@ -784,15 +723,6 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
             <span className="w-3 h-3 bg-yellow-500 rounded-full"></span>
             Información de Desmontaje
           </h3>
-          {scaffold.disassembly_image_url && (
-            <div className="mb-4 bg-gray-50 rounded-lg p-4">
-              <ImageWithFallback
-                src={getImageUrl(scaffold.disassembly_image_url, 'medium')}
-                alt="Foto de desmontaje"
-                className="rounded-lg w-full object-contain max-h-[400px] mx-auto shadow-lg"
-              />
-            </div>
-          )}
           <div className="space-y-2">
             {scaffold.disassembled_at && (
               <div>

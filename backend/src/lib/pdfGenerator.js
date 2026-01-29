@@ -666,21 +666,7 @@ function drawProgressBar(doc, x, y, width, height, percentage, label, color) {
 }
 
 function addFooter(doc, pageNumber, totalPages, issueDate, isCover = false) {
-  const footerY = doc.page.height - 30;
-  const dateLabel = issueDate.toLocaleDateString('es-CL');
-  const footerColor = isCover ? COLORS.white : COLORS.textMuted;
-
-  doc.save();
-  doc.fontSize(8).font('Helvetica').fillColor(footerColor);
-  doc.text(`Emitido: ${dateLabel}`, 50, footerY, {
-    width: doc.page.width - 100,
-    align: 'left',
-  });
-  doc.text(`Página ${pageNumber} de ${totalPages}`, 0, footerY, {
-    width: doc.page.width,
-    align: 'center',
-  });
-  doc.restore();
+  return;
 }
 
 function addSignaturePage(doc, issueDate, project, logoWhitePath, logoWhiteExists) {
@@ -727,12 +713,6 @@ function addSignaturePage(doc, issueDate, project, logoWhitePath, logoWhiteExist
     .font('Helvetica-Bold')
     .fillColor(COLORS.text)
     .text('Cliente / Mandante', rightX, baseY + 70, { width: lineWidth, align: 'center' });
-
-  doc
-    .fontSize(10)
-    .font('Helvetica')
-    .fillColor(COLORS.textLight)
-    .text(`Fecha de emisión: ${issueDate.toLocaleDateString('es-CL')}`, 50, doc.page.height - 120);
 
   doc
     .fontSize(10)
