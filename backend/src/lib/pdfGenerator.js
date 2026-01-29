@@ -136,12 +136,12 @@ const getImageBuffer = async (imageUrl, cache) => {
 };
 
 async function generateScaffoldsPDF(project, scaffolds, res, _filters = {}) {
+  const issueDate = new Date();
 
-  
   const doc = new PDFDocument({ 
     margin: 50,
     size: 'LETTER',
-    bufferPages: false, // CRÍTICO: false para evitar páginas en blanco
+    bufferPages: true, // Necesario para numeración de páginas y pie de página
     autoFirstPage: false, // Controlamos manualmente las páginas
     info: {
       Title: `Informe de Andamios - ${project.name}`,
@@ -279,12 +279,12 @@ async function generateScaffoldsPDF(project, scaffolds, res, _filters = {}) {
     .fontSize(11)
     .font('Helvetica')
     .fillColor(COLORS.textLight)
-    .text('Fecha de Generación:', leftMargin, infoY);
+    .text('Fecha de Emisión:', leftMargin, infoY);
   doc
     .fontSize(13)
     .font('Helvetica-Bold')
     .fillColor(COLORS.text)
-    .text(new Date().toLocaleDateString('es-CL', { 
+    .text(issueDate.toLocaleDateString('es-CL', { 
       weekday: 'long',
       year: 'numeric', 
       month: 'long', 
@@ -460,8 +460,14 @@ async function generateScaffoldsPDF(project, scaffolds, res, _filters = {}) {
       );
     }
   }
-  
 
+  addSignaturePage(doc, issueDate, project, logoWhitePath, logoWhiteExists);
+
+  const pageRange = doc.bufferedPageRange();
+  for (let i = pageRange.start; i < pageRange.start + pageRange.count; i += 1) {
+    doc.switchToPage(i);
+    addFooter(doc, i + 1, pageRange.count, issueDate, i === pageRange.start);
+  }
 
   doc.end();
 }
@@ -657,6 +663,89 @@ function drawProgressBar(doc, x, y, width, height, percentage, label, color) {
     .font('Helvetica-Bold')
     .fillColor(COLORS.text)
     .text(`${percentage.toFixed(1)}%`, x + width + 10, barY - 1);
+}
+
+function addFooter(doc, pageNumber, totalPages, issueDate, isCover = false) {
+  const footerY = doc.page.height - 30;
+  const dateLabel = issueDate.toLocaleDateString('es-CL');
+  const footerColor = isCover ? COLORS.white : COLORS.textMuted;
+
+  doc.save();
+  doc.fontSize(8).font('Helvetica').fillColor(footerColor);
+  doc.text(`Emitido: ${dateLabel}`, 50, footerY, {
+    width: doc.page.width - 100,
+    align: 'left',
+  });
+  doc.text(`Página ${pageNumber} de ${totalPages}`, 0, footerY, {
+    width: doc.page.width,
+    align: 'center',
+  });
+  doc.restore();
+}
+
+function addSignaturePage(doc, issueDate, project, logoWhitePath, logoWhiteExists) {
+  doc.addPage();
+  addProfessionalHeader(doc, logoWhitePath, logoWhiteExists);
+
+  doc
+    .fontSize(20)
+    .font('Helvetica-Bold')
+    .fillColor(COLORS.primary)
+    .text('FIRMAS Y VALIDACIÓN', 50, 120);
+
+  doc
+    .fontSize(11)
+    .font('Helvetica')
+    .fillColor(COLORS.textLight)
+    .text(`Proyecto: ${project.name}`, 50, 148);
+
+  const lineWidth = 220;
+  const baseY = 260;
+  const leftX = 80;
+  const rightX = doc.page.width - 80 - lineWidth;
+
+  doc
+    .strokeColor(COLORS.border)
+    .lineWidth(1)
+    .moveTo(leftX, baseY + 60)
+    .lineTo(leftX + lineWidth, baseY + 60)
+    .stroke();
+  doc
+    .fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor(COLORS.text)
+    .text('Supervisor de Obra', leftX, baseY + 70, { width: lineWidth, align: 'center' });
+
+  doc
+    .strokeColor(COLORS.border)
+    .lineWidth(1)
+    .moveTo(rightX, baseY + 60)
+    .lineTo(rightX + lineWidth, baseY + 60)
+    .stroke();
+  doc
+    .fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor(COLORS.text)
+    .text('Cliente / Mandante', rightX, baseY + 70, { width: lineWidth, align: 'center' });
+
+  doc
+    .fontSize(10)
+    .font('Helvetica')
+    .fillColor(COLORS.textLight)
+    .text(`Fecha de emisión: ${issueDate.toLocaleDateString('es-CL')}`, 50, doc.page.height - 120);
+
+  doc
+    .fontSize(10)
+    .font('Helvetica')
+    .fillColor(COLORS.textLight)
+    .text('Firma:', 50, doc.page.height - 95);
+
+  doc
+    .strokeColor(COLORS.border)
+    .lineWidth(1)
+    .moveTo(95, doc.page.height - 90)
+    .lineTo(320, doc.page.height - 90)
+    .stroke();
 }
 
 // Tabla de resumen

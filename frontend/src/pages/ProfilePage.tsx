@@ -1,14 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
-import { usePut, usePost } from '../hooks/useMutate';
+import { usePut } from '../hooks/useMutate';
 import { useFormErrors } from '../hooks/useFormErrors';
 import { User } from '../types/api';
-import imageCompression from 'browser-image-compression';
 import UserIcon from '../components/icons/UserIcon';
+import UploadProgress, { UploadStage } from '../components/UploadProgress';
+import { uploadWithProgress } from '../services/apiService';
+import {
+  processImageFile,
+  formatBytes,
+  ImageProcessingResult,
+  ALLOWED_IMAGE_ACCEPT,
+} from '../utils/imageProcessing';
 
 type UserUpdateResponse = { user: User; token: string };
 
@@ -37,9 +44,13 @@ const ProfilePage: React.FC = () => {
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>(user?.profile_picture_url || '');
+  const [imageMeta, setImageMeta] = useState<ImageProcessingResult | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [uploadStage, setUploadStage] = useState<UploadStage>('idle');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const uploadControllerRef = useRef<AbortController | null>(null);
 
   const updateUser = usePut<UserUpdateResponse, Partial<User>>('user-update', '/users/me');
-  const uploadPicture = usePost<UserUpdateResponse, FormData>('user-picture', '/users/me/picture');
   
   const { generalError, handleApiError, clearErrors } = useFormErrors();
 
@@ -65,17 +76,19 @@ const ProfilePage: React.FC = () => {
     if (!file) return;
 
     try {
-      const options = {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1024,
-        useWebWorker: true,
-      };
-      const compressedFile = await imageCompression(file, options);
-      setImageFile(compressedFile);
-      setImagePreview(URL.createObjectURL(compressedFile));
+      setIsProcessingImage(true);
+      const processed = await processImageFile(file, { maxSizeMB: 1, maxWidthOrHeight: 1024 });
+      setImageFile(processed.file);
+      setImageMeta(processed);
+      setImagePreview(URL.createObjectURL(processed.file));
     } catch (error) {
       console.error('Error compressing image:', error);
       toast.error('Error al procesar la imagen.');
+      setImageFile(null);
+      setImageMeta(null);
+      setImagePreview(user?.profile_picture_url || '');
+    } finally {
+      setIsProcessingImage(false);
     }
   };
 
@@ -100,7 +113,20 @@ const ProfilePage: React.FC = () => {
       if (imageFile) {
         const pictureFormData = new FormData();
         pictureFormData.append('profile_picture', imageFile);
-        const pictureResponse = await uploadPicture.mutateAsync(pictureFormData);
+        const controller = new AbortController();
+        uploadControllerRef.current = controller;
+        setUploadProgress(0);
+        setUploadStage('processing');
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        setUploadStage('uploading');
+        const pictureResponse = await uploadWithProgress<UserUpdateResponse>(
+          'post',
+          '/users/me/picture',
+          pictureFormData,
+          setUploadProgress,
+          controller.signal
+        );
+        setUploadStage('finishing');
         refreshUserData(pictureResponse.user, pictureResponse.token);
         toast.success('¡Perfil actualizado exitosamente!');
       } else {
@@ -108,13 +134,33 @@ const ProfilePage: React.FC = () => {
       }
 
       reset((prev) => ({ ...prev, password: '', confirmPassword: '' }));
+      setUploadStage('idle');
+      setUploadProgress(0);
     } catch (err: unknown) {
+      setUploadStage('idle');
+      setUploadProgress(0);
+      const cancelError = err as { code?: string; name?: string };
+      if (cancelError?.code === 'ERR_CANCELED' || cancelError?.name === 'CanceledError') {
+        toast('Subida cancelada', { icon: '🛑' });
+        return;
+      }
       console.error(err);
       handleApiError(err);
       const apiError = err as { response?: { data?: { message?: string; error?: string } } };
       const errorMsg = apiError?.response?.data?.message || apiError?.response?.data?.error || 'Error al actualizar el perfil';
       toast.error(errorMsg);
+    } finally {
+      uploadControllerRef.current = null;
     }
+  };
+
+  const isLocked = isSubmitting || uploadStage !== 'idle' || isProcessingImage;
+
+  const handleCancelUpload = () => {
+    uploadControllerRef.current?.abort();
+    uploadControllerRef.current = null;
+    setUploadStage('idle');
+    setUploadProgress(0);
   };
 
   return (
@@ -149,9 +195,20 @@ const ProfilePage: React.FC = () => {
               name="profile-picture" 
               type="file" 
               className="sr-only" 
-              accept="image/*" 
+              accept={ALLOWED_IMAGE_ACCEPT}
               onChange={handleImageChange} 
+              disabled={isLocked}
             />
+            {imageMeta && (
+              <p className="text-xs text-gray-500">
+                {imageMeta.wasCompressed
+                  ? `Optimizada: ${formatBytes(imageMeta.originalBytes)} → ${formatBytes(imageMeta.processedBytes)}`
+                  : `Tamaño: ${formatBytes(imageMeta.originalBytes)}`}
+              </p>
+            )}
+            {isProcessingImage && (
+              <p className="text-xs text-gray-500">Procesando imagen...</p>
+            )}
           </div>
 
           {/* Account Data */}
@@ -286,11 +343,25 @@ const ProfilePage: React.FC = () => {
           <div className="pt-4">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isLocked}
               className="w-full py-2.5 px-4 bg-primary-blue text-white rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm"
             >
-              {isSubmitting ? 'Guardando...' : 'Guardar Cambios'}
+              {isLocked ? 'Guardando...' : 'Guardar Cambios'}
             </button>
+            <UploadProgress
+              stage={uploadStage}
+              progress={uploadProgress}
+              className="mt-3 space-y-2"
+            />
+            {uploadStage !== 'idle' && (
+              <button
+                type="button"
+                onClick={handleCancelUpload}
+                className="text-xs text-gray-500 hover:text-gray-700 mt-2"
+              >
+                Cancelar subida
+              </button>
+            )}
           </div>
         </form>
       </div>

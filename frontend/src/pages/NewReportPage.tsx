@@ -1,12 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useGet } from '../hooks/useGet';
-import { usePost } from '../hooks/useMutate';
 import { Project, Scaffold } from '../types/api';
-import { IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../config/imageLimits';
+import UploadProgress, { UploadStage } from '../components/UploadProgress';
+import { uploadWithProgress } from '../services/apiService';
+import {
+  processImageFile,
+  formatBytes,
+  ImageProcessingResult,
+  ALLOWED_IMAGE_ACCEPT,
+} from '../utils/imageProcessing';
 
 const reportSchema = z.object({
   height: z.string()
@@ -28,15 +34,7 @@ const reportSchema = z.object({
   notes: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
   image: z
     .custom<FileList>()
-    .refine((files) => files?.length === 1, 'La imagen es requerida')
-    .refine(
-      (files) => files?.[0]?.size <= IMAGE_MAX_BYTES,
-      `El archivo no debe superar ${IMAGE_MAX_LABEL}`
-    )
-    .refine(
-      (files) => ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(files?.[0]?.type),
-      'Solo se permiten archivos JPG, PNG o WEBP'
-    ),
+    .refine((files) => files?.length === 1, 'La imagen es requerida'),
 });
 
 type ReportFormData = z.infer<typeof reportSchema>;
@@ -46,10 +44,14 @@ const NewReportPage: React.FC = () => {
   const navigate = useNavigate();
 
   const { data: project } = useGet<Project>('project', `/projects/${projectId}`);
-  const createReport = usePost<Scaffold, FormData>('scaffolds', '/scaffolds');
-
   const [imagePreview, setImagePreview] = useState<string>('');
+  const [processedImage, setProcessedImage] = useState<File | null>(null);
+  const [imageMeta, setImageMeta] = useState<ImageProcessingResult | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [cubicMeters, setCubicMeters] = useState<string>('0.00');
+  const [uploadStage, setUploadStage] = useState<UploadStage>('idle');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const uploadControllerRef = useRef<AbortController | null>(null);
 
   const {
     register,
@@ -70,7 +72,8 @@ const NewReportPage: React.FC = () => {
   const heightValue = watch('height');
   const widthValue = watch('width');
   const depthValue = watch('depth');
-  const imageFiles = watch('image');
+  const imageRegister = register('image');
+  const isLocked = isSubmitting || uploadStage !== 'idle' || isProcessingImage;
 
   useEffect(() => {
     const h = parseFloat(heightValue) || 0;
@@ -79,30 +82,77 @@ const NewReportPage: React.FC = () => {
     setCubicMeters((h * w * d).toFixed(2));
   }, [heightValue, widthValue, depthValue]);
 
-  useEffect(() => {
-    if (imageFiles && imageFiles.length > 0) {
-      const file = imageFiles[0];
-      setImagePreview(URL.createObjectURL(file));
+  const handleImageSelection = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setProcessedImage(null);
+      setImageMeta(null);
+      setImagePreview('');
+      return;
     }
-  }, [imageFiles]);
+
+    try {
+      setIsProcessingImage(true);
+      const processed = await processImageFile(file);
+      setProcessedImage(processed.file);
+      setImageMeta(processed);
+      setImagePreview(URL.createObjectURL(processed.file));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al procesar la imagen.';
+      setProcessedImage(null);
+      setImageMeta(null);
+      setImagePreview('');
+      alert(message);
+    } finally {
+      setIsProcessingImage(false);
+    }
+  };
 
   const onSubmit = async (data: ReportFormData) => {
     const formData = new FormData();
+    const imageToUpload = processedImage ?? data.image?.[0];
+    if (!imageToUpload) {
+      alert('La imagen es requerida');
+      return;
+    }
     formData.append('project_id', projectId!);
     formData.append('height', data.height);
     formData.append('width', data.width);
     formData.append('depth', data.depth);
     formData.append('progress_percentage', data.progress.toString());
     formData.append('notes', data.notes || '');
-    formData.append('image', data.image[0]);
+    formData.append('image', imageToUpload);
 
     try {
-      await createReport.mutateAsync(formData);
+      const controller = new AbortController();
+      uploadControllerRef.current = controller;
+      setUploadProgress(0);
+      setUploadStage('processing');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      setUploadStage('uploading');
+      await uploadWithProgress('post', '/scaffolds', formData, setUploadProgress, controller.signal);
+      setUploadStage('finishing');
       navigate(`/supervisor/project/${projectId}`);
     } catch (error) {
+      setUploadStage('idle');
+      setUploadProgress(0);
+      const cancelError = error as { code?: string; name?: string };
+      if (cancelError?.code === 'ERR_CANCELED' || cancelError?.name === 'CanceledError') {
+        alert('Subida cancelada');
+        return;
+      }
       console.error('Failed to create report', error);
       alert('Error al crear el reporte. Por favor, intenta de nuevo.');
+    } finally {
+      uploadControllerRef.current = null;
     }
+  };
+
+  const handleCancelUpload = () => {
+    uploadControllerRef.current?.abort();
+    uploadControllerRef.current = null;
+    setUploadStage('idle');
+    setUploadProgress(0);
   };
 
   return (
@@ -148,11 +198,22 @@ const NewReportPage: React.FC = () => {
                 <input
                   id="image-upload"
                   type="file"
-                  accept="image/*"
+                  accept={ALLOWED_IMAGE_ACCEPT}
                   capture="environment"
-                  {...register('image')}
+                  {...imageRegister}
+                  onChange={(event) => {
+                    imageRegister.onChange(event);
+                    handleImageSelection(event);
+                  }}
                   className="hidden"
                 />
+                {imageMeta && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    {imageMeta.wasCompressed
+                      ? `Optimizada: ${formatBytes(imageMeta.originalBytes)} → ${formatBytes(imageMeta.processedBytes)}`
+                      : `Tamaño: ${formatBytes(imageMeta.originalBytes)}`}
+                  </p>
+                )}
               </div>
             ) : (
               <label
@@ -164,14 +225,21 @@ const NewReportPage: React.FC = () => {
                 <input
                   id="image-upload"
                   type="file"
-                  accept="image/*"
+                  accept={ALLOWED_IMAGE_ACCEPT}
                   capture="environment"
-                  {...register('image')}
+                  {...imageRegister}
+                  onChange={(event) => {
+                    imageRegister.onChange(event);
+                    handleImageSelection(event);
+                  }}
                   className="hidden"
                   aria-invalid={errors.image ? 'true' : 'false'}
                   aria-describedby={errors.image ? 'image-error' : undefined}
                 />
               </label>
+            )}
+            {isProcessingImage && (
+              <p className="mt-2 text-xs text-gray-500">Procesando imagen...</p>
             )}
             {errors.image && (
               <p id="image-error" className="text-red-500 text-sm mt-1" role="alert">{errors.image.message as string}</p>
@@ -284,11 +352,25 @@ const NewReportPage: React.FC = () => {
           <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isLocked}
               className="w-full inline-flex justify-center py-3 px-4 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-primary-blue hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-blue disabled:opacity-50"
             >
-              {isSubmitting ? 'Enviando...' : 'Crear Reporte'}
+              {isLocked ? 'Enviando...' : 'Crear Reporte'}
             </button>
+            <UploadProgress
+              stage={uploadStage}
+              progress={uploadProgress}
+              className="mt-3 space-y-2"
+            />
+            {uploadStage !== 'idle' && (
+              <button
+                type="button"
+                onClick={handleCancelUpload}
+                className="text-xs text-gray-500 hover:text-gray-700 mt-2"
+              >
+                Cancelar subida
+              </button>
+            )}
           </div>
         </form>
       </main>

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const apiService = axios.create({
+export const apiService = axios.create({
   baseURL: '/api',
 });
 
@@ -42,6 +42,30 @@ export const put = <T = unknown>(url: string, data?: unknown) =>
 export const patch = <T = unknown>(url: string, data?: unknown) =>
   apiService.patch<T>(url, data).then((res) => res.data);
 export const del = <T = unknown>(url: string) => apiService.delete<T>(url).then((res) => res.data);
+
+type UploadMethod = 'post' | 'put' | 'patch';
+
+export const uploadWithProgress = <T = unknown>(
+  method: UploadMethod,
+  url: string,
+  data: FormData,
+  onProgress?: (percentage: number) => void,
+  signal?: AbortSignal
+) =>
+  apiService.request<T>({
+    method,
+    url,
+    data,
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    signal,
+    onUploadProgress: (event) => {
+      if (!onProgress || !event.total) return;
+      const percentage = Math.round((event.loaded / event.total) * 100);
+      onProgress(percentage);
+    },
+  }).then((res) => res.data);
 
 // ============ SCAFFOLD ENDPOINTS ============
 
@@ -290,4 +314,3 @@ export const rejectModification = (modificationId: number, rejection_reason: str
  */
 export const deleteModification = (modificationId: number) =>
   del(`/scaffold-modifications/${modificationId}`);
-

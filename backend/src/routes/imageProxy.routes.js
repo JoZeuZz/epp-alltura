@@ -2,6 +2,7 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const { Storage } = require('@google-cloud/storage');
 const { logger } = require('../lib/logger');
+const { createRedisRateLimiter, getRateLimitConfig } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
@@ -30,6 +31,45 @@ if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
 }
 
 const storage = new Storage(storageOptions);
+
+const { windowMs: imageProxyWindowMs, max: imageProxyMax } = getRateLimitConfig('IMAGE_PROXY', {
+  windowMs: 60 * 1000,
+  max: 240,
+});
+
+const imageProxyLimiter = createRedisRateLimiter({
+  keyPrefix: 'image-proxy',
+  windowMs: imageProxyWindowMs,
+  max: imageProxyMax,
+  message: 'Demasiadas solicitudes de imágenes. Intenta nuevamente más tarde.',
+});
+
+const normalizeEtag = (etag) => {
+  if (!etag) {
+    return null;
+  }
+
+  if (etag.startsWith('W/"') || etag.startsWith('"')) {
+    return etag;
+  }
+
+  return `"${etag}"`;
+};
+
+const stripEtag = (etag) => {
+  if (!etag) {
+    return null;
+  }
+
+  let clean = etag;
+  if (clean.startsWith('W/"')) {
+    clean = clean.slice(2);
+  }
+  clean = clean.replace(/^"+|"+$/g, '');
+  return clean;
+};
+
+router.use(imageProxyLimiter);
 
 router.get('/', async (req, res) => {
   if (!proxySecret) {
@@ -64,6 +104,30 @@ router.get('/', async (req, res) => {
     const [metadata] = await file.getMetadata();
     const contentType = metadata.contentType || 'application/octet-stream';
     const cacheMaxAge = proxyMaxCacheSeconds;
+    const lastModified = metadata.updated || metadata.timeCreated;
+    const baseEtagRaw = metadata.etag || metadata.md5Hash || metadata.generation;
+    const baseEtag = stripEtag(baseEtagRaw);
+    const resolvedEtag = normalizeEtag(baseEtag ? (size ? `${baseEtag}-${size}` : baseEtag) : null);
+
+    if (resolvedEtag) {
+      res.setHeader('ETag', resolvedEtag);
+    }
+    if (lastModified) {
+      res.setHeader('Last-Modified', new Date(lastModified).toUTCString());
+    }
+
+    if (resolvedEtag && req.headers['if-none-match'] === resolvedEtag) {
+      res.setHeader('Cache-Control', metadata.cacheControl || `private, max-age=${cacheMaxAge}`);
+      return res.status(304).end();
+    }
+
+    if (!resolvedEtag && lastModified && req.headers['if-modified-since']) {
+      const ifModifiedSince = new Date(req.headers['if-modified-since']);
+      if (!Number.isNaN(ifModifiedSince.getTime()) && ifModifiedSince >= new Date(lastModified)) {
+        res.setHeader('Cache-Control', metadata.cacheControl || `private, max-age=${cacheMaxAge}`);
+        return res.status(304).end();
+      }
+    }
 
     if (size && sizePresets[size] && sharp) {
       const [fileBuffer] = await file.download();

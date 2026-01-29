@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useParams, useNavigate, useLoaderData, useRevalidator } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import axios from 'axios';
-import imageCompression from 'browser-image-compression';
 import { Project, Scaffold } from '../../types/api';
 import Modal from '../../components/Modal';
 import ScaffoldGrid from '../../components/ScaffoldGrid';
 import ScaffoldDetailsModal from '../../components/ScaffoldDetailsModal';
+import UploadProgress, { UploadStage } from '../../components/UploadProgress';
+import { apiService, uploadWithProgress } from '../../services/apiService';
 import { useAuth } from '../../context/AuthContext';
+import {
+  processImageFile,
+  formatBytes,
+  ImageProcessingResult,
+  ALLOWED_IMAGE_ACCEPT,
+} from '../../utils/imageProcessing';
 
 interface LoaderData {
   project: Project;
@@ -24,19 +30,19 @@ const ProjectScaffoldsPage: React.FC = () => {
   const [selectedScaffold, setSelectedScaffold] = useState<Scaffold | null>(null);
   const [scaffoldToDisassemble, setScaffoldToDisassemble] = useState<number | null>(null);
   const [disassembleImage, setDisassembleImage] = useState<File | null>(null);
+  const [imageMeta, setImageMeta] = useState<ImageProcessingResult | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [disassembleNotes, setDisassembleNotes] = useState('');
   const [isDisassembling, setIsDisassembling] = useState(false);
+  const [uploadStage, setUploadStage] = useState<UploadStage>('idle');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const uploadControllerRef = useRef<AbortController | null>(null);
 
   const handleToggleCard = async (scaffoldId: number, currentStatus: 'green' | 'red') => {
     try {
-      const token = localStorage.getItem('accessToken');
       const newStatus = currentStatus === 'green' ? 'red' : 'green';
       
-      await axios.patch(
-        `/api/scaffolds/${scaffoldId}/card-status`,
-        { card_status: newStatus },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await apiService.patch(`/scaffolds/${scaffoldId}/card-status`, { card_status: newStatus });
       
       toast.success(`Tarjeta cambiada a ${newStatus === 'green' ? 'verde' : 'roja'}`);
       
@@ -55,6 +61,7 @@ const ProjectScaffoldsPage: React.FC = () => {
   const handleDisassemble = (scaffoldId: number) => {
     setScaffoldToDisassemble(scaffoldId);
     setDisassembleImage(null);
+    setImageMeta(null);
     setDisassembleNotes('');
   };
 
@@ -63,16 +70,16 @@ const ProjectScaffoldsPage: React.FC = () => {
     if (!file) return;
 
     try {
-      const options = {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1024,
-        useWebWorker: true,
-      };
-      const compressedFile = await imageCompression(file, options);
-      setDisassembleImage(compressedFile);
+      setIsProcessingImage(true);
+      const processed = await processImageFile(file);
+      setDisassembleImage(processed.file);
+      setImageMeta(processed);
     } catch (error) {
       console.error('Error compressing image:', error);
-      toast.error('Error al procesar la imagen');
+      const message = error instanceof Error ? error.message : 'Error al procesar la imagen';
+      toast.error(message);
+    } finally {
+      setIsProcessingImage(false);
     }
   };
 
@@ -84,23 +91,27 @@ const ProjectScaffoldsPage: React.FC = () => {
 
     setIsDisassembling(true);
     try {
-      const token = localStorage.getItem('accessToken');
+      const controller = new AbortController();
+      uploadControllerRef.current = controller;
+
       const formData = new FormData();
       formData.append('disassembly_image', disassembleImage);
       if (disassembleNotes) {
         formData.append('disassembly_notes', disassembleNotes);
       }
 
-      await axios.put(
-        `/api/scaffolds/${scaffoldToDisassemble}/disassemble`,
+      setUploadProgress(0);
+      setUploadStage('processing');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      setUploadStage('uploading');
+      await uploadWithProgress(
+        'put',
+        `/scaffolds/${scaffoldToDisassemble}/disassemble`,
         formData,
-        { 
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
-          } 
-        }
+        setUploadProgress,
+        controller.signal
       );
+      setUploadStage('finishing');
 
       toast.success('Andamio desarmado correctamente');
       
@@ -115,13 +126,30 @@ const ProjectScaffoldsPage: React.FC = () => {
       setDisassembleImage(null);
       setDisassembleNotes('');
     } catch (err: unknown) {
+      setUploadStage('idle');
+      setUploadProgress(0);
+      const cancelError = err as { code?: string; name?: string };
+      if (cancelError?.code === 'ERR_CANCELED' || cancelError?.name === 'CanceledError') {
+        toast('Subida cancelada', { icon: '🛑' });
+        return;
+      }
       const apiError = err as { response?: { data?: { message?: string } } };
       const errorMsg = apiError?.response?.data?.message || 'Error al desarmar el andamio';
       toast.error(errorMsg);
       console.error(err);
     } finally {
       setIsDisassembling(false);
+      setUploadStage('idle');
+      setUploadProgress(0);
+      uploadControllerRef.current = null;
     }
+  };
+
+  const handleCancelUpload = () => {
+    uploadControllerRef.current?.abort();
+    uploadControllerRef.current = null;
+    setUploadStage('idle');
+    setUploadProgress(0);
   };
 
   const refetchScaffolds = async () => {
@@ -220,14 +248,25 @@ const ProjectScaffoldsPage: React.FC = () => {
               </label>
               <input
                 type="file"
-                accept="image/*"
+                accept={ALLOWED_IMAGE_ACCEPT}
                 onChange={handleDisassembleImageChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                disabled={isDisassembling || uploadStage !== 'idle' || isProcessingImage}
               />
               {disassembleImage && (
                 <p className="mt-2 text-sm text-green-600">
                   ✓ Imagen seleccionada: {disassembleImage.name}
                 </p>
+              )}
+              {imageMeta && (
+                <p className="mt-1 text-xs text-gray-500">
+                  {imageMeta.wasCompressed
+                    ? `Optimizada: ${formatBytes(imageMeta.originalBytes)} → ${formatBytes(imageMeta.processedBytes)}`
+                    : `Tamaño: ${formatBytes(imageMeta.originalBytes)}`}
+                </p>
+              )}
+              {isProcessingImage && (
+                <p className="mt-2 text-xs text-gray-500">Procesando imagen...</p>
               )}
             </div>
             
@@ -252,19 +291,33 @@ const ProjectScaffoldsPage: React.FC = () => {
                 setDisassembleImage(null);
                 setDisassembleNotes('');
               }}
-              disabled={isDisassembling}
+              disabled={isDisassembling || uploadStage !== 'idle' || isProcessingImage}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               onClick={handleConfirmDisassemble}
-              disabled={!disassembleImage || isDisassembling}
+              disabled={!disassembleImage || isDisassembling || uploadStage !== 'idle' || isProcessingImage}
               className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {isDisassembling ? 'Desarmando...' : 'Confirmar Desarmado'}
+              {isDisassembling || uploadStage !== 'idle' || isProcessingImage ? 'Desarmando...' : 'Confirmar Desarmado'}
             </button>
           </div>
+          <UploadProgress
+            stage={uploadStage}
+            progress={uploadProgress}
+            className="mt-4 space-y-2"
+          />
+          {uploadStage !== 'idle' && (
+            <button
+              type="button"
+              onClick={handleCancelUpload}
+              className="text-xs text-gray-500 hover:text-gray-700 mt-2"
+            >
+              Cancelar subida
+            </button>
+          )}
         </div>
       </Modal>
 

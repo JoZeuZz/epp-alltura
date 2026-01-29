@@ -20,5 +20,5 @@ USER app
 ENV NODE_ENV=production
 EXPOSE 5000
 # Healthcheck against /health endpoint
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD curl -fsS http://localhost:5000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD curl -fsS http://localhost:5000/health/ready || exit 1
 CMD ["node", "src/index.js"]

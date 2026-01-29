@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ScaffoldHistory } from '../types/api';
+import { getScaffoldHistory } from '../services/apiService';
 
 interface ScaffoldHistoryViewProps {
   scaffoldId: number;
@@ -27,18 +28,8 @@ export const ScaffoldHistoryView: React.FC<ScaffoldHistoryViewProps> = ({
   const fetchHistory = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/scaffolds/${scaffoldId}/history`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al cargar historial');
-      }
-
-      const data = await response.json();
-      setHistory(data);
+      const data = await getScaffoldHistory(scaffoldId);
+      setHistory(data as ScaffoldHistory[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {

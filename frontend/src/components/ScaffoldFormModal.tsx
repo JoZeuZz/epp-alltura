@@ -1,11 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Scaffold } from '../types/api';
-import { IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../config/imageLimits';
+import UploadProgress, { UploadStage } from './UploadProgress';
+import {
+  processImageFile,
+  formatBytes,
+  ImageProcessingResult,
+  ALLOWED_IMAGE_ACCEPT,
+} from '../utils/imageProcessing';
 
 interface ScaffoldFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (formData: FormData) => Promise<void>;
+  onSubmit: (
+    formData: FormData,
+    onProgress?: (percentage: number) => void,
+    onStageChange?: (stage: UploadStage) => void,
+    signal?: AbortSignal
+  ) => Promise<void>;
   scaffold?: Scaffold | null;
   projectId?: number;
 }
@@ -37,8 +48,13 @@ export const ScaffoldFormModal: React.FC<ScaffoldFormModalProps> = ({
   const [imagePreview, setImagePreview] = useState<string | null>(
     scaffold?.initial_image || null
   );
+  const [imageMeta, setImageMeta] = useState<ImageProcessingResult | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadStage, setUploadStage] = useState<UploadStage>('idle');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const uploadControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (isOpen && scaffold) {
@@ -51,6 +67,9 @@ export const ScaffoldFormModal: React.FC<ScaffoldFormModalProps> = ({
         location: scaffold.location || '',
         observations: scaffold.observations || '',
       });
+      setInitialImage(null);
+      setImageMeta(null);
+      setIsProcessingImage(false);
       setImagePreview(scaffold.initial_image || null);
     }
   }, [isOpen, scaffold]);
@@ -74,38 +93,26 @@ export const ScaffoldFormModal: React.FC<ScaffoldFormModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validar tipo de archivo
-    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
-      setErrors(prev => ({
-        ...prev,
-        initial_image: 'Solo se permiten imágenes JPG, PNG o WEBP',
-      }));
-      return;
-    }
-
-    // Validar tamaño (máx configurado)
-    if (file.size > IMAGE_MAX_BYTES) {
-      setErrors(prev => ({
-        ...prev,
-        initial_image: `La imagen no puede superar los ${IMAGE_MAX_LABEL}`,
-      }));
-      return;
-    }
-
-    setInitialImage(file);
-    setErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors.initial_image;
-      return newErrors;
-    });
-
-    // Vista previa
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImagePreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    setIsProcessingImage(true);
+    processImageFile(file)
+      .then((processed) => {
+        setInitialImage(processed.file);
+        setImageMeta(processed);
+        setErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors.initial_image;
+          return newErrors;
+        });
+        setImagePreview(URL.createObjectURL(processed.file));
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : 'Error al procesar la imagen';
+        setErrors((prev) => ({
+          ...prev,
+          initial_image: message,
+        }));
+      })
+      .finally(() => setIsProcessingImage(false));
   };
 
   const validateForm = (): boolean => {
@@ -154,6 +161,8 @@ export const ScaffoldFormModal: React.FC<ScaffoldFormModalProps> = ({
     }
 
     setIsSubmitting(true);
+    setUploadProgress(0);
+    setUploadStage('processing');
 
     try {
       const submitData = new FormData();
@@ -168,9 +177,19 @@ export const ScaffoldFormModal: React.FC<ScaffoldFormModalProps> = ({
         submitData.append('assembly_image', initialImage);
       }
 
-      await onSubmit(submitData);
+      const controller = new AbortController();
+      uploadControllerRef.current = controller;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      setUploadStage('uploading');
+      await onSubmit(submitData, setUploadProgress, setUploadStage, controller.signal);
+      setUploadStage('finishing');
       handleClose();
     } catch (error) {
+      const cancelError = error as { code?: string; name?: string };
+      if (cancelError?.code === 'ERR_CANCELED' || cancelError?.name === 'CanceledError') {
+        setErrors((prev) => ({ ...prev, submit: 'Subida cancelada' }));
+        return;
+      }
       console.error('Error al enviar formulario:', error);
       setErrors(prev => ({
         ...prev,
@@ -178,10 +197,24 @@ export const ScaffoldFormModal: React.FC<ScaffoldFormModalProps> = ({
       }));
     } finally {
       setIsSubmitting(false);
+      setUploadStage('idle');
+      setUploadProgress(0);
+      uploadControllerRef.current = null;
     }
   };
 
+  const handleCancelUpload = () => {
+    if (!uploadControllerRef.current) return;
+    uploadControllerRef.current.abort();
+    uploadControllerRef.current = null;
+    setUploadStage('idle');
+    setUploadProgress(0);
+    setIsSubmitting(false);
+  };
+
   const handleClose = () => {
+    uploadControllerRef.current?.abort();
+    uploadControllerRef.current = null;
     setFormData({
       project_id: projectId || '',
       width: '',
@@ -193,7 +226,11 @@ export const ScaffoldFormModal: React.FC<ScaffoldFormModalProps> = ({
     });
     setInitialImage(null);
     setImagePreview(null);
+    setImageMeta(null);
+    setIsProcessingImage(false);
     setErrors({});
+    setUploadStage('idle');
+    setUploadProgress(0);
     onClose();
   };
 
@@ -207,6 +244,8 @@ export const ScaffoldFormModal: React.FC<ScaffoldFormModalProps> = ({
     }
     return '0.00';
   };
+
+  const isLocked = isSubmitting || uploadStage !== 'idle' || isProcessingImage;
 
   if (!isOpen) return null;
 
@@ -245,9 +284,10 @@ export const ScaffoldFormModal: React.FC<ScaffoldFormModalProps> = ({
             <div className="flex items-start space-x-4">
               <input
                 type="file"
-                accept="image/jpeg,image/png,image/jpg,image/webp"
+                accept={ALLOWED_IMAGE_ACCEPT}
                 onChange={handleImageChange}
                 className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                disabled={isLocked}
               />
               {imagePreview && (
                 <img
@@ -257,6 +297,16 @@ export const ScaffoldFormModal: React.FC<ScaffoldFormModalProps> = ({
                 />
               )}
             </div>
+            {imageMeta && (
+              <p className="mt-2 text-xs text-gray-500">
+                {imageMeta.wasCompressed
+                  ? `Optimizada: ${formatBytes(imageMeta.originalBytes)} → ${formatBytes(imageMeta.processedBytes)}`
+                  : `Tamaño: ${formatBytes(imageMeta.originalBytes)}`}
+              </p>
+            )}
+            {isProcessingImage && (
+              <p className="mt-1 text-xs text-gray-500">Procesando imagen...</p>
+            )}
             {errors.initial_image && (
               <p className="mt-1 text-sm text-red-600">{errors.initial_image}</p>
             )}
@@ -402,18 +452,36 @@ export const ScaffoldFormModal: React.FC<ScaffoldFormModalProps> = ({
               type="button"
               onClick={handleClose}
               className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-              disabled={isSubmitting}
+              disabled={isLocked}
             >
               Cancelar
             </button>
             <button
               type="submit"
               className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400"
-              disabled={isSubmitting}
+              disabled={isLocked}
             >
-              {isSubmitting ? 'Guardando...' : isEditMode ? 'Guardar Cambios' : 'Crear Andamio'}
+              {isLocked
+                ? 'Guardando...'
+                : isEditMode
+                  ? 'Guardar Cambios'
+                  : 'Crear Andamio'}
             </button>
           </div>
+          <UploadProgress
+            stage={uploadStage}
+            progress={uploadProgress}
+            className="mt-4 space-y-2"
+          />
+          {uploadStage !== 'idle' && (
+            <button
+              type="button"
+              onClick={handleCancelUpload}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              Cancelar subida
+            </button>
+          )}
         </form>
       </div>
     </div>

@@ -1,8 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate, useLoaderData } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import axios from 'axios';
-import imageCompression from 'browser-image-compression';
 import Modal from '../../components/Modal';
 import ProjectSelector from '../../components/ProjectSelector';
 import ScaffoldFilters from '../../components/ScaffoldFilters';
@@ -10,6 +8,36 @@ import ScaffoldGrid from '../../components/ScaffoldGrid';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import ScaffoldDetailsModal from '../../components/ScaffoldDetailsModal';
 import { Project, Scaffold } from '../../types/api';
+import UploadProgress, { UploadStage } from '../../components/UploadProgress';
+import { apiService, get, patch, del, uploadWithProgress } from '../../services/apiService';
+import {
+  processImageFile,
+  formatBytes,
+  ImageProcessingResult,
+  ALLOWED_IMAGE_ACCEPT,
+} from '../../utils/imageProcessing';
+
+type AlertFilter =
+  | 'assembled_red'
+  | 'disassembled_green'
+  | 'in_progress_stale'
+  | 'missing_assembly_image'
+  | 'missing_disassembly_image';
+
+const STALE_PROGRESS_DAYS = 7;
+
+const hasAssemblyImage = (scaffold: Scaffold) =>
+  Boolean(scaffold.initial_image || scaffold.assembly_image_url);
+const hasDisassemblyImage = (scaffold: Scaffold) =>
+  Boolean(scaffold.disassembly_image || scaffold.disassembly_image_url);
+const isInProgressStale = (scaffold: Scaffold) => {
+  if (scaffold.assembly_status !== 'in_progress' || !scaffold.assembly_created_at) {
+    return false;
+  }
+  const createdAt = new Date(scaffold.assembly_created_at);
+  if (Number.isNaN(createdAt.getTime())) return false;
+  return Date.now() - createdAt.getTime() > STALE_PROGRESS_DAYS * 24 * 60 * 60 * 1000;
+};
 
 const ScaffoldsPage: React.FC = () => {
   const { projects: initialProjects } = useLoaderData() as { projects: Project[] };
@@ -28,22 +56,36 @@ const ScaffoldsPage: React.FC = () => {
   const [disassembleImage, setDisassembleImage] = useState<File | null>(null);
   const [disassembleNotes, setDisassembleNotes] = useState('');
   const [isDisassembling, setIsDisassembling] = useState(false);
+  const [uploadStage, setUploadStage] = useState<UploadStage>('idle');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [imageMeta, setImageMeta] = useState<ImageProcessingResult | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const uploadControllerRef = useRef<AbortController | null>(null);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedScaffoldIds, setSelectedScaffoldIds] = useState<Set<number>>(new Set());
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [alertFilter, setAlertFilter] = useState<AlertFilter | null>(null);
 
   const projects = initialProjects;
   const projectsLoading = false;
   const scaffoldsLoading = false;
 
+  const fetchScaffolds = async (projectId: string) => {
+    if (!projectId) return;
+    try {
+      setError(null);
+      const data = await get<Scaffold[]>(`/scaffolds/project/${projectId}`);
+      setScaffolds(data || []);
+    } catch (err) {
+      console.error(err);
+      setError('Error al cargar los andamios del proyecto.');
+    }
+  };
+
   // Fetch scaffolds when project is selected
   useEffect(() => {
     if (selectedProjectId) {
-      const fetchScaffolds = async () => {
-        const token = localStorage.getItem('accessToken');
-        const response = await axios.get(`/api/scaffolds/project/${selectedProjectId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setScaffolds(response.data);
-      };
-      fetchScaffolds();
+      fetchScaffolds(selectedProjectId);
     }
   }, [selectedProjectId]);
 
@@ -75,7 +117,7 @@ const ScaffoldsPage: React.FC = () => {
   }, [scaffolds, searchParams, urlParamsProcessed, setSearchParams]);
 
   // Filtrar scaffolds (calculado, no estado)
-  const filteredScaffolds = React.useMemo(() => {
+  const baseFilteredScaffolds = React.useMemo(() => {
     if (!scaffolds || !selectedProjectId) {
       return [];
     }
@@ -102,6 +144,78 @@ const ScaffoldsPage: React.FC = () => {
     return filtered;
   }, [filters, scaffolds, selectedProjectId]);
 
+  const alertCounts = React.useMemo(() => {
+    const assembledRed = baseFilteredScaffolds.filter(
+      (s) => s.assembly_status === 'assembled' && s.card_status === 'red',
+    ).length;
+    const disassembledGreen = baseFilteredScaffolds.filter(
+      (s) => s.assembly_status === 'disassembled' && s.card_status === 'green',
+    ).length;
+    const inProgressStale = baseFilteredScaffolds.filter(isInProgressStale).length;
+    const missingAssemblyImage = baseFilteredScaffolds.filter(
+      (s) => !hasAssemblyImage(s),
+    ).length;
+    const missingDisassemblyImage = baseFilteredScaffolds.filter(
+      (s) => s.assembly_status === 'disassembled' && !hasDisassemblyImage(s),
+    ).length;
+
+    return {
+      assembledRed,
+      disassembledGreen,
+      inProgressStale,
+      missingAssemblyImage,
+      missingDisassemblyImage,
+    };
+  }, [baseFilteredScaffolds]);
+
+  const filteredScaffolds = React.useMemo(() => {
+    if (!alertFilter) return baseFilteredScaffolds;
+    switch (alertFilter) {
+      case 'assembled_red':
+        return baseFilteredScaffolds.filter(
+          (s) => s.assembly_status === 'assembled' && s.card_status === 'red',
+        );
+      case 'disassembled_green':
+        return baseFilteredScaffolds.filter(
+          (s) => s.assembly_status === 'disassembled' && s.card_status === 'green',
+        );
+      case 'in_progress_stale':
+        return baseFilteredScaffolds.filter(isInProgressStale);
+      case 'missing_assembly_image':
+        return baseFilteredScaffolds.filter((s) => !hasAssemblyImage(s));
+      case 'missing_disassembly_image':
+        return baseFilteredScaffolds.filter(
+          (s) => s.assembly_status === 'disassembled' && !hasDisassemblyImage(s),
+        );
+      default:
+        return baseFilteredScaffolds;
+    }
+  }, [alertFilter, baseFilteredScaffolds]);
+
+  useEffect(() => {
+    setBulkMode(false);
+    setSelectedScaffoldIds(new Set());
+    setAlertFilter(null);
+  }, [selectedProjectId]);
+
+  useEffect(() => {
+    if (!bulkMode && selectedScaffoldIds.size > 0) {
+      setSelectedScaffoldIds(new Set());
+    }
+  }, [bulkMode, selectedScaffoldIds.size]);
+
+  useEffect(() => {
+    if (selectedScaffoldIds.size === 0) return;
+    const visibleIds = new Set(baseFilteredScaffolds.map((s) => s.id));
+    setSelectedScaffoldIds((prev) => {
+      const next = new Set<number>();
+      prev.forEach((id) => {
+        if (visibleIds.has(id)) next.add(id);
+      });
+      return next;
+    });
+  }, [baseFilteredScaffolds, selectedScaffoldIds.size]);
+
   const handleCloseModal = () => {
     setSelectedScaffold(null);
   };
@@ -123,14 +237,9 @@ const ScaffoldsPage: React.FC = () => {
 
   const handleToggleCard = async (scaffoldId: number, currentStatus: 'green' | 'red') => {
     try {
-      const token = localStorage.getItem('accessToken');
       const newStatus = currentStatus === 'green' ? 'red' : 'green';
       
-      await axios.patch(
-        `/api/scaffolds/${scaffoldId}/card-status`,
-        { card_status: newStatus },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await patch(`/scaffolds/${scaffoldId}/card-status`, { card_status: newStatus });
       
       toast.success(`Tarjeta cambiada a ${newStatus === 'green' ? 'verde' : 'roja'}`);
       
@@ -146,27 +255,126 @@ const ScaffoldsPage: React.FC = () => {
     }
   };
 
+  const handleToggleSelect = (scaffoldId: number) => {
+    setSelectedScaffoldIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(scaffoldId)) {
+        next.delete(scaffoldId);
+      } else {
+        next.add(scaffoldId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllVisible = () => {
+    setSelectedScaffoldIds(new Set(filteredScaffolds.map((s) => s.id)));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedScaffoldIds(new Set());
+  };
+
+  const handleBulkCardStatus = async (status: 'green' | 'red') => {
+    if (selectedScaffoldIds.size === 0) {
+      toast.error('Selecciona al menos un andamio');
+      return;
+    }
+
+    const selectedScaffolds = scaffolds.filter((s) => selectedScaffoldIds.has(s.id));
+    const eligibleScaffolds = selectedScaffolds.filter(
+      (s) => s.assembly_status === 'assembled' && s.progress_percentage === 100,
+    );
+    const toUpdate = eligibleScaffolds.filter((s) => s.card_status !== status);
+    const skipped = selectedScaffolds.length - eligibleScaffolds.length;
+    const already = eligibleScaffolds.length - toUpdate.length;
+
+    if (toUpdate.length === 0) {
+      if (eligibleScaffolds.length === 0) {
+        toast.error('No hay andamios elegibles para cambiar tarjeta');
+      } else {
+        toast(`Todos los seleccionados ya están en tarjeta ${status === 'green' ? 'verde' : 'roja'}`, {
+          icon: 'ℹ️',
+        });
+      }
+      return;
+    }
+
+    setBulkUpdating(true);
+    try {
+      const results = await Promise.allSettled(
+        toUpdate.map((scaffold) =>
+          patch(`/scaffolds/${scaffold.id}/card-status`, { card_status: status }),
+        ),
+      );
+
+      const successIds: number[] = [];
+      const failedIds: number[] = [];
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          successIds.push(toUpdate[index].id);
+        } else {
+          failedIds.push(toUpdate[index].id);
+        }
+      });
+
+      if (successIds.length > 0) {
+        setScaffolds((prev) =>
+          prev.map((scaffold) =>
+            successIds.includes(scaffold.id) ? { ...scaffold, card_status: status } : scaffold,
+          ),
+        );
+        toast.success(
+          `${successIds.length} andamio${successIds.length === 1 ? '' : 's'} actualizado${successIds.length === 1 ? '' : 's'}`,
+        );
+      }
+
+      if (failedIds.length > 0) {
+        toast.error(`No se pudieron actualizar ${failedIds.length} andamio${failedIds.length === 1 ? '' : 's'}`);
+      }
+
+      if (skipped > 0) {
+        toast(`Se omitieron ${skipped} por no estar al 100% armado`, { icon: '⚠️' });
+      }
+
+      if (already > 0) {
+        toast(`Se omitieron ${already} porque ya estaban ${status === 'green' ? 'verdes' : 'rojas'}`, {
+          icon: 'ℹ️',
+        });
+      }
+    } catch (err) {
+      toast.error('Error al actualizar tarjetas');
+      console.error(err);
+    } finally {
+      setBulkUpdating(false);
+      setSelectedScaffoldIds(new Set());
+    }
+  };
+
   const handleDisassemble = (scaffoldId: number) => {
     setScaffoldToDisassemble(scaffoldId);
     setDisassembleImage(null);
     setDisassembleNotes('');
+    setImageMeta(null);
+    setIsProcessingImage(false);
   };
 
   const handleDisassembleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsProcessingImage(true);
     try {
-      const options = {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1024,
-        useWebWorker: true,
-      };
-      const compressedFile = await imageCompression(file, options);
-      setDisassembleImage(compressedFile);
+      const processed = await processImageFile(file);
+      setDisassembleImage(processed.file);
+      setImageMeta(processed);
     } catch (error) {
-      console.error('Error compressing image:', error);
-      toast.error('Error al procesar la imagen');
+      console.error('Error processing image:', error);
+      toast.error(error instanceof Error ? error.message : 'Error al procesar la imagen');
+      setDisassembleImage(null);
+      setImageMeta(null);
+    } finally {
+      setIsProcessingImage(false);
     }
   };
 
@@ -178,23 +386,26 @@ const ScaffoldsPage: React.FC = () => {
 
     setIsDisassembling(true);
     try {
-      const token = localStorage.getItem('accessToken');
       const formData = new FormData();
       formData.append('disassembly_image', disassembleImage);
       if (disassembleNotes) {
         formData.append('disassembly_notes', disassembleNotes);
       }
 
-      await axios.put(
-        `/api/scaffolds/${scaffoldToDisassemble}/disassemble`,
+      const controller = new AbortController();
+      uploadControllerRef.current = controller;
+      setUploadProgress(0);
+      setUploadStage('processing');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      setUploadStage('uploading');
+      await uploadWithProgress(
+        'put',
+        `/scaffolds/${scaffoldToDisassemble}/disassemble`,
         formData,
-        { 
-          headers: { 
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
-          } 
-        }
+        setUploadProgress,
+        controller.signal
       );
+      setUploadStage('finishing');
 
       toast.success('Andamio desarmado correctamente');
       
@@ -208,24 +419,37 @@ const ScaffoldsPage: React.FC = () => {
       setScaffoldToDisassemble(null);
       setDisassembleImage(null);
       setDisassembleNotes('');
+      setImageMeta(null);
     } catch (err: unknown) {
+      const cancelError = err as { code?: string; name?: string };
+      if (cancelError?.code === 'ERR_CANCELED' || cancelError?.name === 'CanceledError') {
+        toast('Subida cancelada', { icon: 'ℹ️' });
+        return;
+      }
       const apiError = err as { response?: { data?: { message?: string } } };
       const errorMsg = apiError?.response?.data?.message || 'Error al desarmar el andamio';
       toast.error(errorMsg);
       console.error(err);
     } finally {
       setIsDisassembling(false);
+      setUploadStage('idle');
+      setUploadProgress(0);
+      uploadControllerRef.current = null;
     }
+  };
+
+  const handleCancelUpload = () => {
+    if (!uploadControllerRef.current) return;
+    uploadControllerRef.current.abort();
+    uploadControllerRef.current = null;
+    setUploadStage('idle');
+    setUploadProgress(0);
+    setIsDisassembling(false);
   };
 
   const handleDeleteScaffold = async (scaffoldId: number) => {
     try {
-      const token = localStorage.getItem('accessToken');
-      await axios.delete(`/api/scaffolds/${scaffoldId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
+      await del(`/scaffolds/${scaffoldId}`);
       
       toast.success('Reporte eliminado correctamente');
       
@@ -234,9 +458,6 @@ const ScaffoldsPage: React.FC = () => {
       
       // Cerrar el modal
       setSelectedScaffold(null);
-      
-      // Recargar los datos del servidor
-      window.location.reload();
     } catch (err: unknown) {
       const apiError = err as { response?: { data?: { message?: string } } };
       const errorMsg = apiError?.response?.data?.message || 'Error al eliminar el reporte';
@@ -249,21 +470,14 @@ const ScaffoldsPage: React.FC = () => {
     if (!selectedProjectId) return;
     setExporting(true);
     try {
-      // Pasar solo los filtros como query params (sin incluir responseType)
-      const queryParams = new URLSearchParams();
-      if (filters.status) queryParams.append('status', filters.status);
-      if (filters.startDate) queryParams.append('startDate', filters.startDate);
-      if (filters.endDate) queryParams.append('endDate', filters.endDate);
-      
-      const token = localStorage.getItem('accessToken');
-      const response = await axios.get(
-        `/api/projects/${selectedProjectId}/report/pdf?${queryParams.toString()}`, 
-        {
-          responseType: 'blob',
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
+      const params: Record<string, string> = {};
+      if (filters.status && filters.status !== 'all') params.status = filters.status;
+      if (filters.startDate) params.startDate = filters.startDate;
+      if (filters.endDate) params.endDate = filters.endDate;
+
+      const response = await apiService.get(
+        `/projects/${selectedProjectId}/report/pdf`,
+        { responseType: 'blob', params },
       );
       // Crear un enlace temporal para descargar el archivo
       const url = window.URL.createObjectURL(response.data);
@@ -292,15 +506,9 @@ const ScaffoldsPage: React.FC = () => {
     if (!selectedProjectId) return;
     setExportingExcel(true);
     try {
-      const token = localStorage.getItem('accessToken');
-      const response = await axios.get(
-        `/api/projects/${selectedProjectId}/report/excel`,
-        {
-          responseType: 'blob',
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
+      const response = await apiService.get(
+        `/projects/${selectedProjectId}/report/excel`,
+        { responseType: 'blob' },
       );
       const url = window.URL.createObjectURL(response.data);
       const link = document.createElement('a');
@@ -325,6 +533,7 @@ const ScaffoldsPage: React.FC = () => {
   };
 
   const isLoading = projectsLoading || scaffoldsLoading;
+  const isDisassembleLocked = isDisassembling || uploadStage !== 'idle' || isProcessingImage;
 
   // Calcular estadísticas para mostrar
   const stats = {
@@ -339,6 +548,49 @@ const ScaffoldsPage: React.FC = () => {
     greenCards: filteredScaffolds.filter(s => s.card_status === 'green').length,
     redCards: filteredScaffolds.filter(s => s.card_status === 'red').length,
   };
+
+  const alertItems = [
+    {
+      id: 'assembled_red' as AlertFilter,
+      label: 'Armado con tarjeta roja',
+      description: 'Requiere revisión',
+      count: alertCounts.assembledRed,
+      className: 'border-red-200 bg-red-50 text-red-700',
+      ringClass: 'ring-red-400',
+    },
+    {
+      id: 'disassembled_green' as AlertFilter,
+      label: 'Desarmado con tarjeta verde',
+      description: 'Verificar estado',
+      count: alertCounts.disassembledGreen,
+      className: 'border-amber-200 bg-amber-50 text-amber-700',
+      ringClass: 'ring-amber-400',
+    },
+    {
+      id: 'in_progress_stale' as AlertFilter,
+      label: `En proceso +${STALE_PROGRESS_DAYS} días`,
+      description: 'Revisar avance',
+      count: alertCounts.inProgressStale,
+      className: 'border-yellow-200 bg-yellow-50 text-yellow-700',
+      ringClass: 'ring-yellow-400',
+    },
+    {
+      id: 'missing_assembly_image' as AlertFilter,
+      label: 'Sin foto de montaje',
+      description: 'Completar evidencia',
+      count: alertCounts.missingAssemblyImage,
+      className: 'border-slate-200 bg-slate-50 text-slate-700',
+      ringClass: 'ring-slate-400',
+    },
+    {
+      id: 'missing_disassembly_image' as AlertFilter,
+      label: 'Sin foto de desarmado',
+      description: 'Adjuntar evidencia',
+      count: alertCounts.missingDisassemblyImage,
+      className: 'border-orange-200 bg-orange-50 text-orange-700',
+      ringClass: 'ring-orange-400',
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -448,6 +700,50 @@ const ScaffoldsPage: React.FC = () => {
         </div>
       )}
 
+      {/* Alertas inteligentes */}
+      {selectedProjectId && baseFilteredScaffolds.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-dark-blue">Alertas inteligentes</h2>
+              <p className="text-xs text-gray-500">
+                Basadas en los andamios del proyecto y filtros actuales
+              </p>
+            </div>
+            {alertFilter && (
+              <button
+                type="button"
+                onClick={() => setAlertFilter(null)}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Limpiar filtro
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            {alertItems.map((item) => {
+              const isActive = alertFilter === item.id;
+              const isDisabled = item.count === 0;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  disabled={isDisabled}
+                  onClick={() => setAlertFilter(isActive ? null : item.id)}
+                  className={`rounded-lg border p-3 text-left transition-all ${item.className} ${
+                    isActive ? `ring-2 ring-offset-2 ${item.ringClass}` : ''
+                  } ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'}`}
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide">{item.label}</p>
+                  <p className="mt-2 text-2xl font-bold">{item.count}</p>
+                  <p className="text-[11px] mt-1 opacity-80">{item.description}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Acciones principales */}
       <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
         <div className="flex flex-col gap-4">
@@ -457,7 +753,7 @@ const ScaffoldsPage: React.FC = () => {
               : 'Selecciona un proyecto para comenzar'}
           </h2>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
             <button
               onClick={handleCreateScaffold}
               disabled={!selectedProjectId || !selectedProject?.active || !selectedProject?.client_active}
@@ -467,6 +763,18 @@ const ScaffoldsPage: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               Crear Andamio
+            </button>
+
+            <button
+              onClick={() => selectedProjectId && navigate(`/admin/project/${selectedProjectId}/gallery`)}
+              disabled={!selectedProjectId}
+              className="bg-indigo-600 text-white px-4 py-2.5 rounded-lg hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3l2 2h9a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11a3 3 0 100 6 3 3 0 000-6z" />
+              </svg>
+              Ver Galería
             </button>
             
             <button
@@ -494,6 +802,72 @@ const ScaffoldsPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Acciones masivas */}
+      {selectedProjectId && baseFilteredScaffolds.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <h2 className="text-lg font-semibold text-dark-blue">Acciones masivas</h2>
+                <p className="text-xs text-gray-500">
+                  Cambia tarjetas en lote cuando los andamios estén al 100% armado
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBulkMode((prev) => !prev)}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              >
+                {bulkMode ? 'Salir de selección' : 'Seleccionar varios'}
+              </button>
+            </div>
+
+            {bulkMode && (
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-gray-600">
+                    Seleccionados: {selectedScaffoldIds.size}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSelectAllVisible}
+                    className="rounded-full border border-gray-200 px-3 py-1 text-gray-600 hover:bg-gray-50"
+                  >
+                    Seleccionar visibles
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearSelection}
+                    className="rounded-full border border-gray-200 px-3 py-1 text-gray-600 hover:bg-gray-50"
+                  >
+                    Limpiar selección
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleBulkCardStatus('green')}
+                    disabled={bulkUpdating || selectedScaffoldIds.size === 0}
+                    className="flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    Poner tarjeta verde
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBulkCardStatus('red')}
+                    disabled={bulkUpdating || selectedScaffoldIds.size === 0}
+                    className="flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    Poner tarjeta roja
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Mensajes de error */}
       {error && (
         <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg shadow-md">
@@ -516,6 +890,9 @@ const ScaffoldsPage: React.FC = () => {
               onToggleCard={handleToggleCard}
               onDisassemble={handleDisassemble}
               projectAssignedSupervisorId={selectedProject?.assigned_supervisor_id}
+              selectable={bulkMode}
+              selectedIds={selectedScaffoldIds}
+              onToggleSelect={handleToggleSelect}
             />
           </div>
         ) : (
@@ -553,9 +930,15 @@ const ScaffoldsPage: React.FC = () => {
       <Modal 
         isOpen={!!scaffoldToDisassemble} 
         onClose={() => {
+          uploadControllerRef.current?.abort();
+          uploadControllerRef.current = null;
           setScaffoldToDisassemble(null);
           setDisassembleImage(null);
           setDisassembleNotes('');
+          setImageMeta(null);
+          setIsProcessingImage(false);
+          setUploadStage('idle');
+          setUploadProgress(0);
         }}
       >
         <div className="p-6">
@@ -571,14 +954,25 @@ const ScaffoldsPage: React.FC = () => {
               </label>
               <input
                 type="file"
-                accept="image/*"
+                accept={ALLOWED_IMAGE_ACCEPT}
                 onChange={handleDisassembleImageChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                disabled={isDisassembleLocked}
               />
               {disassembleImage && (
                 <p className="mt-2 text-sm text-green-600">
                   ✓ Imagen seleccionada: {disassembleImage.name}
                 </p>
+              )}
+              {imageMeta && (
+                <p className="mt-2 text-xs text-gray-500">
+                  {imageMeta.wasCompressed
+                    ? `Optimizada: ${formatBytes(imageMeta.originalBytes)} → ${formatBytes(imageMeta.processedBytes)}`
+                    : `Tamaño: ${formatBytes(imageMeta.originalBytes)}`}
+                </p>
+              )}
+              {isProcessingImage && (
+                <p className="mt-1 text-xs text-gray-500">Procesando imagen...</p>
               )}
             </div>
             
@@ -592,6 +986,7 @@ const ScaffoldsPage: React.FC = () => {
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Ingresa observaciones sobre el desarmado..."
+                disabled={isDisassembleLocked}
               />
             </div>
           </div>
@@ -599,23 +994,43 @@ const ScaffoldsPage: React.FC = () => {
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => {
+                uploadControllerRef.current?.abort();
+                uploadControllerRef.current = null;
                 setScaffoldToDisassemble(null);
                 setDisassembleImage(null);
                 setDisassembleNotes('');
+                setImageMeta(null);
+                setIsProcessingImage(false);
+                setUploadStage('idle');
+                setUploadProgress(0);
               }}
-              disabled={isDisassembling}
+              disabled={isDisassembleLocked}
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               onClick={handleConfirmDisassemble}
-              disabled={!disassembleImage || isDisassembling}
+              disabled={!disassembleImage || isDisassembleLocked}
               className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
-              {isDisassembling ? 'Desarmando...' : 'Confirmar Desarmado'}
+              {isDisassembleLocked ? 'Desarmando...' : 'Confirmar Desarmado'}
             </button>
           </div>
+          <UploadProgress
+            stage={uploadStage}
+            progress={uploadProgress}
+            className="mt-4 space-y-2"
+          />
+          {uploadStage !== 'idle' && (
+            <button
+              type="button"
+              onClick={handleCancelUpload}
+              className="text-xs text-gray-500 hover:text-gray-700 mt-2"
+            >
+              Cancelar subida
+            </button>
+          )}
         </div>
       </Modal>
 
@@ -627,7 +1042,9 @@ const ScaffoldsPage: React.FC = () => {
             canEdit={true}
             projectId={selectedProjectId ? Number(selectedProjectId) : undefined}
             onUpdate={() => {
-              window.location.reload();
+              if (selectedProjectId) {
+                fetchScaffolds(selectedProjectId);
+              }
             }}
           />
         )}

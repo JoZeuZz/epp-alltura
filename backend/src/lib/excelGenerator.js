@@ -1,6 +1,17 @@
 const excel = require('exceljs');
 const { formatShortName } = require('./nameUtils');
 
+const getColumnLetter = (index) => {
+  let column = '';
+  let current = index;
+  while (current > 0) {
+    const remainder = (current - 1) % 26;
+    column = String.fromCharCode(65 + remainder) + column;
+    current = Math.floor((current - 1) / 26);
+  }
+  return column;
+};
+
 async function generateReportExcel(project, scaffolds, modifications = []) {
   const workbook = new excel.Workbook();
   const worksheet = workbook.addWorksheet(`Reporte ${project.name}`);
@@ -42,6 +53,13 @@ async function generateReportExcel(project, scaffolds, modifications = []) {
   };
   headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
   headerRow.height = 25;
+
+  worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+  const reportLastColumn = getColumnLetter(worksheet.columns.length);
+  worksheet.autoFilter = {
+    from: 'A1',
+    to: `${reportLastColumn}1`,
+  };
 
   // Add rows
   scaffolds.forEach(scaffold => {
@@ -300,6 +318,13 @@ async function generateReportExcel(project, scaffolds, modifications = []) {
     };
     modHeaderRow.alignment = { vertical: 'middle', horizontal: 'center' };
     modHeaderRow.height = 25;
+
+    modSheet.views = [{ state: 'frozen', ySplit: 1 }];
+    const modLastColumn = getColumnLetter(modSheet.columns.length);
+    modSheet.autoFilter = {
+      from: 'A1',
+      to: `${modLastColumn}1`,
+    };
 
     // Agregar filas de modificaciones
     modifications.forEach(mod => {

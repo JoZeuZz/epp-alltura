@@ -12,6 +12,7 @@ const ProjectsPage = lazy(() => import('../pages/admin/ProjectsPage'));
 const UsersPage = lazy(() => import('../pages/admin/UsersPage'));
 const UserHistoryPage = lazy(() => import('../pages/admin/UserHistoryPage'));
 const ScaffoldsPage = lazy(() => import('../pages/admin/ScaffoldsPage'));
+const ProjectGalleryPage = lazy(() => import('../pages/ProjectGalleryPage'));
 
 // Supervisor Pages (lazy loaded)
 const SupervisorDashboard = lazy(() => import('../pages/supervisor/SupervisorDashboard'));
@@ -779,6 +780,58 @@ async function clientProjectScaffoldsPageLoader({ params }: LoaderFunctionArgs) 
   }
 }
 
+// Loader para la galería de fotos - admin
+async function adminProjectGalleryLoader({ params }: LoaderFunctionArgs) {
+  const user = getUserFromToken();
+  if (!user) throw redirect('/login');
+
+  if (user.role !== 'admin') {
+    console.warn('Intento de acceso no autorizado a galería admin', {
+      userId: user.id,
+      role: user.role,
+    });
+    throw redirect(`/${user.role}/dashboard`);
+  }
+
+  try {
+    const { projectId } = params;
+    const [project, scaffolds] = await Promise.all([
+      fetchAPI(`/projects/${projectId}`),
+      fetchAPI(`/scaffolds/project/${projectId}`),
+    ]);
+    return { user, project, scaffolds };
+  } catch (error) {
+    console.error('Error loading admin project gallery:', error);
+    throw error;
+  }
+}
+
+// Loader para la galería de fotos - client
+async function clientProjectGalleryLoader({ params }: LoaderFunctionArgs) {
+  const user = getUserFromToken();
+  if (!user) throw redirect('/login');
+
+  if (user.role !== 'client') {
+    console.warn('Intento de acceso no autorizado a galería cliente', {
+      userId: user.id,
+      role: user.role,
+    });
+    throw redirect(`/${user.role}/dashboard`);
+  }
+
+  try {
+    const { projectId } = params;
+    const [project, scaffolds] = await Promise.all([
+      fetchAPI(`/projects/${projectId}`),
+      fetchAPI(`/scaffolds/project/${projectId}`),
+    ]);
+    return { user, project, scaffolds };
+  } catch (error) {
+    console.error('Error loading client project gallery:', error);
+    throw error;
+  }
+}
+
 export const router = createBrowserRouter([
   {
     path: '/login',
@@ -836,6 +889,11 @@ export const router = createBrowserRouter([
         path: 'scaffolds',
         element: <ScaffoldsPage />,
         loader: scaffoldsPageLoader,
+      },
+      {
+        path: 'project/:projectId/gallery',
+        element: <ProjectGalleryPage />,
+        loader: adminProjectGalleryLoader,
       },
       {
         path: 'notifications',
@@ -909,6 +967,11 @@ export const router = createBrowserRouter([
         path: 'project/:projectId',
         element: <ClientProjectScaffoldsPage />,
         loader: clientProjectScaffoldsPageLoader,
+      },
+      {
+        path: 'project/:projectId/gallery',
+        element: <ProjectGalleryPage />,
+        loader: clientProjectGalleryLoader,
       },
       {
         path: 'notifications',

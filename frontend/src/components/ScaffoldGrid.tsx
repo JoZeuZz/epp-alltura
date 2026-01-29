@@ -10,6 +10,9 @@ interface Props {
   onToggleCard?: (scaffoldId: number, currentStatus: 'green' | 'red') => void;
   onDisassemble?: (scaffoldId: number) => void;
   projectAssignedSupervisorId?: number | null;
+  selectable?: boolean;
+  selectedIds?: Set<number>;
+  onToggleSelect?: (scaffoldId: number) => void;
 }
 
 export default function ScaffoldGrid({ 
@@ -17,7 +20,10 @@ export default function ScaffoldGrid({
   onScaffoldSelect, 
   onToggleCard,
   onDisassemble,
-  projectAssignedSupervisorId 
+  projectAssignedSupervisorId,
+  selectable = false,
+  selectedIds,
+  onToggleSelect
 }: Props) {
   if (scaffolds.length === 0) {
     return <p className="text-center text-gray-500 body-base">No se encontraron andamios.</p>;
@@ -31,11 +37,14 @@ export default function ScaffoldGrid({
           projectAssignedSupervisorId,
           assemblyStatus: scaffold.assembly_status,
         });
+        const isSelected = Boolean(selectedIds?.has(scaffold.id));
 
         return (
           <div
             key={scaffold.id}
-            className="bg-white rounded-lg shadow-md overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 w-full relative"
+            className={`bg-white rounded-lg shadow-md overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 w-full relative ${
+              isSelected ? 'ring-2 ring-primary-blue/70' : ''
+            }`}
           >
             {/* Indicador de tarjeta - Esquina superior izquierda */}
             <div className="absolute top-3 left-3 z-10">
@@ -48,6 +57,33 @@ export default function ScaffoldGrid({
                 title={scaffold.card_status === 'green' ? 'Tarjeta Verde - Habilitado' : 'Tarjeta Roja - No Habilitado'}
               />
             </div>
+
+            {selectable && onToggleSelect && (
+              <div
+                role="checkbox"
+                tabIndex={0}
+                aria-checked={isSelected}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleSelect(scaffold.id);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onToggleSelect(scaffold.id);
+                  }
+                }}
+                className="absolute top-3 left-12 z-10 bg-white/90 border border-gray-200 rounded-md p-1 shadow-sm cursor-pointer"
+                aria-label={`Seleccionar andamio ${scaffold.scaffold_number || scaffold.id}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  readOnly
+                  className="h-4 w-4 text-primary-blue rounded border-gray-300 pointer-events-none"
+                />
+              </div>
+            )}
 
             {/* Indicador "Ver detalles" - Esquina superior derecha */}
             <div className="absolute top-3 right-3 z-10 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-md">

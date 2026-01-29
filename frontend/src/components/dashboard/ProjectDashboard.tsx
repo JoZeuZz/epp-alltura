@@ -106,6 +106,13 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ summary, projectNam
         </div>
       )}
 
+      {summary.redCards > 0 && (
+        <div className="rounded-lg border-l-4 border-red-500 bg-red-50 p-4 text-sm text-red-700">
+          Hay {summary.redCards} andamio{summary.redCards === 1 ? '' : 's'} con tarjeta roja en este
+          proyecto. Prioriza su revisión.
+        </div>
+      )}
+
       {/* Métricas Principales - Grid responsive 2x2 en móvil */}
       <CustomGrid cols={2} mdCols={2} lgCols={4} gap="md">
         <MetricCard

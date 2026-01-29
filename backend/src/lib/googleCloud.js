@@ -2,6 +2,9 @@ const { Storage } = require('@google-cloud/storage');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
+const { PassThrough, Transform } = require('stream');
+const { pipeline } = require('stream/promises');
 const { logger } = require('./logger');
 
 // Verificar si Google Cloud está configurado
@@ -30,6 +33,7 @@ if (isGCSConfigured) {
 }
 
 const localUploadsDir = path.join(__dirname, '../../uploads');
+const tempUploadsDir = path.join(__dirname, '../../uploads/tmp');
 const gcsPrefix = (process.env.GCS_PREFIX || '').replace(/^\/+|\/+$/g, '');
 
 const isGcsUrl = (imageUrl) => imageUrl.includes('storage.googleapis.com');
@@ -45,6 +49,8 @@ const stripMetadataEnabled =
   (process.env.IMAGE_STRIP_METADATA || 'true').toLowerCase() !== 'false';
 const maxImageBytes = parseInt(process.env.IMAGE_MAX_BYTES || '26214400', 10);
 const jpegQuality = parseInt(process.env.IMAGE_JPEG_QUALITY || '92', 10);
+const cacheControl =
+  process.env.IMAGE_CACHE_CONTROL || 'private, max-age=31536000, immutable';
 
 const getSharp = () => {
   try {
@@ -54,6 +60,189 @@ const getSharp = () => {
   } catch (error) {
     logger.warn('Sharp not available for lossless compression', { error: error.message });
     return null;
+  }
+};
+
+const normalizeMimeType = (mimetype) => (mimetype || '').toLowerCase();
+
+const supportedImageMimeTypes = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/avif',
+]);
+
+const detectImageSignature = (buffer) => {
+  if (!buffer || buffer.length < 12) {
+    return null;
+  }
+
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'image/jpeg';
+  }
+
+  if (
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47
+  ) {
+    return 'image/png';
+  }
+
+  if (
+    buffer.toString('ascii', 0, 4) === 'RIFF' &&
+    buffer.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    return 'image/webp';
+  }
+
+  if (buffer.toString('ascii', 4, 8) === 'ftyp') {
+    const brand = buffer.toString('ascii', 8, 12);
+    if (['avif', 'avis', 'av01'].includes(brand)) {
+      return 'image/avif';
+    }
+  }
+
+  return null;
+};
+
+const readFileHeader = async (file, length = 32) => {
+  if (!file) return null;
+
+  if (file.buffer) {
+    return file.buffer.slice(0, length);
+  }
+
+  if (file.path) {
+    const handle = await fs.promises.open(file.path, 'r');
+    try {
+      const buffer = Buffer.alloc(length);
+      await handle.read(buffer, 0, length, 0);
+      return buffer;
+    } finally {
+      await handle.close();
+    }
+  }
+
+  return null;
+};
+
+const validateImageSignature = async (file) => {
+  const header = await readFileHeader(file);
+  if (!header) return;
+
+  const detected = detectImageSignature(header);
+  if (!detected) {
+    const error = new Error('El archivo no parece ser una imagen válida.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const declared = normalizeMimeType(file.mimetype);
+  if (declared && declared.startsWith('image/')) {
+    if (declared === 'image/jpg' && detected === 'image/jpeg') {
+      return;
+    }
+    if (declared !== detected) {
+      const error = new Error('El tipo de archivo no coincide con el contenido.');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+};
+
+const getIncomingSize = async (file) => {
+  if (!file) return 0;
+  if (typeof file.size === 'number') return file.size;
+  if (file.buffer) return file.buffer.length;
+  if (file.path) {
+    const stats = await fs.promises.stat(file.path);
+    return stats.size;
+  }
+  return 0;
+};
+
+const createSizeLimiter = (maxBytes) => {
+  let totalBytes = 0;
+  const limiter = new Transform({
+    transform(chunk, _enc, cb) {
+      totalBytes += chunk.length;
+      if (maxBytes > 0 && totalBytes > maxBytes) {
+        const error = new Error(
+          `La imagen procesada supera el tamaño máximo permitido (${Math.round(maxBytes / (1024 * 1024))} MB).`
+        );
+        error.statusCode = 413;
+        return cb(error);
+      }
+      return cb(null, chunk);
+    },
+  });
+
+  return { limiter, getTotalBytes: () => totalBytes };
+};
+
+const createReadableStream = async (file) => {
+  const mimetype = normalizeMimeType(file.mimetype);
+  const sharp = getSharp();
+  const shouldProcess =
+    !!sharp &&
+    (losslessCompressionEnabled || stripMetadataEnabled) &&
+    mimetype.startsWith('image/');
+
+  if (shouldProcess) {
+    let transformer = sharp(file.path || file.buffer, { failOnError: false });
+
+    if (stripMetadataEnabled) {
+      transformer = transformer.rotate();
+    }
+
+    if (mimetype === 'image/jpeg' || mimetype === 'image/jpg') {
+      transformer = transformer.jpeg({
+        quality: jpegQuality,
+        mozjpeg: true,
+      });
+      return { stream: transformer, contentType: 'image/jpeg' };
+    }
+
+    if (mimetype === 'image/png') {
+      transformer = transformer.png({ compressionLevel: 9, adaptiveFiltering: true });
+      return { stream: transformer, contentType: 'image/png' };
+    }
+
+    if (mimetype === 'image/webp') {
+      transformer = transformer.webp({ lossless: losslessCompressionEnabled, quality: 100 });
+      return { stream: transformer, contentType: 'image/webp' };
+    }
+
+    if (mimetype === 'image/avif') {
+      transformer = transformer.avif({ lossless: losslessCompressionEnabled });
+      return { stream: transformer, contentType: 'image/avif' };
+    }
+  }
+
+  if (file.buffer) {
+    const pass = new PassThrough();
+    pass.end(file.buffer);
+    return { stream: pass, contentType: mimetype || 'application/octet-stream' };
+  }
+
+  if (file.path) {
+    return { stream: fs.createReadStream(file.path), contentType: mimetype || 'application/octet-stream' };
+  }
+
+  throw new Error('Archivo inválido para carga de imagen.');
+};
+
+const cleanupTempFile = async (file) => {
+  if (!file?.path) return;
+  if (!file.path.startsWith(tempUploadsDir)) return;
+
+  try {
+    await fs.promises.unlink(file.path);
+  } catch (error) {
+    logger.warn('No se pudo eliminar archivo temporal', { error: error.message, path: file.path });
   }
 };
 
@@ -125,76 +314,17 @@ const createProxyToken = (imageUrl) => {
   );
 };
 
-const maybeCompressLossless = async (file) => {
-  if (!losslessCompressionEnabled && !stripMetadataEnabled) {
-    return file;
-  }
-
-  if (!file || !file.buffer || !file.mimetype || !file.mimetype.startsWith('image/')) {
-    return file;
-  }
-
-  const sharp = getSharp();
-  if (!sharp) {
-    return file;
-  }
-
-  try {
-    let pipeline = sharp(file.buffer, { failOnError: false });
-
-    if (stripMetadataEnabled) {
-      pipeline = pipeline.rotate();
-    }
-
-    if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg') {
-      pipeline = pipeline.jpeg({
-        quality: jpegQuality,
-        mozjpeg: true,
-      });
-    } else if (file.mimetype === 'image/png') {
-      pipeline = pipeline.png({ compressionLevel: 9, adaptiveFiltering: true });
-    } else if (file.mimetype === 'image/webp') {
-      pipeline = pipeline.webp({ lossless: losslessCompressionEnabled, quality: 100 });
-    } else if (file.mimetype === 'image/avif') {
-      pipeline = pipeline.avif({ lossless: losslessCompressionEnabled });
-    } else {
-      return file;
-    }
-
-    const outputBuffer = await pipeline.toBuffer();
-    if (!outputBuffer) {
-      return file;
-    }
-
-    if (!stripMetadataEnabled && outputBuffer.length >= file.buffer.length) {
-      return file;
-    }
-
-    return {
-      ...file,
-      buffer: outputBuffer,
-      size: outputBuffer.length,
-    };
-  } catch (error) {
-    logger.warn('Lossless compression failed, using original image', {
-      error: error.message,
-      mimetype: file.mimetype,
-    });
-    return file;
-  }
-};
-
 /**
  * Uploads a file to Google Cloud Storage or saves locally if GCS is not configured.
  * @param {object} file The file object from multer.
  * @returns {Promise<string>} The public URL of the uploaded file.
  */
 const uploadFile = async (file) => {
-  if (!file || !file.buffer) {
+  if (!file) {
     throw new Error('Archivo inválido para carga de imagen.');
   }
 
-  const incomingSize = file.size || file.buffer.length || 0;
+  const incomingSize = await getIncomingSize(file);
   if (maxImageBytes > 0 && incomingSize > maxImageBytes) {
     const error = new Error(
       `La imagen supera el tamaño máximo permitido (${Math.round(maxImageBytes / (1024 * 1024))} MB).`
@@ -203,17 +333,14 @@ const uploadFile = async (file) => {
     throw error;
   }
 
-  const preparedFile = await maybeCompressLossless(file);
-  const { originalname, buffer } = preparedFile;
-  const processedSize = preparedFile.size || buffer.length || 0;
-  if (maxImageBytes > 0 && processedSize > maxImageBytes) {
-    const error = new Error(
-      `La imagen procesada supera el tamaño máximo permitido (${Math.round(maxImageBytes / (1024 * 1024))} MB).`
-    );
-    error.statusCode = 413;
+  const mimetype = normalizeMimeType(file.mimetype);
+  if (mimetype && mimetype.startsWith('image/') && !supportedImageMimeTypes.has(mimetype)) {
+    const error = new Error('Solo se permiten imágenes JPG, PNG, WEBP o AVIF.');
+    error.statusCode = 400;
     throw error;
   }
-  const filename = Date.now() + path.extname(originalname);
+
+  await validateImageSignature(file);
 
   if (resolvedProvider === 'gcs' && !isGCSConfigured) {
     throw new Error(
@@ -221,40 +348,57 @@ const uploadFile = async (file) => {
     );
   }
 
-  // Si Google Cloud no está configurado o se fuerza local, guardar localmente
-  if (resolvedProvider === 'local') {
-    // Crear directorio si no existe
-    if (!fs.existsSync(localUploadsDir)) {
-      fs.mkdirSync(localUploadsDir, { recursive: true });
+  const { stream, contentType } = await createReadableStream(file);
+  const { limiter, getTotalBytes } = createSizeLimiter(maxImageBytes);
+
+  const extensionByMime = {
+    'image/jpeg': '.jpg',
+    'image/jpg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'image/avif': '.avif',
+  };
+  const fallbackExt = path.extname(file.originalname || '') || '.img';
+  const extension = extensionByMime[contentType] || fallbackExt;
+  const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${extension}`;
+
+  try {
+    if (resolvedProvider === 'local') {
+      if (!fs.existsSync(localUploadsDir)) {
+        fs.mkdirSync(localUploadsDir, { recursive: true });
+      }
+
+      const filePath = path.join(localUploadsDir, filename);
+      await pipeline(stream, limiter, fs.createWriteStream(filePath));
+
+      logger.debug('Imagen procesada localmente', { filename, size: getTotalBytes() });
+      const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+      return `${backendUrl}/uploads/${filename}`;
     }
 
-    const filePath = path.join(localUploadsDir, filename);
+    const objectName = gcsPrefix ? `${gcsPrefix}/${filename}` : filename;
+    const blob = bucket.file(objectName);
+    const blobStream = blob.createWriteStream({
+      resumable: false,
+      metadata: {
+        contentType: contentType || 'application/octet-stream',
+        cacheControl,
+      },
+    });
 
-    await fs.promises.writeFile(filePath, buffer);
+    await pipeline(stream, limiter, blobStream);
+    logger.debug('Imagen subida a GCS', { objectName, size: getTotalBytes() });
 
-    // Devolver URL absoluta usando BACKEND_URL o construyendo desde PORT
-    const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
-    return `${backendUrl}/uploads/${filename}`;
+    return `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
+  } catch (error) {
+    if (error.statusCode) {
+      throw error;
+    }
+    const providerLabel = resolvedProvider === 'local' ? 'local' : 'GCS';
+    throw new Error(`Unable to upload image (${providerLabel}): ${error.message}`);
+  } finally {
+    await cleanupTempFile(file);
   }
-
-  // Usar Google Cloud Storage
-  const objectName = gcsPrefix ? `${gcsPrefix}/${filename}` : filename;
-  const blob = bucket.file(objectName);
-  const blobStream = blob.createWriteStream({
-    resumable: false,
-    metadata: {
-      contentType: preparedFile.mimetype || 'application/octet-stream',
-    },
-  });
-
-  await new Promise((resolve, reject) => {
-    blobStream
-      .on('finish', resolve)
-      .on('error', (err) => reject(new Error(`Unable to upload image to GCS: ${err}`)))
-      .end(buffer);
-  });
-
-  return `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
 };
 
 /**

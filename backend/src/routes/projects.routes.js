@@ -3,6 +3,7 @@ const router = express.Router();
 const Joi = require('joi');
 const { authMiddleware } = require('../middleware/auth');
 const { isAdmin, checkProjectAccess } = require('../middleware/roles');
+const { createRedisRateLimiter, getRateLimitConfig } = require('../middleware/rateLimit');
 const ProjectController = require('../controllers/projects.controller');
 const ClientNotesController = require('../controllers/clientNotes.controller');
 const { id, entityName, projectStatus, idArray } = require('../validation');
@@ -36,6 +37,23 @@ const projectSchema = Joi.object({
 
 const assignUsersSchema = Joi.object({
   userIds: idArray.required(),
+});
+
+// ============================================
+// RATE LIMITING (Reportes)
+// ============================================
+
+const { windowMs: reportWindowMs, max: reportMax } = getRateLimitConfig('REPORT', {
+  windowMs: 5 * 60 * 1000,
+  max: 10,
+});
+
+const reportLimiter = createRedisRateLimiter({
+  keyPrefix: 'project-report',
+  windowMs: reportWindowMs,
+  max: reportMax,
+  getKey: (req) => (req.user?.id ? `user:${req.user.id}` : `ip:${req.ip}`),
+  message: 'Demasiadas solicitudes de reportes. Intenta nuevamente más tarde.',
 });
 
 // ============================================
@@ -82,14 +100,14 @@ router.get('/:id', authMiddleware, checkProjectAccess, ProjectController.getProj
  * @desc    Generar reporte PDF de un proyecto
  * @access  Private (validación de acceso al proyecto)
  */
-router.get('/:id/report/pdf', authMiddleware, checkProjectAccess, ProjectController.generatePDFReport);
+router.get('/:id/report/pdf', authMiddleware, reportLimiter, checkProjectAccess, ProjectController.generatePDFReport);
 
 /**
  * @route   GET /api/projects/:id/report/excel
  * @desc    Generar reporte Excel de un proyecto
  * @access  Private (validación de acceso al proyecto)
  */
-router.get('/:id/report/excel', authMiddleware, checkProjectAccess, ProjectController.generateExcelReport);
+router.get('/:id/report/excel', authMiddleware, reportLimiter, checkProjectAccess, ProjectController.generateExcelReport);
 
 // ============================================
 // RUTAS ADMINISTRATIVAS (solo admin)

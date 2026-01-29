@@ -1,8 +1,15 @@
-import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
-import { useParams, useNavigate, useLocation, useLoaderData, Form, useActionData, useNavigation } from 'react-router-dom';
+import React, { useState, useEffect, useRef, ChangeEvent, FormEvent } from 'react';
+import { useParams, useNavigate, useLocation, useLoaderData } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Project } from '../../types/api';
-import { IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../../config/imageLimits';
+import UploadProgress, { UploadStage } from '../../components/UploadProgress';
+import { uploadWithProgress } from '../../services/apiService';
+import {
+  processImageFile,
+  formatBytes,
+  ImageProcessingResult,
+  ALLOWED_IMAGE_ACCEPT,
+} from '../../utils/imageProcessing';
 
 /**
  * Página para crear un nuevo andamio
@@ -14,24 +21,11 @@ const CreateScaffoldPage: React.FC = () => {
   const navigate = useNavigate();
   const routeLocation = useLocation();
   const { project } = useLoaderData() as { project: Project };
-  const actionData = useActionData() as { success?: boolean; message?: string } | undefined;
-  const navigation = useNavigation();
-  
   // Detectar si es admin o supervisor basado en la ruta
   const isAdmin = routeLocation.pathname.startsWith('/admin');
   const projectLoading = false;
-  const isSubmitting = navigation.state === 'submitting';
-
-  // Manejar respuestas de la action
-  useEffect(() => {
-    if (actionData) {
-      if (actionData.success) {
-        toast.success(actionData.message || 'Andamio creado exitosamente');
-      } else {
-        toast.error(actionData.message || 'Error al crear andamio');
-      }
-    }
-  }, [actionData]);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadStage, setUploadStage] = useState<UploadStage>('idle');
 
   // Estados del formulario
   const [scaffoldNumber, setScaffoldNumber] = useState<string>('');
@@ -46,7 +40,11 @@ const CreateScaffoldPage: React.FC = () => {
   const [assemblyNotes, setAssemblyNotes] = useState<string>('');
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
+  const [imageMeta, setImageMeta] = useState<ImageProcessingResult | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [cubicMeters, setCubicMeters] = useState<string>('0.00');
+  const uploadControllerRef = useRef<AbortController | null>(null);
+  const isSubmitting = uploadStage !== 'idle' || isProcessingImage;
 
   // Calcular metros cúbicos automáticamente
   useEffect(() => {
@@ -56,33 +54,28 @@ const CreateScaffoldPage: React.FC = () => {
     setCubicMeters((h * w * l).toFixed(2));
   }, [height, width, length]);
 
-  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      
-      // Validar tipo de archivo
-      const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
-      if (!validTypes.includes(file.type)) {
-        toast.error('Solo se permiten imágenes JPG, PNG o WEBP');
-        return;
-      }
+  const handleImageChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-      // Validar tamaño (máx configurado)
-      if (file.size > IMAGE_MAX_BYTES) {
-        toast.error(`La imagen no puede superar los ${IMAGE_MAX_LABEL}`);
-        return;
-      }
-
-      setImage(file);
-      setImagePreview(URL.createObjectURL(file));
+    try {
+      setIsProcessingImage(true);
+      const processed = await processImageFile(file);
+      setImage(processed.file);
+      setImageMeta(processed);
+      setImagePreview(URL.createObjectURL(processed.file));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al procesar la imagen.';
+      toast.error(message);
+    } finally {
+      setIsProcessingImage(false);
     }
   };
 
-  const handleFormValidation = (e: FormEvent<HTMLFormElement>) => {
+  const validateForm = (): boolean => {
     if (!image) {
-      e.preventDefault();
       toast.error('Por favor, adjunta una imagen del andamio.');
-      return;
+      return false;
     }
 
     // Validar dimensiones
@@ -91,20 +84,79 @@ const CreateScaffoldPage: React.FC = () => {
     const l = parseFloat(length);
 
     if (!h || h <= 0 || h > 100) {
-      e.preventDefault();
       toast.error('La altura debe estar entre 0 y 100 metros');
-      return;
+      return false;
     }
     if (!w || w <= 0 || w > 100) {
-      e.preventDefault();
       toast.error('El ancho debe estar entre 0 y 100 metros');
-      return;
+      return false;
     }
     if (!l || l <= 0 || l > 100) {
-      e.preventDefault();
       toast.error('El largo debe estar entre 0 y 100 metros');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
       return;
     }
+
+    const formData = new FormData(e.currentTarget);
+    if (image) {
+      formData.set('assembly_image', image);
+    }
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      toast.error('Sesión expirada. Vuelve a iniciar sesión.');
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const controller = new AbortController();
+      uploadControllerRef.current = controller;
+
+      setUploadProgress(0);
+      setUploadStage('processing');
+      // Dejar tiempo para que el UI muestre el estado de procesamiento
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      setUploadStage('uploading');
+
+      await uploadWithProgress('post', '/scaffolds', formData, setUploadProgress, controller.signal);
+
+      setUploadStage('finishing');
+
+      const redirectUrl = isAdmin
+        ? `/admin/scaffolds?projectId=${projectId}`
+        : `/supervisor/project/${projectId}`;
+      toast.success('Andamio creado exitosamente');
+      navigate(redirectUrl);
+    } catch (err: unknown) {
+      setUploadStage('idle');
+      setUploadProgress(0);
+      const cancelError = err as { code?: string; name?: string };
+      if (cancelError?.code === 'ERR_CANCELED' || cancelError?.name === 'CanceledError') {
+        toast('Subida cancelada', { icon: '🛑' });
+        return;
+      }
+      const apiError = err as { response?: { data?: { message?: string; error?: string } } };
+      const errorMsg = apiError?.response?.data?.message || apiError?.response?.data?.error || 'Error al crear andamio';
+      toast.error(errorMsg);
+      console.error(err);
+    } finally {
+      uploadControllerRef.current = null;
+    }
+  };
+
+  const handleCancelUpload = () => {
+    uploadControllerRef.current?.abort();
+    uploadControllerRef.current = null;
+    setUploadStage('idle');
+    setUploadProgress(0);
   };
 
   if (projectLoading) {
@@ -178,7 +230,7 @@ const CreateScaffoldPage: React.FC = () => {
             </p>
           </div>
 
-          <Form method="post" encType="multipart/form-data" onSubmit={handleFormValidation} className="space-y-6">
+          <form method="post" encType="multipart/form-data" onSubmit={handleSubmit} className="space-y-6">
             {/* Hidden fields para el router action */}
             <input type="hidden" name="project_id" value={projectId || ''} />
             <input type="hidden" name="progress_percentage" value={progressPercentage} />
@@ -188,7 +240,7 @@ const CreateScaffoldPage: React.FC = () => {
               id="image-upload"
               name="assembly_image"
               type="file"
-              accept="image/*"
+              accept={ALLOWED_IMAGE_ACCEPT}
               capture="environment"
               onChange={handleImageChange}
               className="hidden"
@@ -213,6 +265,13 @@ const CreateScaffoldPage: React.FC = () => {
                   >
                     Cambiar foto
                   </label>
+                  {imageMeta && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      {imageMeta.wasCompressed
+                        ? `Optimizada: ${formatBytes(imageMeta.originalBytes)} → ${formatBytes(imageMeta.processedBytes)}`
+                        : `Tamaño: ${formatBytes(imageMeta.originalBytes)}`}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <label
@@ -225,6 +284,9 @@ const CreateScaffoldPage: React.FC = () => {
                   </svg>
                   <span className="mt-2 text-sm text-gray-600">Toca para tomar o seleccionar una foto</span>
                 </label>
+              )}
+              {isProcessingImage && (
+                <p className="mt-2 text-xs text-gray-500">Procesando imagen...</p>
               )}
             </div>
 
@@ -440,7 +502,21 @@ const CreateScaffoldPage: React.FC = () => {
                 {isSubmitting ? 'Guardando...' : 'Crear Andamio'}
               </button>
             </div>
-          </Form>
+            <UploadProgress
+              stage={uploadStage}
+              progress={uploadProgress}
+              className="space-y-2"
+            />
+            {uploadStage !== 'idle' && (
+              <button
+                type="button"
+                onClick={handleCancelUpload}
+                className="text-xs text-gray-500 hover:text-gray-700"
+              >
+                Cancelar subida
+              </button>
+            )}
+          </form>
         </div>
       </main>
     </div>

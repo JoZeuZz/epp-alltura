@@ -1,11 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Scaffold } from '../types/api';
-import { IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../config/imageLimits';
+import UploadProgress, { UploadStage } from './UploadProgress';
+import {
+  processImageFile,
+  formatBytes,
+  ImageProcessingResult,
+  ALLOWED_IMAGE_ACCEPT,
+} from '../utils/imageProcessing';
 
 interface ScaffoldStatusToggleProps {
   scaffold: Scaffold;
   onCardStatusChange: (scaffoldId: number, newStatus: 'green' | 'red') => Promise<void>;
-  onAssemblyStatusChange: (scaffoldId: number, newStatus: 'assembled' | 'disassembled', image?: File) => Promise<void>;
+  onAssemblyStatusChange: (
+    scaffoldId: number,
+    newStatus: 'assembled' | 'disassembled',
+    image?: File,
+    onProgress?: (percentage: number) => void,
+    onStageChange?: (stage: UploadStage) => void,
+    signal?: AbortSignal
+  ) => Promise<void>;
   disabled?: boolean;
   userRole: 'admin' | 'supervisor' | 'client';
   isOwner: boolean;
@@ -175,12 +188,18 @@ export const ScaffoldStatusToggle: React.FC<ScaffoldStatusToggleProps> = ({
       {/* Modal de Desarmado */}
       {showDisassembleModal && (
         <DisassembleModal
-          scaffoldId={scaffold.id}
           onClose={() => setShowDisassembleModal(false)}
-          onConfirm={async (image: File) => {
+          onConfirm={async (image: File, onProgress, onStageChange, signal) => {
             setIsChangingAssembly(true);
             try {
-              await onAssemblyStatusChange(scaffold.id, 'disassembled', image);
+              await onAssemblyStatusChange(
+                scaffold.id,
+                'disassembled',
+                image,
+                onProgress,
+                onStageChange,
+                signal
+              );
               setShowDisassembleModal(false);
             } catch (error) {
               console.error('Error al desarmar:', error);
@@ -195,40 +214,43 @@ export const ScaffoldStatusToggle: React.FC<ScaffoldStatusToggleProps> = ({
 };
 
 interface DisassembleModalProps {
-  scaffoldId: number;
   onClose: () => void;
-  onConfirm: (image: File) => Promise<void>;
+  onConfirm: (
+    image: File,
+    onProgress?: (percentage: number) => void,
+    onStageChange?: (stage: UploadStage) => void,
+    signal?: AbortSignal
+  ) => Promise<void>;
 }
 
 const DisassembleModal: React.FC<DisassembleModalProps> = ({ onClose, onConfirm }) => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [imageMeta, setImageMeta] = useState<ImageProcessingResult | null>(null);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadStage, setUploadStage] = useState<UploadStage>('idle');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const uploadControllerRef = useRef<AbortController | null>(null);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // Validar formato
-      const allowedFormats = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-      if (!allowedFormats.includes(file.type)) {
-        alert('Formato de imagen no permitido. Use JPG, PNG, GIF o WebP');
-        return;
-      }
+    if (!file) return;
 
-      // Validar tamaño (máx configurado)
-      if (file.size > IMAGE_MAX_BYTES) {
-        alert(`La imagen no puede exceder ${IMAGE_MAX_LABEL}`);
-        return;
-      }
-
-      setSelectedImage(file);
-      
-      // Generar preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    try {
+      setIsProcessingImage(true);
+      const processed = await processImageFile(file);
+      setSelectedImage(processed.file);
+      setImageMeta(processed);
+      setPreview(URL.createObjectURL(processed.file));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al procesar la imagen.';
+      alert(message);
+      setSelectedImage(null);
+      setImageMeta(null);
+      setPreview(null);
+    } finally {
+      setIsProcessingImage(false);
     }
   };
 
@@ -239,7 +261,35 @@ const DisassembleModal: React.FC<DisassembleModalProps> = ({ onClose, onConfirm 
     }
 
     setIsSubmitting(true);
-    await onConfirm(selectedImage);
+    try {
+      const controller = new AbortController();
+      uploadControllerRef.current = controller;
+      setUploadProgress(0);
+      setUploadStage('processing');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      setUploadStage('uploading');
+      await onConfirm(selectedImage, setUploadProgress, setUploadStage, controller.signal);
+      setUploadStage('finishing');
+    } catch (error) {
+      const cancelError = error as { code?: string; name?: string };
+      if (cancelError?.code === 'ERR_CANCELED' || cancelError?.name === 'CanceledError') {
+        alert('Subida cancelada');
+        return;
+      }
+      console.error('Error al desarmar:', error);
+    } finally {
+      setIsSubmitting(false);
+      setUploadStage('idle');
+      setUploadProgress(0);
+      uploadControllerRef.current = null;
+    }
+  };
+
+  const handleCancelUpload = () => {
+    uploadControllerRef.current?.abort();
+    uploadControllerRef.current = null;
+    setUploadStage('idle');
+    setUploadProgress(0);
   };
 
   return (
@@ -260,10 +310,10 @@ const DisassembleModal: React.FC<DisassembleModalProps> = ({ onClose, onConfirm 
           </label>
           <input
             type="file"
-            accept="image/*"
+            accept={ALLOWED_IMAGE_ACCEPT}
             onChange={handleImageSelect}
             className="w-full border rounded p-2"
-            disabled={isSubmitting}
+            disabled={isSubmitting || uploadStage !== 'idle' || isProcessingImage}
           />
         </div>
 
@@ -274,25 +324,49 @@ const DisassembleModal: React.FC<DisassembleModalProps> = ({ onClose, onConfirm 
               alt="Preview"
               className="w-full h-48 object-cover rounded"
             />
+            {imageMeta && (
+              <p className="mt-2 text-xs text-gray-500">
+                {imageMeta.wasCompressed
+                  ? `Optimizada: ${formatBytes(imageMeta.originalBytes)} → ${formatBytes(imageMeta.processedBytes)}`
+                  : `Tamaño: ${formatBytes(imageMeta.originalBytes)}`}
+              </p>
+            )}
           </div>
+        )}
+        {isProcessingImage && (
+          <p className="mb-4 text-xs text-gray-500">Procesando imagen...</p>
         )}
 
         <div className="flex space-x-2">
           <button
             onClick={onClose}
-            disabled={isSubmitting}
+            disabled={isSubmitting || uploadStage !== 'idle' || isProcessingImage}
             className="flex-1 px-4 py-2 border rounded hover:bg-gray-100 disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
-            disabled={!selectedImage || isSubmitting}
+            disabled={!selectedImage || isSubmitting || uploadStage !== 'idle' || isProcessingImage}
             className="flex-1 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
           >
-            {isSubmitting ? 'Desarmando...' : 'Confirmar Desarmado'}
+            {isSubmitting || uploadStage !== 'idle' || isProcessingImage ? 'Desarmando...' : 'Confirmar Desarmado'}
           </button>
         </div>
+        <UploadProgress
+          stage={uploadStage}
+          progress={uploadProgress}
+          className="mt-4 space-y-2"
+        />
+        {uploadStage !== 'idle' && (
+          <button
+            type="button"
+            onClick={handleCancelUpload}
+            className="text-xs text-gray-500 hover:text-gray-700 mt-2"
+          >
+            Cancelar subida
+          </button>
+        )}
       </div>
     </div>
   );

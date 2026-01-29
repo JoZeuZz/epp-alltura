@@ -2,6 +2,7 @@
 require('dotenv').config();
 
 const express = require('express');
+const compression = require('compression');
 const path = require('path');
 const { requestLogger, logger } = require('./lib/logger');
 const redisClient = require('./lib/redis');
@@ -10,6 +11,7 @@ const redisClient = require('./lib/redis');
 const { createSecurityMiddleware } = require('./middleware/security');
 const { sanitizeStrict } = require('./middleware/sanitization');
 const errorHandler = require('./middleware/errorHandler');
+const requestId = require('./middleware/requestId');
 
 // Importar rutas (Arquitectura 3-Capas)
 const authRoutes = require('./routes/auth.routes');
@@ -38,13 +40,30 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 // Usar número específico en lugar de 'true' para satisfacer express-rate-limit
 app.set('trust proxy', 3);
 
+const buildOriginVariants = (value) => {
+  if (!value) return [];
+  if (value.startsWith('http://') || value.startsWith('https://')) {
+    return [value];
+  }
+  return [`https://${value}`, `http://${value}`];
+};
+
 // Configurar middlewares de seguridad (FASE 3)
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-  '0.0.0.0',
-  process.env.CLIENT_URL,
-].filter(Boolean);
+const localOrigins =
+  NODE_ENV === 'development'
+    ? ['http://localhost:3000', 'http://localhost:5173']
+    : [];
+
+const allowedOrigins = Array.from(
+  new Set(
+    [
+      ...localOrigins,
+      ...buildOriginVariants(process.env.CLIENT_URL),
+      ...buildOriginVariants(process.env.SERVICE_URL_FRONTEND),
+      ...buildOriginVariants(process.env.SERVICE_FQDN_FRONTEND),
+    ].filter(Boolean)
+  )
+);
 
 const securityMiddleware = createSecurityMiddleware({
   environment: NODE_ENV,
@@ -67,7 +86,13 @@ app.use(securityMiddleware.additionalHeaders);
 // 5. Logger de violaciones CSP
 app.use(securityMiddleware.cspLogger);
 
-// 6. Parseo de body (DESPUÉS de headers de seguridad)
+// 6. Request ID (para trazabilidad)
+app.use(requestId);
+
+// 7. Compresión de respuestas
+app.use(compression());
+
+// 8. Parseo de body (DESPUÉS de headers de seguridad)
 app.use(express.json({ 
   limit: '10mb',
   strict: true, // Solo aceptar arrays y objects
@@ -79,7 +104,7 @@ app.use(express.urlencoded({
   parameterLimit: 1000, // Prevenir DoS via muchos params
 }));
 
-// 7. Sanitización de inputs (DESPUÉS de parsear body)
+// 9. Sanitización de inputs (DESPUÉS de parsear body)
 // NoSQL injection protection está integrada en sanitizeStrict
 // app.use(sanitizeMongoOnly); // ⚠️ Deshabilitado: incompatible con Express 5.x
 
@@ -134,11 +159,35 @@ app.use('/api/client-notes', clientNotesRoutes);
 app.use('/health', healthRoutes);
 
 // Endpoint para métricas del cliente (performance monitoring)
-app.post('/api/metrics', (req, res) => {
-  logger.debug('Métricas recibidas del cliente', { 
-    metricsCount: req.body.metrics?.length || 0,
-    ip: req.ip 
+app.post('/api/metrics', async (req, res) => {
+  const metrics = Array.isArray(req.body?.metrics) ? req.body.metrics : [];
+  logger.debug('Métricas recibidas del cliente', {
+    metricsCount: metrics.length,
+    ip: req.ip,
+    requestId: req.requestId,
   });
+
+  if (metrics.length > 0) {
+    try {
+      const client = await redisClient.getClient();
+      const dayKey = new Date().toISOString().slice(0, 10);
+      const key = `metrics:client:${dayKey}`;
+      const payload = JSON.stringify({
+        ts: Date.now(),
+        ip: req.ip,
+        metrics,
+      });
+      await client.rPush(key, payload);
+      await client.lTrim(key, -1000, -1);
+      await client.expire(key, 7 * 24 * 60 * 60);
+    } catch (error) {
+      logger.warn('No se pudo guardar métricas en Redis', {
+        error: error.message,
+        requestId: req.requestId,
+      });
+    }
+  }
+
   res.json({ success: true });
 });
 

@@ -1,4 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import {
+  assignClientToProject,
+  assignSupervisorToProject,
+  getUsersByRole,
+} from '../services/apiService';
 
 interface User {
   id: number;
@@ -44,24 +49,12 @@ export const ProjectAssignmentForm: React.FC<ProjectAssignmentFormProps> = ({
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-
-      // Obtener clientes
-      const clientsResponse = await fetch('/api/users?role=client', {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!clientsResponse.ok) throw new Error('Error al cargar clientes');
-      const clientsData = await clientsResponse.json();
-
-      // Obtener supervisores
-      const supervisorsResponse = await fetch('/api/users?role=supervisor', {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!supervisorsResponse.ok) throw new Error('Error al cargar supervisores');
-      const supervisorsData = await supervisorsResponse.json();
-
-      setClients(clientsData);
-      setSupervisors(supervisorsData);
+      const [clientsData, supervisorsData] = await Promise.all([
+        getUsersByRole('client'),
+        getUsersByRole('supervisor'),
+      ]);
+      setClients(clientsData as User[]);
+      setSupervisors(supervisorsData as User[]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar usuarios');
     } finally {
@@ -79,20 +72,7 @@ export const ProjectAssignmentForm: React.FC<ProjectAssignmentFormProps> = ({
       setSaving(true);
       setError(null);
       
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/projects/${projectId}/assign-client`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ user_id: selectedClientId }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al asignar cliente');
-      }
+      await assignClientToProject(projectId, selectedClientId);
 
       setSuccessMessage('Cliente asignado correctamente');
       if (onAssignmentChange) {
@@ -118,20 +98,7 @@ export const ProjectAssignmentForm: React.FC<ProjectAssignmentFormProps> = ({
       setSaving(true);
       setError(null);
       
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/projects/${projectId}/assign-supervisor`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ user_id: selectedSupervisorId }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al asignar supervisor');
-      }
+      await assignSupervisorToProject(projectId, selectedSupervisorId);
 
       setSuccessMessage('Supervisor asignado correctamente');
       if (onAssignmentChange) {
@@ -152,20 +119,7 @@ export const ProjectAssignmentForm: React.FC<ProjectAssignmentFormProps> = ({
       setSaving(true);
       setError(null);
       
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/projects/${projectId}/assign-client`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ user_id: null }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al desasignar cliente');
-      }
+      await assignClientToProject(projectId, null);
 
       setSelectedClientId(null);
       setSuccessMessage('Cliente desasignado correctamente');
@@ -186,20 +140,7 @@ export const ProjectAssignmentForm: React.FC<ProjectAssignmentFormProps> = ({
       setSaving(true);
       setError(null);
       
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/projects/${projectId}/assign-supervisor`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ user_id: null }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al desasignar supervisor');
-      }
+      await assignSupervisorToProject(projectId, null);
 
       setSelectedSupervisorId(null);
       setSuccessMessage('Supervisor desasignado correctamente');
