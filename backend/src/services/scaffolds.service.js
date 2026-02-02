@@ -380,6 +380,14 @@ class ScaffoldService {
     // Validar proyecto activo
     const project = await this.validateActiveProject(scaffoldData.project_id);
 
+    if (!project.assigned_client_id) {
+      const error = new Error(
+        'No se puede crear un andamio en un proyecto sin usuario cliente asignado.'
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
     // Subir imagen a Google Cloud Storage
     const assemblyImageUrl = await uploadFile(imageFile);
 

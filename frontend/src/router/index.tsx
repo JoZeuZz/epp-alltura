@@ -4,6 +4,7 @@ import AppLayout from '../layouts/AppLayout';
 import LoginPage from '../pages/LoginPage';
 import ErrorPage from '../components/ErrorPage';
 import type { User } from '../types/api';
+import { refreshAccessToken, clearStoredTokens } from '../services/authRefresh';
 
 // Admin Pages (lazy loaded)
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
@@ -40,21 +41,39 @@ function getAuthToken() {
 }
 
 // Helper para hacer fetch autenticado
-async function fetchAPI(endpoint: string, options: RequestInit = {}) {
+async function fetchAPI(endpoint: string, options: RequestInit = {}, allowRetry = true) {
   const token = getAuthToken();
-  
+
   const url = `${API_URL}${endpoint}`;
-  
+
   const response = await fetch(url, {
     ...options,
     headers: {
-      'Authorization': `Bearer ${token}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       'Content-Type': 'application/json',
       ...options.headers,
     },
   });
 
   if (!response.ok) {
+    if (response.status === 401 && allowRetry) {
+      const newToken = await refreshAccessToken();
+      if (newToken) {
+        return fetchAPI(
+          endpoint,
+          {
+            ...options,
+            headers: {
+              ...(options.headers || {}),
+              Authorization: `Bearer ${newToken}`,
+            },
+          },
+          false
+        );
+      }
+      clearStoredTokens();
+    }
+
     // Intentar extraer el mensaje de error del backend
     let errorMessage = 'Error del servidor';
     let validationErrors: Array<{ field: string; message: string }> = [];
@@ -94,28 +113,32 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}) {
 }
 
 // Helper para obtener el usuario desde el token
-function getUserFromToken(): Pick<User, 'id' | 'email' | 'role' | 'first_name' | 'last_name'> | null {
-  const token = localStorage.getItem('accessToken');
-  
+async function getUserFromToken(): Promise<
+  Pick<User, 'id' | 'email' | 'role' | 'first_name' | 'last_name'> | null
+> {
+  let token = localStorage.getItem('accessToken');
+
   if (!token) {
     return null;
   }
-  
+
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
-    
+
     // Verificar si el token está expirado
     const isExpired = payload.exp && payload.exp * 1000 < Date.now();
     if (isExpired) {
-      console.warn('[getUserFromToken] Token expirado, limpiando localStorage');
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      return null;
+      const refreshedToken = await refreshAccessToken();
+      if (!refreshedToken) {
+        clearStoredTokens();
+        return null;
+      }
+      token = refreshedToken;
     }
-    
-    // El backend envuelve los datos del usuario en payload.user
-    const userData = payload.user || payload;
-    
+
+    const freshPayload = JSON.parse(atob(token.split('.')[1]));
+    const userData = freshPayload.user || freshPayload;
+
     return {
       id: userData.id,
       email: userData.email,
@@ -125,8 +148,7 @@ function getUserFromToken(): Pick<User, 'id' | 'email' | 'role' | 'first_name' |
     };
   } catch (error) {
     console.error('[getUserFromToken] Error decoding token:', error);
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    clearStoredTokens();
     return null;
   }
 }
@@ -134,7 +156,7 @@ function getUserFromToken(): Pick<User, 'id' | 'email' | 'role' | 'first_name' |
 // Auth loader - verificar autenticación antes de renderizar rutas protegidas
 async function protectedLoader() {
   try {
-    const user = getUserFromToken();
+    const user = await getUserFromToken();
     
     if (!user) {
       throw new Response('No autenticado', { status: 401 });
@@ -151,7 +173,7 @@ async function protectedLoader() {
 // Root loader - redirigir según el rol del usuario
 async function rootLoader() {
   try {
-    const user = getUserFromToken();
+    const user = await getUserFromToken();
     
     if (!user) {
       return redirect('/login');
@@ -176,7 +198,7 @@ async function rootLoader() {
 
 // Loader para AdminDashboard - obtener métricas del dashboard
 async function adminDashboardLoader() {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
   
   // Validar que el usuario sea admin
@@ -199,7 +221,7 @@ async function adminDashboardLoader() {
 
 // Loader para ClientsPage - obtener lista de clientes
 async function clientsPageLoader() {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
   
   // Validar que el usuario sea admin
@@ -222,7 +244,7 @@ async function clientsPageLoader() {
 
 // Action para ClientsPage - crear, actualizar y eliminar clientes
 async function clientsPageAction({ request }: ActionFunctionArgs) {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
 
   const formData = await request.formData();
@@ -238,11 +260,15 @@ async function clientsPageAction({ request }: ActionFunctionArgs) {
           address: formData.get('address'),
           specialty: formData.get('specialty'),
         };
-        await fetchAPI('/clients', {
+        const createdClient = await fetchAPI('/clients', {
           method: 'POST',
           body: JSON.stringify(clientData),
         });
-        return { success: true, message: 'Cliente creado correctamente' };
+        return {
+          success: true,
+          message: 'Cliente creado correctamente',
+          createdClient: createdClient ? { id: createdClient.id, name: createdClient.name } : undefined,
+        };
       }
       
       case 'update': {
@@ -319,7 +345,7 @@ async function clientsPageAction({ request }: ActionFunctionArgs) {
 
 // Loader para ProjectsPage - obtener proyectos, clientes y usuarios
 async function projectsPageLoader() {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
   
   // Validar que el usuario sea admin
@@ -346,7 +372,7 @@ async function projectsPageLoader() {
 
 // Action para ProjectsPage - crear, actualizar, eliminar y asignar usuarios
 async function projectsPageAction({ request }: ActionFunctionArgs) {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
 
   const formData = await request.formData();
@@ -459,7 +485,7 @@ async function projectsPageAction({ request }: ActionFunctionArgs) {
 
 // Loader para UsersPage - obtener lista de usuarios y clientes
 async function usersPageLoader() {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
   
   // Validar que el usuario sea admin
@@ -485,7 +511,7 @@ async function usersPageLoader() {
 
 // Action para UsersPage - crear, actualizar y eliminar usuarios
 async function usersPageAction({ request }: ActionFunctionArgs) {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
 
   const formData = await request.formData();
@@ -494,13 +520,46 @@ async function usersPageAction({ request }: ActionFunctionArgs) {
   try {
     switch (intent) {
       case 'create': {
+        const role = formData.get('role');
+        let clientId = formData.get('client_id');
+
+        if (role === 'client') {
+          if (clientId === '__new__') {
+            const clientName = formData.get('client_create_name');
+            if (!clientName || String(clientName).trim() === '') {
+              return {
+                success: false,
+                message: 'Debes ingresar el nombre de la empresa cliente',
+                fieldErrors: { client_create_name: 'El nombre de la empresa es obligatorio' },
+              };
+            }
+
+            const clientData = {
+              name: clientName,
+              email: formData.get('client_create_email'),
+              phone: formData.get('client_create_phone'),
+              address: formData.get('client_create_address'),
+              specialty: formData.get('client_create_specialty'),
+            };
+
+            const createdClient = await fetchAPI('/clients', {
+              method: 'POST',
+              body: JSON.stringify(clientData),
+            });
+
+            clientId = createdClient?.id ? String(createdClient.id) : null;
+          }
+        } else {
+          clientId = null;
+        }
+
         const userData = {
           first_name: formData.get('first_name'),
           last_name: formData.get('last_name'),
           email: formData.get('email'),
           password: formData.get('password'),
-          role: formData.get('role'),
-          client_id: formData.get('client_id') || null,
+          role,
+          client_id: clientId ? Number(clientId) : null,
         };
         await fetchAPI('/users', {
           method: 'POST',
@@ -581,7 +640,7 @@ async function usersPageAction({ request }: ActionFunctionArgs) {
 
 // Loader para UserHistoryPage - obtener usuario y su historial
 async function userHistoryPageLoader({ params }: LoaderFunctionArgs) {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
 
   try {
@@ -600,7 +659,7 @@ async function userHistoryPageLoader({ params }: LoaderFunctionArgs) {
 // Loader para ScaffoldsPage - obtener proyectos
 async function scaffoldsPageLoader() {
   console.log('[scaffoldsPageLoader] START - Checking authentication');
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
 
   try {
@@ -616,7 +675,7 @@ async function scaffoldsPageLoader() {
 
 // Loader para SupervisorDashboard - obtener proyectos asignados
 async function supervisorDashboardLoader() {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
   
   // Validar que el usuario sea supervisor
@@ -639,7 +698,7 @@ async function supervisorDashboardLoader() {
 
 // Loader para ProjectScaffoldsPage - obtener proyecto y andamios
 async function projectScaffoldsPageLoader({ params }: LoaderFunctionArgs) {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
 
   try {
@@ -657,7 +716,7 @@ async function projectScaffoldsPageLoader({ params }: LoaderFunctionArgs) {
 
 // Loader para CreateScaffoldPage - obtener proyecto
 async function createScaffoldPageLoader({ params }: LoaderFunctionArgs) {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
 
   try {
@@ -672,7 +731,7 @@ async function createScaffoldPageLoader({ params }: LoaderFunctionArgs) {
 
 // Action para CreateScaffoldPage - crear andamio con FormData (incluye archivos)
 async function createScaffoldPageAction({ request, params }: ActionFunctionArgs) {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
 
   try {
@@ -724,7 +783,7 @@ async function createScaffoldPageAction({ request, params }: ActionFunctionArgs)
 
 // Loader para HistoryPage - obtener historial del supervisor
 async function historyPageLoader() {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
 
   try {
@@ -740,7 +799,7 @@ async function historyPageLoader() {
 
 // Loader para ClientDashboard - obtener proyectos asignados
 async function clientDashboardLoader() {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
   
   // Validar que el usuario sea client
@@ -763,7 +822,7 @@ async function clientDashboardLoader() {
 
 // Loader para ClientProjectScaffoldsPage - obtener proyecto, andamios y métricas
 async function clientProjectScaffoldsPageLoader({ params }: LoaderFunctionArgs) {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
 
   try {
@@ -782,7 +841,7 @@ async function clientProjectScaffoldsPageLoader({ params }: LoaderFunctionArgs) 
 
 // Loader para la galería de fotos - admin
 async function adminProjectGalleryLoader({ params }: LoaderFunctionArgs) {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
 
   if (user.role !== 'admin') {
@@ -808,7 +867,7 @@ async function adminProjectGalleryLoader({ params }: LoaderFunctionArgs) {
 
 // Loader para la galería de fotos - client
 async function clientProjectGalleryLoader({ params }: LoaderFunctionArgs) {
-  const user = getUserFromToken();
+  const user = await getUserFromToken();
   if (!user) throw redirect('/login');
 
   if (user.role !== 'client') {

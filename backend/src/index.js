@@ -114,13 +114,6 @@ app.use('/api/image-proxy', imageProxyRoutes);
 // Sanitización estricta para rutas de API (excepto health)
 app.use('/api', sanitizeStrict);
 
-// Servir archivos estáticos desde la carpeta uploads con CORS habilitado
-app.use('/uploads', (req, res, next) => {
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  next();
-}, express.static(path.join(__dirname, '../uploads')));
-
 // Logging de requests
 app.use(requestLogger);
 

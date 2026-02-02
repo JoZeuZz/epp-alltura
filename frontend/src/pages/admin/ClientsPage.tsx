@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLoaderData, useActionData, useSubmit } from 'react-router';
+import { useLoaderData, useActionData, useSubmit, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Client } from '../../types/api';
 import ClientForm from '../../components/ClientForm';
@@ -11,8 +11,15 @@ import { useBreakpoints } from '../../hooks';
 
 const ClientsPage: React.FC = () => {
   const { clients } = useLoaderData() as { clients: Client[] };
-  const actionData = useActionData() as { success?: boolean; message?: string; warning?: boolean; fieldErrors?: Record<string, string> } | undefined;
+  const actionData = useActionData() as {
+    success?: boolean;
+    message?: string;
+    warning?: boolean;
+    fieldErrors?: Record<string, string>;
+    createdClient?: { id: number; name: string };
+  } | undefined;
   const submit = useSubmit();
+  const navigate = useNavigate();
   const { isMobile } = useBreakpoints();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -21,6 +28,7 @@ const ClientsPage: React.FC = () => {
   const [isReactivateModalOpen, setIsReactivateModalOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [clientToReactivate, setClientToReactivate] = useState<Client | null>(null);
+  const [createdClientPrompt, setCreatedClientPrompt] = useState<{ id: number; name: string } | null>(null);
 
   // Manejar respuestas de la action
   useEffect(() => {
@@ -30,6 +38,9 @@ const ClientsPage: React.FC = () => {
           toast.success(actionData.message || 'Operación completada', { icon: '⚠️' });
         } else {
           toast.success(actionData.message || 'Operación exitosa');
+        }
+        if (actionData.createdClient) {
+          setCreatedClientPrompt(actionData.createdClient);
         }
         // Cerrar modales después de éxito
         setIsModalOpen(false);
@@ -231,6 +242,27 @@ const ClientsPage: React.FC = () => {
         title="Reactivar Cliente"
         message={`¿Está seguro de que desea reactivar el cliente "${clientToReactivate?.name}"? Esto también reactivará todos sus proyectos.`}
         confirmText="Reactivar"
+        variant="info"
+      />
+
+      <ConfirmationModal
+        isOpen={!!createdClientPrompt}
+        onClose={() => setCreatedClientPrompt(null)}
+        onConfirm={() => {
+          if (createdClientPrompt) {
+            navigate('/admin/users', {
+              state: { openCreateUser: true, clientId: createdClientPrompt.id },
+            });
+          }
+        }}
+        title="¿Crear usuario cliente ahora?"
+        message={
+          createdClientPrompt
+            ? `La empresa "${createdClientPrompt.name}" fue creada. ¿Quieres crear un usuario cliente vinculado ahora?`
+            : 'La empresa fue creada. ¿Quieres crear un usuario cliente vinculado ahora?'
+        }
+        confirmText="Crear usuario cliente"
+        cancelText="Más tarde"
         variant="info"
       />
     </div>

@@ -39,11 +39,11 @@ const PasswordRequirement: React.FC<{ isValid: boolean; text: string }> = React.
 PasswordRequirement.displayName = 'PasswordRequirement';
 
 const PasswordStrength: React.FC<PasswordStrengthProps> = React.memo(({ password = '' }) => {
-  const hasMinLength = password.length >= 8;
+  const hasMinLength = password.length >= 12;
 
   return (
     <ul className="mt-2 space-y-1">
-      <PasswordRequirement isValid={hasMinLength} text="Al menos 8 caracteres" />
+      <PasswordRequirement isValid={hasMinLength} text="Al menos 12 caracteres" />
     </ul>
   );
 });
