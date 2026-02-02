@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { refreshAccessToken, clearStoredTokens } from './authRefresh';
 
 export const apiService = axios.create({
   baseURL: '/api',
@@ -16,12 +17,30 @@ apiService.interceptors.request.use((config) => {
 // Interceptor de respuestas: Manejar errores 401 (token inválido/expirado)
 apiService.interceptors.response.use(
   (response) => response, // Pasar respuestas exitosas sin cambios
-  (error) => {
+  async (error) => {
     // Si el servidor responde con 401, el token es inválido
     if (error.response?.status === 401) {
-      // Limpiar el token inválido del localStorage
-      localStorage.removeItem('accessToken');
-      
+      const originalRequest = error.config as (typeof error.config & { _retry?: boolean });
+      const requestUrl = typeof originalRequest?.url === 'string' ? originalRequest.url : '';
+
+      const isAuthRefresh = requestUrl.includes('/auth/refresh');
+      const isAuthLogin = requestUrl.includes('/auth/login');
+
+      if (!isAuthRefresh && !isAuthLogin && originalRequest && !originalRequest._retry) {
+        originalRequest._retry = true;
+        const newToken = await refreshAccessToken();
+
+        if (newToken) {
+          originalRequest.headers = {
+            ...(originalRequest.headers || {}),
+            Authorization: `Bearer ${newToken}`,
+          };
+          return apiService(originalRequest);
+        }
+      }
+
+      clearStoredTokens();
+
       // Redirigir al login solo si no estamos ya ahí
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';

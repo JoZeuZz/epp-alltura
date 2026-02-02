@@ -16,7 +16,7 @@ const userSchema = z.object({
   email: z.string().email('Email inválido').max(255, 'Máximo 255 caracteres'),
   role: z.enum(['admin', 'supervisor', 'client']),
   password: z.string()
-    .min(8, 'Mínimo 8 caracteres')
+    .min(12, 'Mínimo 12 caracteres')
     .regex(/[A-Z]/, 'Debe contener al menos una mayúscula')
     .regex(/[a-z]/, 'Debe contener al menos una minúscula')
     .regex(/[0-9]/, 'Debe contener al menos un número')
@@ -233,7 +233,7 @@ const UserFormPage: React.FC = () => {
                 className={`appearance-none block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary-blue focus:border-primary-blue sm:text-sm ${
                   errors.password ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'
                 }`}
-                placeholder={isEditing ? 'Dejar en blanco para no cambiar' : 'Mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número'}
+                placeholder={isEditing ? 'Dejar en blanco para no cambiar' : 'Mínimo 12 caracteres, 1 mayúscula, 1 minúscula, 1 número'}
               />
               {errors.password && (
                 <p id="password-error" className="text-red-600 text-sm mt-1" role="alert">
@@ -242,7 +242,7 @@ const UserFormPage: React.FC = () => {
               )}
               {!isEditing && !errors.password && (
                 <p id="password-hint" className="text-xs text-gray-500 mt-1">
-                  La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número.
+                  La contraseña debe tener al menos 12 caracteres, una mayúscula, una minúscula y un número.
                 </p>
               )}
             </div>

@@ -267,6 +267,31 @@ const getLocalFilePath = (imageUrl) => {
   return path.join(localUploadsDir, filename);
 };
 
+const getLocalRelativePath = (imageUrl) => {
+  let filename;
+
+  if (!imageUrl) {
+    return null;
+  }
+
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    const urlParts = imageUrl.split('/uploads/');
+    if (urlParts.length > 1) {
+      filename = urlParts.slice(1).join('/uploads/');
+    }
+  } else if (imageUrl.startsWith('/uploads/')) {
+    filename = imageUrl.replace(/^\/uploads\//, '');
+  } else {
+    filename = imageUrl;
+  }
+
+  if (!filename) {
+    return null;
+  }
+
+  return filename.replace(/^\/+/, '');
+};
+
 const parseGcsUrl = (imageUrl) => {
   try {
     const parsed = new URL(imageUrl);
@@ -309,6 +334,23 @@ const createProxyToken = (imageUrl) => {
 
   return jwt.sign(
     { b: gcsInfo.bucketName, o: gcsInfo.objectName },
+    proxySecret,
+    { expiresIn: proxyTokenTtlSeconds }
+  );
+};
+
+const createLocalProxyToken = (imageUrl) => {
+  if (!proxySecret) {
+    return null;
+  }
+
+  const relativePath = getLocalRelativePath(imageUrl);
+  if (!relativePath) {
+    return null;
+  }
+
+  return jwt.sign(
+    { t: 'local', f: relativePath },
     proxySecret,
     { expiresIn: proxyTokenTtlSeconds }
   );
@@ -411,6 +453,10 @@ const resolveImageUrl = async (imageUrl) => {
   if (!imageUrl) return imageUrl;
 
   if (resolvedProvider !== 'gcs') {
+    const token = createLocalProxyToken(imageUrl);
+    if (token) {
+      return `/api/image-proxy?token=${token}`;
+    }
     return imageUrl;
   }
 

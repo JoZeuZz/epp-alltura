@@ -5,6 +5,32 @@
 
 const { logger } = require('../lib/logger');
 
+const SENSITIVE_KEY_PATTERN = /(password|pass|token|refresh|access|authorization|secret|api[-_]?key|jwt)/i;
+
+const redactSensitive = (value, seen = new WeakSet()) => {
+  if (value === null || value === undefined) return value;
+  if (typeof value !== 'object') return value;
+
+  if (seen.has(value)) {
+    return '[Circular]';
+  }
+  seen.add(value);
+
+  if (Array.isArray(value)) {
+    return value.map((item) => redactSensitive(item, seen));
+  }
+
+  const sanitized = {};
+  for (const [key, val] of Object.entries(value)) {
+    if (SENSITIVE_KEY_PATTERN.test(key)) {
+      sanitized[key] = '[REDACTED]';
+    } else {
+      sanitized[key] = redactSensitive(val, seen);
+    }
+  }
+  return sanitized;
+};
+
 const getMaxImageMb = () => {
   const maxBytes = parseInt(process.env.IMAGE_MAX_BYTES || '0', 10);
   if (!Number.isFinite(maxBytes) || maxBytes <= 0) {
@@ -100,13 +126,17 @@ const handleMulterError = (err) => {
 
 // Middleware global de manejo de errores
 const errorHandler = (err, req, res, _next) => {
+  const safeBody = redactSensitive(req.body);
+  const safeParams = redactSensitive(req.params);
+  const safeQuery = redactSensitive(req.query);
+
   // Loggear el error usando el logger centralizado
   logger.error(`Error en ${req.method} ${req.originalUrl}`, {
     message: err.message,
     stack: err.stack,
-    body: req.body,
-    params: req.params,
-    query: req.query,
+    body: safeBody,
+    params: safeParams,
+    query: safeQuery,
     requestId: req.requestId,
   });
 

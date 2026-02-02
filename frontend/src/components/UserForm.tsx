@@ -1,14 +1,16 @@
 import { Form, useNavigation, useLoaderData, useActionData } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Client } from '../types/api';
 import PasswordStrength from './PasswordStrength';
 
 interface UserFormProps {
   user: User | null;
   onCancel: () => void;
+  defaultRole?: User['role'];
+  defaultClientId?: number;
 }
 
-export default function UserForm({ user, onCancel }: UserFormProps) {
+export default function UserForm({ user, onCancel, defaultRole, defaultClientId }: UserFormProps) {
   const navigation = useNavigation();
   const loaderData = useLoaderData() as { users: User[]; clients?: Client[] };
   const actionData = useActionData() as { success?: boolean; fieldErrors?: Record<string, string> } | undefined;
@@ -17,10 +19,27 @@ export default function UserForm({ user, onCancel }: UserFormProps) {
   const isSubmitting = navigation.state === 'submitting';
   const isEditing = !!user;
   const [password, setPassword] = useState('');
-  const [selectedRole, setSelectedRole] = useState<string>(user?.role || 'supervisor');
+  const [selectedRole, setSelectedRole] = useState<string>(user?.role || defaultRole || 'supervisor');
+  const [selectedClientId, setSelectedClientId] = useState<string>(
+    user?.client_id ? user.client_id.toString() : defaultClientId ? defaultClientId.toString() : ''
+  );
   
   // Obtener errores de validación
   const errors = actionData?.fieldErrors || {};
+
+  useEffect(() => {
+    setSelectedRole(user?.role || defaultRole || 'supervisor');
+  }, [user, defaultRole]);
+
+  useEffect(() => {
+    if (user?.client_id) {
+      setSelectedClientId(user.client_id.toString());
+      return;
+    }
+    if (!isEditing) {
+      setSelectedClientId(defaultClientId ? defaultClientId.toString() : '');
+    }
+  }, [defaultClientId, isEditing, user]);
 
   return (
     <Form method="post">
@@ -102,7 +121,7 @@ export default function UserForm({ user, onCancel }: UserFormProps) {
             errors.password ? 'border-red-500 focus:border-red-500' : 'focus:border-primary-blue'
           }`}
           required={!isEditing}
-          minLength={isEditing ? 0 : 8}
+          minLength={isEditing ? 0 : 12}
           disabled={isSubmitting}
         />
         {errors.password && (
@@ -143,7 +162,8 @@ export default function UserForm({ user, onCancel }: UserFormProps) {
           <select
             id="client_id"
             name="client_id"
-            defaultValue={user?.client_id?.toString() || ''}
+            value={selectedClientId}
+            onChange={(event) => setSelectedClientId(event.target.value)}
             className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
               errors.client_id ? 'border-red-500 focus:border-red-500' : 'focus:border-primary-blue'
             }`}
@@ -156,15 +176,95 @@ export default function UserForm({ user, onCancel }: UserFormProps) {
                 {client.name}
               </option>
             ))}
+            {!isEditing && (
+              <option value="__new__">➕ Crear nueva empresa</option>
+            )}
           </select>
           {errors.client_id && (
             <p className="text-red-500 text-xs italic mt-1">{errors.client_id}</p>
           )}
-          {!errors.client_id && (
+          {!errors.client_id && selectedClientId !== '__new__' && (
             <p className="mt-2 text-sm text-gray-600">
               Este usuario solo podrá acceder a proyectos de esta empresa.
             </p>
           )}
+        </div>
+      )}
+
+      {selectedRole === 'client' && selectedClientId === '__new__' && !isEditing && (
+        <div className="mb-6 rounded-lg border border-blue-100 bg-blue-50 p-4">
+          <p className="text-sm font-semibold text-blue-900 mb-3">Nueva empresa cliente</p>
+          <div className="mb-4">
+            <label htmlFor="client_create_name" className="block text-gray-700 text-sm font-bold mb-2">
+              Nombre de la empresa *
+            </label>
+            <input
+              type="text"
+              id="client_create_name"
+              name="client_create_name"
+              className={`shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline ${
+                errors.client_create_name ? 'border-red-500 focus:border-red-500' : 'focus:border-primary-blue'
+              }`}
+              required
+              disabled={isSubmitting}
+            />
+            {errors.client_create_name && (
+              <p className="text-red-500 text-xs italic mt-1">{errors.client_create_name}</p>
+            )}
+          </div>
+
+          <div className="mb-4">
+            <label htmlFor="client_create_email" className="block text-gray-700 text-sm font-bold mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              id="client_create_email"
+              name="client_create_email"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="mb-4">
+            <label htmlFor="client_create_phone" className="block text-gray-700 text-sm font-bold mb-2">
+              Teléfono
+            </label>
+            <input
+              type="tel"
+              id="client_create_phone"
+              name="client_create_phone"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="mb-4">
+            <label htmlFor="client_create_address" className="block text-gray-700 text-sm font-bold mb-2">
+              Dirección
+            </label>
+            <input
+              type="text"
+              id="client_create_address"
+              name="client_create_address"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="client_create_specialty" className="block text-gray-700 text-sm font-bold mb-2">
+              Especialidad
+            </label>
+            <input
+              type="text"
+              id="client_create_specialty"
+              name="client_create_specialty"
+              placeholder="Ej: Montaje Industrial, Construcción, etc."
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-primary-blue"
+              disabled={isSubmitting}
+            />
+          </div>
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate, useLoaderData, Form, useActionData } from 'react-router-dom';
+import { useNavigate, useLoaderData, Form, useActionData, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { User } from '../../types/api';
 import UserForm from '../../components/UserForm';
@@ -14,10 +14,13 @@ const UsersPage: React.FC = () => {
   const { users } = useLoaderData() as { users: User[] };
   const actionData = useActionData() as { success?: boolean; message?: string; fieldErrors?: Record<string, string> } | undefined;
   const navigate = useNavigate();
+  const location = useLocation();
   const { isMobile } = useBreakpoints();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [defaultRole, setDefaultRole] = useState<User['role'] | null>(null);
+  const [defaultClientId, setDefaultClientId] = useState<number | null>(null);
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
@@ -31,6 +34,8 @@ const UsersPage: React.FC = () => {
         setIsDeleteModalOpen(false);
         setSelectedUser(null);
         setUserToDelete(null);
+        setDefaultRole(null);
+        setDefaultClientId(null);
       } else {
         // Solo mostrar toast si no hay errores de campo específicos (errores de validación inline)
         const hasFieldErrors = actionData.fieldErrors && Object.keys(actionData.fieldErrors).length > 0;
@@ -42,15 +47,33 @@ const UsersPage: React.FC = () => {
     }
   }, [actionData]);
 
-  const handleOpenModal = useCallback((user: User | null = null) => {
+  const handleOpenModal = useCallback((user: User | null = null, defaults?: { role?: User['role']; clientId?: number }) => {
     setSelectedUser(user);
+    setDefaultRole(defaults?.role ?? null);
+    setDefaultClientId(defaults?.clientId ?? null);
     setIsModalOpen(true);
   }, []);
 
   const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
     setSelectedUser(null);
+    setDefaultRole(null);
+    setDefaultClientId(null);
   }, []);
+
+  useEffect(() => {
+    const state = location.state as { openCreateUser?: boolean; clientId?: number } | null;
+    const searchParams = new URLSearchParams(location.search);
+    const queryClientId = searchParams.get('clientId');
+    const shouldOpen =
+      state?.openCreateUser === true || searchParams.get('openCreateUser') === '1';
+
+    if (shouldOpen) {
+      const clientId = state?.clientId ?? (queryClientId ? parseInt(queryClientId, 10) : undefined);
+      handleOpenModal(null, { role: 'client', clientId: clientId || undefined });
+      navigate('/admin/users', { replace: true, state: null });
+    }
+  }, [handleOpenModal, location.search, location.state, navigate]);
 
   const handleDelete = useCallback((user: User) => {
     setUserToDelete(user);
@@ -235,7 +258,12 @@ const UsersPage: React.FC = () => {
         <h2 className="text-2xl font-bold mb-4">
           {selectedUser ? 'Editar Usuario' : 'Nuevo Usuario'}
         </h2>
-        <UserForm user={selectedUser} onCancel={handleCloseModal} />
+        <UserForm
+          user={selectedUser}
+          onCancel={handleCloseModal}
+          defaultRole={defaultRole || undefined}
+          defaultClientId={defaultClientId || undefined}
+        />
       </Modal>
 
       <ConfirmationModal

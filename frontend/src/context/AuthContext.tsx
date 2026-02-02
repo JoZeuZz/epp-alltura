@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect, ReactNode, useCa
 import * as api from '../services/apiService';
 import { jwtDecode } from 'jwt-decode';
 import { User } from '../types/api';
+import { refreshAccessToken, clearStoredTokens } from '../services/authRefresh';
 
 interface AuthContextType {
   user: User | null;
@@ -22,25 +23,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const token = localStorage.getItem('accessToken');
-      if (token && typeof token === 'string') {
-        const decodedUser = jwtDecode<{ user: User; exp: number }>(token);
-        const isExpired = decodedUser.exp * 1000 < Date.now();
+    let isMounted = true;
 
-        if (isExpired) {
-          throw new Error('Token expired');
+    const initializeAuth = async () => {
+      try {
+        let token = localStorage.getItem('accessToken');
+        if (token && typeof token === 'string') {
+          const decodedUser = jwtDecode<{ user: User; exp: number }>(token);
+          const isExpired = decodedUser.exp * 1000 < Date.now();
+
+          if (isExpired) {
+            const refreshedToken = await refreshAccessToken();
+            if (!refreshedToken) {
+              clearStoredTokens();
+              if (isMounted) setUser(null);
+              return;
+            }
+            token = refreshedToken;
+          }
+
+          const freshDecoded = jwtDecode<{ user: User }>(token);
+          if (isMounted) {
+            setUser(freshDecoded.user);
+          }
+          return;
         }
 
-        setUser(decodedUser.user);
+        if (isMounted) setUser(null);
+      } catch (error) {
+        console.error('Error validating token on mount:', error);
+        clearStoredTokens();
+        if (isMounted) setUser(null);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-    } catch (error) {
-      console.error('Error validating token on mount:', error);
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      setUser(null);
-    }
-    setLoading(false);
+    };
+
+    initializeAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -63,8 +86,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    clearStoredTokens();
     setUser(null);
     // Redirigir al login
     window.location.href = '/login';

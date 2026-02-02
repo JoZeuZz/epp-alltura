@@ -164,7 +164,7 @@ const Scaffold = {
       'scaffold_number', 'area', 'tag',
       'height', 'width', 'length', 'cubic_meters', 'progress_percentage', 
       'assembly_notes', 'card_status', 'assembly_status', 'assembly_image_url', 
-      'disassembly_image', 'disassembly_notes', 'location', 'observations'
+      'disassembly_image_url', 'disassembly_notes', 'location', 'observations'
     ];
 
     allowedFields.forEach((field) => {
@@ -227,7 +227,7 @@ const Scaffold = {
       // Al desarmar, automáticamente cambiar tarjeta a roja
       query = `
         UPDATE scaffolds 
-        SET assembly_status = $1, disassembly_image = $2, card_status = 'red', 
+        SET assembly_status = $1, disassembly_image_url = $2, card_status = 'red', 
             disassembled_at = NOW(), updated_at = NOW() 
         WHERE id = $3 
         RETURNING *

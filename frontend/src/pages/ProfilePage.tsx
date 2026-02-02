@@ -25,7 +25,7 @@ const profileSchema = z.object({
   rut: z.string().max(20, 'Máximo 20 caracteres').optional().or(z.literal('')),
   phone_number: z.string().max(20, 'Máximo 20 caracteres').optional().or(z.literal('')),
   password: z.string()
-    .min(8, 'Mínimo 8 caracteres')
+    .min(12, 'Mínimo 12 caracteres')
     .regex(/[A-Z]/, 'Debe contener al menos una mayúscula')
     .regex(/[a-z]/, 'Debe contener al menos una minúscula')
     .regex(/[0-9]/, 'Debe contener al menos un número')
