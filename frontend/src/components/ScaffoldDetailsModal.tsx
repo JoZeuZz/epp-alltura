@@ -537,7 +537,7 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="font-bold text-blue-900 text-base md:text-lg flex items-center gap-2">
-                <span className="text-2xl">📐</span>
+                <span className="text-2xl"></span>
                 Metros Cúbicos Adicionales
               </h3>
               <p className="text-sm text-blue-700 mt-1">
@@ -593,7 +593,7 @@ const ScaffoldDetailsModal: React.FC<ScaffoldDetailsModalProps> = ({
       {/* Porcentaje de Avance */}
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-4 md:p-6 rounded-lg mb-4 md:mb-6 border-2 border-purple-200">
         <h3 className="font-bold text-dark-blue mb-3 text-base md:text-lg flex items-center gap-2">
-          <span className="text-2xl">📊</span>
+          <span className="text-2xl"></span>
           Porcentaje de Avance
         </h3>
         
