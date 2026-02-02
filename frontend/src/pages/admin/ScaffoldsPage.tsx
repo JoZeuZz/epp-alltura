@@ -17,27 +17,7 @@ import {
   ALLOWED_IMAGE_ACCEPT,
 } from '../../utils/imageProcessing';
 
-type AlertFilter =
-  | 'assembled_red'
-  | 'disassembled_green'
-  | 'in_progress_stale'
-  | 'missing_assembly_image'
-  | 'missing_disassembly_image';
-
-const STALE_PROGRESS_DAYS = 7;
-
-const hasAssemblyImage = (scaffold: Scaffold) =>
-  Boolean(scaffold.initial_image || scaffold.assembly_image_url);
-const hasDisassemblyImage = (scaffold: Scaffold) =>
-  Boolean(scaffold.disassembly_image || scaffold.disassembly_image_url);
-const isInProgressStale = (scaffold: Scaffold) => {
-  if (scaffold.assembly_status !== 'in_progress' || !scaffold.assembly_created_at) {
-    return false;
-  }
-  const createdAt = new Date(scaffold.assembly_created_at);
-  if (Number.isNaN(createdAt.getTime())) return false;
-  return Date.now() - createdAt.getTime() > STALE_PROGRESS_DAYS * 24 * 60 * 60 * 1000;
-};
+// Alertas inteligentes deshabilitadas temporalmente
 
 const ScaffoldsPage: React.FC = () => {
   const { projects: initialProjects } = useLoaderData() as { projects: Project[] };
@@ -65,7 +45,7 @@ const ScaffoldsPage: React.FC = () => {
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedScaffoldIds, setSelectedScaffoldIds] = useState<Set<number>>(new Set());
   const [bulkUpdating, setBulkUpdating] = useState(false);
-  const [alertFilter, setAlertFilter] = useState<AlertFilter | null>(null);
+  // Alertas inteligentes deshabilitadas temporalmente
 
   const projects = initialProjects;
   const projectsLoading = false;
@@ -145,58 +125,12 @@ const ScaffoldsPage: React.FC = () => {
     return filtered;
   }, [filters, scaffolds, selectedProjectId]);
 
-  const alertCounts = React.useMemo(() => {
-    const assembledRed = baseFilteredScaffolds.filter(
-      (s) => s.assembly_status === 'assembled' && s.card_status === 'red',
-    ).length;
-    const disassembledGreen = baseFilteredScaffolds.filter(
-      (s) => s.assembly_status === 'disassembled' && s.card_status === 'green',
-    ).length;
-    const inProgressStale = baseFilteredScaffolds.filter(isInProgressStale).length;
-    const missingAssemblyImage = baseFilteredScaffolds.filter(
-      (s) => !hasAssemblyImage(s),
-    ).length;
-    const missingDisassemblyImage = baseFilteredScaffolds.filter(
-      (s) => s.assembly_status === 'disassembled' && !hasDisassemblyImage(s),
-    ).length;
-
-    return {
-      assembledRed,
-      disassembledGreen,
-      inProgressStale,
-      missingAssemblyImage,
-      missingDisassemblyImage,
-    };
-  }, [baseFilteredScaffolds]);
-
-  const filteredScaffolds = React.useMemo(() => {
-    if (!alertFilter) return baseFilteredScaffolds;
-    switch (alertFilter) {
-      case 'assembled_red':
-        return baseFilteredScaffolds.filter(
-          (s) => s.assembly_status === 'assembled' && s.card_status === 'red',
-        );
-      case 'disassembled_green':
-        return baseFilteredScaffolds.filter(
-          (s) => s.assembly_status === 'disassembled' && s.card_status === 'green',
-        );
-      case 'in_progress_stale':
-        return baseFilteredScaffolds.filter(isInProgressStale);
-      case 'missing_assembly_image':
-        return baseFilteredScaffolds.filter((s) => !hasAssemblyImage(s));
-      case 'missing_disassembly_image':
-        return baseFilteredScaffolds.filter(
-          (s) => s.assembly_status === 'disassembled' && !hasDisassemblyImage(s),
-        );
-      default:
-        return baseFilteredScaffolds;
-    }
-  }, [alertFilter, baseFilteredScaffolds]);
+  const filteredScaffolds = baseFilteredScaffolds;
 
   useEffect(() => {
     setBulkMode(false);
     setSelectedScaffoldIds(new Set());
-    setAlertFilter(null);
+    // alertFilter deshabilitado
   }, [selectedProjectId]);
 
   useEffect(() => {
@@ -554,48 +488,7 @@ const ScaffoldsPage: React.FC = () => {
     redCards: filteredScaffolds.filter(s => s.card_status === 'red').length,
   };
 
-  const alertItems = [
-    {
-      id: 'assembled_red' as AlertFilter,
-      label: 'Armado con tarjeta roja',
-      description: 'Requiere revisión',
-      count: alertCounts.assembledRed,
-      className: 'border-red-200 bg-red-50 text-red-700',
-      ringClass: 'ring-red-400',
-    },
-    {
-      id: 'disassembled_green' as AlertFilter,
-      label: 'Desarmado con tarjeta verde',
-      description: 'Verificar estado',
-      count: alertCounts.disassembledGreen,
-      className: 'border-amber-200 bg-amber-50 text-amber-700',
-      ringClass: 'ring-amber-400',
-    },
-    {
-      id: 'in_progress_stale' as AlertFilter,
-      label: `En proceso +${STALE_PROGRESS_DAYS} días`,
-      description: 'Revisar avance',
-      count: alertCounts.inProgressStale,
-      className: 'border-yellow-200 bg-yellow-50 text-yellow-700',
-      ringClass: 'ring-yellow-400',
-    },
-    {
-      id: 'missing_assembly_image' as AlertFilter,
-      label: 'Sin foto de montaje',
-      description: 'Completar evidencia',
-      count: alertCounts.missingAssemblyImage,
-      className: 'border-slate-200 bg-slate-50 text-slate-700',
-      ringClass: 'ring-slate-400',
-    },
-    {
-      id: 'missing_disassembly_image' as AlertFilter,
-      label: 'Sin foto de desarmado',
-      description: 'Adjuntar evidencia',
-      count: alertCounts.missingDisassemblyImage,
-      className: 'border-orange-200 bg-orange-50 text-orange-700',
-      ringClass: 'ring-orange-400',
-    },
-  ];
+  // alertItems deshabilitado
 
   return (
     <div className="space-y-6">
@@ -670,7 +563,8 @@ const ScaffoldsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Alertas inteligentes */}
+      {/* Alertas inteligentes (deshabilitadas temporalmente) */}
+      {/*
       {selectedProjectId && baseFilteredScaffolds.length > 0 && (
         <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
@@ -713,6 +607,7 @@ const ScaffoldsPage: React.FC = () => {
           </div>
         </div>
       )}
+      */}
 
       {/* Acciones principales compactas */}
       <div className="bg-white rounded-lg shadow-md p-3 md:p-4">
