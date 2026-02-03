@@ -150,6 +150,7 @@ const ProjectsPage: React.FC = () => {
           </label>
           <button
             onClick={() => handleOpenModal()}
+            data-tour="admin-projects-create"
             className="bg-primary-blue text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base w-full sm:w-auto"
           >
             + Añadir Proyecto
@@ -247,6 +248,7 @@ const ProjectsPage: React.FC = () => {
                       </button>
                       <button
                         onClick={() => handleOpenAssignModal(project)}
+                        data-tour="admin-projects-assign"
                         className="text-green-600 hover:text-green-900 mr-4"
                         aria-label={`Asignar andamios al proyecto ${project.name}`}
                       >

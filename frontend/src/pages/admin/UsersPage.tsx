@@ -114,6 +114,7 @@ const UsersPage: React.FC = () => {
         <h1 className="text-3xl font-bold text-dark-blue">Gestión de Usuarios</h1>
         <button
           onClick={() => handleOpenModal()}
+          data-tour="admin-users-create"
           className="bg-primary-blue text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
         >
           Añadir Usuario

@@ -1,6 +1,9 @@
 import { useState, Fragment, useRef, useEffect, Suspense } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTour } from '../context/TourContext';
+import TourOverlay from '../components/TourOverlay';
+import type { TourRole } from '../utils/tourSteps';
 import logoWhite from '../assets/logo-alltura-white.png';
 import UserIcon from '../components/icons/UserIcon';
 import NotificationBell from '../components/NotificationBell';
@@ -33,6 +36,7 @@ const ChevronRightIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 const AppLayout = () => {
   const { user, logout } = useAuth();
+  const { start } = useTour();
   const navigate = useNavigate();
   
   // Estado inicial: expandida en desktop, colapsada en móvil
@@ -48,6 +52,14 @@ const AppLayout = () => {
   
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const hasAutoStartedTour = useRef(false);
+
+  useEffect(() => {
+    if (user?.role && !hasAutoStartedTour.current) {
+      hasAutoStartedTour.current = true;
+      start(user.role as TourRole);
+    }
+  }, [start, user?.role]);
 
   // Cerrar el menú de perfil al hacer clic fuera
   useEffect(() => {
@@ -251,8 +263,26 @@ const AppLayout = () => {
             </div>
           </nav>
           
+          {/* Botón de guía */}
+          <div className="px-2 pb-2 border-t border-gray-700">
+            <button
+              type="button"
+              data-tour="tour-launcher"
+              onClick={() => start(user.role as TourRole, { force: true })}
+              title="Guía"
+              className={`w-full flex items-center gap-2 p-2 mt-3 rounded-lg text-gray-300 hover:bg-gray-700 transition-colors ${
+                !isSidebarOpen ? 'lg:justify-center' : ''
+              }`}
+            >
+              <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.227 9a3 3 0 015.546 1c0 2-3 2-3 4m.08 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
+              </svg>
+              <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Guía</span>
+            </button>
+          </div>
+
           {/* Sección de usuario con menú desplegable */}
-          <div className="px-2 py-4 border-t border-gray-700 flex-shrink-0 relative" ref={profileMenuRef}>
+          <div className="px-2 py-4 flex-shrink-0 relative" ref={profileMenuRef}>
             <button
               onClick={() => setProfileMenuOpen(!isProfileMenuOpen)}
               className={`w-full flex items-center p-2 rounded-lg hover:bg-gray-700 transition-colors ${
@@ -354,6 +384,8 @@ const AppLayout = () => {
           </Suspense>
         </main>
       </div>
+
+      <TourOverlay />
     </div>
   )
 };

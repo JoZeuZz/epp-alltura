@@ -142,6 +142,7 @@ const ClientProjectScaffoldsPage: React.FC = () => {
         </button>
         <button
           onClick={() => setShowDashboard(false)}
+          data-tour="client-scaffolds"
           className={`flex-1 sm:flex-none px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-1.5 ${
             !showDashboard
               ? 'bg-primary-blue text-white shadow-md'
@@ -159,6 +160,7 @@ const ClientProjectScaffoldsPage: React.FC = () => {
         </button>
         <button
           onClick={() => navigate(`/client/project/${project.id}/gallery`)}
+          data-tour="client-gallery"
           className="flex-1 sm:flex-none px-3 sm:px-5 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center justify-center gap-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200"
         >
           <svg
@@ -178,6 +180,7 @@ const ClientProjectScaffoldsPage: React.FC = () => {
           <button
             onClick={handleExportPDF}
             disabled={exporting}
+            data-tour="client-pdf"
             className="bg-red-500 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs sm:text-sm font-medium shadow-sm transition-all flex items-center justify-center gap-1.5 flex-1 sm:flex-none"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -203,7 +206,9 @@ const ClientProjectScaffoldsPage: React.FC = () => {
 
       {/* Dashboard o Lista de Andamios */}
       {showDashboard ? (
-        <ProjectDashboard summary={summary} projectName={project?.name} />
+        <div data-tour="client-metrics">
+          <ProjectDashboard summary={summary} projectName={project?.name} />
+        </div>
       ) : (
         <>
           {/* Filtros - Solo visible cuando HAY andamios */}

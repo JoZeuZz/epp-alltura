@@ -610,7 +610,7 @@ const ScaffoldsPage: React.FC = () => {
       */}
 
       {/* Acciones principales compactas */}
-      <div className="bg-white rounded-lg shadow-md p-3 md:p-4">
+      <div className="bg-white rounded-lg shadow-md p-3 md:p-4" data-tour="admin-scaffolds">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-base font-semibold text-dark-blue">

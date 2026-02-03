@@ -203,6 +203,8 @@ const ProjectScaffoldsPage: React.FC = () => {
           <button
             onClick={() => navigate(`/supervisor/project/${projectId}/create-scaffold`)}
             disabled={!project?.active || !project?.client_active}
+            data-tour="sup-scaffold-create"
+            data-tour-route={`/supervisor/project/${projectId}/create-scaffold`}
             className="bg-primary-blue text-white px-4 py-2.5 rounded-lg font-bold hover:bg-700 transition-colors shadow-lg text-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
           >
             + Reportar
@@ -218,7 +220,7 @@ const ProjectScaffoldsPage: React.FC = () => {
           Aún no se han reportado andamios para este proyecto.
         </p>
       ) : (
-        <div className="bg-white rounded-lg shadow-md p-4 md:p-6">
+        <div className="bg-white rounded-lg shadow-md p-4 md:p-6" data-tour="sup-scaffold-actions">
           <ScaffoldGrid
             scaffolds={scaffolds}
             onScaffoldSelect={setSelectedScaffold}

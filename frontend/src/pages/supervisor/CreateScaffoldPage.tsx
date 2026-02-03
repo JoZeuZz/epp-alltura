@@ -230,7 +230,7 @@ const CreateScaffoldPage: React.FC = () => {
             </p>
           </div>
 
-          <form method="post" encType="multipart/form-data" onSubmit={handleSubmit} className="space-y-6">
+          <form method="post" encType="multipart/form-data" onSubmit={handleSubmit} className="space-y-6" data-tour="sup-scaffold-form">
             {/* Hidden fields para el router action */}
             <input type="hidden" name="project_id" value={projectId || ''} />
             <input type="hidden" name="progress_percentage" value={progressPercentage} />
@@ -248,7 +248,10 @@ const CreateScaffoldPage: React.FC = () => {
             />
             
             {/* Imagen Inicial */}
-            <div>
+            <div
+              data-tour="sup-scaffold-photos"
+              data-tour-route={isAdmin ? `/admin/scaffolds?projectId=${projectId}` : `/supervisor/project/${projectId}`}
+            >
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Foto del Andamio <span className="text-red-500">*</span>
               </label>
