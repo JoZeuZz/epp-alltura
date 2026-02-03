@@ -34,11 +34,20 @@ const TourOverlay: React.FC = () => {
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [tooltipSize, setTooltipSize] = useState({ width: 320, height: 200 });
   const lastTargetRef = useRef<HTMLElement | null>(null);
+  const [waitingForTarget, setWaitingForTarget] = useState(false);
+  const [fallbackEnabled, setFallbackEnabled] = useState(false);
 
   const routeMatches = useMemo(() => {
     if (!step) return true;
     return matchesRoute(location.pathname, step.route);
   }, [location.pathname, step]);
+
+  const allowTooltip = useMemo(() => {
+    if (!step) return true;
+    if (!step.route || step.route === '*') return true;
+    if (routeMatches) return true;
+    return step.route.includes(':');
+  }, [routeMatches, step]);
 
   useEffect(() => {
     if (!isActive || !step) return;
@@ -46,6 +55,30 @@ const TourOverlay: React.FC = () => {
       navigate(step.route);
     }
   }, [isActive, navigate, routeMatches, step]);
+
+  useEffect(() => {
+    if (!isActive || !step) {
+      setWaitingForTarget(false);
+      setFallbackEnabled(false);
+      return;
+    }
+    if (!step.selector) {
+      setWaitingForTarget(false);
+      setFallbackEnabled(true);
+      return;
+    }
+    if (!allowTooltip) {
+      setWaitingForTarget(true);
+      setFallbackEnabled(false);
+      return;
+    }
+    setWaitingForTarget(true);
+    setFallbackEnabled(false);
+    const timer = window.setTimeout(() => {
+      setFallbackEnabled(true);
+    }, 550);
+    return () => window.clearTimeout(timer);
+  }, [allowTooltip, isActive, step]);
 
   useEffect(() => {
     if (!isActive || !step) return;
@@ -90,6 +123,12 @@ const TourOverlay: React.FC = () => {
     };
   }, [isActive, step]);
 
+  useEffect(() => {
+    if (targetEl) {
+      setWaitingForTarget(false);
+    }
+  }, [targetEl]);
+
   useLayoutEffect(() => {
     if (!tooltipRef.current) return;
     const rect = tooltipRef.current.getBoundingClientRect();
@@ -97,9 +136,13 @@ const TourOverlay: React.FC = () => {
   }, [step, isMobile, targetRect]);
 
   if (!isActive || !step) return null;
+  if (!allowTooltip && step.route && !step.route.includes(':')) {
+    return null;
+  }
 
   const highlightPadding = step.highlightPadding ?? 8;
   const hasTarget = Boolean(targetRect);
+  const showTooltip = allowTooltip && (!waitingForTarget || fallbackEnabled);
 
   const highlightStyle = hasTarget && targetRect
     ? {
@@ -187,18 +230,20 @@ const TourOverlay: React.FC = () => {
         ? 'No encontramos este elemento en pantalla. Puedes continuar.'
         : null;
 
+  const overlayClass = highlightStyle ? 'bg-black/15' : 'bg-black/30';
+
   return (
     <div className="fixed inset-0 z-[1000]">
-      <div className="absolute inset-0 bg-black/50" />
+      <div className={`absolute inset-0 transition-opacity duration-200 ${overlayClass}`} />
 
       {highlightStyle && (
         <div
-          className="absolute rounded-2xl border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)] pointer-events-none"
+          className="absolute rounded-2xl border-2 border-white/80 shadow-[0_0_0_9999px_rgba(0,0,0,0.22)] pointer-events-none transition-all duration-200"
           style={highlightStyle}
         />
       )}
 
-      {isMobile ? (
+      {showTooltip && isMobile ? (
         <div className="absolute inset-x-0 bottom-0 p-4">
           <div ref={tooltipRef} className="bg-white rounded-2xl shadow-2xl p-4">
             <div className="flex items-start justify-between gap-3">
@@ -252,7 +297,9 @@ const TourOverlay: React.FC = () => {
             </div>
           </div>
         </div>
-      ) : (
+      ) : null}
+
+      {showTooltip && !isMobile ? (
         <div
           ref={tooltipRef}
           className="fixed max-w-sm bg-white rounded-2xl shadow-2xl p-5"
@@ -308,7 +355,7 @@ const TourOverlay: React.FC = () => {
             </button>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };

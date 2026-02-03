@@ -35,6 +35,11 @@ server {
     try_files $uri =404;
   }
 
+  # Don't serve source maps in production
+  location ~* \.map$ {
+    return 404;
+  }
+
   # Ensure HTML and critical manifests are always fresh
   location = /index.html {
     add_header Cache-Control "no-store" always;
