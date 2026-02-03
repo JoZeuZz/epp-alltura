@@ -275,7 +275,12 @@ const AppLayout = () => {
               }`}
             >
               <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.227 9a3 3 0 015.546 1c0 2-3 2-3 4m.08 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6.253v13m0-13C10.2 5.3 8.2 4.5 6 4.5a4 4 0 00-2 .5v13a4 4 0 012-.5c2.2 0 4.2.8 6 1.753m0-13c1.8-.953 3.8-1.753 6-1.753a4 4 0 012 .5v13a4 4 0 00-2-.5c-2.2 0-4.2.8-6 1.753"
+                />
               </svg>
               <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Guía</span>
             </button>
