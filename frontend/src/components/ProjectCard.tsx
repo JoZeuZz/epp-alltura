@@ -68,6 +68,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, linkTo }) => {
   return (
     <Link
       to={linkTo}
+      data-tour="sup-projects-select"
       className="block bg-white rounded-lg border border-gray-200 shadow-md hover:shadow-lg transition-all duration-200 overflow-hidden group"
     >
       {/* Header con degradado sutil */}

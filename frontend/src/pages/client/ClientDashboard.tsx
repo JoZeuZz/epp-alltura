@@ -54,6 +54,7 @@ const ClientDashboard: React.FC = () => {
               <Link
                 key={project.id}
                 to={`/client/project/${project.id}`}
+                data-tour="client-projects"
                 className="block p-6 bg-gradient-to-br from-blue-50 to-white border-2 border-blue-200 rounded-lg hover:shadow-lg transition-all hover:scale-105"
               >
                 <div className="flex items-start justify-between">

@@ -18,6 +18,7 @@ export interface CardAction {
   variant?: 'primary' | 'secondary' | 'danger' | 'success';
   show?: boolean; // Condicional para mostrar/ocultar
   icon?: React.ReactNode;
+  dataTour?: string;
 }
 
 export interface EntityCardProps {
@@ -61,6 +62,7 @@ const ActionButton: React.FC<{ action: CardAction }> = ({ action }) => {
   return (
     <button
       onClick={action.onClick}
+      data-tour={action.dataTour}
       className={`${baseClasses} ${variantClasses[variant]}`}
       title={action.label}
     >
