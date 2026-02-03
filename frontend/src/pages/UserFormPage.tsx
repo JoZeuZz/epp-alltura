@@ -124,7 +124,7 @@ const UserFormPage: React.FC = () => {
         )}
         
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div>
+          <div data-tour="admin-userform-role">
             <label htmlFor="first_name" className="block text-sm font-medium text-neutral-gray">
               Nombre <span className="text-red-500">*</span>
             </label>
@@ -147,7 +147,7 @@ const UserFormPage: React.FC = () => {
             </div>
           </div>
 
-          <div>
+          <div data-tour="admin-userform-password">
             <label htmlFor="last_name" className="block text-sm font-medium text-neutral-gray">
               Apellido <span className="text-red-500">*</span>
             </label>
@@ -248,7 +248,7 @@ const UserFormPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex justify-end space-x-4 pt-4">
+          <div className="flex justify-end space-x-4 pt-4" data-tour="admin-userform-actions">
             <button
               type="button"
               onClick={() => navigate('/admin/users')}

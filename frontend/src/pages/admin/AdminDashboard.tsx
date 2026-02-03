@@ -178,7 +178,10 @@ const AdminDashboard: React.FC = () => {
       <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Dashboard</h1>
 
       {summary?.redCards > 0 && (
-        <div className="rounded-lg border-l-4 border-red-500 bg-red-50 p-4 text-sm text-red-700">
+        <div
+          className="rounded-lg border-l-4 border-red-500 bg-red-50 p-4 text-sm text-red-700"
+          data-tour="admin-dashboard-alert"
+        >
           Hay {summary.redCards} andamio{summary.redCards === 1 ? '' : 's'} con tarjeta roja.{' '}
           <Link to="/admin/scaffolds" className="font-semibold text-red-800 hover:underline">
             Revisar ahora
@@ -188,7 +191,7 @@ const AdminDashboard: React.FC = () => {
       )}
 
       {/* Sección: Resumen General */}
-      <div>
+      <div data-tour="admin-dashboard-summary">
         <h2 className="text-lg sm:text-xl font-semibold text-dark-blue mb-2 sm:mb-3">Resumen General</h2>
         <ResponsiveGrid variant="stats" gap="md">
           <MetricCard
@@ -223,7 +226,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Sección: Desglose de Metros Cúbicos */}
-      <div>
+      <div data-tour="admin-dashboard-m3">
         <h2 className="text-lg sm:text-xl font-semibold text-dark-blue mb-2 sm:mb-3">Desglose de Metros Cúbicos (m³)</h2>
         <ResponsiveGrid variant="stats" gap="md">
           <MetricCard
@@ -257,7 +260,8 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Sección: Estadísticas Detalladas */}
-      <ResponsiveGrid variant="wide" gap="lg">
+      <div data-tour="admin-dashboard-status">
+        <ResponsiveGrid variant="wide" gap="lg">
         {/* Andamios por Estado */}
         <StatsCard
           title="Andamios por Estado"
@@ -328,11 +332,14 @@ const AdminDashboard: React.FC = () => {
             },
           ]}
         />
-      </ResponsiveGrid>
+        </ResponsiveGrid>
+      </div>
 
       {/* Tabla de Últimos Andamios */}
       {summary?.recentScaffolds && summary.recentScaffolds.length > 0 && (
-        <RecentReportsTable reports={summary.recentScaffolds} />
+        <div data-tour="admin-dashboard-recent">
+          <RecentReportsTable reports={summary.recentScaffolds} />
+        </div>
       )}
     </div>
   );

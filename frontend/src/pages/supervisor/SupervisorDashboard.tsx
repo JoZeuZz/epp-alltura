@@ -29,6 +29,7 @@ const SupervisorDashboard: React.FC = () => {
           placeholder="Buscar proyecto..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          data-tour="sup-projects-search"
           className="w-full p-3 body-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue min-h-touch"
         />
       </div>
@@ -40,15 +41,17 @@ const SupervisorDashboard: React.FC = () => {
             : 'No tienes proyectos asignados en este momento.'}
         </p>
       ) : (
-        <ResponsiveGrid variant="cards" gap="lg">
-          {filteredProjects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              linkTo={`/supervisor/project/${project.id}`}
-            />
-          ))}
-        </ResponsiveGrid>
+        <div data-tour="sup-projects-list">
+          <ResponsiveGrid variant="cards" gap="lg">
+            {filteredProjects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                linkTo={`/supervisor/project/${project.id}`}
+              />
+            ))}
+          </ResponsiveGrid>
+        </div>
       )}
     </div>
   );

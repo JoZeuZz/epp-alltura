@@ -138,7 +138,7 @@ const ProjectsPage: React.FC = () => {
     <div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 md:mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-dark-blue">Gestión de Proyectos</h1>
-        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto" data-tour="admin-projects-filters">
           <label className="flex items-center gap-2 text-sm text-gray-700 bg-gray-100 px-3 py-2 rounded-lg">
             <input
               type="checkbox"
@@ -158,126 +158,128 @@ const ProjectsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Vista móvil: Cards */}
-      {isMobile ? (
-        <ResponsiveGrid variant="wide" gap="md">
-          {filteredProjects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onEdit={handleOpenModal}
-              onDelete={handleDeleteClick}
-              onReactivate={handleReactivate}
-              onAssign={handleOpenAssignModal}
-              onGallery={(selected) => navigate(`/admin/project/${selected.id}/gallery`)}
-            />
-          ))}
-        </ResponsiveGrid>
-      ) : (
-        /* Vista desktop: Tabla */
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
-          <div className="overflow-x-auto scrollbar-thin">
-          <table className="min-w-full leading-normal">
-            <caption className="sr-only">Lista de proyectos</caption>
-          <thead>
-            <tr>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Nombre
-              </th>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Cliente
-              </th>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Estado
-              </th>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+      <div data-tour="admin-projects-list">
+        {/* Vista móvil: Cards */}
+        {isMobile ? (
+          <ResponsiveGrid variant="wide" gap="md">
             {filteredProjects.map((project) => (
-              <tr key={project.id} className={!project.active || !project.client_active ? 'bg-gray-50 opacity-60' : ''}>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900 whitespace-no-wrap">{project.name}</p>
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900 whitespace-no-wrap">{project.client_name}</p>
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  {!project.active || !project.client_active ? (
-                    <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">
-                      {!project.client_active ? 'Cliente desact.' : 'Desactivado'}
-                    </span>
-                  ) : (
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${project.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}
-                    >
-                      {project.status === 'active' ? 'Activo' : 'Completado'}
-                    </span>
-                  )}
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm whitespace-nowrap">
-                  {!project.active && project.client_active ? (
-                    <>
-                      <button
-                        onClick={() => {
-                          const formData = new FormData();
-                          formData.append('intent', 'reactivate');
-                          formData.append('id', String(project.id));
-                          submit(formData, { method: 'post' });
-                        }}
-                        className="text-green-600 hover:text-green-900 mr-4"
-                        aria-label={`Reactivar proyecto ${project.name}`}
-                      >
-                        Reactivar
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        onClick={() => navigate(`/admin/project/${project.id}/gallery`)}
-                        className="text-gray-400 hover:text-indigo-600 mr-4"
-                        aria-label={`Ver galería del proyecto ${project.name}`}
-                        title="Galería"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3l2 2h9a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11a3 3 0 100 6 3 3 0 000-6z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => handleOpenAssignModal(project)}
-                        data-tour="admin-projects-assign"
-                        className="text-green-600 hover:text-green-900 mr-4"
-                        aria-label={`Asignar andamios al proyecto ${project.name}`}
-                      >
-                        Asignar
-                      </button>
-                      <button
-                        onClick={() => handleOpenModal(project)}
-                        className="text-indigo-600 hover:text-indigo-900 mr-4"
-                        aria-label={`Editar proyecto ${project.name}`}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClick(project.id)}
-                        className="text-red-600 hover:text-red-900"
-                        aria-label={`Eliminar proyecto ${project.name}`}
-                      >
-                        Eliminar
-                      </button>
-                    </>
-                  )}
-                </td>
-              </tr>
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onEdit={handleOpenModal}
+                onDelete={handleDeleteClick}
+                onReactivate={handleReactivate}
+                onAssign={handleOpenAssignModal}
+                onGallery={(selected) => navigate(`/admin/project/${selected.id}/gallery`)}
+              />
             ))}
-          </tbody>
-        </table>
+          </ResponsiveGrid>
+        ) : (
+          /* Vista desktop: Tabla */
+          <div className="bg-white shadow-md rounded-lg overflow-hidden">
+            <div className="overflow-x-auto scrollbar-thin">
+            <table className="min-w-full leading-normal">
+              <caption className="sr-only">Lista de proyectos</caption>
+            <thead>
+              <tr>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Nombre
+                </th>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Cliente
+                </th>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Estado
+                </th>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredProjects.map((project) => (
+                <tr key={project.id} className={!project.active || !project.client_active ? 'bg-gray-50 opacity-60' : ''}>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    <p className="text-gray-900 whitespace-no-wrap">{project.name}</p>
+                  </td>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    <p className="text-gray-900 whitespace-no-wrap">{project.client_name}</p>
+                  </td>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    {!project.active || !project.client_active ? (
+                      <span className="px-2 py-1 text-xs font-semibold text-red-800 bg-red-100 rounded-full">
+                        {!project.client_active ? 'Cliente desact.' : 'Desactivado'}
+                      </span>
+                    ) : (
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${project.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}
+                      >
+                        {project.status === 'active' ? 'Activo' : 'Completado'}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm whitespace-nowrap">
+                    {!project.active && project.client_active ? (
+                      <>
+                        <button
+                          onClick={() => {
+                            const formData = new FormData();
+                            formData.append('intent', 'reactivate');
+                            formData.append('id', String(project.id));
+                            submit(formData, { method: 'post' });
+                          }}
+                          className="text-green-600 hover:text-green-900 mr-4"
+                          aria-label={`Reactivar proyecto ${project.name}`}
+                        >
+                          Reactivar
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => navigate(`/admin/project/${project.id}/gallery`)}
+                          className="text-gray-400 hover:text-indigo-600 mr-4"
+                          aria-label={`Ver galería del proyecto ${project.name}`}
+                          title="Galería"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3l2 2h9a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11a3 3 0 100 6 3 3 0 000-6z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleOpenAssignModal(project)}
+                          data-tour="admin-projects-assign"
+                          className="text-green-600 hover:text-green-900 mr-4"
+                          aria-label={`Asignar andamios al proyecto ${project.name}`}
+                        >
+                          Asignar
+                        </button>
+                        <button
+                          onClick={() => handleOpenModal(project)}
+                          className="text-indigo-600 hover:text-indigo-900 mr-4"
+                          aria-label={`Editar proyecto ${project.name}`}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(project.id)}
+                          className="text-red-600 hover:text-red-900"
+                          aria-label={`Eliminar proyecto ${project.name}`}
+                        >
+                          Eliminar
+                        </button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
         </div>
+        )}
       </div>
-      )}
 
       <Modal isOpen={isModalOpen} onClose={handleCloseModal}>
         <h2 className="text-2xl font-bold mb-4">

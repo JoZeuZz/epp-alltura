@@ -145,7 +145,7 @@ const DisassembleScaffoldPage: React.FC = () => {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 bg-white p-8 rounded-lg shadow-md">
         {/* Image Upload */}
-        <div>
+        <div data-tour="sup-disassemble-photo">
           <label className="block text-sm font-bold text-gray-700 mb-2">
             Foto de Prueba del Desmontaje <span className="text-red-500">*</span>
           </label>
@@ -203,7 +203,7 @@ const DisassembleScaffoldPage: React.FC = () => {
         </div>
 
         {/* Notes */}
-        <div>
+        <div data-tour="sup-disassemble-notes">
           <label htmlFor="notes" className="block text-sm font-bold text-gray-700">
             Notas de Desmontaje (Opcional)
           </label>
@@ -223,7 +223,7 @@ const DisassembleScaffoldPage: React.FC = () => {
         {error && <p className="text-red-500 text-sm">{error}</p>}
 
         {/* Submit */}
-        <div className="pt-5">
+        <div className="pt-5" data-tour="sup-disassemble-submit">
           <button
             type="submit"
             disabled={isLocked}

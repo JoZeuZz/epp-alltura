@@ -65,7 +65,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* Filters & Actions */}
-      <div className="px-4 mb-3 sm:mb-6 space-y-2 sm:space-y-0 flex-shrink-0">
+      <div className="px-4 mb-3 sm:mb-6 space-y-2 sm:space-y-0 flex-shrink-0" data-tour="notifications-filters">
         {/* Filters */}
         <div className="bg-gray-100 p-1 rounded-lg inline-flex w-full sm:w-auto">
           <button
@@ -110,7 +110,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* Notifications List - Scrollable */}
-      <div className="flex-1 overflow-y-auto px-4">
+      <div className="flex-1 overflow-y-auto px-4" data-tour="notifications-list">
         {loading ? (
         <div className="flex justify-center items-center py-12">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>

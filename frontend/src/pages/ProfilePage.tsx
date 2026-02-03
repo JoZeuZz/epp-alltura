@@ -176,7 +176,7 @@ const ProfilePage: React.FC = () => {
         
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Profile Picture */}
-          <div className="flex flex-col items-center space-y-3 pb-6 border-b border-gray-200">
+          <div className="flex flex-col items-center space-y-3 pb-6 border-b border-gray-200" data-tour="profile-picture">
             <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden ring-4 ring-gray-100">
               {imagePreview ? (
                 <img src={imagePreview} alt="Vista previa" className="w-full h-full object-cover" />
@@ -212,7 +212,7 @@ const ProfilePage: React.FC = () => {
           </div>
 
           {/* Account Data */}
-          <div>
+          <div data-tour="profile-account">
             <h2 className="text-base sm:text-lg font-semibold text-dark-blue mb-3 sm:mb-4">Datos de la Cuenta</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -340,7 +340,7 @@ const ProfilePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-4">
+          <div className="pt-4" data-tour="profile-save">
             <button
               type="submit"
               disabled={isLocked}

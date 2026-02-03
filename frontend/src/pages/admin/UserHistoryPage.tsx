@@ -45,7 +45,7 @@ const UserHistoryPage: React.FC = () => {
   return (
     <div className="max-w-6xl mx-auto">
       {/* Header con botón de volver */}
-      <div className="mb-6">
+      <div className="mb-6" data-tour="admin-userhistory-search">
         <button
           onClick={() => navigate('/admin/users')}
           className="mb-4 flex items-center gap-2 text-primary-blue hover:text-blue-700"
@@ -115,68 +115,70 @@ const UserHistoryPage: React.FC = () => {
       )}
 
       {/* Lista de historial */}
-      {filteredHistory.length === 0 ? (
-        <div className="bg-white p-8 rounded-lg shadow text-center">
-          <p className="text-neutral-gray">
-            {searchTerm
-              ? 'No se encontraron registros que coincidan con tu búsqueda.'
-              : 'Este usuario aún no ha realizado ningún cambio.'}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredHistory.map((item) => (
-            <div
-              key={item.id}
-              className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
-                      item.change_type === 'create' 
-                        ? 'bg-green-100 text-green-800'
-                        : item.change_type === 'disassemble'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-primary-blue text-white'
-                    }`}>
-                      {getChangeTypeLabel(item.change_type)}
-                    </span>
-                    <p className="font-bold text-dark-blue">
-                      {item.scaffold_number && `N° ${item.scaffold_number}`}
-                      {item.project_name && ` - ${item.project_name}`}
+      <div data-tour="admin-userhistory-list">
+        {filteredHistory.length === 0 ? (
+          <div className="bg-white p-8 rounded-lg shadow text-center">
+            <p className="text-neutral-gray">
+              {searchTerm
+                ? 'No se encontraron registros que coincidan con tu búsqueda.'
+                : 'Este usuario aún no ha realizado ningún cambio.'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredHistory.map((item) => (
+              <div
+                key={item.id}
+                className="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className={`inline-block px-2 py-1 text-xs font-semibold rounded ${
+                        item.change_type === 'create' 
+                          ? 'bg-green-100 text-green-800'
+                          : item.change_type === 'disassemble'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-primary-blue text-white'
+                      }`}>
+                        {getChangeTypeLabel(item.change_type)}
+                      </span>
+                      <p className="font-bold text-dark-blue">
+                        {item.scaffold_number && `N° ${item.scaffold_number}`}
+                        {item.project_name && ` - ${item.project_name}`}
+                      </p>
+                    </div>
+                    {item.area && (
+                      <p className="text-sm text-neutral-gray">Área: {item.area}</p>
+                    )}
+                    {item.tag && (
+                      <p className="text-sm text-neutral-gray">TAG: {item.tag}</p>
+                    )}
+                    {item.description && (
+                      <p className="text-sm text-gray-700 mt-2">{item.description}</p>
+                    )}
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs text-neutral-gray">
+                      {new Date(item.created_at).toLocaleDateString('es-ES', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                      })}
+                    </p>
+                    <p className="text-xs text-neutral-gray">
+                      {new Date(item.created_at).toLocaleTimeString('es-ES', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </p>
                   </div>
-                  {item.area && (
-                    <p className="text-sm text-neutral-gray">Área: {item.area}</p>
-                  )}
-                  {item.tag && (
-                    <p className="text-sm text-neutral-gray">TAG: {item.tag}</p>
-                  )}
-                  {item.description && (
-                    <p className="text-sm text-gray-700 mt-2">{item.description}</p>
-                  )}
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-xs text-neutral-gray">
-                    {new Date(item.created_at).toLocaleDateString('es-ES', {
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit',
-                    })}
-                  </p>
-                  <p className="text-xs text-neutral-gray">
-                    {new Date(item.created_at).toLocaleTimeString('es-ES', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
