@@ -70,6 +70,7 @@ export const tourStepsByRole: Record<TourRole, TourStep[]> = {
       title: '¿Necesitas ayuda?',
       body: 'Este botón siempre te permite reabrir la guía cuando la necesites.',
       placement: 'top',
+      mobilePlacement: 'top',
     },
   ],
   supervisor: [
@@ -126,6 +127,7 @@ export const tourStepsByRole: Record<TourRole, TourStep[]> = {
       title: '¿Necesitas ayuda?',
       body: 'Este botón siempre te permite reabrir la guía cuando la necesites.',
       placement: 'top',
+      mobilePlacement: 'top',
     },
   ],
   client: [
@@ -182,6 +184,7 @@ export const tourStepsByRole: Record<TourRole, TourStep[]> = {
       title: '¿Necesitas ayuda?',
       body: 'Este botón siempre te permite reabrir la guía cuando la necesites.',
       placement: 'top',
+      mobilePlacement: 'top',
     },
   ],
 };

@@ -143,6 +143,7 @@ const TourOverlay: React.FC = () => {
   const highlightPadding = step.highlightPadding ?? 8;
   const hasTarget = Boolean(targetRect);
   const showTooltip = allowTooltip && (!waitingForTarget || fallbackEnabled);
+  const mobilePlacement = step.mobilePlacement || 'bottom';
 
   const highlightStyle = hasTarget && targetRect
     ? {
@@ -244,7 +245,15 @@ const TourOverlay: React.FC = () => {
       )}
 
       {showTooltip && isMobile ? (
-        <div className="absolute inset-x-0 bottom-0 p-4">
+        <div
+          className={`absolute inset-x-0 p-4 ${
+            mobilePlacement === 'top'
+              ? 'top-4'
+              : mobilePlacement === 'center'
+                ? 'top-1/2 -translate-y-1/2'
+                : 'bottom-0'
+          }`}
+        >
           <div ref={tooltipRef} className="bg-white rounded-2xl shadow-2xl p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
