@@ -2,23 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useBreakpoints } from '../hooks';
 import { useTour } from '../context/TourContext';
-
-const normalizePath = (path: string) => {
-  if (!path) return '/';
-  const trimmed = path.replace(/\/+$/, '');
-  return trimmed === '' ? '/' : trimmed;
-};
-
-const matchesRoute = (pathname: string, route?: string) => {
-  if (!route || route === '*') return true;
-  const cleanPath = normalizePath(pathname);
-  const cleanRoute = normalizePath(route);
-  if (cleanRoute.includes(':')) {
-    const pattern = `^${cleanRoute.replace(/:[^/]+/g, '[^/]+')}$`;
-    return new RegExp(pattern).test(cleanPath);
-  }
-  return cleanPath === cleanRoute;
-};
+import { matchTourRoute } from '../utils/tourSteps';
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
@@ -26,7 +10,7 @@ const TourOverlay: React.FC = () => {
   const { isMobile } = useBreakpoints();
   const location = useLocation();
   const navigate = useNavigate();
-  const { isActive, steps, stepIndex, stop, goTo, restart } = useTour();
+  const { isActive, steps, stepIndex, stop, goTo, restart, mode } = useTour();
 
   const step = steps[stepIndex];
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
@@ -39,7 +23,7 @@ const TourOverlay: React.FC = () => {
 
   const routeMatches = useMemo(() => {
     if (!step) return true;
-    return matchesRoute(location.pathname, step.route);
+    return matchTourRoute(location.pathname, step.route);
   }, [location.pathname, step]);
 
   const allowTooltip = useMemo(() => {
@@ -195,7 +179,7 @@ const TourOverlay: React.FC = () => {
     }
 
     const nextStep = steps[nextIndex];
-    if (nextStep?.route && !matchesRoute(location.pathname, nextStep.route)) {
+    if (nextStep?.route && !matchTourRoute(location.pathname, nextStep.route)) {
       if (!nextStep.route.includes(':')) {
         navigate(nextStep.route);
       } else if (targetEl) {
@@ -215,7 +199,7 @@ const TourOverlay: React.FC = () => {
     if (stepIndex === 0) return;
     const prevIndex = stepIndex - 1;
     const prevStep = steps[prevIndex];
-    if (prevStep?.route && !matchesRoute(location.pathname, prevStep.route)) {
+    if (prevStep?.route && !matchTourRoute(location.pathname, prevStep.route)) {
       if (!prevStep.route.includes(':')) {
         navigate(prevStep.route);
       }
@@ -297,9 +281,11 @@ const TourOverlay: React.FC = () => {
               <button type="button" onClick={() => stop('dismissed')} className="hover:text-gray-700">
                 Saltar
               </button>
-              <button type="button" onClick={() => stop('skipped')} className="hover:text-gray-700">
-                No volver a mostrar
-              </button>
+              {mode === 'onboarding' && (
+                <button type="button" onClick={() => stop('skipped')} className="hover:text-gray-700">
+                  No volver a mostrar
+                </button>
+              )}
               <button type="button" onClick={restart} className="hover:text-gray-700">
                 Reiniciar guía
               </button>
@@ -356,9 +342,11 @@ const TourOverlay: React.FC = () => {
             <button type="button" onClick={() => stop('dismissed')} className="hover:text-gray-700">
               Saltar
             </button>
-            <button type="button" onClick={() => stop('skipped')} className="hover:text-gray-700">
-              No volver a mostrar
-            </button>
+            {mode === 'onboarding' && (
+              <button type="button" onClick={() => stop('skipped')} className="hover:text-gray-700">
+                No volver a mostrar
+              </button>
+            )}
             <button type="button" onClick={restart} className="hover:text-gray-700">
               Reiniciar guía
             </button>

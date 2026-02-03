@@ -146,7 +146,7 @@ const ProjectGalleryPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-4 md:p-6 space-y-4">
+      <div className="bg-white rounded-lg shadow-md p-4 md:p-6 space-y-4" data-tour="project-gallery-filters">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-dark-blue">Filtros</h2>
@@ -200,54 +200,56 @@ const ProjectGalleryPage: React.FC = () => {
         </div>
       </div>
 
-      {galleryItems.length === 0 ? (
-        <div className="bg-white rounded-lg shadow-md p-10 text-center text-sm text-gray-500">
-          No hay fotos para los filtros seleccionados.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {galleryItems.map((item) => {
-            const scaffoldNumber = item.scaffold.scaffold_number || `#${item.scaffold.id}`;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setSelectedItem(item)}
-                className="group bg-white rounded-lg shadow-md overflow-hidden text-left hover:shadow-lg transition-all"
-              >
-                <div className="relative">
-                  <ImageWithFallback
-                    src={buildImageUrl(item.url, 'thumb')}
-                    alt={`${item.label} ${scaffoldNumber}`}
-                    className="h-48 w-full object-cover"
-                  />
-                  <span className="absolute top-3 left-3 text-[11px] uppercase tracking-wide bg-black/70 text-white px-2 py-1 rounded-full">
-                    {item.label}
-                  </span>
-                  <span className="absolute bottom-3 right-3 text-[11px] bg-white/90 text-gray-700 px-2 py-1 rounded-full">
-                    {item.scaffold.assembly_status === 'assembled'
-                      ? 'Armado'
-                      : item.scaffold.assembly_status === 'in_progress'
-                      ? 'En proceso'
-                      : 'Desarmado'}
-                  </span>
-                </div>
-                <div className="p-4 space-y-1">
-                  <p className="text-sm font-semibold text-dark-blue">
-                    Andamio {scaffoldNumber}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Área: {item.scaffold.area || 'Sin área'} · TAG: {item.scaffold.tag || 'Sin tag'}
-                  </p>
-                  {item.dateLabel && (
-                    <p className="text-xs text-gray-400">Fecha: {item.dateLabel}</p>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <div data-tour="project-gallery-content">
+        {galleryItems.length === 0 ? (
+          <div className="bg-white rounded-lg shadow-md p-10 text-center text-sm text-gray-500">
+            No hay fotos para los filtros seleccionados.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {galleryItems.map((item) => {
+              const scaffoldNumber = item.scaffold.scaffold_number || `#${item.scaffold.id}`;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setSelectedItem(item)}
+                  className="group bg-white rounded-lg shadow-md overflow-hidden text-left hover:shadow-lg transition-all"
+                >
+                  <div className="relative">
+                    <ImageWithFallback
+                      src={buildImageUrl(item.url, 'thumb')}
+                      alt={`${item.label} ${scaffoldNumber}`}
+                      className="h-48 w-full object-cover"
+                    />
+                    <span className="absolute top-3 left-3 text-[11px] uppercase tracking-wide bg-black/70 text-white px-2 py-1 rounded-full">
+                      {item.label}
+                    </span>
+                    <span className="absolute bottom-3 right-3 text-[11px] bg-white/90 text-gray-700 px-2 py-1 rounded-full">
+                      {item.scaffold.assembly_status === 'assembled'
+                        ? 'Armado'
+                        : item.scaffold.assembly_status === 'in_progress'
+                        ? 'En proceso'
+                        : 'Desarmado'}
+                    </span>
+                  </div>
+                  <div className="p-4 space-y-1">
+                    <p className="text-sm font-semibold text-dark-blue">
+                      Andamio {scaffoldNumber}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Área: {item.scaffold.area || 'Sin área'} · TAG: {item.scaffold.tag || 'Sin tag'}
+                    </p>
+                    {item.dateLabel && (
+                      <p className="text-xs text-gray-400">Fecha: {item.dateLabel}</p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <Modal isOpen={!!selectedItem} onClose={() => setSelectedItem(null)}>
         {selectedItem && (

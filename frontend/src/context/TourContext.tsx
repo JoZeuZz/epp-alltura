@@ -1,14 +1,17 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { TourRole, TourStep, tourStepsByRole, TOUR_VERSION } from '../utils/tourSteps';
+import { TourRole, TourStep, onboardingStepsByRole, TOUR_VERSION } from '../utils/tourSteps';
 
 type StopReason = 'completed' | 'skipped' | 'dismissed';
+type TourMode = 'onboarding' | 'contextual';
 
 interface TourContextValue {
   isActive: boolean;
   role: TourRole | null;
   steps: TourStep[];
   stepIndex: number;
-  start: (role: TourRole, options?: { force?: boolean }) => void;
+  mode: TourMode;
+  startOnboarding: (role: TourRole, options?: { force?: boolean }) => boolean;
+  startContextual: (role: TourRole, steps: TourStep[]) => boolean;
   stop: (reason?: StopReason) => void;
   next: () => void;
   prev: () => void;
@@ -24,26 +27,37 @@ export const TourProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [role, setRole] = useState<TourRole | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [isActive, setIsActive] = useState(false);
+  const [mode, setMode] = useState<TourMode>('onboarding');
+  const [steps, setSteps] = useState<TourStep[]>([]);
 
-  const steps = useMemo(() => {
-    return role ? tourStepsByRole[role] : [];
-  }, [role]);
-
-  const start = useCallback((nextRole: TourRole, options?: { force?: boolean }) => {
+  const startOnboarding = useCallback((nextRole: TourRole, options?: { force?: boolean }) => {
     if (!nextRole) return;
     const key = storageKeyFor(nextRole);
     const status = localStorage.getItem(key);
     if (!options?.force && (status === 'completed' || status === 'skipped')) {
-      return;
+      return false;
     }
+    setMode('onboarding');
     setRole(nextRole);
+    setSteps(onboardingStepsByRole[nextRole] || []);
     setStepIndex(0);
     setIsActive(true);
     localStorage.setItem(key, 'in_progress');
+    return true;
+  }, []);
+
+  const startContextual = useCallback((nextRole: TourRole, contextualSteps: TourStep[]) => {
+    if (!nextRole || contextualSteps.length === 0) return false;
+    setMode('contextual');
+    setRole(nextRole);
+    setSteps(contextualSteps);
+    setStepIndex(0);
+    setIsActive(true);
+    return true;
   }, []);
 
   const stop = useCallback((reason: StopReason = 'dismissed') => {
-    if (role) {
+    if (role && mode === 'onboarding') {
       const key = storageKeyFor(role);
       if (reason === 'completed') {
         localStorage.setItem(key, 'completed');
@@ -52,7 +66,7 @@ export const TourProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     setIsActive(false);
-  }, [role]);
+  }, [mode, role]);
 
   const next = useCallback(() => {
     setStepIndex((prev) => Math.min(prev + 1, Math.max(steps.length - 1, 0)));
@@ -68,11 +82,13 @@ export const TourProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const restart = useCallback(() => {
     if (!role) return;
-    const key = storageKeyFor(role);
-    localStorage.setItem(key, 'in_progress');
+    if (mode === 'onboarding') {
+      const key = storageKeyFor(role);
+      localStorage.setItem(key, 'in_progress');
+    }
     setStepIndex(0);
     setIsActive(true);
-  }, [role]);
+  }, [mode, role]);
 
   const value = useMemo(
     () => ({
@@ -80,14 +96,16 @@ export const TourProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role,
       steps,
       stepIndex,
-      start,
+      mode,
+      startOnboarding,
+      startContextual,
       stop,
       next,
       prev,
       goTo,
       restart,
     }),
-    [isActive, role, steps, stepIndex, start, stop, next, prev, goTo, restart]
+    [isActive, role, steps, stepIndex, mode, startOnboarding, startContextual, stop, next, prev, goTo, restart]
   );
 
   return <TourContext.Provider value={value}>{children}</TourContext.Provider>;

@@ -122,7 +122,7 @@ const UsersPage: React.FC = () => {
       </div>
 
       {/* Filtro por rol */}
-      <div className="mb-4 grid grid-cols-2 lg:grid-cols-4 gap-2">
+      <div className="mb-4 grid grid-cols-2 lg:grid-cols-4 gap-2" data-tour="admin-users-filter">
         <button
           onClick={() => setRoleFilter('all')}
           className={`px-3 py-2 rounded-lg transition-colors text-sm font-medium ${
@@ -165,105 +165,107 @@ const UsersPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Vista móvil: Cards */}
-      {isMobile ? (
-        <ResponsiveGrid variant="wide" gap="md">
-          {filteredUsers.map((user) => (
-            <UserCard
-              key={user.id}
-              user={user}
-              onEdit={handleOpenModal}
-              onDelete={(userId) => {
-                const user = users.find(u => u.id === userId);
-                if (user) handleDelete(user);
-              }}
-              onHistory={handleHistory}
-              currentUserRole={user.role}
-            />
-          ))}
-        </ResponsiveGrid>
-      ) : (
-        /* Vista desktop: Tabla */
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
-          <div className="overflow-x-auto scrollbar-thin">
-          <table className="min-w-full leading-normal">
-            <caption className="sr-only">Lista de usuarios del sistema</caption>
-          <thead>
-            <tr>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Nombre
-              </th>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Email
-              </th>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Rol
-              </th>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+      <div data-tour="admin-users-list">
+        {/* Vista móvil: Cards */}
+        {isMobile ? (
+          <ResponsiveGrid variant="wide" gap="md">
             {filteredUsers.map((user) => (
-              <tr key={user.id}>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900 whitespace-no-wrap">
-                    {formatNameParts(user.first_name, user.last_name)}
-                  </p>
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900 whitespace-no-wrap">{user.email}</p>
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <span
-                    className={`capitalize px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      user.role === 'admin' 
-                        ? 'bg-red-100 text-red-800' 
-                        : user.role === 'supervisor' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-green-100 text-green-800'
-                    }`}
-                  >
-                    {user.role === 'admin' && 'Administrador'}
-                    {user.role === 'supervisor' && 'Supervisor'}
-                    {user.role === 'client' && 'Usuario Cliente'}
-                  </span>
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm whitespace-nowrap">
-                  {(user.role === 'admin' || user.role === 'supervisor') && (
-                    <button
-                      onClick={() => navigate(`/admin/users/${user.id}/history`)}
-                      className="text-purple-600 hover:text-purple-900 mr-4"
-                      title="Ver historial de cambios"
-                      aria-label={`Ver historial de ${formatNameParts(user.first_name, user.last_name)}`}
-                    >
-                      Historial
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleOpenModal(user)}
-                    className="text-indigo-600 hover:text-indigo-900 mr-4"
-                    aria-label={`Editar usuario ${formatNameParts(user.first_name, user.last_name)}`}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => handleDelete(user)}
-                    className="text-red-600 hover:text-red-900"
-                    aria-label={`Eliminar usuario ${formatNameParts(user.first_name, user.last_name)}`}
-                  >
-                    Eliminar
-                  </button>
-                </td>
-              </tr>
+              <UserCard
+                key={user.id}
+                user={user}
+                onEdit={handleOpenModal}
+                onDelete={(userId) => {
+                  const user = users.find(u => u.id === userId);
+                  if (user) handleDelete(user);
+                }}
+                onHistory={handleHistory}
+                currentUserRole={user.role}
+              />
             ))}
-          </tbody>
-        </table>
+          </ResponsiveGrid>
+        ) : (
+          /* Vista desktop: Tabla */
+          <div className="bg-white shadow-md rounded-lg overflow-hidden">
+            <div className="overflow-x-auto scrollbar-thin">
+            <table className="min-w-full leading-normal">
+              <caption className="sr-only">Lista de usuarios del sistema</caption>
+            <thead>
+              <tr>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Nombre
+                </th>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Email
+                </th>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Rol
+                </th>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.map((user) => (
+                <tr key={user.id}>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    <p className="text-gray-900 whitespace-no-wrap">
+                      {formatNameParts(user.first_name, user.last_name)}
+                    </p>
+                  </td>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    <p className="text-gray-900 whitespace-no-wrap">{user.email}</p>
+                  </td>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    <span
+                      className={`capitalize px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        user.role === 'admin' 
+                          ? 'bg-red-100 text-red-800' 
+                          : user.role === 'supervisor' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-green-100 text-green-800'
+                      }`}
+                    >
+                      {user.role === 'admin' && 'Administrador'}
+                      {user.role === 'supervisor' && 'Supervisor'}
+                      {user.role === 'client' && 'Usuario Cliente'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm whitespace-nowrap">
+                    {(user.role === 'admin' || user.role === 'supervisor') && (
+                      <button
+                        onClick={() => navigate(`/admin/users/${user.id}/history`)}
+                        className="text-purple-600 hover:text-purple-900 mr-4"
+                        title="Ver historial de cambios"
+                        aria-label={`Ver historial de ${formatNameParts(user.first_name, user.last_name)}`}
+                      >
+                        Historial
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleOpenModal(user)}
+                      className="text-indigo-600 hover:text-indigo-900 mr-4"
+                      aria-label={`Editar usuario ${formatNameParts(user.first_name, user.last_name)}`}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => handleDelete(user)}
+                      className="text-red-600 hover:text-red-900"
+                      aria-label={`Eliminar usuario ${formatNameParts(user.first_name, user.last_name)}`}
+                    >
+                      Eliminar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
         </div>
-      </div>
 
-      )}
+        )}
+      </div>
       <Modal isOpen={isModalOpen} onClose={handleCloseModal}>
         <h2 className="text-2xl font-bold mb-4">
           {selectedUser ? 'Editar Usuario' : 'Nuevo Usuario'}

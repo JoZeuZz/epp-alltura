@@ -1,9 +1,11 @@
 import { useState, Fragment, useRef, useEffect, Suspense } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { useTour } from '../context/TourContext';
 import TourOverlay from '../components/TourOverlay';
 import type { TourRole } from '../utils/tourSteps';
+import { getContextualStepsForRoute } from '../utils/tourSteps';
 import { useBreakpoints } from '../hooks';
 import logoWhite from '../assets/logo-alltura-white.png';
 import UserIcon from '../components/icons/UserIcon';
@@ -37,9 +39,10 @@ const ChevronRightIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 const AppLayout = () => {
   const { user, logout } = useAuth();
-  const { start, isActive, steps, stepIndex } = useTour();
+  const { startOnboarding, startContextual, isActive, steps, stepIndex } = useTour();
   const { isMobile } = useBreakpoints();
   const navigate = useNavigate();
+  const location = useLocation();
   
   // Estado inicial: expandida en desktop, colapsada en móvil
   const [isSidebarOpen, setSidebarOpen] = useState(() => {
@@ -61,9 +64,9 @@ const AppLayout = () => {
   useEffect(() => {
     if (user?.role && !hasAutoStartedTour.current) {
       hasAutoStartedTour.current = true;
-      start(user.role as TourRole);
+      startOnboarding(user.role as TourRole);
     }
-  }, [start, user?.role]);
+  }, [startOnboarding, user?.role]);
 
   useEffect(() => {
     return () => {
@@ -306,13 +309,21 @@ const AppLayout = () => {
                 if (guideTimeoutRef.current) {
                   window.clearTimeout(guideTimeoutRef.current);
                 }
+                const contextualSteps = getContextualStepsForRoute(
+                  user.role as TourRole,
+                  location.pathname
+                );
+                if (contextualSteps.length === 0) {
+                  toast('Aún no hay una guía disponible para esta pantalla.');
+                  return;
+                }
                 if (isMobile) {
                   setSidebarOpen(false);
                   guideTimeoutRef.current = window.setTimeout(() => {
-                    start(user.role as TourRole, { force: true });
+                    startContextual(user.role as TourRole, contextualSteps);
                   }, 150);
                 } else {
-                  start(user.role as TourRole, { force: true });
+                  startContextual(user.role as TourRole, contextualSteps);
                 }
               }}
               title="Guía"

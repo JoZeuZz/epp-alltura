@@ -12,7 +12,7 @@ export default function ProjectSelector({
   onProjectSelect,
 }: ProjectSelectorProps) {
   return (
-    <div className="mb-6">
+    <div className="mb-6" data-tour="admin-scaffolds-project">
       <label htmlFor="project" className="block text-sm font-medium text-gray-700 mb-2">
         Seleccionar Proyecto
       </label>

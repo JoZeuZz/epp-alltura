@@ -93,113 +93,115 @@ const ClientsPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Vista móvil: Cards */}
-      {isMobile ? (
-        <ResponsiveGrid variant="wide" gap="md">
-          {clients?.map((client) => (
-            <ClientCard
-              key={client.id}
-              client={client}
-              onEdit={handleOpenModal}
-              onDelete={handleDelete}
-              onReactivate={handleReactivate}
-            />
-          ))}
-        </ResponsiveGrid>
-      ) : (
-        /* Vista desktop: Tabla */
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
-          <div className="overflow-x-auto scrollbar-thin">
-          <table className="min-w-full leading-normal">
-            <caption className="sr-only">Lista de clientes</caption>
-          <thead>
-            <tr>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Estado
-              </th>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Nombre
-              </th>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Email
-              </th>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Teléfono
-              </th>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Dirección
-              </th>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Especialidad
-              </th>
-              <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+      <div data-tour="admin-clients-list">
+        {/* Vista móvil: Cards */}
+        {isMobile ? (
+          <ResponsiveGrid variant="wide" gap="md">
             {clients?.map((client) => (
-              <tr key={client.id} className={!client.active ? 'bg-gray-50 opacity-60' : ''}>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  {client.active ? (
-                    <span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">
-                      Activo
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 text-xs font-semibold text-gray-800 bg-gray-200 rounded-full">
-                      Desactivado
-                    </span>
-                  )}
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900 whitespace-no-wrap">{client.name}</p>
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900">{client.email || '-'}</p>
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900 whitespace-no-wrap">{client.phone || '-'}</p>
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900">{client.address || '-'}</p>
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900">{client.specialty || '-'}</p>
-                </td>
-                <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <button
-                    onClick={() => handleOpenModal(client)}
-                    className="text-indigo-600 hover:text-indigo-900 mr-4"
-                    disabled={!client.active}
-                    aria-label={`Editar cliente ${client.name}`}
-                  >
-                    Editar
-                  </button>
-                  {client.active ? (
-                    <button
-                      onClick={() => handleDelete(client)}
-                      className="text-red-600 hover:text-red-900"
-                      aria-label={`Eliminar cliente ${client.name}`}
-                    >
-                      Eliminar
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleReactivate(client)}
-                      className="text-green-600 hover:text-green-900"
-                      aria-label={`Reactivar cliente ${client.name}`}
-                    >
-                      Reactivar
-                    </button>
-                  )}
-                </td>
-              </tr>
+              <ClientCard
+                key={client.id}
+                client={client}
+                onEdit={handleOpenModal}
+                onDelete={handleDelete}
+                onReactivate={handleReactivate}
+              />
             ))}
-          </tbody>
-        </table>
+          </ResponsiveGrid>
+        ) : (
+          /* Vista desktop: Tabla */
+          <div className="bg-white shadow-md rounded-lg overflow-hidden">
+            <div className="overflow-x-auto scrollbar-thin">
+            <table className="min-w-full leading-normal">
+              <caption className="sr-only">Lista de clientes</caption>
+            <thead>
+              <tr>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Estado
+                </th>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Nombre
+                </th>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Email
+                </th>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Teléfono
+                </th>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Dirección
+                </th>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Especialidad
+                </th>
+                <th scope="col" className="px-5 py-3 border-b-2 border-gray-200 bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {clients?.map((client) => (
+                <tr key={client.id} className={!client.active ? 'bg-gray-50 opacity-60' : ''}>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    {client.active ? (
+                      <span className="px-2 py-1 text-xs font-semibold text-green-800 bg-green-100 rounded-full">
+                        Activo
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 text-xs font-semibold text-gray-800 bg-gray-200 rounded-full">
+                        Desactivado
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    <p className="text-gray-900 whitespace-no-wrap">{client.name}</p>
+                  </td>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    <p className="text-gray-900">{client.email || '-'}</p>
+                  </td>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    <p className="text-gray-900 whitespace-no-wrap">{client.phone || '-'}</p>
+                  </td>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    <p className="text-gray-900">{client.address || '-'}</p>
+                  </td>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    <p className="text-gray-900">{client.specialty || '-'}</p>
+                  </td>
+                  <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
+                    <button
+                      onClick={() => handleOpenModal(client)}
+                      className="text-indigo-600 hover:text-indigo-900 mr-4"
+                      disabled={!client.active}
+                      aria-label={`Editar cliente ${client.name}`}
+                    >
+                      Editar
+                    </button>
+                    {client.active ? (
+                      <button
+                        onClick={() => handleDelete(client)}
+                        className="text-red-600 hover:text-red-900"
+                        aria-label={`Eliminar cliente ${client.name}`}
+                      >
+                        Eliminar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleReactivate(client)}
+                        className="text-green-600 hover:text-green-900"
+                        aria-label={`Reactivar cliente ${client.name}`}
+                      >
+                        Reactivar
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
         </div>
+        )}
       </div>
-      )}
 
       <Modal isOpen={isModalOpen} onClose={handleCloseModal}>
         <h2 className="text-2xl font-bold mb-4">

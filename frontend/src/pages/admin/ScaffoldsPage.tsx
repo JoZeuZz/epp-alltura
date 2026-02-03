@@ -756,7 +756,7 @@ const ScaffoldsPage: React.FC = () => {
         </div>
       ) : selectedProjectId ? (
         filteredScaffolds.length > 0 ? (
-          <div className="bg-white rounded-lg shadow-md p-3 md:p-4">
+          <div className="bg-white rounded-lg shadow-md p-3 md:p-4" data-tour="admin-scaffolds-grid">
             <ScaffoldGrid 
               scaffolds={filteredScaffolds} 
               onScaffoldSelect={setSelectedScaffold}
