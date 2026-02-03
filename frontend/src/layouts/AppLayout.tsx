@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTour } from '../context/TourContext';
 import TourOverlay from '../components/TourOverlay';
 import type { TourRole } from '../utils/tourSteps';
+import { useBreakpoints } from '../hooks';
 import logoWhite from '../assets/logo-alltura-white.png';
 import UserIcon from '../components/icons/UserIcon';
 import NotificationBell from '../components/NotificationBell';
@@ -36,7 +37,8 @@ const ChevronRightIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 const AppLayout = () => {
   const { user, logout } = useAuth();
-  const { start } = useTour();
+  const { start, isActive, steps, stepIndex } = useTour();
+  const { isMobile } = useBreakpoints();
   const navigate = useNavigate();
   
   // Estado inicial: expandida en desktop, colapsada en móvil
@@ -53,6 +55,8 @@ const AppLayout = () => {
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const hasAutoStartedTour = useRef(false);
+  const autoOpenedSidebar = useRef(false);
+  const guideTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (user?.role && !hasAutoStartedTour.current) {
@@ -60,6 +64,36 @@ const AppLayout = () => {
       start(user.role as TourRole);
     }
   }, [start, user?.role]);
+
+  useEffect(() => {
+    return () => {
+      if (guideTimeoutRef.current) {
+        window.clearTimeout(guideTimeoutRef.current);
+        guideTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  const currentStep = steps[stepIndex];
+
+  useEffect(() => {
+    if (!isMobile) {
+      autoOpenedSidebar.current = false;
+      return;
+    }
+
+    const isLauncherStep = Boolean(currentStep?.id && currentStep.id.includes('tour-launcher'));
+
+    if (isActive && isLauncherStep) {
+      if (!isSidebarOpen) {
+        setSidebarOpen(true);
+        autoOpenedSidebar.current = true;
+      }
+    } else if (autoOpenedSidebar.current) {
+      setSidebarOpen(false);
+      autoOpenedSidebar.current = false;
+    }
+  }, [currentStep?.id, isActive, isMobile, isSidebarOpen]);
 
   // Cerrar el menú de perfil al hacer clic fuera
   useEffect(() => {
@@ -268,7 +302,19 @@ const AppLayout = () => {
             <button
               type="button"
               data-tour="tour-launcher"
-              onClick={() => start(user.role as TourRole, { force: true })}
+              onClick={() => {
+                if (guideTimeoutRef.current) {
+                  window.clearTimeout(guideTimeoutRef.current);
+                }
+                if (isMobile) {
+                  setSidebarOpen(false);
+                  guideTimeoutRef.current = window.setTimeout(() => {
+                    start(user.role as TourRole, { force: true });
+                  }, 150);
+                } else {
+                  start(user.role as TourRole, { force: true });
+                }
+              }}
               title="Guía"
               className={`w-full flex items-center gap-2 p-2 mt-3 rounded-lg text-gray-300 hover:bg-gray-700 transition-colors ${
                 !isSidebarOpen ? 'lg:justify-center' : ''
