@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate, useLoaderData, Form, useActionData, useLocation } from 'react-router-dom';
+import { useNavigate, useLoaderData, useActionData, useLocation, useSubmit } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { User } from '../../types/api';
 import UserForm from '../../components/UserForm';
@@ -16,6 +16,7 @@ const UsersPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isMobile } = useBreakpoints();
+  const submit = useSubmit();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -79,6 +80,14 @@ const UsersPage: React.FC = () => {
     setUserToDelete(user);
     setIsDeleteModalOpen(true);
   }, []);
+
+  const handleConfirmDelete = useCallback(() => {
+    if (!userToDelete) return;
+    const formData = new FormData();
+    formData.append('intent', 'delete');
+    formData.append('id', String(userToDelete.id));
+    submit(formData, { method: 'post' });
+  }, [submit, userToDelete]);
 
   const handleHistory = useCallback((userId: number) => {
     navigate(`/admin/users/${userId}/history`);
@@ -269,32 +278,12 @@ const UsersPage: React.FC = () => {
       <ConfirmationModal
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
-        onConfirm={() => {}}
+        onConfirm={handleConfirmDelete}
         title="Eliminar Usuario"
         message={`¿Está seguro de que desea eliminar el usuario "${formatNameParts(userToDelete?.first_name, userToDelete?.last_name)}"? Esta acción no se puede deshacer.`}
         confirmText="Eliminar"
         variant="danger"
-      >
-        <Form method="post" onSubmit={() => setIsDeleteModalOpen(false)}>
-          <input type="hidden" name="intent" value="delete" />
-          <input type="hidden" name="id" value={userToDelete?.id || ''} />
-          <div className="flex justify-end gap-2 mt-4">
-            <button
-              type="button"
-              onClick={() => setIsDeleteModalOpen(false)}
-              className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
-            >
-              Eliminar
-            </button>
-          </div>
-        </Form>
-      </ConfirmationModal>
+      />
     </div>
   );
 };
