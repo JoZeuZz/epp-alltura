@@ -48,7 +48,8 @@ const MetricCard: React.FC<{
   to?: string;
   subtitle?: string;
   colorClass?: string;
-}> = ({ title, value, icon, to = null, subtitle, colorClass = 'text-primary-blue' }) => {
+  dataTour?: string;
+}> = ({ title, value, icon, to = null, subtitle, colorClass = 'text-primary-blue', dataTour }) => {
   const content = (
     <div className="bg-white p-3 sm:p-4 rounded-lg shadow-md flex items-center gap-2 sm:gap-3 transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
       <div className={`${colorClass} flex-shrink-0`}>
@@ -63,17 +64,26 @@ const MetricCard: React.FC<{
   );
 
   if (to) {
-    return <Link to={to}>{content}</Link>;
+    return (
+      <Link to={to} data-tour={dataTour}>
+        {content}
+      </Link>
+    );
   }
-  return content;
+  return (
+    <div data-tour={dataTour}>
+      {content}
+    </div>
+  );
 };
 
 const StatsCard: React.FC<{
   title: string;
   items: Array<{ label: string; value: string | number; color?: string }>;
   icon: React.ReactNode;
-}> = ({ title, items, icon }) => (
-  <div className="bg-white p-3 sm:p-4 md:p-5 rounded-lg shadow-md">
+  dataTour?: string;
+}> = ({ title, items, icon, dataTour }) => (
+  <div className="bg-white p-3 sm:p-4 md:p-5 rounded-lg shadow-md" data-tour={dataTour}>
     <div className="flex items-center gap-2 mb-3">
       <div className="text-primary-blue w-5 h-5 sm:w-6 sm:h-6">{icon}</div>
       <h2 className="text-base sm:text-lg font-semibold text-dark-blue">{title}</h2>
@@ -200,6 +210,7 @@ const AdminDashboard: React.FC = () => {
             icon={<FolderIcon className="h-10 w-10" />}
             to="/admin/projects"
             colorClass="text-blue-600"
+            dataTour="admin-dashboard-projects"
           />
           <MetricCard
             title="Clientes Activos"
@@ -207,6 +218,7 @@ const AdminDashboard: React.FC = () => {
             icon={<UsersIcon className="h-10 w-10" />}
             to="/admin/clients"
             colorClass="text-purple-600"
+            dataTour="admin-dashboard-clients"
           />
           <MetricCard
             title="Total Andamios"
@@ -214,6 +226,7 @@ const AdminDashboard: React.FC = () => {
             icon={<CubeIcon className="h-10 w-10" />}
             to="/admin/scaffolds"
             colorClass="text-indigo-600"
+            dataTour="admin-dashboard-total-scaffolds"
           />
           <MetricCard
             title="Nuevos (24h)"
@@ -221,6 +234,7 @@ const AdminDashboard: React.FC = () => {
             icon={<ClockIcon className="h-10 w-10" />}
             subtitle="Andamios creados hoy"
             colorClass="text-orange-600"
+            dataTour="admin-dashboard-new-scaffolds"
           />
         </ResponsiveGrid>
       </div>
@@ -234,6 +248,7 @@ const AdminDashboard: React.FC = () => {
             value={formatM3(summary?.totalCubicMeters || 0)}
             icon={<ChartBarIcon className="h-10 w-10" />}
             colorClass="text-gray-700"
+            dataTour="admin-dashboard-m3-total"
           />
           <MetricCard
             title="m³ Armados"
@@ -241,6 +256,7 @@ const AdminDashboard: React.FC = () => {
             icon={<CheckCircleIcon className="h-10 w-10" />}
             colorClass="text-green-600"
             subtitle={`${summary?.assembledScaffolds || 0} andamios`}
+            dataTour="admin-dashboard-m3-assembled"
           />
           <MetricCard
             title="m³ En Proceso"
@@ -248,6 +264,7 @@ const AdminDashboard: React.FC = () => {
             icon={<RefreshIcon className="h-10 w-10" />}
             colorClass="text-yellow-600"
             subtitle={`${summary?.inProgressScaffolds || 0} andamios`}
+            dataTour="admin-dashboard-m3-progress"
           />
           <MetricCard
             title="m³ Desarmados"
@@ -255,6 +272,7 @@ const AdminDashboard: React.FC = () => {
             icon={<XCircleIcon className="h-10 w-10" />}
             colorClass="text-red-600"
             subtitle={`${summary?.disassembledScaffolds || 0} andamios`}
+            dataTour="admin-dashboard-m3-disassembled"
           />
         </ResponsiveGrid>
       </div>
@@ -266,6 +284,7 @@ const AdminDashboard: React.FC = () => {
         <StatsCard
           title="Andamios por Estado"
           icon={<CubeIcon className="h-6 w-6" />}
+          dataTour="admin-dashboard-status-card"
           items={[
             {
               label: 'Armados',
@@ -306,6 +325,7 @@ const AdminDashboard: React.FC = () => {
         <StatsCard
           title="Tarjetas de Seguridad"
           icon={<ShieldIcon className="h-6 w-6" />}
+          dataTour="admin-dashboard-safety-card"
           items={[
             {
               label: 'Tarjetas Verdes',
