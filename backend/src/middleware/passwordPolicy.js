@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const https = require('https');
 const Joi = require('joi');
+const { logger } = require('../lib/logger');
 
 /**
  * Password Policy Configuration siguiendo NIST SP 800-63B

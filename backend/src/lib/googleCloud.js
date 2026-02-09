@@ -317,7 +317,7 @@ const parseGcsUrl = (imageUrl) => {
     }
 
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 };
