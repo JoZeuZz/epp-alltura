@@ -1,4 +1,4 @@
-# Sistema de Validación Inline - Enero 12, 2026
+# Sistema de Validación Inline
 
 ## Resumen
 Sistema completo de validación con errores de campo mostrados inline (debajo de inputs) en lugar de solo notificaciones toast. Mejora significativa de UX.
@@ -246,3 +246,4 @@ field_name: Joi.string().pattern(/regex/)
     'string.pattern.base': 'Mensaje personalizado aquí'
   })
 ```
+

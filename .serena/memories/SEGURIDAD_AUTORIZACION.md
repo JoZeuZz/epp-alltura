@@ -1,12 +1,22 @@
-# Sistema de Autorización por Recursos - Enero 15, 2026
+# Sistema de Autorización por Recursos
+
+**Estado:** Actual
 
 ## Resumen Ejecutivo
 
 Implementación completa de **defensa en profundidad** para mitigar vulnerabilidades críticas de autorización (CVE-ALLTURA-AUTH-001, 002, 003). Sistema RBAC con validación de acceso a recursos específicos en backend + guards de rol en frontend.
 
 **Estado:** 100% implementado, 0 errores, 20 endpoints protegidos  
-**Fecha:** Enero 15, 2026  
 **Trigger:** Bug de notificaciones duplicadas reveló vulnerabilidad de escalamiento de privilegios
+
+---
+
+## Actualizaciones de Seguridad
+
+- **Redacción de datos sensibles en logs:** middleware de errores elimina `password`, `refreshToken`, `authorization`, `apiKey`, etc.
+- **Sesiones largas con refresh token:** endpoint `/api/auth/refresh` + rotación en Redis; frontend reintenta automáticamente.
+- **Imágenes privadas:** acceso a evidencia solo por `/api/image-proxy` con token; `/uploads` ya no es público.
+- **Sourcemaps en producción:** desactivados en build y bloqueados en Nginx para evitar exposición de código en DevTools.
 
 ---
 
@@ -526,7 +536,7 @@ logger.warn('Intento de acceso no autorizado a proyecto', {
   projectId: 999,
   assignedSupervisorId: 15,
   ip: '192.168.1.100',
-  timestamp: '2026-01-15T14:30:00Z'
+  timestamp: 'YYYY-MM-DDTHH:MM:SSZ'
 });
 ```
 
@@ -743,4 +753,4 @@ async function roleSpecificLoader() {
 - ✅ 0 errores de compilación
 - ✅ Código listo para producción
 
-**Estado:** COMPLETADO - Enero 15, 2026
+**Estado:** COMPLETADO

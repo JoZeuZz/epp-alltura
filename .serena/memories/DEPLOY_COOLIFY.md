@@ -1,6 +1,6 @@
-# Deploy a Coolify - Enero 19-29, 2026
+# Deploy a Coolify
 
-**Fecha:** Enero 19-29, 2026
+
 **Estado:** ✅ Completado
 **Dominio Producción:** https://appandamios.alltura.cl
 **Infraestructura:** Coolify + Cloudflare Tunnel
@@ -191,7 +191,7 @@ WantedBy=multi-user.target
 
 ## VARIABLES DE ENTORNO PRODUCCIÓN (Coolify)
 
-### Nuevas variables agregadas (Enero 2026)
+### Nuevas variables agregadas
 
 Backend / Infra:
 - `DB_POOL_MAX`
@@ -255,7 +255,7 @@ curl -s http://localhost:5000/health/ready
 # Test login directo
 curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@alltura.cl","password":"Alltura2026@"}'
+  -d '{"email":"admin@alltura.cl","password":"CAMBIA_ESTA_PASSWORD"}'
 
 # Reiniciar Redis (limpiar rate limits)
 docker restart $(docker ps -q --filter "name=redis-yk4kgcck")
@@ -297,7 +297,7 @@ docker logs --tail 50 coolify-proxy
 ## CREDENCIALES ADMIN
 
 - **Email:** admin@alltura.cl
-- **Password:** Alltura2026@
+- **Password:** CAMBIA_ESTA_PASSWORD
 - **Creado con:** `node src/scripts/create-admin.js`
 
 ---

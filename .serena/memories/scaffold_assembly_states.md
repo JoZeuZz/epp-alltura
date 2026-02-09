@@ -152,3 +152,4 @@ const filteredClientUsers = clientUsers?.filter(
 **Razón:** Evitar que se asignen usuarios de otras empresas a un proyecto, lo cual causaría confusión y errores. Por ejemplo, si el proyecto es de "Bunker Ingeniería", solo deben aparecer usuarios de Bunker, no de "CMPC S.A.".
 
 **Archivos:** `/frontend/src/components/AssignSupervisorsForm.tsx`
+

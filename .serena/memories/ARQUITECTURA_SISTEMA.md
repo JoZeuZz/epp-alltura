@@ -1,4 +1,4 @@
-# Arquitectura del Sistema Alltura - Estado Actualizado Enero 2026
+# Arquitectura del Sistema Alltura
 
 ## Descripción General
 Sistema de gestión de andamios industriales persistentes con tracking completo, control de estados dual, auditoría inmutable, soft delete y roles RBAC.
@@ -72,7 +72,7 @@ Auditoría completa con denormalización para sobrevivir eliminaciones
 
 ### Backend (3-Layer Architecture)
 
-**Refactorizado en Enero 8-12, 2026** - Ver memoria: `REFACTORIZACION_3LAYER_ENERO_2026`
+**Refactorizado** - Ver memoria: `REFACTORIZACION_3LAYER`
 
 ```
 /backend/src
@@ -214,7 +214,7 @@ helmet({
 })
 ```
 
-### Autorización por Recursos (Enero 15, 2026) ⭐ NUEVO
+### Autorización por Recursos ⭐ NUEVO
 - **Arquitectura:** Defensa en profundidad (3 capas)
   1. **Autenticación:** `authMiddleware` verifica JWT
   2. **Rol:** `isAdmin`, `isSupervisor`, `isClient` validan user.role
@@ -224,7 +224,7 @@ helmet({
 - **Logging completo:** Winston registra intentos no autorizados con userId, role, resourceId, IP
 - **Frontend guards:** 6 loaders con validación de rol + redirección automática
 - **Vulnerabilidades mitigadas:** CVE-ALLTURA-AUTH-001 (CRÍTICA), 002, 003
-- **Memoria detallada:** `SEGURIDAD_AUTORIZACION_ENERO_2026`
+- **Memoria detallada:** `SEGURIDAD_AUTORIZACION`
 
 ## Roles y Permisos (RBAC)
 
@@ -390,22 +390,22 @@ helmet({
 - `npm run build` - Build de producción
 - `npm run preview` - Preview de build
 
-## Cambios Recientes (Enero 2026)
+## Cambios Recientes
 
-### Sistema Soft Delete (Enero 4-5)
+### Sistema Soft Delete
 - Columna `active` agregada a `clients` y `projects`
 - Métodos `deactivate()`, `reactivate()`, `getAllIncludingInactive()` en modelos
 - Lógica condicional en endpoints DELETE
 - UI: Modal dinámico, botón "Reactivar", badge "Desactivado"
 - **Memoria detallada:** `SOFT_DELETE_SISTEMA_PROYECTOS_CLIENTES`
 
-### Validaciones Proyecto Inactivo (Enero 5-6)
+### Validaciones Proyecto Inactivo
 - POST /scaffolds: valida `project.active && project.client_active`
 - PUT /scaffolds/:id: valida proyecto activo
 - PUT /scaffolds/:id/disassemble: valida proyecto activo
 - Frontend: Banner amarillo, botones deshabilitados
 
-### Historial Inmutable (Enero 6)
+### Historial Inmutable
 - Columnas denormalizadas: scaffold_number, project_name, area, tag
 - FK constraint: ON DELETE CASCADE → SET NULL
 - scaffold_id nullable
@@ -414,7 +414,7 @@ helmet({
 - Query con COALESCE para mostrar datos actuales o denormalizados
 - **Memoria detallada:** `HISTORIAL_INMUTABLE_ANDAMIOS`
 
-### Refactorización 3-Layer (Enero 8-12)
+### Refactorización 3-Layer
 - **Migración completa:** Fat Controllers → 3-Layer Architecture
 - **8/8 módulos migrados:** scaffolds, projects, clients, auth, users, dashboard, supervisorDashboard, notifications
 - **Separación de responsabilidades:** Routes (endpoints) → Controllers (HTTP) → Services (lógica)
@@ -424,7 +424,7 @@ helmet({
 - **0 errores finales:** Código 100% funcional, sin dependencias circulares
 - **Convenciones establecidas:** nombreModulo.service.js, nombreModulo.controller.js, nombreModulo.routes.js
 - **Archivos legacy:** Movidos a /routes/legacy/ (10 backups)
-- **Memoria detallada:** `REFACTORIZACION_3LAYER_ENERO_2026`
+- **Memoria detallada:** `REFACTORIZACION_3LAYER`
 
 ## Estado Actual del Código
 
@@ -469,19 +469,19 @@ helmet({
 7. Implementar GraphQL como alternativa a REST
 8. WebSockets para notificaciones en tiempo real
 
-### Sistema Soft Delete (Enero 4-5)
+### Sistema Soft Delete
 - Columna `active` agregada a `clients` y `projects`
 - Métodos `deactivate()`, `reactivate()`, `getAllIncludingInactive()` en modelos
 - Lógica condicional en endpoints DELETE
 - UI: Modal dinámico, botón "Reactivar", badge "Desactivado"
 
-### Validaciones Proyecto Inactivo (Enero 5-6)
+### Validaciones Proyecto Inactivo
 - POST /scaffolds: valida `project.active && project.client_active`
 - PUT /scaffolds/:id: valida proyecto activo
 - PUT /scaffolds/:id/disassemble: valida proyecto activo
 - Frontend: Banner amarillo, botones deshabilitados
 
-### Historial Inmutable (Enero 6)
+### Historial Inmutable
 - Columnas denormalizadas: scaffold_number, project_name, area, tag
 - FK constraint: ON DELETE CASCADE → SET NULL
 - scaffold_id nullable
@@ -513,7 +513,7 @@ helmet({
 - **TypeScript:** 100%
 - **Build size:** ~475 KB (gzipped 151 KB)
 
-## Testing (Nuevo - Enero 13, 2026)
+## Testing (Nuevo
 
 ### Framework
 - **Jest v30+** con coverage thresholds (60% global)

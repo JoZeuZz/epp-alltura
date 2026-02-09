@@ -70,18 +70,16 @@ Esto es importante para IP real, rate‑limits, cookies seguras, etc.
 
 El backend expone `/health/ready` (incluye DB + Redis) y el Dockerfile del backend define un `HEALTHCHECK` contra ese endpoint.
 
-### 6) Imágenes (GCS + image-proxy) y `/uploads` legacy
+### 6) Imágenes (GCS + image-proxy) y `/uploads` (deshabilitado)
 
 Las imágenes se sirven vía `/api/image-proxy` usando tokens firmados y caché controlada.  
-El endpoint `/uploads` queda como soporte legacy/local si se usa almacenamiento local.
+**`/uploads` no se expone públicamente** desde Express: es un storage local interno.
 
-IMPORTANTE: si usas `/uploads`, para que el navegador pueda abrir `https://<app.dominio>/uploads/...` con el mismo dominio del frontend, necesitas una de estas opciones:
+Si necesitas compatibilidad legacy con `/uploads`, debes:
+1) Rehabilitar el `express.static` en backend (no recomendado), y
+2) Agregar `location /uploads/` en el Nginx del frontend (ver sección opcional).
 
-A) (Recomendado) Agregar un `location /uploads/` en el Nginx del frontend que proxyee al backend (ver “Opcional: proxy /uploads”).
-
-B) Montar el mismo volumen `uploads/` también en el contenedor del frontend y servirlo como estático desde Nginx (menos común).
-
-Si tu app hoy no usa uploads, puedes omitirlo, pero si ves `404` al pedir `/uploads/...`, esta es la causa más típica.
+Por defecto, la app asume **acceso privado a imágenes** vía proxy.
 
 ---
 
@@ -158,7 +156,7 @@ DNS (Cloudflare):
 
 ---
 
-## Opcional: proxy `/uploads` en Nginx (recomendado si usas uploads)
+## Opcional: proxy `/uploads` en Nginx (solo si re‑habilitas uploads)
 
 Si tu backend entrega URLs tipo `/uploads/archivo.jpg`, el navegador pedirá `https://<app.dominio>/uploads/archivo.jpg`.
 Si el frontend (Nginx) no tiene regla, eso da `404`.
@@ -180,7 +178,13 @@ location /uploads/ {
 }
 ```
 
-El backend ya está listo para servir esos estáticos bajo `/uploads`.
+Requiere re‑habilitar `/uploads` en backend. No es el camino recomendado si quieres privacidad de imágenes.
+
+---
+
+## Nota de seguridad (frontend)
+
+- Sourcemaps desactivados en producción y `.map` bloqueados en Nginx para evitar exponer código fuente en DevTools.
 
 ---
 
@@ -215,3 +219,4 @@ En el repo aparece el ajuste de instalar `devDependencies` durante el build (par
 - `RUN npm ci --include=dev`
 
 Si tu build falla por “vite not found” o dependencias faltantes en producción, este patrón es el que lo evita.
+

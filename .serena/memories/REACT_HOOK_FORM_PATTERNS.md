@@ -1,5 +1,7 @@
 # Patrones de Formularios - React Hook Form + Zod
 
+**Estado:** Actual
+
 ## Stack Tecnológico
 ```json
 {
@@ -353,4 +355,4 @@ const { register, handleSubmit, formState: { errors } } = useForm({
 - [ ] Reemplazar disabled con isSubmitting
 - [ ] Probar todos los casos de validación
 
-**Última actualización:** Enero 2026
+

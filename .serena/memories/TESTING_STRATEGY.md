@@ -1,6 +1,6 @@
-# Estrategia de Testing - Enero 2026
+# Estrategia de Testing
 
-**Última Actualización:** Enero 13, 2026  
+
 **Estado:** Suite de tests implementada (110+ tests, 60%+ coverage global)  
 **Framework:** Jest v30+  
 **Patrón:** AAA (Arrange-Act-Assert)
@@ -908,3 +908,4 @@ Suite de testing sólida con 110+ tests cubriendo servicios críticos. Arquitect
 - Jest Documentation: https://jestjs.io/docs/getting-started
 - AAA Pattern: https://medium.com/@pjbgf/title-testing-code-ocd-and-the-aaa-pattern-df453975ab80
 - TESTING_GUIDE.md: `/backend/docs/TESTING_GUIDE.md`
+

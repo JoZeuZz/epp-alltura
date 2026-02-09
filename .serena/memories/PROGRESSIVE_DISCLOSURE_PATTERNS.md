@@ -1,10 +1,11 @@
-# Progressive Disclosure UI Patterns - Enero 15, 2026
+# Progressive Disclosure UI Patterns
+
+**Estado:** Actual
 
 ## RESUMEN EJECUTIVO
 
 Patrones de diseño de interfaz basados en "Progressive Disclosure" (revelación progresiva) implementados en la aplicación Alltura. Principio core: **Mostrar controles solo cuando son necesarios y útiles**, priorizando el contenido sobre el chrome de la UI.
 
-**Fecha de Implementación:** Enero 15, 2026  
 **Contexto:** Optimización mobile-first tras feedback de cliente sobre "cantidad ingente de botones"  
 **Filosofía:** "Para el cliente lo más importante es poder ver sus andamios"
 
@@ -854,7 +855,6 @@ describe('ClientProjectScaffoldsPage - Progressive Disclosure', () => {
 
 ---
 
-**Última Actualización:** Enero 15, 2026  
 **Autor:** Sistema de IA + Equipo UX  
 **Estado:** Implementado en producción  
-**Próxima Revisión:** Marzo 2026 (feedback usuario)
+

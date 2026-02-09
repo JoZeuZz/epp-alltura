@@ -1,9 +1,8 @@
-# Estado Completo del Proyecto - Enero 29, 2026
+# Estado Completo del Proyecto
 
-**Última Actualización:** Enero 29, 2026  
 **Estado:** ✅ Desplegado en Producción (Coolify)  
 **URL Producción:** https://appandamios.alltura.cl  
-**Última Corrección:** GCS + image-proxy firmado, mejoras PDF/Excel y UX de carga de imágenes  
+**Última Corrección:** Guías contextuales por rol, refresh tokens y endurecimiento de acceso a imágenes  
 **Arquitectura Backend:** 3-Layer Architecture + Defense in Depth  
 **Arquitectura Frontend:** React Router v7 + Context API + Role Guards  
 **Infraestructura:** Coolify + Cloudflare Tunnel + Traefik
@@ -12,11 +11,40 @@
 
 ## RESUMEN EJECUTIVO
 
-Sistema de gestión de andamios industriales persistentes con tracking completo, control de estados dual, auditoría inmutable, soft delete y roles RBAC. El backend fue completamente refactorizado de Fat Controllers a Arquitectura de 3 Capas (Enero 8-12, 2026).
+Sistema de gestión de andamios industriales persistentes con tracking completo, control de estados dual, auditoría inmutable, soft delete y roles RBAC. El backend fue completamente refactorizado de Fat Controllers a Arquitectura de 3 Capas.
 
 ---
 
-## CAMBIOS RECIENTES (Enero 21-29, 2026)
+## CAMBIOS RECIENTES
+
+- **Autenticación con refresh tokens (sesiones largas):**
+  - Endpoint `/api/auth/refresh` con rotación de refresh tokens en Redis.
+  - Frontend reintenta automáticamente (Axios interceptor) cuando expira el access token.
+  - Sesión más estable para turnos largos sin logout intempestivo.
+
+- **Imágenes privadas (sin `/uploads` público):**
+  - `/uploads` ya no se sirve de forma pública desde Express.
+  - Acceso a imágenes mediante `/api/image-proxy` con token firmado.
+  - `buildImageUrl()` agrega `size` solo cuando la URL proviene del proxy.
+
+- **Seguridad operativa:**
+  - Redacción automática de campos sensibles en logs (`password`, `refreshToken`, `authorization`, etc.).
+  - Sourcemaps desactivados en producción + bloqueo de `.map` en Nginx.
+
+- **Guías / tours por rol (onboarding + contextual):**
+  - Botón “Guía” dispara tours por página, con pasos específicos por rol.
+  - Overlay más liviano, mejoras en mobile y navegación a elementos con `data-tour`.
+  - Admin Dashboard ahora incluye guía por cada card y bloque de métricas.
+
+- **Consistencia de scaffolds:**
+  - Normalización de `disassembly_image_url` en modelo/allowedFields.
+  - Bloqueo de creación de andamios si el proyecto no tiene usuario cliente asignado.
+
+- **Limpieza UX:**
+  - `NewReportPage` removida para evitar deuda/confusión.
+  - Copys de password ajustados a mínimo 12 caracteres.
+
+## CAMBIOS CONSOLIDADOS
 
 - **Imágenes y almacenamiento (GCS + proxy):**
   - Carga de fotos a GCS con service account.
@@ -39,7 +67,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 
 - **Infra / Deploy:**
   - Healthcheck real en backend: `/health/ready`.
-  - Variables nuevas para pool DB y rate limits (ver `DEPLOY_COOLIFY_ENERO_2026`).
+  - Variables nuevas para pool DB y rate limits (ver `DEPLOY_COOLIFY`).
 
 ---
 
@@ -56,7 +84,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 
 ## CAMBIOS CRÍTICOS ÚLTIMAS 3 SEMANAS
 
-### 0. Sistema de Notificaciones Mobile + Progressive Disclosure (Enero 15) ⭐ NUEVO
+### 0. Sistema de Notificaciones Mobile + Progressive Disclosure ⭐ NUEVO
 
 - ✅ **NotificationBell responsive:** Fullscreen modal en mobile (<640px) con overlay oscuro, dropdown normal en desktop
 - ✅ **NotificationsPage paginación:** 10 items/página, botón "Limpiar" fijo en footer, evita scroll infinito
@@ -75,9 +103,9 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - **Archivos modificados:**
   - Frontend: NotificationBell.tsx, NotificationsPage.tsx, NotificationItem.tsx, AppLayout.tsx, ClientProjectScaffoldsPage.tsx, ProjectDashboard.tsx, useNotifications.ts
   - Backend: notification.routes.js (route ordering)
-- **Memoria:** `RESPONSIVE_DESIGN_ENERO_2026` (secciones 13-14 nuevas)
+- **Memoria:** `RESPONSIVE_DESIGN` (secciones 13-14 nuevas)
 
-### 1. Sistema de Autorización por Recursos (Enero 15) ⭐ CRÍTICO
+### 1. Sistema de Autorización por Recursos ⭐ CRÍTICO
 
 - ✅ **Vulnerabilidades mitigadas:** CVE-ALLTURA-AUTH-001 (CRÍTICA - escalamiento privilegios), 002, 003
 - ✅ **3 middlewares de autorización creados:** `checkProjectAccess`, `checkScaffoldAccess`, `checkClientNoteAccess` (242 líneas)
@@ -89,11 +117,11 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - ✅ **Bug resuelto:** Notificaciones duplicadas (eliminado bloque que enviaba notificación a `client_id` como si fuera usuario)
 - ✅ **Aclaración implementada:** Supervisor puede editar TODOS los andamios del proyecto asignado, no solo los que creó
 - **Archivos modificados:** roles.js, projects.routes.js, scaffolds.routes.js, supervisorDashboard.routes.js, clientNotes.routes.js, projects.service.js, router/index.tsx
-- **Memoria:** `SEGURIDAD_AUTORIZACION_ENERO_2026`
+- **Memoria:** `SEGURIDAD_AUTORIZACION`
 
 ## CAMBIOS CRÍTICOS ÚLTIMAS 3 SEMANAS
 
-### 0. Sanitización con Validator.js (Enero 13) ⭐ NUEVO
+### 0. Sanitización con Validator.js ⭐ NUEVO
 
 - ✅ **4 Capas de Defensa:** Sanitización → Validación (Joi + validator.js) → Lógica → BD
 - ✅ **12 Custom Validators creados:** joiPhone, joiLatLong, joiUUID, joiPostalCode, joiJSON, joiIP, joiSlug, joiCreditCard, joiHexColor, joiMACAddress, joiFQDN, joiIBAN
@@ -102,9 +130,9 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - ✅ **Validaciones locale-aware:** Teléfonos (es-CL, es-ES, en-US, pt-BR), códigos postales (CL, US, ES)
 - ✅ **Algoritmos especializados:** Luhn (tarjetas crédito), IBAN validation
 - ✅ **Documentación:** VALIDATION_GUIDE.md (1250+ líneas) con tabla comparativa Regex vs Validator.js
-- **Memoria:** `SANITIZACION_VALIDATOR_ENERO_2026`
+- **Memoria:** `SANITIZACION_VALIDATOR`
 
-### 1. Suite de Testing Completa (Enero 13) ⭐ CRÍTICO
+### 1. Suite de Testing Completa ⭐ CRÍTICO
 
 - ✅ **110+ tests implementados** para servicios críticos (coverage 65-85%)
 - ✅ **Jest v30+** con configuración de thresholds (60% global mínimo)
@@ -120,36 +148,36 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - ✅ **Scripts NPM agregados:** test:watch, test:coverage, test:verbose, test:services, test:lib
 - ✅ **Coverage reporters:** text, lcov, html
 - ✅ **Documentación:** TESTING_GUIDE.md (600+ líneas) con guía completa
-- **Memoria:** `TESTING_STRATEGY_ENERO_2026` (testing patterns y cobertura)
+- **Memoria:** `TESTING_STRATEGY` (testing patterns y cobertura)
 
 ## CAMBIOS CRÍTICOS ÚLTIMAS 2 SEMANAS
 
-### 1. Sistema Soft Delete (Enero 4-5)
+### 1. Sistema Soft Delete
 
 - ✅ Columnas `active` en clients y projects
 - ✅ Lógica condicional DELETE (elimina si no tiene dependencias, desactiva si tiene)
 - ✅ Métodos deactivate/reactivate en modelos
 - ✅ Cascada: cliente desactivado → proyectos desactivados
 - ✅ UI: modales dinámicos, badges visuales, botón "Reactivar"
-- **Memoria:** `ARQUITECTURA_SISTEMA_ENERO_2026` (sección soft delete)
+- **Memoria:** `ARQUITECTURA_SISTEMA` (sección soft delete)
 
-### 2. Validaciones Proyecto Inactivo (Enero 5-6)
+### 2. Validaciones Proyecto Inactivo
 
 - ✅ Backend valida proyecto/cliente activo en POST/PUT/DISASSEMBLE scaffolds
 - ✅ Error 400 si proyecto desactivado
 - ✅ Frontend: banners amarillos, botones deshabilitados
 - ✅ Andamios inmutables en proyectos desactivados
 
-### 3. Historial Inmutable (Enero 6)
+### 3. Historial Inmutable
 
 - ✅ FK constraint ON DELETE SET NULL (scaffold_id nullable)
 - ✅ Campos denormalizados: scaffold_number, project_name, area, tag
 - ✅ Registro tipo 'delete' ANTES de borrar andamio
 - ✅ Query COALESCE para datos actuales vs denormalizados
 - ✅ Script de migración ejecutado exitosamente
-- **Memoria:** `ARQUITECTURA_SISTEMA_ENERO_2026` (sección historial inmutable)
+- **Memoria:** `ARQUITECTURA_SISTEMA` (sección historial inmutable)
 
-### 4. Validación Inline y Estados de Andamios (Enero 12) ⭐ CRÍTICO
+### 4. Validación Inline y Estados de Andamios ⭐ CRÍTICO
 
 - ✅ **Sistema de validación inline:** Errores de campo aparecen debajo de inputs (no solo toast)
   - Backend retorna `{ error, message, errors: [{field, message}] }`
@@ -170,7 +198,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
   - Frontend: ScaffoldGrid.tsx, ScaffoldDetailsModal.tsx, AssignSupervisorsForm.tsx, UserForm.tsx, ProjectForm.tsx, ClientForm.tsx, router/index.tsx
 - **Memoria:** `scaffold_assembly_states.md` (documentación completa de lógica de estados)
 
-### 5. Refactorización 3-Layer (Enero 8-12) ⭐ CRÍTICO
+### 5. Refactorización 3-Layer ⭐ CRÍTICO
 
 - ✅ **8/8 módulos migrados:** scaffolds, projects, clients, auth, users, dashboard, supervisorDashboard, notifications
 - ✅ **50 endpoints REST** refactorizados
@@ -185,7 +213,7 @@ Sistema de gestión de andamios industriales persistentes con tracking completo,
 - ✅ **Archivos legacy:** 10 backups en /routes/legacy/
 - ✅ **Validación exhaustiva:** Auditoría con Serena (0 inconsistencias, 0 dependencias circulares)
 - ✅ **npm run dev funcional** después de corrección de imports críticos
-- **Memoria:** `REFACTORIZACION_3LAYER_ENERO_2026`
+- **Memoria:** `REFACTORIZACION_3LAYER`
 
 ---
 
@@ -502,7 +530,6 @@ npm run test:services      # Solo tests de services
 npm run test:lib           # Solo tests de libs
 node src/db/setup.js       # Migración completa DB
 node src/scripts/create-admin.js  # Crear admin CLI
-node src/scripts/migrate_scaffold_history.js  # Migración historial inmutable
 ```
 
 ### Frontend
@@ -519,21 +546,22 @@ npm run preview           # Preview de build
 
 ### Infraestructura y Deploy
 
-- **DEPLOY_COOLIFY_ENERO_2026** - Deploy completo a Coolify con Cloudflare Tunnel (Enero 19-20, 2026) ⭐ NUEVO
-- **CAMBIOS_CHAT_ENERO_29_2026** - Resumen de mejoras de reportes, imagenes, UX y deploy (Enero 29, 2026)
+- **DEPLOY_COOLIFY** - Deploy completo a Coolify con Cloudflare Tunnel
+- **CAMBIOS_CHAT** - Resumen consolidado de cambios recientes
+- **FORMATO_MAESTRO_APP** - Plantilla base para crear nuevas apps con el mismo stack y diseño
 
 ### Arquitectura y Estado
 
-- **ARQUITECTURA_SISTEMA_ENERO_2026** - Stack, modelos, API, reglas de negocio, arquitectura 3-Layer, seguridad RBAC
-- **SEGURIDAD_AUTORIZACION_ENERO_2026** - Sistema completo autorización por recursos (Enero 15, 2026)
-- **REFACTORIZACION_3LAYER_ENERO_2026** - Migración completa Fat Controllers → 3-Layer
-- **\_ESTADO_COMPLETO_ENERO_12_2026** - Este archivo (estado consolidado)
+- **ARQUITECTURA_SISTEMA** - Stack, modelos, API, reglas de negocio, arquitectura 3-Layer, seguridad RBAC
+- **SEGURIDAD_AUTORIZACION** - Sistema completo autorización por recursos
+- **REFACTORIZACION_3LAYER** - Migración completa Fat Controllers → 3-Layer
+- **ESTADO_COMPLETO** - Este archivo (estado consolidado)
 
 ### Validación y Testing
 
-- **SANITIZACION_VALIDATOR_ENERO_2026** - Sanitización con validator.js + custom validators
+- **SANITIZACION_VALIDATOR** - Sanitización con validator.js + custom validators
 - **VALIDACION_INLINE_SISTEMA** - Sistema de validación inline en formularios
-- **TESTING_STRATEGY_ENERO_2026** - Suite de testing Jest (110+ tests)
+- **TESTING_STRATEGY** - Suite de testing Jest (110+ tests)
 
 ### Frontend
 
@@ -541,8 +569,8 @@ npm run preview           # Preview de build
 - **REACT_ROUTER_V7_ACTIONS** - Patrones de actions/loaders
 - **REACT_HOOK_FORM_PATTERNS** - Formularios con react-hook-form
 - **ACCESSIBILITY_IMPLEMENTATION_PHASE1** - Accesibilidad WCAG
-- **RESPONSIVE_DESIGN_ENERO_2026** - Diseño responsive mobile-first (incluye notificaciones mobile + progressive disclosure)
-- **PROGRESSIVE_DISCLOSURE_PATTERNS** - Patrones de UI revelación progresiva (Enero 15, 2026) ⭐ NUEVO
+- **RESPONSIVE_DESIGN** - Diseño responsive mobile-first (incluye notificaciones mobile + progressive disclosure)
+- **PROGRESSIVE_DISCLOSURE_PATTERNS** - Patrones de UI de revelación progresiva
 - **PERFORMANCE_OPTIMIZATION_PATTERNS** - Optimización performance
 
 ### Convenciones
@@ -553,9 +581,9 @@ npm run preview           # Preview de build
 
 - **scaffold_assembly_states** - Documentación completa de lógica de estados, tarjetas, y flujos de trabajo
 
-### ACTUALIZADAS (Enero 15, 2026)
+### ACTUALIZADAS
 
-- **RESPONSIVE_DESIGN_ENERO_2026** - Agregadas secciones 13-14: Sistema notificaciones mobile + Progressive disclosure patterns
+- **RESPONSIVE_DESIGN** - Agregadas secciones 13-14: Sistema notificaciones mobile + Progressive disclosure patterns
 
 ---
 
@@ -568,7 +596,7 @@ npm run preview           # Preview de build
 
 ### Mejoras Funcionales (Prioridad Media)
 
-1. ~~Notificaciones push completas (Web Push API)~~ ✅ Sistema mobile responsive implementado (Enero 15)
+1. ~~Notificaciones push completas (Web Push API)~~ ✅ Sistema mobile responsive implementado
 2. Geolocalización de andamios (Google Maps)
 3. Dashboard de auditoría para admins (con logs de intentos no autorizados)
 4. Política de retención historial (>2 años)
