@@ -3,7 +3,6 @@ require('dotenv').config();
 
 const express = require('express');
 const compression = require('compression');
-const path = require('path');
 const { requestLogger, logger } = require('./lib/logger');
 const redisClient = require('./lib/redis');
 
@@ -15,15 +14,9 @@ const requestId = require('./middleware/requestId');
 
 // Importar rutas (Arquitectura 3-Capas)
 const authRoutes = require('./routes/auth.routes');
-const clientRoutes = require('./routes/clients.routes');
-const projectRoutes = require('./routes/projects.routes');
-const scaffoldRoutes = require('./routes/scaffolds.routes');
 const userRoutes = require('./routes/users.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
-const supervisorDashboardRoutes = require('./routes/supervisorDashboard.routes');
 const notificationRoutes = require('./routes/notification.routes');
-const clientNotesRoutes = require('./routes/clientNotes.routes');
-const scaffoldModificationRoutes = require('./routes/scaffold-modifications.routes');
 const imageProxyRoutes = require('./routes/imageProxy.routes');
 const healthRoutes = require('./routes/health');
 const { initializeDatabase } = require('./db/initialize');
@@ -140,15 +133,9 @@ app.get('/api-docs.json', (req, res) => {
 
 // Rutas
 app.use('/api/auth', authRoutes);
-app.use('/api/clients', clientRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/scaffolds', scaffoldRoutes);
-app.use('/api', scaffoldModificationRoutes); // Incluye /scaffolds/:id/modifications y /scaffold-modifications/*
 app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/supervisor-dashboard', supervisorDashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/client-notes', clientNotesRoutes);
 app.use('/health', healthRoutes);
 
 // Endpoint para métricas del cliente (performance monitoring)

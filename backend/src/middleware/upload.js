@@ -87,7 +87,7 @@ const safeUnlink = async (filePath) => {
   if (!filePath) return;
   try {
     await fs.promises.unlink(filePath);
-  } catch (_error) {
+  } catch {
     // Silenciar errores de limpieza
   }
 };

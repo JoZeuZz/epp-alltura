@@ -37,6 +37,9 @@ const ChevronRightIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+const isTourRole = (role?: string | null): role is TourRole =>
+  role === 'admin' || role === 'supervisor' || role === 'client';
+
 const AppLayout = () => {
   const { user, logout } = useAuth();
   const { startOnboarding, startContextual, isActive, steps, stepIndex } = useTour();
@@ -62,9 +65,9 @@ const AppLayout = () => {
   const guideTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (user?.role && !hasAutoStartedTour.current) {
+    if (isTourRole(user?.role) && !hasAutoStartedTour.current) {
       hasAutoStartedTour.current = true;
-      startOnboarding(user.role as TourRole);
+      startOnboarding(user.role);
     }
   }, [startOnboarding, user?.role]);
 
@@ -232,6 +235,36 @@ const AppLayout = () => {
     </Fragment>
   );
 
+  const bodegaLinks = (
+    <Fragment>
+      <NavLink
+        to="/bodega/dashboard"
+        onClick={handleLinkClick}
+        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
+      >
+        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7L4 7m16 5H4m16 5H4" />
+        </svg>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Dashboard Bodega</span>
+      </NavLink>
+    </Fragment>
+  );
+
+  const workerLinks = (
+    <Fragment>
+      <NavLink
+        to="/worker/dashboard"
+        onClick={handleLinkClick}
+        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
+      >
+        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12c2.761 0 5-2.239 5-5S14.761 2 12 2 7 4.239 7 7s2.239 5 5 5zM4 22c0-4.418 3.582-8 8-8s8 3.582 8 8" />
+        </svg>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Mis Activos</span>
+      </NavLink>
+    </Fragment>
+  );
+
   const clientLinks = (
     <Fragment>
       <NavLink
@@ -296,7 +329,15 @@ const AppLayout = () => {
           </div>
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto overflow-x-hidden">
             <div className={!isSidebarOpen ? 'lg:space-y-2' : ''}>
-              {user?.role === 'admin' ? adminLinks : user?.role === 'supervisor' ? supervisorLinks : clientLinks}
+              {user?.role === 'admin'
+                ? adminLinks
+                : user?.role === 'supervisor'
+                  ? supervisorLinks
+                  : user?.role === 'bodega'
+                    ? bodegaLinks
+                    : user?.role === 'worker'
+                      ? workerLinks
+                      : clientLinks}
             </div>
           </nav>
           
@@ -310,7 +351,7 @@ const AppLayout = () => {
                   window.clearTimeout(guideTimeoutRef.current);
                 }
                 const contextualSteps = getContextualStepsForRoute(
-                  user.role as TourRole,
+                  isTourRole(user.role) ? user.role : 'client',
                   location.pathname
                 );
                 if (contextualSteps.length === 0) {
@@ -320,10 +361,14 @@ const AppLayout = () => {
                 if (isMobile) {
                   setSidebarOpen(false);
                   guideTimeoutRef.current = window.setTimeout(() => {
-                    startContextual(user.role as TourRole, contextualSteps);
+                    if (isTourRole(user.role)) {
+                      startContextual(user.role, contextualSteps);
+                    }
                   }, 150);
                 } else {
-                  startContextual(user.role as TourRole, contextualSteps);
+                  if (isTourRole(user.role)) {
+                    startContextual(user.role, contextualSteps);
+                  }
                 }
               }}
               title="Guía"
@@ -363,7 +408,15 @@ const AppLayout = () => {
                   {formatNameParts(user?.first_name, user?.last_name)}
                 </p>
                 <p className="text-xs text-gray-400">
-                  {user?.role === 'admin' ? 'Administrador' : user?.role === 'supervisor' ? 'Supervisor' : 'Cliente'}
+                  {user?.role === 'admin'
+                    ? 'Administrador'
+                    : user?.role === 'supervisor'
+                      ? 'Supervisor'
+                      : user?.role === 'bodega'
+                        ? 'Bodega'
+                        : user?.role === 'worker'
+                          ? 'Trabajador'
+                          : 'Cliente'}
                 </p>
               </div>
               <ChevronDownIcon className={`text-gray-400 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''} ${
@@ -380,7 +433,7 @@ const AppLayout = () => {
               }`}>
                 <button
                   onClick={() => {
-                    navigate(`/${user.role}/profile`);
+                    navigate('/profile');
                     setProfileMenuOpen(false);
                     handleLinkClick();
                   }}
