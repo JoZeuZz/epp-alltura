@@ -1,9 +1,9 @@
 export interface User {
-  id: number;
+  id: string;
   first_name: string;
   last_name: string;
   email: string;
-  role: 'admin' | 'supervisor' | 'client' | 'bodega' | 'worker';
+  role: 'admin' | 'supervisor' | 'client' | 'bodega' | 'worker' | 'trabajador';
   password?: string;
   client_id?: number | null; // ID de la empresa cliente (solo para role='client')
   created_at: string;

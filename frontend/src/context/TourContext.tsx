@@ -1,25 +1,6 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { TourRole, TourStep, onboardingStepsByRole, TOUR_VERSION } from '../utils/tourSteps';
-
-type StopReason = 'completed' | 'skipped' | 'dismissed';
-type TourMode = 'onboarding' | 'contextual';
-
-interface TourContextValue {
-  isActive: boolean;
-  role: TourRole | null;
-  steps: TourStep[];
-  stepIndex: number;
-  mode: TourMode;
-  startOnboarding: (role: TourRole, options?: { force?: boolean }) => boolean;
-  startContextual: (role: TourRole, steps: TourStep[]) => boolean;
-  stop: (reason?: StopReason) => void;
-  next: () => void;
-  prev: () => void;
-  goTo: (index: number) => void;
-  restart: () => void;
-}
-
-const TourContext = createContext<TourContextValue | undefined>(undefined);
+import { StopReason, TourMode, TourContext } from './tourContext.shared';
 
 const storageKeyFor = (role: TourRole) => `tour:${role}:${TOUR_VERSION}`;
 
@@ -31,7 +12,7 @@ export const TourProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [steps, setSteps] = useState<TourStep[]>([]);
 
   const startOnboarding = useCallback((nextRole: TourRole, options?: { force?: boolean }) => {
-    if (!nextRole) return;
+    if (!nextRole) return false;
     const key = storageKeyFor(nextRole);
     const status = localStorage.getItem(key);
     if (!options?.force && (status === 'completed' || status === 'skipped')) {
@@ -109,12 +90,4 @@ export const TourProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   return <TourContext.Provider value={value}>{children}</TourContext.Provider>;
-};
-
-export const useTour = () => {
-  const context = useContext(TourContext);
-  if (!context) {
-    throw new Error('useTour must be used within a TourProvider');
-  }
-  return context;
 };

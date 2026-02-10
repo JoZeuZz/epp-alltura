@@ -1,8 +1,8 @@
 import { useState, Fragment, useRef, useEffect, Suspense } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { useAuth } from '../context/AuthContext';
-import { useTour } from '../context/TourContext';
+import { useAuth } from '../hooks/useAuth';
+import { useTour } from '../hooks/useTour';
 import TourOverlay from '../components/TourOverlay';
 import type { TourRole } from '../utils/tourSteps';
 import { getContextualStepsForRoute } from '../utils/tourSteps';
@@ -37,8 +37,16 @@ const ChevronRightIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-const isTourRole = (role?: string | null): role is TourRole =>
-  role === 'admin' || role === 'supervisor' || role === 'client';
+const toTourRole = (role?: string | null): TourRole | null => {
+  const normalizedRole = String(role || '').toLowerCase();
+  if (normalizedRole === 'admin' || normalizedRole === 'supervisor' || normalizedRole === 'bodega') {
+    return normalizedRole;
+  }
+  if (normalizedRole === 'worker' || normalizedRole === 'trabajador' || normalizedRole === 'client') {
+    return 'worker';
+  }
+  return null;
+};
 
 const AppLayout = () => {
   const { user, logout } = useAuth();
@@ -63,13 +71,14 @@ const AppLayout = () => {
   const hasAutoStartedTour = useRef(false);
   const autoOpenedSidebar = useRef(false);
   const guideTimeoutRef = useRef<number | null>(null);
+  const currentTourRole = toTourRole(user?.role);
 
   useEffect(() => {
-    if (isTourRole(user?.role) && !hasAutoStartedTour.current) {
+    if (currentTourRole && !hasAutoStartedTour.current) {
       hasAutoStartedTour.current = true;
-      startOnboarding(user.role);
+      startOnboarding(currentTourRole);
     }
-  }, [startOnboarding, user?.role]);
+  }, [currentTourRole, startOnboarding]);
 
   useEffect(() => {
     return () => {
@@ -141,13 +150,9 @@ const AppLayout = () => {
   const activeLinkClass = `flex items-center px-3 py-2 text-white bg-primary-blue rounded-lg ${
     !isSidebarOpen ? 'lg:justify-center lg:px-2' : ''
   }`;
-  const sectionTitleClass = `px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider ${
-    !isSidebarOpen ? 'lg:hidden' : ''
-  }`;
 
   const adminLinks = (
     <Fragment>
-      {/* Dashboard */}
       <NavLink
         to="/admin/dashboard"
         onClick={handleLinkClick}
@@ -156,56 +161,27 @@ const AppLayout = () => {
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Dashboard</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Dashboard EPP</span>
       </NavLink>
-
-      {/* Operaciones */}
-      <div className={sectionTitleClass}>Operaciones</div>
       <NavLink
-        to="/admin/projects"
+        to="/admin/trazabilidad"
         onClick={handleLinkClick}
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Proyectos</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Trazabilidad</span>
       </NavLink>
       <NavLink
-        to="/admin/scaffolds"
+        to="/admin/auditoria"
         onClick={handleLinkClick}
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h18v4H3V3zm0 7h18v11H3V10zm4 3v5m4-5v5m4-5v5" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Andamios</span>
-      </NavLink>
-
-      {/* Catálogos */}
-      <div className={sectionTitleClass + ' mt-4'}>Catálogos</div>
-      <NavLink
-        to="/admin/clients"
-        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
-        onClick={handleLinkClick}
-      >
-        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Clientes</span>
-      </NavLink>
-
-      {/* Configuración */}
-      <div className={sectionTitleClass + ' mt-4'}>Configuración</div>
-      <NavLink
-        to="/admin/users"
-        onClick={handleLinkClick}
-        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
-      >
-        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-        </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Usuarios del Sistema</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Auditoría</span>
       </NavLink>
     </Fragment>
   );
@@ -220,17 +196,17 @@ const AppLayout = () => {
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Mis Proyectos</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Dashboard Supervisor</span>
       </NavLink>
       <NavLink
-        to="/supervisor/history"
+        to="/supervisor/trazabilidad"
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
         onClick={handleLinkClick}
       >
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Historial</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Trazabilidad</span>
       </NavLink>
     </Fragment>
   );
@@ -245,7 +221,17 @@ const AppLayout = () => {
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7L4 7m16 5H4m16 5H4" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Dashboard Bodega</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Operación Bodega</span>
+      </NavLink>
+      <NavLink
+        to="/bodega/operaciones"
+        onClick={handleLinkClick}
+        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
+      >
+        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Entregas y Devoluciones</span>
       </NavLink>
     </Fragment>
   );
@@ -262,20 +248,30 @@ const AppLayout = () => {
         </svg>
         <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Mis Activos</span>
       </NavLink>
+      <NavLink
+        to="/worker/firmas"
+        onClick={handleLinkClick}
+        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
+      >
+        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5h2m-1-3v6m9 4v9a1 1 0 01-1 1H4a1 1 0 01-1-1v-9m18 0l-9-5-9 5" />
+        </svg>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Firmas Pendientes</span>
+      </NavLink>
     </Fragment>
   );
 
   const clientLinks = (
     <Fragment>
       <NavLink
-        to="/client/dashboard"
+        to="/worker/dashboard"
         onClick={handleLinkClick}
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Mis Proyectos</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Mis Activos</span>
       </NavLink>
     </Fragment>
   );
@@ -335,7 +331,7 @@ const AppLayout = () => {
                   ? supervisorLinks
                   : user?.role === 'bodega'
                     ? bodegaLinks
-                    : user?.role === 'worker'
+                    : user?.role === 'worker' || user?.role === 'trabajador' || user?.role === 'client'
                       ? workerLinks
                       : clientLinks}
             </div>
@@ -351,7 +347,7 @@ const AppLayout = () => {
                   window.clearTimeout(guideTimeoutRef.current);
                 }
                 const contextualSteps = getContextualStepsForRoute(
-                  isTourRole(user.role) ? user.role : 'client',
+                  currentTourRole || 'worker',
                   location.pathname
                 );
                 if (contextualSteps.length === 0) {
@@ -361,13 +357,13 @@ const AppLayout = () => {
                 if (isMobile) {
                   setSidebarOpen(false);
                   guideTimeoutRef.current = window.setTimeout(() => {
-                    if (isTourRole(user.role)) {
-                      startContextual(user.role, contextualSteps);
+                    if (currentTourRole) {
+                      startContextual(currentTourRole, contextualSteps);
                     }
                   }, 150);
                 } else {
-                  if (isTourRole(user.role)) {
-                    startContextual(user.role, contextualSteps);
+                  if (currentTourRole) {
+                    startContextual(currentTourRole, contextualSteps);
                   }
                 }
               }}
@@ -414,9 +410,9 @@ const AppLayout = () => {
                       ? 'Supervisor'
                       : user?.role === 'bodega'
                         ? 'Bodega'
-                        : user?.role === 'worker'
+                        : user?.role === 'worker' || user?.role === 'trabajador' || user?.role === 'client'
                           ? 'Trabajador'
-                          : 'Cliente'}
+                          : 'Usuario'}
                 </p>
               </div>
               <ChevronDownIcon className={`text-gray-400 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''} ${

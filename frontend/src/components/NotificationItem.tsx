@@ -2,7 +2,6 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { InAppNotification } from '../types/clientNotes';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 
 interface NotificationItemProps {
   notification: InAppNotification;
@@ -31,6 +30,37 @@ const notificationColors: Record<string, string> = {
   system: 'bg-gray-50 border-gray-200',
 };
 
+const EPP_ALLOWED_PATHS = new Set([
+  '/admin/dashboard',
+  '/admin/trazabilidad',
+  '/admin/auditoria',
+  '/supervisor/dashboard',
+  '/supervisor/trazabilidad',
+  '/bodega/dashboard',
+  '/bodega/operaciones',
+  '/worker/dashboard',
+  '/worker/firmas',
+  '/notifications',
+  '/profile',
+]);
+
+const resolveEppLink = (link: string | null | undefined): string => {
+  if (!link || typeof link !== 'string') {
+    return '/notifications';
+  }
+
+  if (!link.startsWith('/')) {
+    return '/notifications';
+  }
+
+  const [path] = link.split('?');
+  if (EPP_ALLOWED_PATHS.has(path)) {
+    return link;
+  }
+
+  return '/notifications';
+};
+
 export default function NotificationItem({
   notification,
   onMarkAsRead,
@@ -38,70 +68,8 @@ export default function NotificationItem({
   compact = false,
 }: NotificationItemProps) {
   const navigate = useNavigate();
-  const { user } = useAuth();
 
-  // Convertir link genérico a link específico del rol
-  const getNavigationLink = (): string | null => {
-    if (!notification.link) return null;
-
-    const { metadata } = notification;
-    const role = user?.role;
-
-    // Si el link es genérico (/scaffolds/:id o /projects/:id), convertirlo según el rol
-    if (notification.link.startsWith('/scaffolds/')) {
-      const projectId = metadata?.project_id;
-      
-      // Si no tenemos project_id, intentar con scaffold_id para buscar el proyecto
-      if (!projectId) {
-        // Para clientes, redirigir al dashboard si no tenemos project_id
-        // El cliente puede encontrar el andamio desde ahí
-        if (role === 'client') {
-          return `/client/dashboard`;
-        }
-        // Para admin, ir a la lista de andamios
-        if (role === 'admin') {
-          return `/admin/scaffolds`;
-        }
-        // Para supervisor, ir al dashboard
-        if (role === 'supervisor') {
-          return `/supervisor/dashboard`;
-        }
-        return null;
-      }
-      
-      switch (role) {
-        case 'admin':
-          // Para admin, redirigir a la página de andamios con filtro del proyecto
-          return `/admin/scaffolds?project=${projectId}`;
-        case 'supervisor':
-          // Para supervisor, ir a la página del proyecto
-          return `/supervisor/project/${projectId}`;
-        case 'client':
-          // Para cliente, ir a la página del proyecto
-          return `/client/project/${projectId}`;
-        default:
-          return null;
-      }
-    }
-
-    if (notification.link.startsWith('/projects/') && metadata?.project_id) {
-      const projectId = metadata.project_id;
-      
-      switch (role) {
-        case 'admin':
-          return `/admin/projects`;
-        case 'supervisor':
-          return `/supervisor/project/${projectId}`;
-        case 'client':
-          return `/client/project/${projectId}`;
-        default:
-          return null;
-      }
-    }
-
-    // Si el link ya es específico del rol, usarlo tal cual
-    return notification.link;
-  };
+  const navigationLink = resolveEppLink(notification.link);
 
   const handleClick = async () => {
     if (!notification.is_read) {
@@ -112,10 +80,7 @@ export default function NotificationItem({
       }
     }
 
-    const link = getNavigationLink();
-    if (link) {
-      navigate(link);
-    }
+    navigate(navigationLink);
   };
 
   const handleDelete = async (e: React.MouseEvent) => {
@@ -132,7 +97,7 @@ export default function NotificationItem({
     ? 'bg-white'
     : notificationColors[notification.type] || 'bg-gray-50';
   
-  const hasValidLink = getNavigationLink() !== null;
+  const hasValidLink = true;
 
   return (
     <div

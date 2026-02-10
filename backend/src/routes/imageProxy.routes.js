@@ -10,7 +10,6 @@ const router = express.Router();
 
 let sharp = null;
 try {
-  // eslint-disable-next-line global-require
   sharp = require('sharp');
 } catch (error) {
   logger.warn('Sharp not available for image proxy resizing', { error: error.message });

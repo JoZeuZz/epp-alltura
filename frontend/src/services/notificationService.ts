@@ -71,7 +71,7 @@ class NotificationService {
       
       const subscription = await this.swRegistration.pushManager.getSubscription();
       return !!subscription;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

@@ -1,223 +1,515 @@
--- Archivo: init.sql
--- Este script crea todas las tablas necesarias para la aplicación Alltura Reports.
+-- EPP Alltura - Base schema (MER source of truth)
+-- NOTE: this file is idempotent and safe to execute multiple times.
 
--- Creación de la tabla de clientes (empresas mandantes) - PRIMERO
-CREATE TABLE IF NOT EXISTS clients (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) UNIQUE NOT NULL,
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- ============================================================
+-- SHARED FUNCTIONS
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION set_actualizado_en()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.actualizado_en = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================
+-- CORE IDENTITY
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS persona (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  rut VARCHAR(20) NOT NULL UNIQUE,
+  nombres VARCHAR(150) NOT NULL,
+  apellidos VARCHAR(150) NOT NULL,
+  telefono VARCHAR(30),
   email VARCHAR(255),
-  phone VARCHAR(50),
-  address TEXT,
-  specialty VARCHAR(255),
-  active BOOLEAN DEFAULT true,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  foto_url TEXT,
+  estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo')),
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Creación de la tabla de usuarios (Actualizado)
-CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    first_name VARCHAR(255) NOT NULL,
-    last_name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    rut VARCHAR(50),
-    phone_number VARCHAR(50),
-    profile_picture_url VARCHAR(255),
-    role VARCHAR(50) NOT NULL CHECK(role IN ('admin', 'supervisor', 'client')),
-    client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS usuario (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  persona_id UUID REFERENCES persona(id) ON DELETE SET NULL,
+  email_login VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo', 'bloqueado')),
+  ultimo_login_en TIMESTAMPTZ,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Índice para mejorar búsquedas por empresa cliente
-CREATE INDEX IF NOT EXISTS idx_users_client_id ON users(client_id);
-
--- Creación de la tabla de proyectos
-CREATE TABLE IF NOT EXISTS projects (
-  id SERIAL PRIMARY KEY,
-  client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
-  name VARCHAR(255) NOT NULL,
-  status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'completed')),
-  active BOOLEAN DEFAULT true,
-  assigned_client_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  assigned_supervisor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS trabajador (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  persona_id UUID NOT NULL UNIQUE REFERENCES persona(id) ON DELETE CASCADE,
+  usuario_id UUID UNIQUE REFERENCES usuario(id) ON DELETE SET NULL,
+  codigo_empleado VARCHAR(50) UNIQUE,
+  cargo VARCHAR(120),
+  fecha_ingreso TIMESTAMPTZ,
+  fecha_salida TIMESTAMPTZ,
+  estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo')),
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Creación de la tabla de andamios (anteriormente 'reports')
-CREATE TABLE IF NOT EXISTS scaffolds (
-    id SERIAL PRIMARY KEY,
-    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    user_id INTEGER NOT NULL REFERENCES users(id),
-    created_by INTEGER NOT NULL REFERENCES users(id),
-    scaffold_number VARCHAR(255),
-    area VARCHAR(255),
-    tag VARCHAR(255),
-    width DECIMAL NOT NULL,
-    length DECIMAL NOT NULL,
-    height DECIMAL NOT NULL,
-    cubic_meters DECIMAL NOT NULL,
-    progress_percentage INTEGER NOT NULL DEFAULT 100 CHECK(progress_percentage >= 0 AND progress_percentage <= 100),
-    card_status VARCHAR(50) NOT NULL DEFAULT 'green' CHECK(card_status IN ('green', 'red')),
-    assembly_status VARCHAR(50) NOT NULL DEFAULT 'assembled' CHECK(assembly_status IN ('assembled', 'disassembled')),
-    assembly_image_url VARCHAR(255) NOT NULL,
-    assembly_notes TEXT,
-    assembly_created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    location TEXT,
-    observations TEXT,
-    disassembly_image_url VARCHAR(255),
-    disassembly_notes TEXT,
-    disassembled_at TIMESTAMP WITH TIME ZONE,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS rol (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nombre VARCHAR(30) NOT NULL UNIQUE CHECK (nombre IN ('admin', 'supervisor', 'bodega', 'trabajador')),
+  descripcion TEXT
 );
 
--- Creación de la tabla de historial de andamios
--- Historial inmutable: sobrevive a la eliminación de andamios
-CREATE TABLE IF NOT EXISTS scaffold_history (
-    id SERIAL PRIMARY KEY,
-    scaffold_id INTEGER REFERENCES scaffolds(id) ON DELETE SET NULL,
-    user_id INTEGER NOT NULL REFERENCES users(id),
-    change_type VARCHAR(100) NOT NULL,
-    previous_data JSONB,
-    new_data JSONB,
-    description TEXT,
-    -- Campos denormalizados para preservar información tras eliminación
-    scaffold_number VARCHAR(255),
-    project_name VARCHAR(255),
-    area VARCHAR(255),
-    tag VARCHAR(255),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS usuario_rol (
+  usuario_id UUID NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
+  rol_id UUID NOT NULL REFERENCES rol(id) ON DELETE CASCADE,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (usuario_id, rol_id)
 );
 
--- Índice para optimizar consultas de historial por usuario
-CREATE INDEX IF NOT EXISTS idx_scaffold_history_user ON scaffold_history(user_id, created_at DESC);
+-- ============================================================
+-- CATALOGS
+-- ============================================================
 
--- Creación de la tabla intermedia para asignar usuarios a proyectos
-CREATE TABLE IF NOT EXISTS project_users (
-    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    PRIMARY KEY (project_id, user_id)
+CREATE TABLE IF NOT EXISTS ubicacion (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nombre VARCHAR(150) NOT NULL,
+  tipo VARCHAR(30) NOT NULL CHECK (tipo IN ('bodega', 'planta', 'proyecto', 'taller_mantencion')),
+  cliente VARCHAR(150),
+  direccion TEXT,
+  estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo')),
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS proveedor (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nombre VARCHAR(150) NOT NULL,
+  rut VARCHAR(20),
+  email VARCHAR(255),
+  telefono VARCHAR(30),
+  estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo'))
+);
+
+CREATE TABLE IF NOT EXISTS articulo (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('herramienta', 'epp', 'consumible')),
+  nombre VARCHAR(150) NOT NULL,
+  marca VARCHAR(120),
+  modelo VARCHAR(120),
+  categoria VARCHAR(120),
+  tracking_mode VARCHAR(20) NOT NULL CHECK (tracking_mode IN ('serial', 'lote', 'cantidad')),
+  retorno_mode VARCHAR(20) NOT NULL CHECK (retorno_mode IN ('retornable', 'consumible')),
+  nivel_control VARCHAR(20) NOT NULL CHECK (nivel_control IN ('alto', 'medio', 'bajo', 'fuera_scope')),
+  requiere_vencimiento BOOLEAN NOT NULL DEFAULT FALSE,
+  unidad_medida VARCHAR(50) NOT NULL,
+  estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo')),
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- PURCHASES
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS documento_compra (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  proveedor_id UUID NOT NULL REFERENCES proveedor(id),
+  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('factura', 'boleta', 'guia')),
+  numero VARCHAR(80) NOT NULL,
+  fecha TIMESTAMPTZ NOT NULL,
+  archivo_url TEXT,
+  UNIQUE (tipo, numero)
+);
+
+CREATE TABLE IF NOT EXISTS compra (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  documento_compra_id UUID REFERENCES documento_compra(id) ON DELETE SET NULL,
+  creado_por_usuario_id UUID NOT NULL REFERENCES usuario(id),
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  notas TEXT
+);
+
+CREATE TABLE IF NOT EXISTS compra_detalle (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  compra_id UUID NOT NULL REFERENCES compra(id) ON DELETE CASCADE,
+  articulo_id UUID NOT NULL REFERENCES articulo(id),
+  cantidad NUMERIC(14,4) NOT NULL CHECK (cantidad > 0),
+  costo_unitario NUMERIC(14,4) NOT NULL CHECK (costo_unitario >= 0),
+  notas TEXT
+);
+
+-- ============================================================
+-- INVENTORY
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS lote (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  articulo_id UUID NOT NULL REFERENCES articulo(id),
+  compra_detalle_id UUID REFERENCES compra_detalle(id) ON DELETE SET NULL,
+  codigo_lote VARCHAR(100),
+  fecha_fabricacion TIMESTAMPTZ,
+  fecha_vencimiento TIMESTAMPTZ,
+  estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'agotado', 'vencido')),
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS activo (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  articulo_id UUID NOT NULL REFERENCES articulo(id),
+  compra_detalle_id UUID REFERENCES compra_detalle(id) ON DELETE SET NULL,
+  nro_serie VARCHAR(120) UNIQUE,
+  codigo VARCHAR(120) NOT NULL UNIQUE,
+  valor NUMERIC(14,4),
+  estado VARCHAR(30) NOT NULL DEFAULT 'en_stock' CHECK (estado IN ('en_stock', 'asignado', 'mantencion', 'dado_de_baja', 'perdido')),
+  ubicacion_actual_id UUID NOT NULL REFERENCES ubicacion(id),
+  fecha_compra TIMESTAMPTZ,
+  fecha_vencimiento TIMESTAMPTZ,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS stock (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  ubicacion_id UUID NOT NULL REFERENCES ubicacion(id),
+  articulo_id UUID NOT NULL REFERENCES articulo(id),
+  lote_id UUID REFERENCES lote(id) ON DELETE SET NULL,
+  cantidad_disponible NUMERIC(14,4) NOT NULL DEFAULT 0 CHECK (cantidad_disponible >= 0),
+  cantidad_reservada NUMERIC(14,4) NOT NULL DEFAULT 0 CHECK (cantidad_reservada >= 0),
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_ubicacion_articulo_lote
+  ON stock (ubicacion_id, articulo_id, lote_id)
+  WHERE lote_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_ubicacion_articulo_sin_lote
+  ON stock (ubicacion_id, articulo_id)
+  WHERE lote_id IS NULL;
+
+-- ============================================================
+-- DELIVERY / CUSTODY
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS entrega (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  creado_por_usuario_id UUID NOT NULL REFERENCES usuario(id),
+  trabajador_id UUID NOT NULL REFERENCES trabajador(id),
+  ubicacion_origen_id UUID NOT NULL REFERENCES ubicacion(id),
+  ubicacion_destino_id UUID NOT NULL REFERENCES ubicacion(id),
+  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrega', 'prestamo', 'traslado')),
+  estado VARCHAR(25) NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'pendiente_firma', 'confirmada', 'anulada')),
+  nota_destino TEXT,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  confirmada_en TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS entrega_detalle (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entrega_id UUID NOT NULL REFERENCES entrega(id) ON DELETE CASCADE,
+  articulo_id UUID NOT NULL REFERENCES articulo(id),
+  activo_id UUID REFERENCES activo(id) ON DELETE SET NULL,
+  lote_id UUID REFERENCES lote(id) ON DELETE SET NULL,
+  cantidad NUMERIC(14,4) NOT NULL CHECK (cantidad > 0),
+  condicion_salida VARCHAR(20) NOT NULL CHECK (condicion_salida IN ('ok', 'usado', 'danado')),
+  notas TEXT
+);
+
+CREATE TABLE IF NOT EXISTS firma_entrega (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entrega_id UUID NOT NULL UNIQUE REFERENCES entrega(id) ON DELETE CASCADE,
+  trabajador_id UUID NOT NULL REFERENCES trabajador(id),
+  metodo VARCHAR(20) NOT NULL CHECK (metodo IN ('en_dispositivo', 'qr_link')),
+  texto_aceptacion TEXT NOT NULL,
+  texto_hash VARCHAR(255) NOT NULL,
+  firma_imagen_url TEXT NOT NULL,
+  ip VARCHAR(64),
+  user_agent TEXT,
+  firmado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS firma_token (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entrega_id UUID NOT NULL REFERENCES entrega(id) ON DELETE CASCADE,
+  trabajador_id UUID NOT NULL REFERENCES trabajador(id),
+  creado_por_usuario_id UUID NOT NULL REFERENCES usuario(id),
+  token_hash VARCHAR(255) NOT NULL UNIQUE,
+  expira_en TIMESTAMPTZ NOT NULL,
+  usado_en TIMESTAMPTZ,
+  usado_ip VARCHAR(64),
+  usado_user_agent TEXT
+);
+
+CREATE TABLE IF NOT EXISTS custodia_activo (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  activo_id UUID NOT NULL REFERENCES activo(id),
+  trabajador_id UUID NOT NULL REFERENCES trabajador(id),
+  ubicacion_destino_id UUID NOT NULL REFERENCES ubicacion(id),
+  entrega_id UUID NOT NULL REFERENCES entrega(id),
+  desde_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  hasta_en TIMESTAMPTZ,
+  estado VARCHAR(20) NOT NULL CHECK (estado IN ('activa', 'devuelta', 'perdida', 'baja', 'mantencion'))
+);
+
+-- ============================================================
+-- RETURNS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS devolucion (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  trabajador_id UUID NOT NULL REFERENCES trabajador(id),
+  recibido_por_usuario_id UUID NOT NULL REFERENCES usuario(id),
+  ubicacion_recepcion_id UUID NOT NULL REFERENCES ubicacion(id),
+  estado VARCHAR(20) NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'confirmada', 'anulada')),
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  confirmada_en TIMESTAMPTZ,
+  notas TEXT
+);
+
+CREATE TABLE IF NOT EXISTS devolucion_detalle (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  devolucion_id UUID NOT NULL REFERENCES devolucion(id) ON DELETE CASCADE,
+  custodia_activo_id UUID REFERENCES custodia_activo(id) ON DELETE SET NULL,
+  articulo_id UUID REFERENCES articulo(id) ON DELETE SET NULL,
+  activo_id UUID REFERENCES activo(id) ON DELETE SET NULL,
+  lote_id UUID REFERENCES lote(id) ON DELETE SET NULL,
+  cantidad NUMERIC(14,4) NOT NULL CHECK (cantidad > 0),
+  condicion_entrada VARCHAR(20) NOT NULL CHECK (condicion_entrada IN ('ok', 'usado', 'danado', 'perdido')),
+  disposicion VARCHAR(20) NOT NULL CHECK (disposicion IN ('devuelto', 'perdido', 'baja', 'mantencion')),
+  notas TEXT
+);
+
+-- ============================================================
+-- MOVEMENTS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS movimiento_stock (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  articulo_id UUID NOT NULL REFERENCES articulo(id),
+  lote_id UUID REFERENCES lote(id) ON DELETE SET NULL,
+  fecha_movimiento TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrada', 'salida', 'traslado', 'ajuste', 'baja', 'consumo', 'entrega', 'devolucion')),
+  ubicacion_origen_id UUID REFERENCES ubicacion(id) ON DELETE SET NULL,
+  ubicacion_destino_id UUID REFERENCES ubicacion(id) ON DELETE SET NULL,
+  cantidad NUMERIC(14,4) NOT NULL CHECK (cantidad > 0),
+  responsable_usuario_id UUID NOT NULL REFERENCES usuario(id),
+  compra_id UUID REFERENCES compra(id) ON DELETE SET NULL,
+  entrega_id UUID REFERENCES entrega(id) ON DELETE SET NULL,
+  devolucion_id UUID REFERENCES devolucion(id) ON DELETE SET NULL,
+  notas TEXT
+);
+
+CREATE TABLE IF NOT EXISTS movimiento_activo (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  activo_id UUID NOT NULL REFERENCES activo(id),
+  fecha_movimiento TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrada', 'salida', 'traslado', 'entrega', 'devolucion', 'ajuste', 'baja', 'mantencion')),
+  ubicacion_origen_id UUID REFERENCES ubicacion(id) ON DELETE SET NULL,
+  ubicacion_destino_id UUID REFERENCES ubicacion(id) ON DELETE SET NULL,
+  responsable_usuario_id UUID NOT NULL REFERENCES usuario(id),
+  entrega_id UUID REFERENCES entrega(id) ON DELETE SET NULL,
+  devolucion_id UUID REFERENCES devolucion(id) ON DELETE SET NULL,
+  notas TEXT
+);
+
+-- ============================================================
+-- QUALITY / DOCUMENTS / AUDIT
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS inspeccion_activo (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  activo_id UUID NOT NULL REFERENCES activo(id),
+  fecha_inspeccion TIMESTAMPTZ NOT NULL,
+  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('inspeccion', 'calibracion')),
+  estado_resultado VARCHAR(20) NOT NULL CHECK (estado_resultado IN ('bueno', 'malo', 'baja')),
+  fecha_proxima TIMESTAMPTZ,
+  responsable_usuario_id UUID NOT NULL REFERENCES usuario(id),
+  notas TEXT,
+  evidencia_url TEXT
+);
+
+CREATE TABLE IF NOT EXISTS documento (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tipo VARCHAR(25) NOT NULL CHECK (tipo IN ('acta_entrega', 'acta_devolucion', 'informe', 'compra')),
+  archivo_url TEXT NOT NULL,
+  archivo_hash VARCHAR(255),
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  creado_por_usuario_id UUID NOT NULL REFERENCES usuario(id)
+);
+
+CREATE TABLE IF NOT EXISTS documento_referencia (
+  documento_id UUID NOT NULL REFERENCES documento(id) ON DELETE CASCADE,
+  entidad_tipo VARCHAR(20) NOT NULL CHECK (entidad_tipo IN ('entrega', 'devolucion', 'compra', 'activo', 'trabajador')),
+  entidad_id UUID NOT NULL,
+  PRIMARY KEY (documento_id, entidad_tipo, entidad_id)
+);
+
+CREATE TABLE IF NOT EXISTS auditoria (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entidad_tipo VARCHAR(50) NOT NULL,
+  entidad_id UUID NOT NULL,
+  accion VARCHAR(20) NOT NULL CHECK (accion IN ('crear', 'actualizar', 'eliminar', 'firmar', 'devolver', 'ajustar')),
+  diff_json JSONB,
+  usuario_id UUID NOT NULL REFERENCES usuario(id),
+  ip VARCHAR(64),
+  user_agent TEXT,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- NOTIFICATIONS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
+  type VARCHAR(80) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  message TEXT NOT NULL,
+  metadata JSONB,
+  link TEXT,
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS push_subscriptions (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    subscription_data JSONB NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(user_id)
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID NOT NULL UNIQUE REFERENCES usuario(id) ON DELETE CASCADE,
+  subscription_data JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ================================================================
--- SISTEMA DE NOTAS DE CLIENTES Y NOTIFICACIONES IN-APP
--- ================================================================
+-- ============================================================
+-- INDEXES
+-- ============================================================
 
--- Tabla de notas de clientes (polimórfica: para scaffolds o proyectos)
-CREATE TABLE IF NOT EXISTS client_notes (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    target_type VARCHAR(20) NOT NULL CHECK(target_type IN ('scaffold', 'project')),
-    scaffold_id INTEGER REFERENCES scaffolds(id) ON DELETE CASCADE,
-    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
-    note_text TEXT NOT NULL CHECK(LENGTH(note_text) >= 1 AND LENGTH(note_text) <= 5000),
-    is_resolved BOOLEAN DEFAULT false,
-    resolved_at TIMESTAMP WITH TIME ZONE,
-    resolved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    resolution_notes TEXT CHECK(LENGTH(resolution_notes) <= 1000),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT check_target_exactly_one CHECK (
-        (target_type = 'scaffold' AND scaffold_id IS NOT NULL AND project_id IS NULL) OR
-        (target_type = 'project' AND project_id IS NOT NULL AND scaffold_id IS NULL)
-    )
-);
+CREATE INDEX IF NOT EXISTS idx_usuario_persona_id ON usuario(persona_id);
+CREATE INDEX IF NOT EXISTS idx_usuario_email_login ON usuario(email_login);
+CREATE INDEX IF NOT EXISTS idx_usuario_estado ON usuario(estado);
 
--- Índices para client_notes
-CREATE INDEX IF NOT EXISTS idx_client_notes_user ON client_notes(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_client_notes_scaffold ON client_notes(scaffold_id, created_at DESC) WHERE scaffold_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_client_notes_project ON client_notes(project_id, created_at DESC) WHERE project_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_client_notes_unresolved ON client_notes(is_resolved, created_at DESC) WHERE is_resolved = false;
-CREATE INDEX IF NOT EXISTS idx_client_notes_target_type ON client_notes(target_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_trabajador_usuario_id ON trabajador(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_trabajador_codigo_empleado ON trabajador(codigo_empleado);
+CREATE INDEX IF NOT EXISTS idx_trabajador_estado ON trabajador(estado);
 
--- Trigger para actualizar updated_at automáticamente
-CREATE OR REPLACE FUNCTION update_client_notes_updated_at()
-RETURNS TRIGGER AS $$
+CREATE INDEX IF NOT EXISTS idx_ubicacion_tipo ON ubicacion(tipo);
+CREATE INDEX IF NOT EXISTS idx_ubicacion_estado ON ubicacion(estado);
+
+CREATE INDEX IF NOT EXISTS idx_articulo_tipo ON articulo(tipo);
+CREATE INDEX IF NOT EXISTS idx_articulo_tracking_mode ON articulo(tracking_mode);
+CREATE INDEX IF NOT EXISTS idx_articulo_estado ON articulo(estado);
+
+CREATE INDEX IF NOT EXISTS idx_documento_compra_proveedor_id ON documento_compra(proveedor_id);
+CREATE INDEX IF NOT EXISTS idx_compra_documento_compra_id ON compra(documento_compra_id);
+CREATE INDEX IF NOT EXISTS idx_compra_creado_por_usuario_id ON compra(creado_por_usuario_id);
+CREATE INDEX IF NOT EXISTS idx_compra_detalle_compra_id ON compra_detalle(compra_id);
+CREATE INDEX IF NOT EXISTS idx_compra_detalle_articulo_id ON compra_detalle(articulo_id);
+
+CREATE INDEX IF NOT EXISTS idx_lote_articulo_id ON lote(articulo_id);
+CREATE INDEX IF NOT EXISTS idx_lote_compra_detalle_id ON lote(compra_detalle_id);
+CREATE INDEX IF NOT EXISTS idx_lote_estado ON lote(estado);
+CREATE INDEX IF NOT EXISTS idx_lote_fecha_vencimiento ON lote(fecha_vencimiento);
+
+CREATE INDEX IF NOT EXISTS idx_activo_articulo_id ON activo(articulo_id);
+CREATE INDEX IF NOT EXISTS idx_activo_compra_detalle_id ON activo(compra_detalle_id);
+CREATE INDEX IF NOT EXISTS idx_activo_ubicacion_actual_id ON activo(ubicacion_actual_id);
+CREATE INDEX IF NOT EXISTS idx_activo_estado ON activo(estado);
+CREATE INDEX IF NOT EXISTS idx_activo_codigo ON activo(codigo);
+CREATE INDEX IF NOT EXISTS idx_activo_nro_serie ON activo(nro_serie);
+
+CREATE INDEX IF NOT EXISTS idx_entrega_trabajador_id ON entrega(trabajador_id);
+CREATE INDEX IF NOT EXISTS idx_entrega_creado_por_usuario_id ON entrega(creado_por_usuario_id);
+CREATE INDEX IF NOT EXISTS idx_entrega_estado ON entrega(estado);
+CREATE INDEX IF NOT EXISTS idx_entrega_tipo ON entrega(tipo);
+CREATE INDEX IF NOT EXISTS idx_entrega_detalle_entrega_id ON entrega_detalle(entrega_id);
+CREATE INDEX IF NOT EXISTS idx_entrega_detalle_articulo_id ON entrega_detalle(articulo_id);
+CREATE INDEX IF NOT EXISTS idx_entrega_detalle_activo_id ON entrega_detalle(activo_id);
+CREATE INDEX IF NOT EXISTS idx_entrega_detalle_lote_id ON entrega_detalle(lote_id);
+
+CREATE INDEX IF NOT EXISTS idx_firma_token_entrega_id ON firma_token(entrega_id);
+CREATE INDEX IF NOT EXISTS idx_firma_token_trabajador_id ON firma_token(trabajador_id);
+CREATE INDEX IF NOT EXISTS idx_firma_token_expira_en ON firma_token(expira_en);
+CREATE INDEX IF NOT EXISTS idx_firma_token_usado_en ON firma_token(usado_en);
+
+CREATE INDEX IF NOT EXISTS idx_custodia_activo_activo_id ON custodia_activo(activo_id);
+CREATE INDEX IF NOT EXISTS idx_custodia_activo_trabajador_id ON custodia_activo(trabajador_id);
+CREATE INDEX IF NOT EXISTS idx_custodia_activo_estado ON custodia_activo(estado);
+CREATE INDEX IF NOT EXISTS idx_custodia_activo_entrega_id ON custodia_activo(entrega_id);
+
+CREATE INDEX IF NOT EXISTS idx_devolucion_trabajador_id ON devolucion(trabajador_id);
+CREATE INDEX IF NOT EXISTS idx_devolucion_recibido_por_usuario_id ON devolucion(recibido_por_usuario_id);
+CREATE INDEX IF NOT EXISTS idx_devolucion_estado ON devolucion(estado);
+CREATE INDEX IF NOT EXISTS idx_devolucion_detalle_devolucion_id ON devolucion_detalle(devolucion_id);
+CREATE INDEX IF NOT EXISTS idx_devolucion_detalle_custodia_activo_id ON devolucion_detalle(custodia_activo_id);
+CREATE INDEX IF NOT EXISTS idx_devolucion_detalle_activo_id ON devolucion_detalle(activo_id);
+
+CREATE INDEX IF NOT EXISTS idx_movimiento_stock_articulo_id ON movimiento_stock(articulo_id);
+CREATE INDEX IF NOT EXISTS idx_movimiento_stock_lote_id ON movimiento_stock(lote_id);
+CREATE INDEX IF NOT EXISTS idx_movimiento_stock_fecha ON movimiento_stock(fecha_movimiento DESC);
+CREATE INDEX IF NOT EXISTS idx_movimiento_stock_tipo ON movimiento_stock(tipo);
+CREATE INDEX IF NOT EXISTS idx_movimiento_stock_responsable ON movimiento_stock(responsable_usuario_id);
+
+CREATE INDEX IF NOT EXISTS idx_movimiento_activo_activo_id ON movimiento_activo(activo_id);
+CREATE INDEX IF NOT EXISTS idx_movimiento_activo_fecha ON movimiento_activo(fecha_movimiento DESC);
+CREATE INDEX IF NOT EXISTS idx_movimiento_activo_tipo ON movimiento_activo(tipo);
+CREATE INDEX IF NOT EXISTS idx_movimiento_activo_responsable ON movimiento_activo(responsable_usuario_id);
+
+CREATE INDEX IF NOT EXISTS idx_inspeccion_activo_activo_id ON inspeccion_activo(activo_id);
+CREATE INDEX IF NOT EXISTS idx_inspeccion_activo_fecha ON inspeccion_activo(fecha_inspeccion DESC);
+CREATE INDEX IF NOT EXISTS idx_inspeccion_activo_responsable ON inspeccion_activo(responsable_usuario_id);
+
+CREATE INDEX IF NOT EXISTS idx_documento_tipo ON documento(tipo);
+CREATE INDEX IF NOT EXISTS idx_documento_creado_por ON documento(creado_por_usuario_id);
+CREATE INDEX IF NOT EXISTS idx_documento_referencia_tipo_entidad ON documento_referencia(entidad_tipo, entidad_id);
+
+CREATE INDEX IF NOT EXISTS idx_auditoria_entidad ON auditoria(entidad_tipo, entidad_id);
+CREATE INDEX IF NOT EXISTS idx_auditoria_usuario ON auditoria(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_auditoria_creado_en ON auditoria(creado_en DESC);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);
+
+-- ============================================================
+-- UPDATED_AT TRIGGERS
+-- ============================================================
+
+DO $$
 BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_persona_actualizado_en') THEN
+    CREATE TRIGGER trg_persona_actualizado_en
+      BEFORE UPDATE ON persona
+      FOR EACH ROW EXECUTE FUNCTION set_actualizado_en();
+  END IF;
 
-CREATE TRIGGER trigger_update_client_notes_updated_at
-    BEFORE UPDATE ON client_notes
-    FOR EACH ROW
-    EXECUTE FUNCTION update_client_notes_updated_at();
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_usuario_actualizado_en') THEN
+    CREATE TRIGGER trg_usuario_actualizado_en
+      BEFORE UPDATE ON usuario
+      FOR EACH ROW EXECUTE FUNCTION set_actualizado_en();
+  END IF;
 
--- Tabla de notificaciones in-app persistentes
-CREATE TABLE IF NOT EXISTS notifications (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type VARCHAR(50) NOT NULL CHECK(type IN ('new_client_note', 'note_resolved', 'scaffold_updated', 'project_assigned', 'note_urgent', 'system', 'scaffold_modification_added', 'modification_pending_approval', 'modification_approved', 'modification_rejected')),
-    title VARCHAR(200) NOT NULL,
-    message TEXT NOT NULL CHECK(LENGTH(message) >= 1 AND LENGTH(message) <= 1000),
-    metadata JSONB,
-    link VARCHAR(500),
-    is_read BOOLEAN DEFAULT false,
-    read_at TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_trabajador_actualizado_en') THEN
+    CREATE TRIGGER trg_trabajador_actualizado_en
+      BEFORE UPDATE ON trabajador
+      FOR EACH ROW EXECUTE FUNCTION set_actualizado_en();
+  END IF;
 
--- Índices para notifications
-CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(user_id, is_read, created_at DESC) WHERE is_read = false;
-CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(user_id, type, created_at DESC);
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_stock_actualizado_en') THEN
+    CREATE TRIGGER trg_stock_actualizado_en
+      BEFORE UPDATE ON stock
+      FOR EACH ROW EXECUTE FUNCTION set_actualizado_en();
+  END IF;
+END $$;
 
--- Tabla de modificaciones de andamios (metros cúbicos adicionales)
-CREATE TABLE IF NOT EXISTS scaffold_modifications (
-    id SERIAL PRIMARY KEY,
-    scaffold_id INTEGER NOT NULL REFERENCES scaffolds(id) ON DELETE CASCADE,
-    created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE SET NULL,
-    height DECIMAL NOT NULL CHECK(height > 0),
-    width DECIMAL NOT NULL CHECK(width > 0),
-    length DECIMAL NOT NULL CHECK(length > 0),
-    cubic_meters DECIMAL NOT NULL CHECK(cubic_meters > 0),
-    reason TEXT,
-    approval_status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK(approval_status IN ('pending', 'approved', 'rejected')),
-    approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    approved_at TIMESTAMP WITH TIME ZONE,
-    rejection_reason TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- ============================================================
+-- SEED BASE ROLES
+-- ============================================================
 
--- Índices para scaffold_modifications
-CREATE INDEX IF NOT EXISTS idx_scaffold_mods_scaffold ON scaffold_modifications(scaffold_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_scaffold_mods_pending ON scaffold_modifications(approval_status, created_at DESC) WHERE approval_status = 'pending';
-CREATE INDEX IF NOT EXISTS idx_scaffold_mods_status ON scaffold_modifications(scaffold_id, approval_status);
-
--- Trigger para auto-update de updated_at en scaffold_modifications
-CREATE OR REPLACE FUNCTION update_scaffold_modifications_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_update_scaffold_modifications_updated_at
-    BEFORE UPDATE ON scaffold_modifications
-    FOR EACH ROW
-    EXECUTE FUNCTION update_scaffold_modifications_updated_at();
-
--- ================================================================
--- DATOS INICIALES - Empresas Clientes (Empresas Mandantes)
--- ================================================================
-INSERT INTO clients (name, email, phone, address, specialty) 
-VALUES 
-    ('CMPC S.A.', 'licitaciones@cmpc.cl', '+56 41 2345678', 'Av. El Golf 150, Las Condes, Santiago', 'Producción de Celulosa y Papel'),
-    ('Massebal SpA', 'contacto@massebal.cl', '+56 41 2789456', 'Concepción, Región del Biobío', 'Montaje Industrial y Mantención'),
-    ('Bunker Ingeniería y Construcción', 'proyectos@bunker.cl', '+56 41 2567890', 'Los Ángeles, Región del Biobío', 'Construcción Industrial y Montajes'),
-    ('Simming S.A.', 'operaciones@simming.cl', '+56 41 2456789', 'Coronel, Región del Biobío', 'Servicios de Montaje y Mantención Industrial'),
-    ('CMG Construcción y Montaje', 'contacto@cmg.cl', '+56 41 2678901', 'Talcahuano, Región del Biobío', 'Montaje de Estructuras y Andamios Industriales')
-ON CONFLICT (name) DO NOTHING;
-
--- La inserción de usuarios se manejará a través del script de setup para asegurar el hasheo correcto de contraseñas.
+INSERT INTO rol (nombre, descripcion)
+VALUES
+  ('admin', 'Administracion global del sistema'),
+  ('supervisor', 'Supervision operacional'),
+  ('bodega', 'Gestion de inventario, entrega y devolucion'),
+  ('trabajador', 'Colaborador receptor de herramientas y EPP')
+ON CONFLICT (nombre) DO NOTHING;

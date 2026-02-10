@@ -1,18 +1,9 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import * as api from '../services/apiService';
 import { jwtDecode } from 'jwt-decode';
 import { User } from '../types/api';
 import { refreshAccessToken, clearStoredTokens } from '../services/authRefresh';
-
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
-  refreshUserData: (newUserData: User, token?: string) => void;
-}
-
-const AuthContext = createContext<AuthContextType | null>(null);
+import { AuthContext } from './authContext.shared';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -115,12 +106,4 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }), [user, loading, login, logout, refreshUserData]);
 
   return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 };

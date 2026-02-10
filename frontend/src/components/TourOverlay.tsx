@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useBreakpoints } from '../hooks';
-import { useTour } from '../context/TourContext';
+import { useTour } from '../hooks/useTour';
 import { matchTourRoute } from '../utils/tourSteps';
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);

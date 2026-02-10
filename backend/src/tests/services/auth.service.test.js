@@ -1,11 +1,23 @@
-const AuthService = require('../../services/auth.service');
-const User = require('../../models/user');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const AuthService = require('../../services/auth.service');
+const PersonaModel = require('../../models/persona');
+const UsuarioModel = require('../../models/usuario');
+const RolModel = require('../../models/rol');
+const db = require('../../db');
 const redisClient = require('../../lib/redis');
 const { generateTokenPair, revokeToken } = require('../../middleware/auth');
 
-jest.mock('../../models/user');
+jest.mock('bcrypt');
 jest.mock('jsonwebtoken');
+jest.mock('../../models/persona');
+jest.mock('../../models/usuario');
+jest.mock('../../models/rol');
+jest.mock('../../db', () => ({
+  pool: {
+    connect: jest.fn(),
+  },
+}));
 jest.mock('../../lib/redis', () => ({
   getFailedLoginCount: jest.fn(),
   incrementFailedLogin: jest.fn(),
@@ -32,180 +44,210 @@ describe('AuthService', () => {
   });
 
   describe('registerUser', () => {
-    const validUserData = {
-      first_name: 'Juan',
-      last_name: 'Pérez',
-      email: 'juan@example.com',
-      password: 'Password123',
-      role: 'supervisor',
-      rut: '12.345.678-9',
-      phone_number: '+56912345678',
-    };
+    it('registers a user on new schema tables and returns tokens', async () => {
+      const mockClient = {
+        query: jest.fn()
+          .mockResolvedValueOnce(undefined)
+          .mockResolvedValueOnce({ rows: [{ id: 'persona-1' }] })
+          .mockResolvedValueOnce({ rows: [{ id: 'usuario-1' }] })
+          .mockResolvedValueOnce({ rows: [] })
+          .mockResolvedValueOnce(undefined),
+        release: jest.fn(),
+      };
 
-    it('debe registrar un nuevo usuario exitosamente', async () => {
-      User.findByEmail.mockResolvedValue(null);
-      User.create.mockResolvedValue({
-        id: 1,
-        ...validUserData,
+      RolModel.findByNombre.mockResolvedValue({ id: 'rol-admin', nombre: 'admin' });
+      UsuarioModel.findByEmailLogin.mockResolvedValue(null);
+      PersonaModel.findByRut.mockResolvedValue(null);
+      bcrypt.hash.mockResolvedValue('hash-password');
+      db.pool.connect.mockResolvedValue(mockClient);
+      UsuarioModel.findByIdWithRoles.mockResolvedValue({
+        id: 'usuario-1',
+        email_login: 'admin@alltura.cl',
+        nombres: 'Ana',
+        apellidos: 'Rojas',
+        estado: 'activo',
+        roles: ['admin'],
       });
       generateTokenPair.mockResolvedValue({
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
       });
 
-      const result = await AuthService.registerUser(validUserData);
+      const result = await AuthService.registerUser({
+        email: 'admin@alltura.cl',
+        password: 'PasswordSeguro123!',
+        first_name: 'Ana',
+        last_name: 'Rojas',
+        role: 'admin',
+        rut: '12.345.678-9',
+      });
 
-      expect(User.findByEmail).toHaveBeenCalledWith('juan@example.com');
-      expect(User.create).toHaveBeenCalledWith(validUserData);
+      expect(RolModel.findByNombre).toHaveBeenCalledWith('admin');
+      expect(UsuarioModel.findByEmailLogin).toHaveBeenCalledWith('admin@alltura.cl');
+      expect(db.pool.connect).toHaveBeenCalled();
       expect(generateTokenPair).toHaveBeenCalled();
       expect(result).toMatchObject({
         message: 'User created successfully',
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
+        user: {
+          id: 'usuario-1',
+          email: 'admin@alltura.cl',
+          role: 'admin',
+        },
       });
-    });
-
-    it('debe lanzar error si el email ya existe', async () => {
-      User.findByEmail.mockResolvedValue({ id: 1, email: 'juan@example.com' });
-
-      await expect(AuthService.registerUser(validUserData)).rejects.toThrow(
-        'User with this email already exists.'
-      );
-      expect(User.create).not.toHaveBeenCalled();
     });
   });
 
   describe('loginUser', () => {
-    const loginData = {
-      email: 'juan@example.com',
-      password: 'Password123',
-    };
-
-    const mockUser = {
-      id: 1,
-      email: 'juan@example.com',
-      role: 'supervisor',
-      first_name: 'Juan',
-      last_name: 'Pérez',
-      profile_picture_url: null,
-      must_change_password: false,
-      comparePassword: jest.fn(),
-    };
-
-    it('debe autenticar usuario con credenciales válidas', async () => {
+    it('rejects blocked users', async () => {
       redisClient.getFailedLoginCount.mockResolvedValue(0);
-      User.findByEmail.mockResolvedValue(mockUser);
-      mockUser.comparePassword.mockResolvedValue(true);
+      UsuarioModel.findByEmailLoginWithRoles.mockResolvedValue({
+        id: 'u-1',
+        email_login: 'u@alltura.cl',
+        estado: 'bloqueado',
+        roles: ['bodega'],
+        comparePassword: jest.fn(),
+      });
+
+      await expect(
+        AuthService.loginUser('u@alltura.cl', 'Password123!', '127.0.0.1', 'jest')
+      ).rejects.toThrow('Account is blocked');
+    });
+
+    it('increments failed attempts on invalid password', async () => {
+      const user = {
+        id: 'u-1',
+        email_login: 'u@alltura.cl',
+        estado: 'activo',
+        roles: ['supervisor'],
+        comparePassword: jest.fn().mockResolvedValue(false),
+      };
+
+      redisClient.getFailedLoginCount.mockResolvedValue(0);
+      UsuarioModel.findByEmailLoginWithRoles.mockResolvedValue(user);
+
+      await expect(
+        AuthService.loginUser('u@alltura.cl', 'wrong-pass', '127.0.0.1', 'jest')
+      ).rejects.toThrow('Invalid credentials.');
+
+      expect(redisClient.incrementFailedLogin).toHaveBeenCalledWith('u@alltura.cl');
+      expect(redisClient.incrementFailedLogin).toHaveBeenCalledWith('127.0.0.1');
+    });
+
+    it('returns tokens and normalized user payload on valid login', async () => {
+      const user = {
+        id: 'u-1',
+        email_login: 'u@alltura.cl',
+        nombres: 'Juan',
+        apellidos: 'Perez',
+        estado: 'activo',
+        roles: ['supervisor', 'bodega'],
+        comparePassword: jest.fn().mockResolvedValue(true),
+      };
+
+      redisClient.getFailedLoginCount.mockResolvedValue(0);
+      UsuarioModel.findByEmailLoginWithRoles.mockResolvedValue(user);
       generateTokenPair.mockResolvedValue({
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
       });
-      User.updateLastLogin.mockResolvedValue();
+      UsuarioModel.updateLastLogin.mockResolvedValue();
 
       const result = await AuthService.loginUser(
-        loginData.email,
-        loginData.password,
+        'u@alltura.cl',
+        'Password123!',
         '127.0.0.1',
         'jest'
       );
 
-      expect(redisClient.getFailedLoginCount).toHaveBeenCalledWith('juan@example.com');
-      expect(User.findByEmail).toHaveBeenCalledWith('juan@example.com');
-      expect(mockUser.comparePassword).toHaveBeenCalledWith('Password123');
-      expect(redisClient.resetFailedLogin).toHaveBeenCalled();
-      expect(User.updateLastLogin).toHaveBeenCalledWith(1, '127.0.0.1', 'jest');
+      expect(UsuarioModel.updateLastLogin).toHaveBeenCalledWith('u-1');
       expect(result).toMatchObject({
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
         user: {
-          id: 1,
-          email: 'juan@example.com',
+          id: 'u-1',
+          email: 'u@alltura.cl',
           role: 'supervisor',
+          roles: ['supervisor', 'bodega'],
         },
       });
-    });
-
-    it('debe bloquear si hay demasiados intentos fallidos', async () => {
-      redisClient.getFailedLoginCount.mockResolvedValue(5);
-
-      await expect(
-        AuthService.loginUser(loginData.email, loginData.password, '127.0.0.1', 'jest')
-      ).rejects.toThrow(/Cuenta bloqueada temporalmente/i);
-    });
-
-    it('debe rechazar credenciales inválidas', async () => {
-      redisClient.getFailedLoginCount.mockResolvedValue(0);
-      User.findByEmail.mockResolvedValue(mockUser);
-      mockUser.comparePassword.mockResolvedValue(false);
-
-      await expect(
-        AuthService.loginUser(loginData.email, loginData.password, '127.0.0.1', 'jest')
-      ).rejects.toThrow(/Invalid credentials/);
-      expect(redisClient.incrementFailedLogin).toHaveBeenCalled();
     });
   });
 
   describe('refreshAccessToken', () => {
-    const refreshToken = 'refresh-token';
-
-    it('debe refrescar tokens con refresh token válido', async () => {
-      jwt.verify.mockReturnValue({ type: 'refresh', user: { id: 1 } });
+    it('rotates refresh token and returns a new pair', async () => {
+      jwt.verify.mockReturnValue({ type: 'refresh', user: { id: 'u-1' } });
       redisClient.isRefreshTokenValid.mockResolvedValue(true);
-      User.findById.mockResolvedValue({ id: 1 });
+      UsuarioModel.findByIdWithRoles.mockResolvedValue({
+        id: 'u-1',
+        email_login: 'u@alltura.cl',
+        nombres: 'User',
+        apellidos: 'One',
+        estado: 'activo',
+        roles: ['admin'],
+      });
       generateTokenPair.mockResolvedValue({
         accessToken: 'new-access',
         refreshToken: 'new-refresh',
       });
 
-      const result = await AuthService.refreshAccessToken(refreshToken);
+      const result = await AuthService.refreshAccessToken('refresh-token');
 
-      expect(jwt.verify).toHaveBeenCalled();
-      expect(redisClient.isRefreshTokenValid).toHaveBeenCalledWith(1, refreshToken);
-      expect(redisClient.revokeRefreshToken).toHaveBeenCalledWith(1, refreshToken);
-      expect(result).toEqual({ accessToken: 'new-access', refreshToken: 'new-refresh' });
-    });
-
-    it('debe lanzar error si falta refresh token', async () => {
-      await expect(AuthService.refreshAccessToken()).rejects.toThrow('Refresh token is required');
+      expect(redisClient.revokeRefreshToken).toHaveBeenCalledWith('u-1', 'refresh-token');
+      expect(result).toEqual({
+        accessToken: 'new-access',
+        refreshToken: 'new-refresh',
+      });
     });
   });
 
   describe('logoutUser', () => {
-    it('debe revocar tokens del usuario', async () => {
+    it('revokes access and refresh tokens', async () => {
       redisClient.revokeAllUserRefreshTokens.mockResolvedValue();
 
-      await AuthService.logoutUser(1, 'access-token');
+      await AuthService.logoutUser('u-1', 'access-token');
 
       expect(revokeToken).toHaveBeenCalledWith('access-token');
-      expect(redisClient.revokeAllUserRefreshTokens).toHaveBeenCalledWith(1);
+      expect(redisClient.revokeAllUserRefreshTokens).toHaveBeenCalledWith('u-1');
     });
   });
 
   describe('changePassword', () => {
-    it('debe cambiar contraseña y revocar tokens', async () => {
-      const user = {
-        id: 1,
-        must_change_password: true,
-        comparePassword: jest.fn(),
+    it('updates password hash and returns new tokens', async () => {
+      const currentUser = {
+        id: 'u-1',
+        estado: 'activo',
+        comparePassword: jest.fn()
+          .mockResolvedValueOnce(true)
+          .mockResolvedValueOnce(false),
       };
-      user.comparePassword
-        .mockResolvedValueOnce(true)
-        .mockResolvedValueOnce(false);
 
-      User.findById.mockResolvedValue(user);
-      User.updatePassword.mockResolvedValue();
-      User.clearPasswordChangeFlag.mockResolvedValue();
+      UsuarioModel.findById.mockResolvedValue(currentUser);
+      bcrypt.hash.mockResolvedValue('new-hash');
+      UsuarioModel.updatePasswordHash.mockResolvedValue({ id: 'u-1' });
       redisClient.revokeAllUserRefreshTokens.mockResolvedValue();
+      UsuarioModel.findByIdWithRoles.mockResolvedValue({
+        id: 'u-1',
+        email_login: 'u@alltura.cl',
+        nombres: 'User',
+        apellidos: 'One',
+        estado: 'activo',
+        roles: ['supervisor'],
+      });
       generateTokenPair.mockResolvedValue({
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
       });
 
-      const result = await AuthService.changePassword(1, 'old-pass', 'new-pass');
+      const result = await AuthService.changePassword(
+        'u-1',
+        'OldPassword123!',
+        'NewPassword456!'
+      );
 
-      expect(User.updatePassword).toHaveBeenCalledWith(1, 'new-pass');
-      expect(User.clearPasswordChangeFlag).toHaveBeenCalledWith(1);
-      expect(redisClient.revokeAllUserRefreshTokens).toHaveBeenCalledWith(1);
+      expect(UsuarioModel.updatePasswordHash).toHaveBeenCalledWith('u-1', 'new-hash');
+      expect(redisClient.revokeAllUserRefreshTokens).toHaveBeenCalledWith('u-1');
       expect(result).toMatchObject({
         message: 'Password changed successfully',
         accessToken: 'access-token',

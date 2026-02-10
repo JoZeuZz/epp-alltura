@@ -9,7 +9,7 @@ export const appendQueryParam = (url: string, key: string, value: string) => {
     const parsed = new URL(url, isAbsolute ? undefined : window.location.origin);
     parsed.searchParams.set(key, value);
     return isAbsolute ? parsed.toString() : `${parsed.pathname}${parsed.search}`;
-  } catch (_error) {
+  } catch {
     return url;
   }
 };
@@ -28,7 +28,7 @@ export const buildImageUrl = (url?: string | null, size: ImageSize = 'full') => 
 
     parsed.searchParams.set('size', size);
     return isAbsolute ? parsed.toString() : `${parsed.pathname}${parsed.search}`;
-  } catch (_error) {
+  } catch {
     return url;
   }
 };

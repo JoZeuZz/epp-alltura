@@ -14,7 +14,7 @@ const rut = Joi.string().trim().pattern(PATTERNS.RUT);
 const url = Joi.string().trim().uri({ scheme: ['http', 'https'] }).max(2048);
 const id = Joi.number().integer().positive();
 
-const userRole = Joi.string().valid('admin', 'supervisor', 'client', 'bodega', 'worker');
+const userRole = Joi.string().valid('admin', 'supervisor', 'bodega', 'trabajador', 'worker');
 const projectStatus = Joi.string().valid('active', 'completed', 'inactive');
 const assemblyStatus = Joi.string().valid('assembled', 'disassembled', 'in_progress');
 const cardStatus = Joi.string().valid('green', 'red');

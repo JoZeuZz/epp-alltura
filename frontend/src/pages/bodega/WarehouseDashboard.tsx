@@ -1,14 +1,813 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
+import { useLoaderData, useLocation } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import { post } from '../../services/apiService';
+import SignaturePad from '../../components/forms/SignaturePad';
+
+interface WarehouseLoaderData {
+  trabajadores?: any[];
+  ubicaciones?: any[];
+  articulos?: any[];
+  entregas?: any[];
+  devoluciones?: any[];
+  stock?: any[];
+  proveedores?: any[];
+}
+
+const emptyDeliveryDetail = () => ({
+  articulo_id: '',
+  activo_id: '',
+  lote_id: '',
+  cantidad: 1,
+  condicion_salida: 'ok',
+  notas: '',
+});
+
+const emptyReturnDetail = () => ({
+  articulo_id: '',
+  activo_id: '',
+  lote_id: '',
+  cantidad: 1,
+  condicion_entrada: 'ok',
+  disposicion: 'devuelto',
+  notas: '',
+});
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
 
 const WarehouseDashboard: React.FC = () => {
+  const loader = useLoaderData() as WarehouseLoaderData;
+  const location = useLocation();
+
+  const [trabajadores] = useState<any[]>(loader.trabajadores || []);
+  const [ubicaciones] = useState<any[]>(loader.ubicaciones || []);
+  const [articulos] = useState<any[]>(loader.articulos || []);
+  const [stock] = useState<any[]>(loader.stock || []);
+  const [entregas, setEntregas] = useState<any[]>(loader.entregas || []);
+  const [devoluciones, setDevoluciones] = useState<any[]>(loader.devoluciones || []);
+
+  const [tokenMap, setTokenMap] = useState<Record<string, string>>({});
+
+  const [deliveryForm, setDeliveryForm] = useState({
+    trabajador_id: '',
+    ubicacion_origen_id: '',
+    ubicacion_destino_id: '',
+    tipo: 'entrega',
+    nota_destino: '',
+    detalles: [emptyDeliveryDetail()],
+  });
+
+  const [signatureForm, setSignatureForm] = useState({
+    entregaId: '',
+    texto_aceptacion:
+      'Declaro recibir los EPP/herramientas detallados, en condición declarada, asumiendo custodia y uso responsable.',
+  });
+  const [signatureFile, setSignatureFile] = useState<File | null>(null);
+  const [signaturePadKey, setSignaturePadKey] = useState(0);
+
+  const [returnForm, setReturnForm] = useState({
+    trabajador_id: '',
+    ubicacion_recepcion_id: '',
+    notas: '',
+    detalles: [emptyReturnDetail()],
+  });
+
+  const [purchaseForm, setPurchaseForm] = useState({
+    proveedor_id: '',
+    tipo: 'factura',
+    numero: '',
+    fecha: todayIso(),
+    notas: '',
+    articulo_id: '',
+    ubicacion_id: '',
+    cantidad: 1,
+    costo_unitario: 0,
+    codigo_lote: '',
+    seriales: '',
+  });
+
+  const [proveedores, setProveedores] = useState<any[]>(loader.proveedores || []);
+  const [newProveedorNombre, setNewProveedorNombre] = useState('');
+
+  const section = location.pathname.split('/').pop() || 'dashboard';
+
+  const pendingDeliveries = useMemo(
+    () => entregas.filter((item) => item.estado === 'borrador' || item.estado === 'pendiente_firma'),
+    [entregas]
+  );
+
+  const pendingReturns = useMemo(
+    () => devoluciones.filter((item) => item.estado === 'borrador'),
+    [devoluciones]
+  );
+
+  const selectedPurchaseArticle = useMemo(
+    () => articulos.find((item) => item.id === purchaseForm.articulo_id),
+    [articulos, purchaseForm.articulo_id]
+  );
+
+  const setDeliveryDetail = (index: number, key: string, value: string | number) => {
+    setDeliveryForm((prev) => {
+      const detalles = [...prev.detalles];
+      detalles[index] = { ...detalles[index], [key]: value };
+      return { ...prev, detalles };
+    });
+  };
+
+  const setReturnDetail = (index: number, key: string, value: string | number) => {
+    setReturnForm((prev) => {
+      const detalles = [...prev.detalles];
+      detalles[index] = { ...detalles[index], [key]: value };
+      return { ...prev, detalles };
+    });
+  };
+
+  const handleCreateDelivery = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const payload = {
+        ...deliveryForm,
+        detalles: deliveryForm.detalles.map((detail) => ({
+          ...detail,
+          activo_id: detail.activo_id || null,
+          lote_id: detail.lote_id || null,
+          notas: detail.notas || null,
+        })),
+      };
+
+      const created = await post<any>('/entregas', payload);
+      setEntregas((prev) => [created, ...prev]);
+      setDeliveryForm((prev) => ({ ...prev, nota_destino: '', detalles: [emptyDeliveryDetail()] }));
+      toast.success('Entrega creada en borrador.');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || error.message || 'No se pudo crear la entrega');
+    }
+  };
+
+  const handleGenerateToken = async (entregaId: string) => {
+    try {
+      const response = await post<any>(`/firmas/entregas/${entregaId}/token`, { expira_minutos: 60 });
+      setTokenMap((prev) => ({
+        ...prev,
+        [entregaId]: response.token,
+      }));
+      toast.success('Token de firma generado.');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || error.message || 'No se pudo generar token');
+    }
+  };
+
+  const handleSignInDevice = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!signatureForm.entregaId) {
+      toast.error('Selecciona una entrega para registrar firma.');
+      return;
+    }
+
+    if (!signatureFile) {
+      toast.error('Debes capturar una firma manuscrita antes de continuar.');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('firma_archivo', signatureFile, signatureFile.name);
+      formData.append('texto_aceptacion', signatureForm.texto_aceptacion);
+
+      await post(`/firmas/entregas/${signatureForm.entregaId}/firmar-dispositivo`, formData);
+
+      setEntregas((prev) =>
+        prev.map((item) =>
+          item.id === signatureForm.entregaId ? { ...item, estado: 'pendiente_firma' } : item
+        )
+      );
+      setSignatureFile(null);
+      setSignaturePadKey((prev) => prev + 1);
+      toast.success('Firma registrada en dispositivo compartido.');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || error.message || 'No se pudo registrar la firma');
+    }
+  };
+
+  const handleConfirmDelivery = async (entregaId: string) => {
+    try {
+      const confirmed = await post<any>(`/entregas/${entregaId}/confirm`);
+      setEntregas((prev) => prev.map((item) => (item.id === entregaId ? confirmed : item)));
+      toast.success('Entrega confirmada.');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || error.message || 'No se pudo confirmar la entrega');
+    }
+  };
+
+  const handleCreateReturn = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const payload = {
+        ...returnForm,
+        detalles: returnForm.detalles.map((detail) => ({
+          ...detail,
+          articulo_id: detail.articulo_id || null,
+          activo_id: detail.activo_id || null,
+          lote_id: detail.lote_id || null,
+          notas: detail.notas || null,
+        })),
+      };
+
+      const created = await post<any>('/devoluciones', payload);
+      setDevoluciones((prev) => [created, ...prev]);
+      setReturnForm((prev) => ({ ...prev, notas: '', detalles: [emptyReturnDetail()] }));
+      toast.success('Devolución creada en borrador.');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || error.message || 'No se pudo crear la devolución');
+    }
+  };
+
+  const handleConfirmReturn = async (devolucionId: string) => {
+    try {
+      const confirmed = await post<any>(`/devoluciones/${devolucionId}/confirm`);
+      setDevoluciones((prev) => prev.map((item) => (item.id === devolucionId ? confirmed : item)));
+      toast.success('Devolución confirmada.');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || error.message || 'No se pudo confirmar la devolución');
+    }
+  };
+
+  const handleCreateProveedor = async () => {
+    if (!newProveedorNombre.trim()) {
+      toast.error('Debes ingresar un nombre para el proveedor.');
+      return;
+    }
+
+    try {
+      const created = await post<any>('/proveedores', { nombre: newProveedorNombre.trim() });
+      setProveedores((prev) => [...prev, created]);
+      setNewProveedorNombre('');
+      toast.success('Proveedor creado.');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || error.message || 'No se pudo crear proveedor');
+    }
+  };
+
+  const handleCreatePurchase = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const serialLines = purchaseForm.seriales
+        .split('\n')
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      const trackingMode = selectedPurchaseArticle?.tracking_mode;
+      const detail: any = {
+        articulo_id: purchaseForm.articulo_id,
+        ubicacion_id: purchaseForm.ubicacion_id,
+        cantidad: Number(purchaseForm.cantidad),
+        costo_unitario: Number(purchaseForm.costo_unitario),
+      };
+
+      if (trackingMode === 'serial') {
+        detail.activos = serialLines.map((code) => ({ codigo: code }));
+        detail.cantidad = serialLines.length;
+      }
+
+      if (trackingMode === 'lote' || purchaseForm.codigo_lote) {
+        detail.lote = {
+          codigo_lote: purchaseForm.codigo_lote || null,
+        };
+      }
+
+      await post('/compras', {
+        documento_compra: {
+          proveedor_id: purchaseForm.proveedor_id,
+          tipo: purchaseForm.tipo,
+          numero: purchaseForm.numero,
+          fecha: purchaseForm.fecha,
+        },
+        notas: purchaseForm.notas || null,
+        detalles: [detail],
+      });
+
+      toast.success('Ingreso de inventario registrado.');
+      setPurchaseForm((prev) => ({
+        ...prev,
+        numero: '',
+        notas: '',
+        seriales: '',
+        codigo_lote: '',
+      }));
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || error.message || 'No se pudo registrar la compra');
+    }
+  };
+
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Dashboard Bodega</h1>
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <p className="text-neutral-gray">
-          Cascaron base listo. Aqui ira el flujo de entregas, devoluciones e inventario de herramientas y EPP.
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Módulo Bodega EPP/Herramientas</h1>
+        <p className="text-neutral-gray mt-1">
+          {section === 'dashboard' && 'Crea entregas, registra firmas, confirma devoluciones y controla inventario.'}
+          {section === 'operaciones' && 'Operación diaria: pendientes de firma, entregas por confirmar y devoluciones.'}
         </p>
       </div>
+
+      <section className="bg-white rounded-lg shadow-md p-5">
+        <h2 className="text-lg font-semibold text-dark-blue mb-4">Crear Entrega</h2>
+        <form className="space-y-3" onSubmit={handleCreateDelivery}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <select
+              className="border rounded-md p-2"
+              value={deliveryForm.trabajador_id}
+              onChange={(e) => setDeliveryForm((prev) => ({ ...prev, trabajador_id: e.target.value }))}
+              required
+            >
+              <option value="">Selecciona trabajador</option>
+              {trabajadores.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nombres} {item.apellidos}
+                </option>
+              ))}
+            </select>
+            <select
+              className="border rounded-md p-2"
+              value={deliveryForm.tipo}
+              onChange={(e) => setDeliveryForm((prev) => ({ ...prev, tipo: e.target.value }))}
+            >
+              <option value="entrega">Entrega</option>
+              <option value="prestamo">Préstamo</option>
+              <option value="traslado">Traslado</option>
+            </select>
+            <select
+              className="border rounded-md p-2"
+              value={deliveryForm.ubicacion_origen_id}
+              onChange={(e) => setDeliveryForm((prev) => ({ ...prev, ubicacion_origen_id: e.target.value }))}
+              required
+            >
+              <option value="">Ubicación origen</option>
+              {ubicaciones.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nombre}
+                </option>
+              ))}
+            </select>
+            <select
+              className="border rounded-md p-2"
+              value={deliveryForm.ubicacion_destino_id}
+              onChange={(e) => setDeliveryForm((prev) => ({ ...prev, ubicacion_destino_id: e.target.value }))}
+              required
+            >
+              <option value="">Ubicación destino</option>
+              {ubicaciones.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+          <textarea
+            className="border rounded-md p-2 w-full"
+            placeholder="Nota destino"
+            value={deliveryForm.nota_destino}
+            onChange={(e) => setDeliveryForm((prev) => ({ ...prev, nota_destino: e.target.value }))}
+          />
+
+          {deliveryForm.detalles.map((detail, index) => (
+            <div key={`detail-${index}`} className="border rounded-md p-3 bg-gray-50">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                <select
+                  className="border rounded-md p-2"
+                  value={detail.articulo_id}
+                  onChange={(e) => setDeliveryDetail(index, 'articulo_id', e.target.value)}
+                  required
+                >
+                  <option value="">Artículo</option>
+                  {articulos.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.nombre} ({item.tracking_mode})
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="border rounded-md p-2"
+                  placeholder="Activo ID (si serial)"
+                  value={detail.activo_id}
+                  onChange={(e) => setDeliveryDetail(index, 'activo_id', e.target.value)}
+                />
+                <input
+                  className="border rounded-md p-2"
+                  placeholder="Lote ID (opcional)"
+                  value={detail.lote_id}
+                  onChange={(e) => setDeliveryDetail(index, 'lote_id', e.target.value)}
+                />
+                <input
+                  className="border rounded-md p-2"
+                  type="number"
+                  min={0.0001}
+                  step={0.0001}
+                  placeholder="Cantidad"
+                  value={detail.cantidad}
+                  onChange={(e) => setDeliveryDetail(index, 'cantidad', Number(e.target.value))}
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
+                <select
+                  className="border rounded-md p-2"
+                  value={detail.condicion_salida}
+                  onChange={(e) => setDeliveryDetail(index, 'condicion_salida', e.target.value)}
+                >
+                  <option value="ok">OK</option>
+                  <option value="usado">Usado</option>
+                  <option value="danado">Dañado</option>
+                </select>
+                <input
+                  className="border rounded-md p-2 md:col-span-2"
+                  placeholder="Notas del detalle"
+                  value={detail.notas}
+                  onChange={(e) => setDeliveryDetail(index, 'notas', e.target.value)}
+                />
+              </div>
+            </div>
+          ))}
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="px-3 py-2 rounded-md border"
+              onClick={() =>
+                setDeliveryForm((prev) => ({ ...prev, detalles: [...prev.detalles, emptyDeliveryDetail()] }))
+              }
+            >
+              Agregar Ítem
+            </button>
+            <button type="submit" className="px-3 py-2 rounded-md bg-primary-blue text-white">
+              Crear Entrega Borrador
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="bg-white rounded-lg shadow-md p-5">
+        <h2 className="text-lg font-semibold text-dark-blue mb-4">Firma y Confirmación de Entregas</h2>
+
+        <form className="space-y-3 mb-4" onSubmit={handleSignInDevice}>
+          <select
+            className="border rounded-md p-2"
+            value={signatureForm.entregaId}
+            onChange={(e) => setSignatureForm((prev) => ({ ...prev, entregaId: e.target.value }))}
+          >
+            <option value="">Selecciona entrega</option>
+            {pendingDeliveries.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.id.slice(0, 8)} - {item.estado}
+              </option>
+            ))}
+          </select>
+          <textarea
+            className="border rounded-md p-2"
+            value={signatureForm.texto_aceptacion}
+            onChange={(e) => setSignatureForm((prev) => ({ ...prev, texto_aceptacion: e.target.value }))}
+          />
+          <SignaturePad
+            key={`warehouse-signature-${signaturePadKey}`}
+            required
+            label="Firma manuscrita de recepción"
+            onChange={(_dataUrl, file) => setSignatureFile(file)}
+          />
+          <button className="px-3 py-2 rounded-md bg-dark-blue text-white" type="submit">
+            Firmar en Dispositivo
+          </button>
+        </form>
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-2 px-2">Entrega</th>
+                <th className="text-left py-2 px-2">Estado</th>
+                <th className="text-left py-2 px-2">Token</th>
+                <th className="text-left py-2 px-2">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendingDeliveries.map((item) => (
+                <tr key={item.id} className="border-b last:border-b-0 border-gray-100">
+                  <td className="py-2 px-2">{item.id.slice(0, 8)}</td>
+                  <td className="py-2 px-2">{item.estado}</td>
+                  <td className="py-2 px-2">{tokenMap[item.id] ? tokenMap[item.id].slice(0, 12) : '-'}</td>
+                  <td className="py-2 px-2 flex gap-2 flex-wrap">
+                    <button
+                      className="px-2 py-1 text-xs rounded bg-gray-700 text-white"
+                      onClick={() => handleGenerateToken(item.id)}
+                    >
+                      Generar Token QR
+                    </button>
+                    <button
+                      className="px-2 py-1 text-xs rounded bg-primary-blue text-white"
+                      onClick={() => handleConfirmDelivery(item.id)}
+                    >
+                      Confirmar Entrega
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="bg-white rounded-lg shadow-md p-5">
+        <h2 className="text-lg font-semibold text-dark-blue mb-4">Crear Devolución</h2>
+        <form className="space-y-3" onSubmit={handleCreateReturn}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <select
+              className="border rounded-md p-2"
+              value={returnForm.trabajador_id}
+              onChange={(e) => setReturnForm((prev) => ({ ...prev, trabajador_id: e.target.value }))}
+              required
+            >
+              <option value="">Trabajador</option>
+              {trabajadores.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nombres} {item.apellidos}
+                </option>
+              ))}
+            </select>
+            <select
+              className="border rounded-md p-2"
+              value={returnForm.ubicacion_recepcion_id}
+              onChange={(e) =>
+                setReturnForm((prev) => ({ ...prev, ubicacion_recepcion_id: e.target.value }))
+              }
+              required
+            >
+              <option value="">Ubicación recepción</option>
+              {ubicaciones.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+          <textarea
+            className="border rounded-md p-2 w-full"
+            placeholder="Notas devolución"
+            value={returnForm.notas}
+            onChange={(e) => setReturnForm((prev) => ({ ...prev, notas: e.target.value }))}
+          />
+
+          {returnForm.detalles.map((detail, index) => (
+            <div key={`return-detail-${index}`} className="border rounded-md p-3 bg-gray-50">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                <select
+                  className="border rounded-md p-2"
+                  value={detail.articulo_id}
+                  onChange={(e) => setReturnDetail(index, 'articulo_id', e.target.value)}
+                >
+                  <option value="">Artículo</option>
+                  {articulos.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.nombre}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="border rounded-md p-2"
+                  placeholder="Activo ID"
+                  value={detail.activo_id}
+                  onChange={(e) => setReturnDetail(index, 'activo_id', e.target.value)}
+                />
+                <input
+                  className="border rounded-md p-2"
+                  placeholder="Lote ID"
+                  value={detail.lote_id}
+                  onChange={(e) => setReturnDetail(index, 'lote_id', e.target.value)}
+                />
+                <input
+                  className="border rounded-md p-2"
+                  type="number"
+                  min={0.0001}
+                  step={0.0001}
+                  value={detail.cantidad}
+                  onChange={(e) => setReturnDetail(index, 'cantidad', Number(e.target.value))}
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
+                <select
+                  className="border rounded-md p-2"
+                  value={detail.condicion_entrada}
+                  onChange={(e) => setReturnDetail(index, 'condicion_entrada', e.target.value)}
+                >
+                  <option value="ok">OK</option>
+                  <option value="usado">Usado</option>
+                  <option value="danado">Dañado</option>
+                  <option value="perdido">Perdido</option>
+                </select>
+                <select
+                  className="border rounded-md p-2"
+                  value={detail.disposicion}
+                  onChange={(e) => setReturnDetail(index, 'disposicion', e.target.value)}
+                >
+                  <option value="devuelto">Devuelto</option>
+                  <option value="perdido">Perdido</option>
+                  <option value="baja">Baja</option>
+                  <option value="mantencion">Mantención</option>
+                </select>
+                <input
+                  className="border rounded-md p-2"
+                  placeholder="Notas"
+                  value={detail.notas}
+                  onChange={(e) => setReturnDetail(index, 'notas', e.target.value)}
+                />
+              </div>
+            </div>
+          ))}
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="px-3 py-2 rounded-md border"
+              onClick={() => setReturnForm((prev) => ({ ...prev, detalles: [...prev.detalles, emptyReturnDetail()] }))}
+            >
+              Agregar Ítem Devolución
+            </button>
+            <button type="submit" className="px-3 py-2 rounded-md bg-primary-blue text-white">
+              Crear Devolución Borrador
+            </button>
+          </div>
+        </form>
+
+        <div className="mt-4">
+          <h3 className="font-semibold text-dark-blue mb-2">Devoluciones Pendientes de Confirmación</h3>
+          <div className="flex flex-wrap gap-2">
+            {pendingReturns.map((item) => (
+              <button
+                key={item.id}
+                className="px-3 py-2 rounded-md bg-gray-700 text-white text-sm"
+                onClick={() => handleConfirmReturn(item.id)}
+              >
+                Confirmar {item.id.slice(0, 8)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white rounded-lg shadow-md p-5">
+        <h2 className="text-lg font-semibold text-dark-blue mb-4">Ingreso de Inventario por Compra</h2>
+        <div className="flex gap-2 mb-3">
+          <input
+            className="border rounded-md p-2 flex-1"
+            placeholder="Crear proveedor rápido"
+            value={newProveedorNombre}
+            onChange={(e) => setNewProveedorNombre(e.target.value)}
+          />
+          <button className="px-3 py-2 rounded-md border" type="button" onClick={handleCreateProveedor}>
+            Crear Proveedor
+          </button>
+        </div>
+
+        <form className="space-y-3" onSubmit={handleCreatePurchase}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <select
+              className="border rounded-md p-2"
+              value={purchaseForm.proveedor_id}
+              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, proveedor_id: e.target.value }))}
+              required
+            >
+              <option value="">Proveedor</option>
+              {proveedores.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nombre}
+                </option>
+              ))}
+            </select>
+            <select
+              className="border rounded-md p-2"
+              value={purchaseForm.tipo}
+              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, tipo: e.target.value }))}
+            >
+              <option value="factura">Factura</option>
+              <option value="boleta">Boleta</option>
+              <option value="guia">Guía</option>
+            </select>
+            <input
+              className="border rounded-md p-2"
+              placeholder="Número documento"
+              value={purchaseForm.numero}
+              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, numero: e.target.value }))}
+              required
+            />
+            <input
+              className="border rounded-md p-2"
+              type="date"
+              value={purchaseForm.fecha}
+              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, fecha: e.target.value }))}
+              required
+            />
+            <select
+              className="border rounded-md p-2"
+              value={purchaseForm.articulo_id}
+              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, articulo_id: e.target.value }))}
+              required
+            >
+              <option value="">Artículo</option>
+              {articulos.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nombre} ({item.tracking_mode})
+                </option>
+              ))}
+            </select>
+            <select
+              className="border rounded-md p-2"
+              value={purchaseForm.ubicacion_id}
+              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, ubicacion_id: e.target.value }))}
+              required
+            >
+              <option value="">Ubicación ingreso</option>
+              {ubicaciones.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.nombre}
+                </option>
+              ))}
+            </select>
+            <input
+              className="border rounded-md p-2"
+              type="number"
+              min={0.0001}
+              step={0.0001}
+              placeholder="Cantidad"
+              value={purchaseForm.cantidad}
+              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, cantidad: Number(e.target.value) }))}
+            />
+            <input
+              className="border rounded-md p-2"
+              type="number"
+              min={0}
+              step={0.0001}
+              placeholder="Costo unitario"
+              value={purchaseForm.costo_unitario}
+              onChange={(e) =>
+                setPurchaseForm((prev) => ({ ...prev, costo_unitario: Number(e.target.value) }))
+              }
+            />
+            <input
+              className="border rounded-md p-2"
+              placeholder="Código lote (si aplica)"
+              value={purchaseForm.codigo_lote}
+              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, codigo_lote: e.target.value }))}
+            />
+          </div>
+
+          {selectedPurchaseArticle?.tracking_mode === 'serial' && (
+            <textarea
+              className="border rounded-md p-2 w-full"
+              placeholder="Serializados: una línea por código de activo"
+              value={purchaseForm.seriales}
+              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, seriales: e.target.value }))}
+            />
+          )}
+
+          <textarea
+            className="border rounded-md p-2 w-full"
+            placeholder="Notas compra"
+            value={purchaseForm.notas}
+            onChange={(e) => setPurchaseForm((prev) => ({ ...prev, notas: e.target.value }))}
+          />
+
+          <button type="submit" className="px-3 py-2 rounded-md bg-primary-blue text-white">
+            Registrar Compra
+          </button>
+        </form>
+      </section>
+
+      <section className="bg-white rounded-lg shadow-md p-5">
+        <h2 className="text-lg font-semibold text-dark-blue mb-3">Stock Actual (Muestra)</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="text-left py-2 px-2">Artículo</th>
+                <th className="text-left py-2 px-2">Ubicación</th>
+                <th className="text-left py-2 px-2">Disponible</th>
+                <th className="text-left py-2 px-2">Reservada</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stock.slice(0, 15).map((item) => (
+                <tr key={item.id} className="border-b last:border-b-0 border-gray-100">
+                  <td className="py-2 px-2">{item.articulo_nombre}</td>
+                  <td className="py-2 px-2">{item.ubicacion_nombre}</td>
+                  <td className="py-2 px-2">{Number(item.cantidad_disponible)}</td>
+                  <td className="py-2 px-2">{Number(item.cantidad_reservada)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 };

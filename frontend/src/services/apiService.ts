@@ -5,7 +5,13 @@ export const apiService = axios.create({
   baseURL: '/api',
 });
 
-// Interceptor de peticiones: Agregar token de autenticación
+type ApiEnvelope<T> = {
+  success: boolean;
+  message?: string;
+  data: T;
+  errors?: unknown[];
+};
+
 apiService.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken');
   if (token) {
@@ -14,11 +20,9 @@ apiService.interceptors.request.use((config) => {
   return config;
 });
 
-// Interceptor de respuestas: Manejar errores 401 (token inválido/expirado)
 apiService.interceptors.response.use(
-  (response) => response, // Pasar respuestas exitosas sin cambios
+  (response) => response,
   async (error) => {
-    // Si el servidor responde con 401, el token es inválido
     if (error.response?.status === 401) {
       const originalRequest = error.config as (typeof error.config & { _retry?: boolean });
       const requestUrl = typeof originalRequest?.url === 'string' ? originalRequest.url : '';
@@ -40,27 +44,25 @@ apiService.interceptors.response.use(
       }
 
       clearStoredTokens();
-
-      // Redirigir al login solo si no estamos ya ahí
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
     }
-    
-    // Rechazar la promesa para que el error se propague
+
     return Promise.reject(error);
   }
 );
 
 export const get = <T = unknown>(url: string, params?: unknown) =>
-  apiService.get<T>(url, { params }).then((res) => res.data);
+  apiService.get<T | ApiEnvelope<T>>(url, { params }).then((res) => unwrapData<T>(res.data));
 export const post = <T = unknown>(url: string, data?: unknown) =>
-  apiService.post<T>(url, data).then((res) => res.data);
+  apiService.post<T | ApiEnvelope<T>>(url, data).then((res) => unwrapData<T>(res.data));
 export const put = <T = unknown>(url: string, data?: unknown) =>
-  apiService.put<T>(url, data).then((res) => res.data);
+  apiService.put<T | ApiEnvelope<T>>(url, data).then((res) => unwrapData<T>(res.data));
 export const patch = <T = unknown>(url: string, data?: unknown) =>
-  apiService.patch<T>(url, data).then((res) => res.data);
-export const del = <T = unknown>(url: string) => apiService.delete<T>(url).then((res) => res.data);
+  apiService.patch<T | ApiEnvelope<T>>(url, data).then((res) => unwrapData<T>(res.data));
+export const del = <T = unknown>(url: string) =>
+  apiService.delete<T | ApiEnvelope<T>>(url).then((res) => unwrapData<T>(res.data));
 
 type UploadMethod = 'post' | 'put' | 'patch';
 
@@ -71,265 +73,74 @@ export const uploadWithProgress = <T = unknown>(
   onProgress?: (percentage: number) => void,
   signal?: AbortSignal
 ) =>
-  apiService.request<T>({
-    method,
-    url,
-    data,
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-    signal,
-    onUploadProgress: (event) => {
-      if (!onProgress || !event.total) return;
-      const percentage = Math.round((event.loaded / event.total) * 100);
-      onProgress(percentage);
-    },
-  }).then((res) => res.data);
+  apiService
+    .request<T>({
+      method,
+      url,
+      data,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      signal,
+      onUploadProgress: (event) => {
+        if (!onProgress || !event.total) return;
+        const percentage = Math.round((event.loaded / event.total) * 100);
+        onProgress(percentage);
+      },
+    })
+    .then((res) => unwrapData<T>(res.data));
 
-// ============ SCAFFOLD ENDPOINTS ============
-
-/**
- * Obtiene todos los andamios (filtrados por rol del usuario)
- */
-export const getScaffolds = () => get('/scaffolds');
-
-/**
- * Obtiene un andamio por ID
- */
-export const getScaffoldById = (id: number) => get(`/scaffolds/${id}`);
-
-/**
- * Obtiene andamios creados por el usuario actual (supervisores)
- */
-export const getMyScaffolds = () => get('/scaffolds/my-scaffolds');
-
-/**
- * Crea un nuevo andamio
- */
-export const createScaffold = (formData: FormData) =>
-  post('/scaffolds', formData);
-
-/**
- * Actualiza un andamio existente
- */
-export const updateScaffold = (id: number, formData: FormData) =>
-  put(`/scaffolds/${id}`, formData);
-
-/**
- * Actualiza el estado de la tarjeta (green/red)
- */
-export const updateCardStatus = (id: number, cardStatus: 'green' | 'red') =>
-  patch(`/scaffolds/${id}/card-status`, { card_status: cardStatus });
-
-/**
- * Actualiza el estado de armado (assembled/disassembled)
- */
-export const updateAssemblyStatus = (
-  id: number,
-  assemblyStatus: 'assembled' | 'disassembled',
-  disassemblyImage?: File
-) => {
-  const formData = new FormData();
-  formData.append('assembly_status', assemblyStatus);
-  if (disassemblyImage) {
-    formData.append('disassembly_image', disassemblyImage);
+function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
+  if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) {
+    return (payload as ApiEnvelope<T>).data;
   }
-  return patch(`/scaffolds/${id}/assembly-status`, formData);
-};
+  return payload as T;
+}
 
 /**
- * Obtiene el historial de cambios de un andamio
+ * Obtiene usuarios filtrados por rol (compatibilidad de administración MER).
  */
-export const getScaffoldHistory = (id: number) => get(`/scaffolds/${id}/history`);
+export const getUsersByRole = (
+  role: 'admin' | 'supervisor' | 'bodega' | 'worker' | 'trabajador' | 'client'
+) => get(`/users?role=${role}`);
 
 /**
- * Elimina un andamio
+ * Resumen de dashboard EPP.
  */
-export const deleteScaffold = (id: number) => del(`/scaffolds/${id}`);
-
-// ============ PROJECT ASSIGNMENT ENDPOINTS ============
+export const getDashboardSummary = () => get('/dashboard/summary');
 
 /**
- * Asigna un cliente a un proyecto
+ * Indicadores operativos EPP (endpoint canónico).
  */
-export const assignClientToProject = (projectId: number, userId: number | null) =>
-  patch(`/projects/${projectId}/assign-client`, { user_id: userId });
+export const getOperationalIndicators = () => get('/dashboard/indicadores-operativos');
 
 /**
- * Asigna un supervisor a un proyecto
+ * Resumen por ubicación (endpoint canónico).
  */
-export const assignSupervisorToProject = (projectId: number, userId: number | null) =>
-  patch(`/projects/${projectId}/assign-supervisor`, { user_id: userId });
-
-// ============ DASHBOARD ENDPOINTS ============
-
-/**
- * Obtiene estadísticas de metros cúbicos
- */
-export const getCubicMetersStats = () => get('/dashboard/cubic-meters');
-
-// ============ USER ENDPOINTS ============
-
-/**
- * Obtiene usuarios filtrados por rol
- */
-export const getUsersByRole = (role: 'admin' | 'supervisor' | 'client') =>
-  get(`/users?role=${role}`);
-
-// ============ CLIENT NOTES ENDPOINTS ============
-
-/**
- * Crea una nueva nota de cliente
- */
-export const createClientNote = (data: {
-  target_type: 'scaffold' | 'project';
-  scaffold_id?: number;
-  project_id?: number;
-  note_text: string;
-}) => post('/client-notes', data);
-
-/**
- * Obtiene las notas del cliente autenticado
- */
-export const getMyClientNotes = (params?: { unresolved_only?: boolean }) =>
-  get('/client-notes/my-notes', params);
-
-/**
- * Obtiene notas de un andamio
- */
-export const getScaffoldNotes = (scaffoldId: number) =>
-  get(`/scaffolds/${scaffoldId}/notes`);
-
-/**
- * Obtiene notas de un proyecto
- */
-export const getProjectNotes = (projectId: number) =>
-  get(`/projects/${projectId}/notes`);
-
-/**
- * Obtiene notas no resueltas de un proyecto
- */
-export const getUnresolvedProjectNotes = (projectId: number) =>
-  get(`/projects/${projectId}/notes/unresolved`);
-
-/**
- * Obtiene estadísticas de notas de un proyecto
- */
-export const getProjectNoteStats = (projectId: number) =>
-  get(`/projects/${projectId}/notes/stats`);
-
-/**
- * Actualiza una nota
- */
-export const updateClientNote = (noteId: number, data: { note_text: string }) =>
-  put(`/client-notes/${noteId}`, data);
-
-/**
- * Resuelve una nota
- */
-export const resolveClientNote = (noteId: number, data?: { resolution_notes?: string }) =>
-  put(`/client-notes/${noteId}/resolve`, data);
-
-/**
- * Reabre una nota
- */
-export const reopenClientNote = (noteId: number) =>
-  put(`/client-notes/${noteId}/reopen`, {});
-
-/**
- * Elimina una nota (solo admin)
- */
-export const deleteClientNote = (noteId: number) =>
-  del(`/client-notes/${noteId}`);
+export const getLocationDashboardSummary = (ubicacionId: string) =>
+  get(`/dashboard/ubicaciones/${ubicacionId}/resumen`);
 
 // ============ IN-APP NOTIFICATIONS ENDPOINTS ============
 
-/**
- * Obtiene notificaciones in-app del usuario
- */
 export const getInAppNotifications = (params?: {
   unread_only?: boolean;
   limit?: number;
   offset?: number;
 }) => get('/notifications/in-app', params);
 
-/**
- * Obtiene cantidad de notificaciones no leídas
- */
 export const getUnreadNotificationsCount = () =>
   get<{ count: number }>('/notifications/in-app/unread-count');
 
-/**
- * Obtiene estadísticas de notificaciones
- */
-export const getNotificationStats = () =>
-  get('/notifications/in-app/stats');
+export const getNotificationStats = () => get('/notifications/in-app/stats');
 
-/**
- * Marca una notificación como leída
- */
 export const markNotificationAsRead = (notificationId: number) =>
   put(`/notifications/in-app/${notificationId}/read`, {});
 
-/**
- * Marca todas las notificaciones como leídas
- */
 export const markAllNotificationsAsRead = () =>
   put('/notifications/in-app/mark-all-read', {});
 
-/**
- * Elimina una notificación
- */
 export const deleteNotification = (notificationId: number) =>
   del(`/notifications/in-app/${notificationId}`);
 
-/**
- * Elimina todas las notificaciones leídas
- */
 export const deleteAllReadNotifications = () =>
   del('/notifications/in-app/clear-read');
-
-// ============ SCAFFOLD MODIFICATIONS ENDPOINTS ============
-
-/**
- * Crea una nueva modificación de andamio
- */
-export const createScaffoldModification = (
-  scaffoldId: number,
-  data: { height: number; width: number; length: number; reason?: string }
-) => post(`/scaffolds/${scaffoldId}/modifications`, data);
-
-/**
- * Obtiene modificaciones de un andamio
- */
-export const getScaffoldModifications = (
-  scaffoldId: number,
-  status?: 'pending' | 'approved' | 'rejected'
-) => {
-  const params = status ? { status } : {};
-  return get(`/scaffolds/${scaffoldId}/modifications`, params);
-};
-
-/**
- * Obtiene todas las modificaciones pendientes (admin/supervisor)
- */
-export const getPendingModifications = () =>
-  get('/scaffold-modifications/pending');
-
-/**
- * Aprueba una modificación (solo admin)
- */
-export const approveModification = (modificationId: number) =>
-  patch(`/scaffold-modifications/${modificationId}/approve`, {});
-
-/**
- * Rechaza una modificación (solo admin)
- */
-export const rejectModification = (modificationId: number, rejection_reason: string) =>
-  patch(`/scaffold-modifications/${modificationId}/reject`, { rejection_reason });
-
-/**
- * Elimina una modificación pendiente
- */
-export const deleteModification = (modificationId: number) =>
-  del(`/scaffold-modifications/${modificationId}`);

@@ -1,0 +1,164 @@
+const express = require('express');
+const Joi = require('joi');
+const FirmasController = require('../controllers/firmas.controller');
+const { authMiddleware } = require('../middleware/auth');
+const { checkRole } = require('../middleware/roles');
+const { imageUpload, validateImageMagic } = require('../middleware/upload');
+
+const router = express.Router();
+
+const buildError = (message, statusCode = 400, code = null) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  if (code) {
+    error.code = code;
+  }
+  return error;
+};
+
+const validateBody = (schema) => {
+  return async (req, _res, next) => {
+    try {
+      req.body = await schema.validateAsync(req.body, {
+        abortEarly: false,
+        stripUnknown: true,
+        convert: true,
+      });
+      return next();
+    } catch (error) {
+      return next(error);
+    }
+  };
+};
+
+const uuid = Joi.string().guid({ version: ['uuidv4', 'uuidv5'] });
+
+const tokenGenerationSchema = Joi.object({
+  expira_minutos: Joi.number().integer().min(5).max(1440).default(60),
+});
+
+const acceptanceDetailSchema = Joi.object({
+  detalle_id: uuid.allow(null),
+  texto: Joi.string().trim().min(1).max(2000).required(),
+});
+
+const signatureSchema = Joi.object({
+  trabajador_id: uuid.optional(),
+  firma_imagen_url: Joi.string().trim().min(10).optional(),
+  texto_aceptacion: Joi.string().trim().min(10).max(5000).required(),
+  texto_aceptacion_detalle: Joi.array().items(acceptanceDetailSchema).default([]),
+});
+
+const normalizeSignaturePayload = (req, _res, next) => {
+  try {
+    const body = req.body || {};
+
+    if (
+      body.texto_aceptacion_detalle === undefined ||
+      body.texto_aceptacion_detalle === null ||
+      body.texto_aceptacion_detalle === ''
+    ) {
+      body.texto_aceptacion_detalle = [];
+    }
+
+    if (typeof body.texto_aceptacion_detalle === 'string') {
+      const rawValue = body.texto_aceptacion_detalle.trim();
+      body.texto_aceptacion_detalle = rawValue ? JSON.parse(rawValue) : [];
+    }
+
+    if (!Array.isArray(body.texto_aceptacion_detalle)) {
+      throw buildError(
+        'texto_aceptacion_detalle debe ser un arreglo JSON válido',
+        400,
+        'INVALID_ACCEPTANCE_DETAILS'
+      );
+    }
+
+    if (typeof body.firma_imagen_url === 'string') {
+      body.firma_imagen_url = body.firma_imagen_url.trim();
+      if (!body.firma_imagen_url) {
+        delete body.firma_imagen_url;
+      }
+    }
+
+    if (typeof body.trabajador_id === 'string' && body.trabajador_id.trim() === '') {
+      delete body.trabajador_id;
+    }
+
+    req.body = body;
+    return next();
+  } catch (error) {
+    if (error.name === 'SyntaxError') {
+      return next(
+        buildError(
+          'texto_aceptacion_detalle no tiene formato JSON válido',
+          400,
+          'INVALID_ACCEPTANCE_DETAILS_JSON'
+        )
+      );
+    }
+    return next(error);
+  }
+};
+
+const ensureSignatureInput = (req, _res, next) => {
+  if (req.file || req.body?.firma_imagen_url) {
+    return next();
+  }
+
+  return next(
+    buildError(
+      'Debe enviar firma_archivo (multipart) o firma_imagen_url (JSON legacy)',
+      400,
+      'SIGNATURE_REQUIRED'
+    )
+  );
+};
+
+const optionalSignatureUpload = (req, res, next) => {
+  const contentType = String(req.headers['content-type'] || '').toLowerCase();
+  if (contentType.includes('multipart/form-data')) {
+    return imageUpload.single('firma_archivo')(req, res, next);
+  }
+  return next();
+};
+
+router.get('/tokens/:token', FirmasController.getTokenInfo);
+router.post(
+  '/tokens/:token/firmar',
+  optionalSignatureUpload,
+  validateImageMagic,
+  normalizeSignaturePayload,
+  validateBody(signatureSchema),
+  ensureSignatureInput,
+  FirmasController.consumeToken
+);
+
+router.get(
+  '/pendientes/me',
+  authMiddleware,
+  checkRole(['trabajador', 'worker', 'client']),
+  FirmasController.getMyPending
+);
+
+router.post(
+  '/entregas/:entregaId/token',
+  authMiddleware,
+  checkRole(['admin', 'supervisor', 'bodega']),
+  validateBody(tokenGenerationSchema),
+  FirmasController.generateToken
+);
+
+router.post(
+  '/entregas/:entregaId/firmar-dispositivo',
+  authMiddleware,
+  checkRole(['admin', 'supervisor', 'bodega', 'trabajador', 'worker', 'client']),
+  optionalSignatureUpload,
+  validateImageMagic,
+  normalizeSignaturePayload,
+  validateBody(signatureSchema),
+  ensureSignatureInput,
+  FirmasController.signInDevice
+);
+
+module.exports = router;

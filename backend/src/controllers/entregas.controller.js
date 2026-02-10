@@ -1,0 +1,47 @@
+const EntregasService = require('../services/entregas.service');
+const { logger } = require('../lib/logger');
+const { sendSuccess } = require('../lib/apiResponse');
+
+class EntregasController {
+  static async list(req, res, next) {
+    try {
+      const data = await EntregasService.list(req.query || {});
+      return sendSuccess(res, { message: 'Entregas obtenidas correctamente', data });
+    } catch (error) {
+      logger.error('Error listing entregas:', error);
+      return next(error);
+    }
+  }
+
+  static async getById(req, res, next) {
+    try {
+      const data = await EntregasService.getById(req.params.id);
+      return sendSuccess(res, { message: 'Entrega obtenida correctamente', data });
+    } catch (error) {
+      logger.error('Error getting entrega by id:', error);
+      return next(error);
+    }
+  }
+
+  static async create(req, res, next) {
+    try {
+      const data = await EntregasService.create(req.body, req.user.id);
+      return sendSuccess(res, { status: 201, message: 'Entrega creada correctamente', data });
+    } catch (error) {
+      logger.error('Error creating entrega:', error);
+      return next(error);
+    }
+  }
+
+  static async confirm(req, res, next) {
+    try {
+      const data = await EntregasService.confirm(req.params.id, req.user.id);
+      return sendSuccess(res, { message: 'Entrega confirmada correctamente', data });
+    } catch (error) {
+      logger.error('Error confirming entrega:', error);
+      return next(error);
+    }
+  }
+}
+
+module.exports = EntregasController;

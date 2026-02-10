@@ -18,6 +18,15 @@ const userRoutes = require('./routes/users.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const imageProxyRoutes = require('./routes/imageProxy.routes');
+const ubicacionesRoutes = require('./routes/ubicaciones.routes');
+const articulosRoutes = require('./routes/articulos.routes');
+const trabajadoresRoutes = require('./routes/trabajadores.routes');
+const entregasRoutes = require('./routes/entregas.routes');
+const devolucionesRoutes = require('./routes/devoluciones.routes');
+const firmasRoutes = require('./routes/firmas.routes');
+const comprasRoutes = require('./routes/compras.routes');
+const inventarioRoutes = require('./routes/inventario.routes');
+const proveedoresRoutes = require('./routes/proveedores.routes');
 const healthRoutes = require('./routes/health');
 const { initializeDatabase } = require('./db/initialize');
 
@@ -136,6 +145,15 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/ubicaciones', ubicacionesRoutes);
+app.use('/api/articulos', articulosRoutes);
+app.use('/api/trabajadores', trabajadoresRoutes);
+app.use('/api/entregas', entregasRoutes);
+app.use('/api/devoluciones', devolucionesRoutes);
+app.use('/api/firmas', firmasRoutes);
+app.use('/api/compras', comprasRoutes);
+app.use('/api/inventario', inventarioRoutes);
+app.use('/api/proveedores', proveedoresRoutes);
 app.use('/health', healthRoutes);
 
 // Endpoint para métricas del cliente (performance monitoring)
@@ -168,7 +186,12 @@ app.post('/api/metrics', async (req, res) => {
     }
   }
 
-  res.json({ success: true });
+  res.json({
+    success: true,
+    message: 'Métricas registradas correctamente',
+    data: null,
+    errors: [],
+  });
 });
 
 // ============================================
@@ -185,13 +208,16 @@ app.use((req, res) => {
   
   res.status(404).json({
     success: false,
-    status: 404,
     message: 'Ruta no encontrada',
-    error: {
-      path: req.originalUrl,
-      method: req.method,
-      timestamp: new Date().toISOString()
-    }
+    data: null,
+    errors: [
+      {
+        status: 404,
+        path: req.originalUrl,
+        method: req.method,
+        timestamp: new Date().toISOString(),
+      },
+    ],
   });
 });
 

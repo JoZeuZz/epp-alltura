@@ -68,10 +68,16 @@ const handleJoiValidationError = (err) => {
 
 // Middleware para errores de validación genéricos
 const handleValidationError = (err) => {
+  const errors = Array.isArray(err.errors)
+    ? err.errors
+    : err.errors
+      ? [err.errors]
+      : [{ message: err.message }];
+
   return {
     status: 400,
     message: 'Error de validación',
-    errors: err.errors || [err.message]
+    errors,
   };
 };
 
@@ -91,8 +97,12 @@ const handleDatabaseError = (err) => {
   
   return {
     status: 500,
-    message: message,
-    error: process.env.NODE_ENV === 'development' ? err.message : 'Error interno del servidor'
+    message,
+    errors: [
+      {
+        message: process.env.NODE_ENV === 'development' ? err.message : 'Error interno del servidor',
+      },
+    ],
   };
 };
 
@@ -101,7 +111,7 @@ const handleAuthError = (err) => {
   return {
     status: 401,
     message: 'Error de autenticación',
-    error: err.message
+    errors: [{ message: err.message }],
   };
 };
 
@@ -159,19 +169,28 @@ const errorHandler = (err, req, res, _next) => {
     errorResponse = {
       status: err.statusCode || err.status || 500,
       message: err.message || 'Error interno del servidor',
-      error: process.env.NODE_ENV === 'development' ? { stack: err.stack } : undefined
+      errors:
+        process.env.NODE_ENV === 'development'
+          ? [{ message: err.message || 'Error interno del servidor', stack: err.stack }]
+          : [{ message: err.message || 'Error interno del servidor' }],
     };
   }
 
   // Enviar respuesta
   const status = errorResponse.status;
+  const errors = Array.isArray(errorResponse.errors)
+    ? errorResponse.errors
+    : errorResponse.error
+      ? [errorResponse.error]
+      : [];
+
   const response = {
     success: false,
     message: errorResponse.message,
+    data: null,
+    errors,
     requestId: req.requestId,
-    ...(errorResponse.errors && { errors: errorResponse.errors }),
     ...(errorResponse.fieldErrors && { fieldErrors: errorResponse.fieldErrors }),
-    ...(errorResponse.error && { error: errorResponse.error })
   };
 
   res.status(status).json(response);

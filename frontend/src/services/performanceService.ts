@@ -131,11 +131,10 @@ class PerformanceService {
         },
         body: JSON.stringify({ metrics: metricsToSend })
       });
-    } catch (error) {
+    } catch {
       // Silently fail - don't spam console when metrics endpoint is not available
     }
   }
 }
 
 export const performanceService = new PerformanceService();
-

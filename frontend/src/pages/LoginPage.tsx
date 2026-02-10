@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import logoWhite from '../assets/logo-alltura-white.png';
 
 const loginSchema = z.object({
@@ -50,10 +50,8 @@ const LoginPage: React.FC = () => {
               navigate('/supervisor/dashboard', { replace: true });
             } else if (role === 'bodega') {
               navigate('/bodega/dashboard', { replace: true });
-            } else if (role === 'worker') {
+            } else if (role === 'worker' || role === 'trabajador' || role === 'client') {
               navigate('/worker/dashboard', { replace: true });
-            } else if (role === 'client') {
-              navigate('/client/dashboard', { replace: true });
             } else {
               navigate('/', { replace: true });
             }

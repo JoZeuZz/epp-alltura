@@ -13,3 +13,5 @@ export {
   type FormButtonsProps,
   type InputType,
 } from './FormInputs';
+
+export { default as SignaturePad } from './SignaturePad';
