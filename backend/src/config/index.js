@@ -103,10 +103,12 @@ const envSchema = Joi.object({
 
   // VAPID (Push Notifications)
   VAPID_PUBLIC_KEY: Joi.string()
+    .allow('')
     .optional()
     .description('Clave pública VAPID para push notifications'),
   
   VAPID_PRIVATE_KEY: Joi.string()
+    .allow('')
     .optional()
     .description('Clave privada VAPID para push notifications'),
 

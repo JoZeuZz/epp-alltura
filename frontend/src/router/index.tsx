@@ -7,7 +7,6 @@ import type { User } from '../types/api';
 import { clearStoredTokens, refreshAccessToken } from '../services/authRefresh';
 
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
-const UsersPage = lazy(() => import('../pages/admin/UsersPage'));
 const SupervisorDashboard = lazy(() => import('../pages/supervisor/SupervisorDashboard'));
 const WarehouseDashboard = lazy(() => import('../pages/bodega/WarehouseDashboard'));
 const WorkerDashboard = lazy(() => import('../pages/worker/WorkerDashboard'));
@@ -17,12 +16,33 @@ const UnauthorizedPage = lazy(() => import('../pages/UnauthorizedPage'));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'));
 
 const API_URL = '/api';
+type RouteRole = 'admin' | 'supervisor' | 'bodega' | 'worker';
 
 function getAuthToken() {
   return localStorage.getItem('accessToken');
 }
 
-async function fetchAPI(endpoint: string, options: RequestInit = {}, allowRetry = true) {
+function normalizeRole(role?: string | null): RouteRole | '' {
+  if (!role) return '';
+  const value = String(role).toLowerCase();
+
+  if (value === 'trabajador' || value === 'worker' || value === 'client') return 'worker';
+  if (value === 'admin' || value === 'supervisor' || value === 'bodega') {
+    return value;
+  }
+
+  return '';
+}
+
+function unwrapResponsePayload<T>(payload: unknown): T {
+  if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) {
+    return (payload as { data: T }).data;
+  }
+
+  return payload as T;
+}
+
+async function fetchAPI<T>(endpoint: string, options: RequestInit = {}, allowRetry = true): Promise<T> {
   const token = getAuthToken();
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
@@ -37,7 +57,7 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}, allowRetry 
     if (response.status === 401 && allowRetry) {
       const refreshed = await refreshAccessToken();
       if (refreshed) {
-        return fetchAPI(endpoint, options, false);
+        return fetchAPI<T>(endpoint, options, false);
       }
       clearStoredTokens();
       throw redirect('/login');
@@ -50,13 +70,14 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}, allowRetry 
         message = payload.message;
       }
     } catch {
-      // Ignore parse errors and use default message.
+      // Ignore parse errors.
     }
 
     throw new Error(message);
   }
 
-  return response.json();
+  const payload = await response.json();
+  return unwrapResponsePayload<T>(payload);
 }
 
 async function getUserFromToken(): Promise<Pick<User, 'id' | 'email' | 'role' | 'first_name' | 'last_name'> | null> {
@@ -79,11 +100,16 @@ async function getUserFromToken(): Promise<Pick<User, 'id' | 'email' | 'role' | 
 
     const freshPayload = JSON.parse(atob(token.split('.')[1]));
     const userData = freshPayload.user || freshPayload;
+    const normalizedRole = normalizeRole(userData.role);
+    if (!normalizedRole) {
+      clearStoredTokens();
+      return null;
+    }
 
     return {
       id: userData.id,
       email: userData.email,
-      role: userData.role,
+      role: normalizedRole,
       first_name: userData.first_name,
       last_name: userData.last_name,
     };
@@ -101,8 +127,8 @@ async function protectedLoader() {
   return { user };
 }
 
-const roleDefaultRoute = (role: string) => {
-  switch (role) {
+const roleDefaultRoute = (role: User['role']) => {
+  switch (normalizeRole(role)) {
     case 'admin':
       return '/admin/dashboard';
     case 'supervisor':
@@ -110,7 +136,6 @@ const roleDefaultRoute = (role: string) => {
     case 'bodega':
       return '/bodega/dashboard';
     case 'worker':
-    case 'client':
       return '/worker/dashboard';
     default:
       return '/login';
@@ -122,16 +147,17 @@ async function rootLoader() {
   if (!user) {
     return redirect('/login');
   }
-  return redirect(roleDefaultRoute(user.role as string));
+  return redirect(roleDefaultRoute(user.role));
 }
 
-const requireRole = (allowedRoles: string[]) => async () => {
+const requireRole = (allowedRoles: RouteRole[]) => async () => {
   const user = await getUserFromToken();
   if (!user) {
     throw redirect('/login');
   }
 
-  if (!allowedRoles.includes(user.role as string)) {
+  const normalizedRole = normalizeRole(user.role);
+  if (!normalizedRole || !allowedRoles.includes(normalizedRole)) {
     throw redirect('/unauthorized');
   }
 
@@ -140,26 +166,82 @@ const requireRole = (allowedRoles: string[]) => async () => {
 
 async function adminDashboardLoader() {
   const { user } = (await requireRole(['admin'])()) as { user: User };
-  try {
-    const summary = await fetchAPI('/dashboard/summary');
-    return { user, summary };
-  } catch {
-    return {
-      user,
-      summary: {
-        activeProjects: 0,
-        activeClients: 0,
-        totalScaffolds: 0,
-        recentScaffoldsCount: 0,
-      },
-    };
-  }
+
+  const [summary, stock, movimientosStock, movimientosActivo, auditoria] = await Promise.all([
+    fetchAPI('/dashboard/summary').catch(() => null),
+    fetchAPI('/inventario/stock').catch(() => []),
+    fetchAPI('/inventario/movimientos-stock?limit=25').catch(() => []),
+    fetchAPI('/inventario/movimientos-activo?limit=25').catch(() => []),
+    fetchAPI('/inventario/auditoria?limit=25').catch(() => []),
+  ]);
+
+  return {
+    user,
+    summary,
+    stock,
+    movimientosStock,
+    movimientosActivo,
+    auditoria,
+  };
 }
 
-async function usersLoader() {
-  const { user } = (await requireRole(['admin'])()) as { user: User };
-  const users = await fetchAPI('/users');
-  return { user, users };
+async function supervisorDashboardLoader() {
+  const { user } = (await requireRole(['supervisor', 'admin'])()) as { user: User };
+
+  const [summary, entregas, devoluciones, movimientosActivo] = await Promise.all([
+    fetchAPI('/dashboard/summary').catch(() => null),
+    fetchAPI('/entregas').catch(() => []),
+    fetchAPI('/devoluciones').catch(() => []),
+    fetchAPI('/inventario/movimientos-activo?limit=20').catch(() => []),
+  ]);
+
+  return {
+    user,
+    summary,
+    entregas,
+    devoluciones,
+    movimientosActivo,
+  };
+}
+
+async function warehouseDashboardLoader() {
+  const { user } = (await requireRole(['bodega', 'admin', 'supervisor'])()) as { user: User };
+
+  const [trabajadores, ubicaciones, articulos, entregas, devoluciones, stock, proveedores] = await Promise.all([
+    fetchAPI('/trabajadores').catch(() => []),
+    fetchAPI('/ubicaciones').catch(() => []),
+    fetchAPI('/articulos').catch(() => []),
+    fetchAPI('/entregas').catch(() => []),
+    fetchAPI('/devoluciones').catch(() => []),
+    fetchAPI('/inventario/stock').catch(() => []),
+    fetchAPI('/proveedores').catch(() => []),
+  ]);
+
+  return {
+    user,
+    trabajadores,
+    ubicaciones,
+    articulos,
+    entregas,
+    devoluciones,
+    stock,
+    proveedores,
+  };
+}
+
+async function workerDashboardLoader() {
+  const { user } = (await requireRole(['worker'])()) as { user: User };
+
+  const [pendientesFirma, custodiasActivas] = await Promise.all([
+    fetchAPI('/firmas/pendientes/me').catch(() => ({ entregas: [] })),
+    fetchAPI('/devoluciones/mis-custodias/activos').catch(() => ({ custodias: [] })),
+  ]);
+
+  return {
+    user,
+    pendientesFirma,
+    custodiasActivas,
+  };
 }
 
 export const router = createBrowserRouter([
@@ -190,48 +272,43 @@ export const router = createBrowserRouter([
         element: <AdminDashboard />,
       },
       {
-        path: 'admin/users',
-        loader: usersLoader,
-        element: <UsersPage />,
-      },
-      {
-        path: 'admin/clients',
+        path: 'admin/trazabilidad',
         loader: adminDashboardLoader,
         element: <AdminDashboard />,
       },
       {
-        path: 'admin/projects',
-        loader: adminDashboardLoader,
-        element: <AdminDashboard />,
-      },
-      {
-        path: 'admin/scaffolds',
+        path: 'admin/auditoria',
         loader: adminDashboardLoader,
         element: <AdminDashboard />,
       },
       {
         path: 'supervisor/dashboard',
-        loader: requireRole(['supervisor']),
+        loader: supervisorDashboardLoader,
         element: <SupervisorDashboard />,
       },
       {
-        path: 'supervisor/history',
-        loader: requireRole(['supervisor']),
+        path: 'supervisor/trazabilidad',
+        loader: supervisorDashboardLoader,
         element: <SupervisorDashboard />,
       },
       {
         path: 'bodega/dashboard',
-        loader: requireRole(['bodega']),
+        loader: warehouseDashboardLoader,
+        element: <WarehouseDashboard />,
+      },
+      {
+        path: 'bodega/operaciones',
+        loader: warehouseDashboardLoader,
         element: <WarehouseDashboard />,
       },
       {
         path: 'worker/dashboard',
-        loader: requireRole(['worker', 'client']),
+        loader: workerDashboardLoader,
         element: <WorkerDashboard />,
       },
       {
-        path: 'client/dashboard',
-        loader: requireRole(['client']),
+        path: 'worker/firmas',
+        loader: workerDashboardLoader,
         element: <WorkerDashboard />,
       },
       {

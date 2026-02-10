@@ -1,11 +1,8 @@
-node_modules
-.env
-.env.local
-.postgres.env
-.coolify/
-postgres-data/
-.github/
+node_modules/
 docs/
 dist/
-legacy/
+.env
 service-account.json
+logs/
+docs/
+uploads/*

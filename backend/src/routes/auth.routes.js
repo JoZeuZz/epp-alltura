@@ -39,19 +39,27 @@ const authLimiter = rateLimit({
 // ============================================
 
 const registerSchema = Joi.object({
-  first_name: personName.required(),
-  last_name: personName.required(),
-  email: email.required(),
+  first_name: personName,
+  last_name: personName,
+  nombres: personName,
+  apellidos: personName,
+  email: email,
+  email_login: email,
   password: password.required(),
   role: userRole.required(),
   rut: rut.required(),
-  phone_number: phoneNumber,
-});
+  phone_number: phoneNumber.allow('', null),
+  telefono: phoneNumber.allow('', null),
+})
+  .or('first_name', 'nombres')
+  .or('last_name', 'apellidos')
+  .or('email', 'email_login');
 
 const loginSchema = Joi.object({
-  email: email.required(),
+  email: email,
+  email_login: email,
   password: Joi.string().required(), // No usar schema de password aquí, solo validar que existe
-});
+}).or('email', 'email_login');
 
 const refreshSchema = Joi.object({
   refreshToken: Joi.string().required(),
@@ -71,14 +79,17 @@ const changePasswordSchema = Joi.object({
  */
 const validateBody = (schema) => {
   return (req, res, next) => {
-    const { error } = schema.validate(req.body, { abortEarly: false });
+    const { error, value } = schema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true,
+      convert: true,
+    });
+
     if (error) {
-      const errorMessages = error.details.map((detail) => detail.message);
-      return res.status(400).json({
-        error: 'Validation failed',
-        details: errorMessages,
-      });
+      return next(error);
     }
+
+    req.body = value;
     next();
   };
 };

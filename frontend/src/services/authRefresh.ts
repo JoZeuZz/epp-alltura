@@ -1,6 +1,11 @@
-type RefreshResponse = {
+type RefreshTokens = {
   accessToken?: string;
   refreshToken?: string;
+};
+
+type RefreshResponse = RefreshTokens & {
+  success?: boolean;
+  data?: RefreshTokens;
 };
 
 let refreshPromise: Promise<string | null> | null = null;
@@ -42,14 +47,19 @@ const runRefresh = async (): Promise<string | null> => {
       return null;
     }
 
-    const data = (await response.json()) as RefreshResponse;
-    if (!data?.accessToken) {
+    const responsePayload = (await response.json()) as RefreshResponse;
+    const tokens =
+      responsePayload?.data && typeof responsePayload.data === 'object'
+        ? responsePayload.data
+        : responsePayload;
+
+    if (!tokens?.accessToken) {
       return null;
     }
 
-    storeTokens(data.accessToken, data.refreshToken);
-    return data.accessToken;
-  } catch (_error) {
+    storeTokens(tokens.accessToken, tokens.refreshToken);
+    return tokens.accessToken;
+  } catch {
     return null;
   }
 };

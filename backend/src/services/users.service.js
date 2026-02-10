@@ -1,289 +1,557 @@
-const User = require('../models/user');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { randomUUID } = require('crypto');
+const db = require('../db');
+const PersonaModel = require('../models/persona');
+const UsuarioModel = require('../models/usuario');
+const RolModel = require('../models/rol');
 const { uploadFile } = require('../lib/googleCloud');
 const { logger } = require('../lib/logger');
+const { PASSWORD_CONFIG } = require('../middleware/passwordPolicy');
+const { TOKEN_CONFIG } = require('../middleware/auth');
+const { toDbRole, toExternalRole, normalizeDbRoles, buildCompatibleRoles } = require('../lib/roleUtils');
 
-/**
- * UserService
- * Capa de Servicio - Lógica de Negocio Pura
- * Responsabilidades:
- * - Gestión de usuarios (CRUD)
- * - Upload de imágenes de perfil
- * - Generación de tokens JWT
- * - Validaciones de negocio
- * 
- * PROHIBIDO: No debe contener objetos req o res
- */
-class UserService {
-  // ============================================
-  // OPERACIONES SELF-SERVICE (Usuario autenticado)
-  // ============================================
+const buildError = (message, statusCode = 400, code = null) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  if (code) {
+    error.code = code;
+  }
+  return error;
+};
 
-  /**
-   * Obtener datos de un usuario por ID
-   * @param {number} userId - ID del usuario
-   * @returns {Promise<object>} Datos del usuario sin password
-   */
-  static async getUserById(userId) {
-    const user = await User.findById(userId);
-    
-    if (!user) {
-      const error = new Error('User not found');
-      error.statusCode = 404;
-      throw error;
+const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
+
+const normalizeRut = (rut) => {
+  const value = String(rut || '').trim();
+  if (value) {
+    return value;
+  }
+  return `TEMP-${randomUUID()}`;
+};
+
+const buildTokenPayloadUser = (user) => {
+  const dbRoles = normalizeDbRoles(user.roles_db || user.roles || user.role_db || user.role);
+  const primaryDbRole = toDbRole(user.role_db || dbRoles[0] || 'trabajador');
+  const { compatibleRoles } = buildCompatibleRoles(dbRoles);
+
+  return {
+    id: user.id,
+    email: user.email,
+    first_name: user.first_name,
+    last_name: user.last_name,
+    role: toExternalRole(primaryDbRole),
+    role_db: primaryDbRole,
+    roles: compatibleRoles,
+    roles_db: dbRoles,
+    estado: user.estado,
+    rut: user.rut || null,
+    phone_number: user.phone_number || null,
+    profile_picture_url: user.profile_picture_url || null,
+  };
+};
+
+const signAccessToken = (user) =>
+  jwt.sign(
+    { user: buildTokenPayloadUser(user) },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: TOKEN_CONFIG?.ACCESS_TOKEN_EXPIRY || '15m',
+      issuer: 'alltura-api',
+      audience: 'alltura-client',
+    }
+  );
+
+const mapUsuarioRecord = (row) => {
+  const dbRoles = normalizeDbRoles(row.roles || row.role_db);
+  const primaryDbRole = toDbRole(row.role_db || dbRoles[0] || 'trabajador');
+  const { compatibleRoles } = buildCompatibleRoles(dbRoles);
+
+  return {
+    id: row.id,
+    first_name: row.first_name || '',
+    last_name: row.last_name || '',
+    email: row.email || '',
+    email_login: row.email || '',
+    role: toExternalRole(primaryDbRole),
+    role_db: primaryDbRole,
+    roles: compatibleRoles,
+    roles_db: dbRoles,
+    rut: row.rut || null,
+    phone_number: row.phone_number || null,
+    profile_picture_url: row.profile_picture_url || null,
+    estado: row.estado,
+    trabajador_id: row.trabajador_id || null,
+    cargo: row.cargo || null,
+    codigo_empleado: row.codigo_empleado || null,
+    created_at: row.created_at,
+    client_id: null,
+  };
+};
+
+const getUserByIdRaw = async (userId) => {
+  const { rows } = await db.query(
+    `
+    SELECT
+      u.id,
+      u.persona_id,
+      u.email_login AS email,
+      u.estado,
+      u.creado_en AS created_at,
+      p.nombres AS first_name,
+      p.apellidos AS last_name,
+      p.rut,
+      p.telefono AS phone_number,
+      p.foto_url AS profile_picture_url,
+      t.id AS trabajador_id,
+      t.cargo,
+      t.codigo_empleado,
+      ARRAY_REMOVE(ARRAY_AGG(r.nombre), NULL) AS roles
+    FROM usuario u
+    LEFT JOIN persona p ON p.id = u.persona_id
+    LEFT JOIN trabajador t ON t.usuario_id = u.id
+    LEFT JOIN usuario_rol ur ON ur.usuario_id = u.id
+    LEFT JOIN rol r ON r.id = ur.rol_id
+    WHERE u.id = $1
+    GROUP BY u.id, p.id, t.id
+    LIMIT 1
+    `,
+    [userId]
+  );
+
+  return rows[0] || null;
+};
+
+const ensureWorkerRecord = async (client, usuarioId, personaId, shouldBeActive) => {
+  const workerResult = await client.query(
+    `
+    SELECT id
+    FROM trabajador
+    WHERE usuario_id = $1
+    LIMIT 1
+    FOR UPDATE
+    `,
+    [usuarioId]
+  );
+
+  if (shouldBeActive) {
+    if (!workerResult.rows.length) {
+      await client.query(
+        `
+        INSERT INTO trabajador (persona_id, usuario_id, estado)
+        VALUES ($1, $2, 'activo')
+        `,
+        [personaId, usuarioId]
+      );
+      return;
     }
 
-    // Omitir password_hash de la respuesta
-    // eslint-disable-next-line no-unused-vars
-    const { password_hash: _password_hash, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    await client.query('UPDATE trabajador SET estado = $2 WHERE id = $1', [workerResult.rows[0].id, 'activo']);
+    return;
   }
 
-  /**
-   * Actualizar datos propios del usuario
-   * @param {number} userId - ID del usuario
-   * @param {object} updateData - Datos a actualizar
-   * @returns {Promise<object>} Usuario actualizado + nuevo token
-   */
+  if (workerResult.rows.length) {
+    await client.query('UPDATE trabajador SET estado = $2 WHERE id = $1', [workerResult.rows[0].id, 'inactivo']);
+  }
+};
+
+class UserService {
+  static async getUserById(userId) {
+    const user = await getUserByIdRaw(userId);
+
+    if (!user) {
+      throw buildError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    return mapUsuarioRecord(user);
+  }
+
   static async updateOwnProfile(userId, updateData) {
-    // Usuarios no pueden cambiar su propio role o email por esta vía
     const sanitizedData = { ...updateData };
     delete sanitizedData.role;
     delete sanitizedData.email;
+    delete sanitizedData.client_id;
 
-    const updatedUser = await User.update(userId, sanitizedData);
+    const existing = await getUserByIdRaw(userId);
+    if (!existing) {
+      throw buildError('User not found', 404, 'USER_NOT_FOUND');
+    }
 
-    // Generar nuevo token con información actualizada
-    const token = this.generateUserToken(updatedUser);
+    const client = await db.pool.connect();
 
-    // eslint-disable-next-line no-unused-vars
-    const { password_hash: _password_hash, ...userWithoutPassword } = updatedUser;
-    
-    logger.info(`Usuario ${userId} actualizó su perfil`);
+    try {
+      await client.query('BEGIN');
 
-    return {
-      user: userWithoutPassword,
-      token,
-    };
+      if (
+        sanitizedData.first_name !== undefined ||
+        sanitizedData.last_name !== undefined ||
+        sanitizedData.rut !== undefined ||
+        sanitizedData.phone_number !== undefined
+      ) {
+        await client.query(
+          `
+          UPDATE persona
+          SET
+            nombres = COALESCE($1, nombres),
+            apellidos = COALESCE($2, apellidos),
+            rut = COALESCE(NULLIF($3, ''), rut),
+            telefono = COALESCE(NULLIF($4, ''), telefono)
+          WHERE id = $5
+          `,
+          [
+            sanitizedData.first_name,
+            sanitizedData.last_name,
+            sanitizedData.rut,
+            sanitizedData.phone_number,
+            existing.persona_id,
+          ]
+        );
+      }
+
+      if (sanitizedData.password) {
+        const passwordHash = await bcrypt.hash(sanitizedData.password, PASSWORD_CONFIG.BCRYPT_ROUNDS);
+        await client.query('UPDATE usuario SET password_hash = $2 WHERE id = $1', [userId, passwordHash]);
+      }
+
+      await client.query('COMMIT');
+
+      const updated = await this.getUserById(userId);
+      const token = signAccessToken(updated);
+
+      logger.info(`Usuario ${userId} actualizo su perfil`);
+
+      return {
+        user: updated,
+        token,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
-  /**
-   * Subir foto de perfil
-   * @param {number} userId - ID del usuario
-   * @param {object} file - Archivo de imagen (buffer, mimetype, originalname)
-   * @returns {Promise<object>} Usuario actualizado + nuevo token
-   */
   static async uploadProfilePicture(userId, file) {
     if (!file) {
-      const error = new Error('No file provided');
-      error.statusCode = 400;
-      throw error;
+      throw buildError('No file provided', 400, 'FILE_REQUIRED');
     }
 
-    // Subir imagen a Google Cloud Storage
+    const existing = await getUserByIdRaw(userId);
+    if (!existing) {
+      throw buildError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
     const imageUrl = await uploadFile(file);
 
-    // Actualizar usuario con nueva URL de imagen
-    const updatedUser = await User.update(userId, { profile_picture_url: imageUrl });
+    await db.query(
+      `
+      UPDATE persona
+      SET foto_url = $1
+      WHERE id = $2
+      `,
+      [imageUrl, existing.persona_id]
+    );
 
-    // Generar nuevo token con URL actualizada
-    const token = this.generateUserToken(updatedUser);
+    const updated = await this.getUserById(userId);
+    const token = signAccessToken(updated);
 
-    // eslint-disable-next-line no-unused-vars
-    const { password_hash: _password_hash, ...userWithoutPassword } = updatedUser;
-
-    logger.info(`Usuario ${userId} actualizó su foto de perfil: ${imageUrl}`);
+    logger.info(`Usuario ${userId} actualizo su foto de perfil`);
 
     return {
-      user: userWithoutPassword,
+      user: updated,
       token,
     };
   }
 
-  // ============================================
-  // OPERACIONES ADMIN (Gestión de usuarios)
-  // ============================================
-
-  /**
-   * Obtener todos los usuarios con filtros opcionales
-   * @param {object} filters - Filtros a aplicar (ej: { role: 'admin' })
-   * @returns {Promise<Array>} Lista de usuarios
-   */
   static async getAllUsers(filters = {}) {
-    const users = await User.getAll(filters);
-    logger.info(`Se obtuvieron ${users.length} usuarios con filtros:`, filters);
-    return users;
+    const values = [];
+    const conditions = [];
+
+    if (filters.role) {
+      values.push(toDbRole(filters.role));
+      conditions.push(`r.nombre = $${values.length}`);
+    }
+
+    if (filters.search) {
+      values.push(`%${String(filters.search).trim()}%`);
+      conditions.push(
+        `(u.email_login ILIKE $${values.length} OR p.nombres ILIKE $${values.length} OR p.apellidos ILIKE $${values.length} OR p.rut ILIKE $${values.length})`
+      );
+    }
+
+    const query = `
+      SELECT
+        u.id,
+        u.persona_id,
+        u.email_login AS email,
+        u.estado,
+        u.creado_en AS created_at,
+        p.nombres AS first_name,
+        p.apellidos AS last_name,
+        p.rut,
+        p.telefono AS phone_number,
+        p.foto_url AS profile_picture_url,
+        t.id AS trabajador_id,
+        t.cargo,
+        t.codigo_empleado,
+        ARRAY_REMOVE(ARRAY_AGG(r.nombre), NULL) AS roles
+      FROM usuario u
+      LEFT JOIN persona p ON p.id = u.persona_id
+      LEFT JOIN trabajador t ON t.usuario_id = u.id
+      LEFT JOIN usuario_rol ur ON ur.usuario_id = u.id
+      LEFT JOIN rol r ON r.id = ur.rol_id
+      ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+      GROUP BY u.id, p.id, t.id
+      ORDER BY p.nombres ASC NULLS LAST, p.apellidos ASC NULLS LAST, u.email_login ASC
+    `;
+
+    const { rows } = await db.query(query, values);
+    return rows.map(mapUsuarioRecord);
   }
 
-  /**
-   * Obtener usuarios cliente por empresa cliente
-   * @param {number} clientId - ID de la empresa cliente
-   * @returns {Promise<Array>} Lista de usuarios cliente de esa empresa
-   */
-  static async getUsersByClientId(clientId) {
-    const users = await User.getAll({ role: 'client', client_id: clientId });
-    logger.info(`Se obtuvieron ${users.length} usuarios cliente para empresa ${clientId}`);
-    return users;
+  static async getUsersByClientId(_clientId) {
+    logger.warn('Endpoint /users/by-client legacy invoked. Returning trabajadores as compatibility response.');
+    return this.getAllUsers({ role: 'trabajador' });
   }
 
-  /**
-   * Crear un nuevo usuario (solo admin)
-   * @param {object} userData - Datos del nuevo usuario
-   * @returns {Promise<object>} Usuario creado
-   */
   static async createUser(userData) {
-    // Verificar si el email ya existe
-    const existingUser = await User.findByEmail(userData.email);
+    const email = normalizeEmail(userData.email || userData.email_login);
+    const firstName = String(userData.first_name || userData.nombres || '').trim();
+    const lastName = String(userData.last_name || userData.apellidos || '').trim();
+    const phoneNumber = String(userData.phone_number || userData.telefono || '').trim();
+    const rut = normalizeRut(userData.rut);
+    const roleName = toDbRole(userData.role || 'supervisor');
+
+    if (!email) {
+      throw buildError('Email is required', 400, 'EMAIL_REQUIRED');
+    }
+
+    if (!firstName || !lastName) {
+      throw buildError('First name and last name are required', 400, 'NAME_REQUIRED');
+    }
+
+    if (!userData.password) {
+      throw buildError('Password is required', 400, 'PASSWORD_REQUIRED');
+    }
+
+    const existingUser = await UsuarioModel.findByEmailLogin(email);
     if (existingUser) {
-      const error = new Error('User with this email already exists');
-      error.statusCode = 400;
-      throw error;
+      throw buildError('User with this email already exists', 400, 'EMAIL_IN_USE');
     }
 
-    // Validar que usuarios con rol 'client' tengan client_id
-    if (userData.role === 'client' && !userData.client_id) {
-      const error = new Error('Los usuarios cliente deben estar vinculados a una empresa cliente');
-      error.statusCode = 400;
-      throw error;
+    const existingPersona = await PersonaModel.findByRut(rut);
+    if (existingPersona) {
+      throw buildError('Person with this RUT already exists', 400, 'RUT_IN_USE');
     }
 
-    // Validar que usuarios con rol diferente a 'client' NO tengan client_id (ignorar null/undefined)
-    if (userData.role !== 'client' && userData.client_id !== null && userData.client_id !== undefined) {
-      const error = new Error('Solo los usuarios con rol cliente pueden estar vinculados a una empresa');
-      error.statusCode = 400;
-      throw error;
+    const role = await RolModel.findByNombre(roleName);
+    if (!role) {
+      throw buildError(`Role "${roleName}" is not valid`, 400, 'ROLE_INVALID');
     }
 
-    // Establecer rol por defecto si no se proporciona
-    const userDataWithDefaults = {
-      ...userData,
-      role: userData.role || 'supervisor',
-    };
+    const passwordHash = await bcrypt.hash(userData.password, PASSWORD_CONFIG.BCRYPT_ROUNDS);
 
-    const newUser = await User.create(userDataWithDefaults);
+    const client = await db.pool.connect();
 
-    logger.info(`Nuevo usuario creado: ${newUser.email} (ID: ${newUser.id})`);
+    try {
+      await client.query('BEGIN');
 
-    return newUser;
+      const personaResult = await client.query(
+        `
+        INSERT INTO persona (rut, nombres, apellidos, telefono, email, estado)
+        VALUES ($1, $2, $3, $4, $5, 'activo')
+        RETURNING id
+        `,
+        [rut, firstName, lastName, phoneNumber || null, email]
+      );
+
+      const personaId = personaResult.rows[0].id;
+
+      const usuarioResult = await client.query(
+        `
+        INSERT INTO usuario (persona_id, email_login, password_hash, estado)
+        VALUES ($1, $2, $3, 'activo')
+        RETURNING id
+        `,
+        [personaId, email, passwordHash]
+      );
+
+      const usuarioId = usuarioResult.rows[0].id;
+
+      await client.query(
+        `
+        INSERT INTO usuario_rol (usuario_id, rol_id)
+        VALUES ($1, $2)
+        `,
+        [usuarioId, role.id]
+      );
+
+      await ensureWorkerRecord(client, usuarioId, personaId, roleName === 'trabajador');
+
+      await client.query('COMMIT');
+
+      return this.getUserById(usuarioId);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
-  /**
-   * Actualizar usuario por ID (solo admin)
-   * @param {number} userId - ID del usuario a actualizar
-   * @param {object} updateData - Datos a actualizar
-   * @returns {Promise<object>} Usuario actualizado
-   */
   static async updateUser(userId, updateData) {
-    // Verificar que el usuario existe
-    const existingUser = await User.findById(userId);
-    if (!existingUser) {
-      const error = new Error('User not found');
-      error.statusCode = 404;
-      throw error;
+    const existing = await getUserByIdRaw(userId);
+    if (!existing) {
+      throw buildError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    // Si se intenta cambiar el email, verificar que no esté en uso
-    if (updateData.email && updateData.email !== existingUser.email) {
-      const emailInUse = await User.findByEmail(updateData.email);
+    const nextEmail =
+      updateData.email !== undefined || updateData.email_login !== undefined
+        ? normalizeEmail(updateData.email || updateData.email_login)
+        : existing.email;
+
+    if (!nextEmail) {
+      throw buildError('Email is required', 400, 'EMAIL_REQUIRED');
+    }
+
+    if (nextEmail !== existing.email) {
+      const emailInUse = await UsuarioModel.findByEmailLogin(nextEmail);
       if (emailInUse) {
-        const error = new Error('Email already in use by another user');
-        error.statusCode = 400;
-        throw error;
+        throw buildError('Email already in use by another user', 400, 'EMAIL_IN_USE');
       }
     }
 
-    // Validar cambios de rol y client_id
-    const newRole = updateData.role || existingUser.role;
-    
-    // Si se está cambiando a rol 'client', debe tener client_id
-    if (newRole === 'client' && !updateData.client_id && !existingUser.client_id) {
-      const error = new Error('Los usuarios cliente deben estar vinculados a una empresa cliente');
-      error.statusCode = 400;
+    const nextRoleName = updateData.role ? toDbRole(updateData.role) : null;
+    let role = null;
+    if (nextRoleName) {
+      role = await RolModel.findByNombre(nextRoleName);
+      if (!role) {
+        throw buildError(`Role "${nextRoleName}" is not valid`, 400, 'ROLE_INVALID');
+      }
+    }
+
+    const client = await db.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `
+        UPDATE usuario
+        SET
+          email_login = $1,
+          estado = COALESCE($2, estado)
+        WHERE id = $3
+        `,
+        [nextEmail, updateData.estado, userId]
+      );
+
+      if (updateData.password) {
+        const passwordHash = await bcrypt.hash(updateData.password, PASSWORD_CONFIG.BCRYPT_ROUNDS);
+        await client.query('UPDATE usuario SET password_hash = $2 WHERE id = $1', [userId, passwordHash]);
+      }
+
+      if (
+        updateData.first_name !== undefined ||
+        updateData.last_name !== undefined ||
+        updateData.rut !== undefined ||
+        updateData.phone_number !== undefined
+      ) {
+        await client.query(
+          `
+          UPDATE persona
+          SET
+            nombres = COALESCE($1, nombres),
+            apellidos = COALESCE($2, apellidos),
+            rut = COALESCE(NULLIF($3, ''), rut),
+            telefono = COALESCE(NULLIF($4, ''), telefono)
+          WHERE id = $5
+          `,
+          [
+            updateData.first_name,
+            updateData.last_name,
+            updateData.rut,
+            updateData.phone_number,
+            existing.persona_id,
+          ]
+        );
+      }
+
+      if (role) {
+        await client.query('DELETE FROM usuario_rol WHERE usuario_id = $1', [userId]);
+        await client.query(
+          `
+          INSERT INTO usuario_rol (usuario_id, rol_id)
+          VALUES ($1, $2)
+          `,
+          [userId, role.id]
+        );
+      }
+
+      const shouldBeWorker = role ? role.nombre === 'trabajador' : normalizeDbRoles(existing.roles).includes('trabajador');
+      await ensureWorkerRecord(client, userId, existing.persona_id, shouldBeWorker);
+
+      await client.query('COMMIT');
+
+      return this.getUserById(userId);
+    } catch (error) {
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
-
-    // Si se está cambiando de 'client' a otro rol, limpiar client_id
-    if (newRole !== 'client' && existingUser.role === 'client') {
-      updateData.client_id = null;
-    }
-
-    // Validar que usuarios con rol diferente a 'client' NO tengan client_id (ignorar null/undefined)
-    if (newRole !== 'client' && updateData.client_id !== null && updateData.client_id !== undefined) {
-      const error = new Error('Solo los usuarios con rol cliente pueden estar vinculados a una empresa');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    const updatedUser = await User.update(userId, updateData);
-
-    logger.info(`Usuario ${userId} actualizado por admin`);
-
-    return updatedUser;
   }
 
-  /**
-   * Eliminar usuario por ID (solo admin)
-   * @param {number} userId - ID del usuario a eliminar
-   * @returns {Promise<object>} Usuario eliminado
-   */
   static async deleteUser(userId) {
-    // Verificar que el usuario existe
-    const existingUser = await User.findById(userId);
-    if (!existingUser) {
-      const error = new Error('User not found');
-      error.statusCode = 404;
+    const existing = await getUserByIdRaw(userId);
+    if (!existing) {
+      throw buildError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    const client = await db.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      await client.query('UPDATE usuario SET estado = $2 WHERE id = $1', [userId, 'inactivo']);
+      await client.query('UPDATE persona SET estado = $2 WHERE id = $1', [existing.persona_id, 'inactivo']);
+      await client.query('UPDATE trabajador SET estado = $2 WHERE usuario_id = $1', [userId, 'inactivo']);
+      await client.query('COMMIT');
+
+      logger.info(`Usuario ${userId} desactivado por admin`);
+
+      return {
+        id: userId,
+        estado: 'inactivo',
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
-
-    const deletedUser = await User.delete(userId);
-
-    logger.info(`Usuario ${userId} eliminado por admin`);
-
-    return deletedUser;
   }
 
-  // ============================================
-  // UTILIDADES
-  // ============================================
-
-  /**
-   * Generar token JWT para un usuario
-   * @param {object} user - Datos del usuario
-   * @returns {string} Token JWT
-   */
-  static generateUserToken(user) {
-    const payload = {
-      user: {
-        id: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        role: user.role,
-        profile_picture_url: user.profile_picture_url,
-      },
-    };
-
-    return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '8h' });
-  }
-
-  /**
-   * Validar que un email no esté en uso
-   * @param {string} email - Email a verificar
-   * @param {number} excludeUserId - ID de usuario a excluir de la búsqueda (para updates)
-   * @returns {Promise<boolean>} true si está disponible
-   */
   static async isEmailAvailable(email, excludeUserId = null) {
-    const user = await User.findByEmail(email);
-    
-    if (!user) {
-      return true; // Email disponible
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail) {
+      return false;
     }
 
-    // Si encontramos un usuario pero es el mismo que estamos excluyendo
+    const user = await UsuarioModel.findByEmailLogin(normalizedEmail);
+    if (!user) {
+      return true;
+    }
+
     if (excludeUserId && user.id === excludeUserId) {
       return true;
     }
 
-    return false; // Email en uso
+    return false;
+  }
+
+  static generateUserToken(user) {
+    return signAccessToken(user);
   }
 }
 

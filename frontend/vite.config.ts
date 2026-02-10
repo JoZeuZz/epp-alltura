@@ -44,6 +44,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/setupTests.ts',
     css: true,
+    exclude: ['tests/smoke/**', '**/node_modules/**', '**/dist/**'],
   },
   build: {
     outDir: 'dist',

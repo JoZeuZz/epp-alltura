@@ -36,11 +36,24 @@ export const useNotifications = (params?: {
         unread_only: params?.unreadOnly,
         limit: params?.limit || 20,
         offset: params?.offset || 0,
-      })) as { data: InAppNotification[]; total?: number };
-      setNotifications(response.data || []);
-      if (response.total !== undefined) {
-        setTotal(response.total);
-      }
+      })) as
+        | InAppNotification[]
+        | {
+            data?: InAppNotification[];
+            notifications?: InAppNotification[];
+            total?: number;
+          };
+
+      const notificationsList = Array.isArray(response)
+        ? response
+        : response?.data || response?.notifications || [];
+
+      setNotifications(notificationsList);
+      setTotal(
+        typeof response === 'object' && response && 'total' in response && typeof response.total === 'number'
+          ? response.total
+          : notificationsList.length
+      );
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : 'Error al cargar notificaciones';
@@ -53,8 +66,19 @@ export const useNotifications = (params?: {
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const response = await getUnreadNotificationsCount();
-      setUnreadCount(response.count);
+      const response = (await getUnreadNotificationsCount()) as
+        | number
+        | {
+            count?: number;
+            data?: { count?: number };
+          };
+
+      const count =
+        typeof response === 'number'
+          ? response
+          : response?.count ?? response?.data?.count ?? 0;
+
+      setUnreadCount(count);
     } catch (err: unknown) {
       console.error('Error fetching unread count:', err);
     }
@@ -160,10 +184,14 @@ export const useNotificationStats = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = (await getNotificationStats()) as {
-        data: NotificationStats;
-      };
-      setStats(response.data);
+      const response = (await getNotificationStats()) as
+        | NotificationStats
+        | {
+            data?: NotificationStats;
+          };
+
+      const resolved = (response as { data?: NotificationStats })?.data || (response as NotificationStats);
+      setStats(resolved);
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : 'Error al cargar estadísticas';

@@ -2,6 +2,10 @@ import React from 'react';
 import { useLoaderData } from 'react-router-dom';
 import { User } from '../../types/api';
 
+/**
+ * @deprecated Vista legacy de administración de usuarios.
+ * No está conectada al router EPP activo y se mantiene solo por compatibilidad temporal.
+ */
 interface LoaderData {
   users?: User[];
 }

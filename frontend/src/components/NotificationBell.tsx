@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../hooks/useNotifications';
 import NotificationItem from './NotificationItem';
-import { useAuth } from '../context/AuthContext';
 
 interface NotificationBellProps {
   variant?: 'light' | 'dark';
@@ -12,7 +11,6 @@ export default function NotificationBell({ variant = 'light' }: NotificationBell
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const { user } = useAuth();
   
   const {
     notifications,
@@ -156,8 +154,7 @@ export default function NotificationBell({ variant = 'light' }: NotificationBell
             <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex-shrink-0">
               <button
                 onClick={() => {
-                  const notificationsUrl = user?.role ? `/${user.role}/notifications` : '/notifications';
-                  navigate(notificationsUrl);
+                  navigate('/notifications');
                   setIsOpen(false);
                 }}
                 className="text-sm text-blue-600 hover:text-blue-800 font-medium block text-center w-full"

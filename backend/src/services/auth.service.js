@@ -1,8 +1,14 @@
-const User = require('../models/user');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const db = require('../db');
+const PersonaModel = require('../models/persona');
+const UsuarioModel = require('../models/usuario');
+const RolModel = require('../models/rol');
 const { generateTokenPair, revokeToken } = require('../middleware/auth');
 const { logger } = require('../lib/logger');
 const redisClient = require('../lib/redis');
+const { PASSWORD_CONFIG } = require('../middleware/passwordPolicy');
+const { toDbRole, toExternalRole, normalizeDbRoles, buildCompatibleRoles } = require('../lib/roleUtils');
 
 /**
  * AuthService
@@ -17,6 +23,36 @@ const redisClient = require('../lib/redis');
  * PROHIBIDO: No debe contener objetos req o res
  */
 class AuthService {
+  static normalizeEmail(userData = {}) {
+    return (userData.email_login || userData.email || '').trim().toLowerCase();
+  }
+
+  static normalizeRole(role) {
+    if (!role) return '';
+    return toDbRole(role);
+  }
+
+  static buildUserResponse(user) {
+    const dbRoles = normalizeDbRoles(user.roles || user.role);
+    const { compatibleRoles } = buildCompatibleRoles(dbRoles);
+    const dbPrimaryRole = toDbRole(user.role || dbRoles[0] || 'trabajador');
+    const primaryRole = toExternalRole(dbPrimaryRole);
+
+    return {
+      id: user.id,
+      email: user.email_login,
+      email_login: user.email_login,
+      first_name: user.nombres || '',
+      last_name: user.apellidos || '',
+      role: primaryRole,
+      role_db: dbPrimaryRole,
+      roles: compatibleRoles,
+      roles_db: dbRoles,
+      estado: user.estado,
+      rut: user.rut || null,
+    };
+  }
+
   // ============================================
   // REGISTRO Y AUTENTICACIÓN
   // ============================================
@@ -27,41 +63,106 @@ class AuthService {
    * @returns {Promise<object>} Usuario creado con tokens
    */
   static async registerUser(userData) {
-    const { email, password, first_name, last_name, role, rut, phone_number } = userData;
+    const emailLogin = AuthService.normalizeEmail(userData);
+    const roleName = AuthService.normalizeRole(userData.role);
+    const nombres = (userData.nombres || userData.first_name || '').trim();
+    const apellidos = (userData.apellidos || userData.last_name || '').trim();
+    const telefono = userData.telefono || userData.phone_number || null;
+    const rut = (userData.rut || '').trim();
+    const password = userData.password || '';
 
-    // Verificar si el usuario ya existe
-    const existingUser = await User.findByEmail(email);
+    if (!emailLogin) {
+      const error = new Error('Email is required.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!nombres || !apellidos) {
+      const error = new Error('First name and last name are required.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!rut) {
+      const error = new Error('RUT is required.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const role = await RolModel.findByNombre(roleName);
+    if (!role) {
+      const error = new Error(`Role "${roleName}" is not valid.`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const existingUser = await UsuarioModel.findByEmailLogin(emailLogin);
     if (existingUser) {
       const error = new Error('User with this email already exists.');
       error.statusCode = 400;
       throw error;
     }
 
-    // Crear usuario
-    const user = await User.create({
-      first_name,
-      last_name,
-      email,
-      password,
-      role,
-      rut,
-      phone_number,
-    });
+    const existingPersona = await PersonaModel.findByRut(rut);
+    if (existingPersona) {
+      const error = new Error('Person with this RUT already exists.');
+      error.statusCode = 400;
+      throw error;
+    }
 
-    // Generar tokens
+    const passwordHash = await bcrypt.hash(password, PASSWORD_CONFIG.BCRYPT_ROUNDS);
+    const client = await db.pool.connect();
+    let userId;
+
+    try {
+      await client.query('BEGIN');
+
+      const personaResult = await client.query(
+        `
+        INSERT INTO persona (rut, nombres, apellidos, telefono, email, estado)
+        VALUES ($1, $2, $3, $4, $5, 'activo')
+        RETURNING id
+        `,
+        [rut, nombres, apellidos, telefono, emailLogin]
+      );
+
+      const personaId = personaResult.rows[0].id;
+
+      const usuarioResult = await client.query(
+        `
+        INSERT INTO usuario (persona_id, email_login, password_hash, estado)
+        VALUES ($1, $2, $3, 'activo')
+        RETURNING id
+        `,
+        [personaId, emailLogin, passwordHash]
+      );
+
+      userId = usuarioResult.rows[0].id;
+
+      await client.query(
+        `
+        INSERT INTO usuario_rol (usuario_id, rol_id)
+        VALUES ($1, $2)
+        `,
+        [userId, role.id]
+      );
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    const user = await UsuarioModel.findByIdWithRoles(userId);
     const { accessToken, refreshToken } = await generateTokenPair(user);
 
-    logger.info(`Usuario registrado exitosamente: ${email} (ID: ${user.id})`);
+    logger.info(`Usuario registrado exitosamente: ${emailLogin} (ID: ${user.id})`);
 
     return {
       message: 'User created successfully',
-      user: {
-        id: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        email: user.email,
-        role: user.role,
-      },
+      user: AuthService.buildUserResponse(user),
       accessToken,
       refreshToken,
     };
@@ -77,7 +178,8 @@ class AuthService {
    */
   static async loginUser(email, password, ip, userAgent) {
     // Verificar rate limiting por email (protección contra brute force)
-    const failedAttempts = await redisClient.getFailedLoginCount(email);
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    const failedAttempts = await redisClient.getFailedLoginCount(normalizedEmail);
     if (failedAttempts >= 5) {
       logger.warn(`⚠️  Cuenta bloqueada temporalmente por múltiples intentos fallidos: ${email}`);
       const error = new Error(
@@ -88,11 +190,11 @@ class AuthService {
       throw error;
     }
 
-    // Buscar usuario por email
-    const user = await User.findByEmail(email);
+    // Buscar usuario por email_login
+    const user = await UsuarioModel.findByEmailLoginWithRoles(normalizedEmail);
     if (!user) {
       // Incrementar contador de intentos fallidos
-      await redisClient.incrementFailedLogin(email);
+      await redisClient.incrementFailedLogin(normalizedEmail);
       await redisClient.incrementFailedLogin(ip);
 
       logger.warn(`Intento de login fallido para email no existente: ${email}`);
@@ -101,11 +203,32 @@ class AuthService {
       throw error;
     }
 
+    if (user.estado === 'bloqueado') {
+      const error = new Error('Account is blocked. Contact an administrator.');
+      error.statusCode = 403;
+      error.code = 'ACCOUNT_BLOCKED';
+      throw error;
+    }
+
+    if (user.estado === 'inactivo') {
+      const error = new Error('Account is inactive.');
+      error.statusCode = 403;
+      error.code = 'ACCOUNT_INACTIVE';
+      throw error;
+    }
+
+    if (!Array.isArray(user.roles) || user.roles.length === 0) {
+      const error = new Error('User has no roles assigned.');
+      error.statusCode = 403;
+      error.code = 'NO_ROLES_ASSIGNED';
+      throw error;
+    }
+
     // Verificar contraseña
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       // Incrementar contador de intentos fallidos
-      await redisClient.incrementFailedLogin(email);
+      await redisClient.incrementFailedLogin(normalizedEmail);
       await redisClient.incrementFailedLogin(ip);
 
       logger.warn(`Intento de login fallido para usuario: ${email} desde IP: ${ip}`);
@@ -115,29 +238,21 @@ class AuthService {
     }
 
     // Login exitoso - resetear contador de intentos fallidos
-    await redisClient.resetFailedLogin(email);
+    await redisClient.resetFailedLogin(normalizedEmail);
     await redisClient.resetFailedLogin(ip);
 
     // Generar par de tokens
     const { accessToken, refreshToken } = await generateTokenPair(user);
 
     // Actualizar última conexión
-    await User.updateLastLogin(user.id, ip, userAgent);
+    await UsuarioModel.updateLastLogin(user.id);
 
-    logger.info(`✅ Login exitoso para usuario: ${email} desde IP: ${ip}`);
+    logger.info(`✅ Login exitoso para usuario: ${email} desde IP: ${ip} (${userAgent})`);
 
     return {
       accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        email: user.email,
-        role: user.role,
-        profile_picture_url: user.profile_picture_url,
-        must_change_password: user.must_change_password,
-      },
+      user: AuthService.buildUserResponse(user),
     };
   }
 
@@ -189,9 +304,10 @@ class AuthService {
       }
 
       // Verificar que el refresh token esté en Redis
-      const isValid = await redisClient.isRefreshTokenValid(decoded.user.id, refreshToken);
+      const userId = decoded.user?.id;
+      const isValid = await redisClient.isRefreshTokenValid(userId, refreshToken);
       if (!isValid) {
-        logger.warn(`⚠️  Intento de uso de refresh token inválido para usuario ${decoded.user.id}`);
+        logger.warn(`⚠️  Intento de uso de refresh token inválido para usuario ${userId}`);
         const error = new Error('Invalid or expired refresh token');
         error.statusCode = 401;
         error.code = 'REFRESH_TOKEN_INVALID';
@@ -199,15 +315,32 @@ class AuthService {
       }
 
       // Obtener información actualizada del usuario
-      const user = await User.findById(decoded.user.id);
+      const user = await UsuarioModel.findByIdWithRoles(userId);
       if (!user) {
+        await redisClient.revokeRefreshToken(userId, refreshToken);
         const error = new Error('User not found');
         error.statusCode = 404;
         throw error;
       }
 
+      if (user.estado !== 'activo') {
+        await redisClient.revokeAllUserRefreshTokens(user.id);
+        const error = new Error('User account is not active');
+        error.statusCode = 403;
+        error.code = 'ACCOUNT_NOT_ACTIVE';
+        throw error;
+      }
+
+      if (!Array.isArray(user.roles) || user.roles.length === 0) {
+        await redisClient.revokeAllUserRefreshTokens(user.id);
+        const error = new Error('User has no roles assigned');
+        error.statusCode = 403;
+        error.code = 'NO_ROLES_ASSIGNED';
+        throw error;
+      }
+
       // TOKEN ROTATION: Revocar el refresh token actual y generar uno nuevo
-      await redisClient.revokeRefreshToken(decoded.user.id, refreshToken);
+      await redisClient.revokeRefreshToken(user.id, refreshToken);
 
       // Generar nuevos tokens
       const { accessToken, refreshToken: newRefreshToken } = await generateTokenPair(user);
@@ -264,10 +397,16 @@ class AuthService {
     }
 
     // Obtener usuario
-    const user = await User.findById(userId);
+    const user = await UsuarioModel.findById(userId);
     if (!user) {
       const error = new Error('User not found');
       error.statusCode = 404;
+      throw error;
+    }
+
+    if (user.estado !== 'activo') {
+      const error = new Error('User account is not active');
+      error.statusCode = 403;
       throw error;
     }
 
@@ -289,18 +428,16 @@ class AuthService {
     }
 
     // Actualizar contraseña
-    await User.updatePassword(userId, newPassword);
-
-    // Si tenía que cambiar contraseña, marcar como completado
-    if (user.must_change_password) {
-      await User.clearPasswordChangeFlag(userId);
-    }
+    const newPasswordHash = await bcrypt.hash(newPassword, PASSWORD_CONFIG.BCRYPT_ROUNDS);
+    await UsuarioModel.updatePasswordHash(userId, newPasswordHash);
 
     // Revocar todos los tokens existentes (logout en todos los dispositivos)
     await redisClient.revokeAllUserRefreshTokens(userId);
 
+    const refreshedUser = await UsuarioModel.findByIdWithRoles(userId);
+
     // Generar nuevos tokens
-    const { accessToken, refreshToken } = await generateTokenPair(user);
+    const { accessToken, refreshToken } = await generateTokenPair(refreshedUser);
 
     logger.info(`✅ Contraseña cambiada exitosamente para usuario ${userId}`);
 
@@ -321,7 +458,8 @@ class AuthService {
    * @returns {Promise<boolean>} true si existe
    */
   static async emailExists(email) {
-    const user = await User.findByEmail(email);
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    const user = await UsuarioModel.findByEmailLogin(normalizedEmail);
     return !!user;
   }
 
@@ -340,7 +478,8 @@ class AuthService {
    * @returns {Promise<boolean>} true si está bloqueada
    */
   static async isAccountLocked(email) {
-    const failedAttempts = await redisClient.getFailedLoginCount(email);
+    const normalizedEmail = (email || '').trim().toLowerCase();
+    const failedAttempts = await redisClient.getFailedLoginCount(normalizedEmail);
     return failedAttempts >= 5;
   }
 }

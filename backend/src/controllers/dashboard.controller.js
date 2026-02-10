@@ -1,78 +1,86 @@
 const DashboardService = require('../services/dashboard.service');
 const { logger } = require('../lib/logger');
+const { sendSuccess } = require('../lib/apiResponse');
 
-/**
- * DashboardController
- * Capa de Controlador - Orquestación HTTP
- * Responsabilidades:
- * - Extraer datos del request
- * - Llamar a la capa de servicio
- * - Formatear y enviar respuestas HTTP
- * - Gestionar errores HTTP
- * 
- * PROHIBIDO: No debe contener lógica de negocio ni consultas SQL
- */
+const markDeprecatedEndpoint = (req, res, route) => {
+  res.setHeader('X-Deprecated-Endpoint', 'true');
+  logger.warn('Deprecated dashboard endpoint invoked', {
+    route,
+    userId: req.user?.id || null,
+    requestId: req.requestId || null,
+  });
+};
+
 class DashboardController {
-  /**
-   * GET /api/dashboard/summary
-   * Obtener resumen completo del dashboard (admin)
-   */
-  static async getSummary(req, res, _next) {
+  static async getSummary(req, res, next) {
     try {
-      const summary = await DashboardService.getDashboardSummary();
-
-      return res.status(200).json(summary);
+      const data = await DashboardService.getDashboardSummary();
+      return sendSuccess(res, { message: 'Resumen de dashboard obtenido correctamente', data });
     } catch (error) {
       logger.error('Error fetching dashboard summary:', error);
-      return res.status(500).json({ 
-        error: 'Server Error',
-        message: 'Error al obtener el resumen del dashboard' 
-      });
+      return next(error);
     }
   }
 
-  /**
-   * GET /api/dashboard/cubic-meters
-   * Obtener estadísticas detalladas de metros cúbicos (admin)
-   */
-  static async getCubicMetersStats(req, res, _next) {
+  static async getOperationalIndicators(req, res, next) {
     try {
-      const stats = await DashboardService.getCubicMetersDetailedStats();
-
-      return res.status(200).json(stats);
+      const data = await DashboardService.getOperationalIndicators();
+      return sendSuccess(res, { message: 'Indicadores operativos obtenidos correctamente', data });
     } catch (error) {
-      logger.error('Error fetching cubic meters stats:', error);
-      return res.status(500).json({ 
-        error: 'Server Error',
-        message: 'Error al obtener estadísticas de metros cúbicos' 
-      });
+      logger.error('Error fetching operational indicators:', error);
+      return next(error);
     }
   }
 
-  /**
-   * GET /api/dashboard/project/:projectId
-   * Obtener resumen del dashboard de un proyecto específico
-   */
-  static async getProjectSummary(req, res, _next) {
+  static async getLocationSummary(req, res, next) {
     try {
-      const { projectId } = req.params;
-
-      if (!projectId || isNaN(parseInt(projectId))) {
-        return res.status(400).json({
-          error: 'Bad Request',
-          message: 'ID de proyecto inválido'
-        });
+      const { ubicacionId } = req.params;
+      if (!ubicacionId) {
+        const error = new Error('ID de ubicación inválido');
+        error.statusCode = 400;
+        throw error;
       }
 
-      const summary = await DashboardService.getProjectDashboardSummary(parseInt(projectId));
-
-      return res.status(200).json(summary);
-    } catch (error) {
-      logger.error(`Error fetching project ${req.params.projectId} dashboard summary:`, error);
-      return res.status(500).json({
-        error: 'Server Error',
-        message: 'Error al obtener el resumen del proyecto'
+      const data = await DashboardService.getLocationDashboardSummary(ubicacionId);
+      return sendSuccess(res, {
+        message: 'Resumen por ubicación obtenido correctamente',
+        data,
       });
+    } catch (error) {
+      logger.error('Error fetching location dashboard summary:', error);
+      return next(error);
+    }
+  }
+
+  static async getCubicMetersStats(req, res, next) {
+    try {
+      markDeprecatedEndpoint(req, res, '/api/dashboard/cubic-meters');
+      const data = await DashboardService.getOperationalIndicators();
+      return sendSuccess(res, { message: 'Indicadores operativos obtenidos correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching deprecated operational stats:', error);
+      return next(error);
+    }
+  }
+
+  static async getProjectSummary(req, res, next) {
+    try {
+      const { projectId } = req.params;
+      if (!projectId) {
+        const error = new Error('ID de ubicación inválido');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      markDeprecatedEndpoint(req, res, '/api/dashboard/project/:projectId');
+      const data = await DashboardService.getLocationDashboardSummary(projectId);
+      return sendSuccess(res, {
+        message: 'Resumen por ubicación obtenido correctamente',
+        data,
+      });
+    } catch (error) {
+      logger.error('Error fetching deprecated location dashboard summary:', error);
+      return next(error);
     }
   }
 }

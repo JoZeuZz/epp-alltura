@@ -1,324 +1,290 @@
 const db = require('../db');
-const { logger } = require('../lib/logger');
-const { resolveImageUrl } = require('../lib/googleCloud');
 
-/**
- * DashboardService
- * Capa de Servicio - Lógica de Negocio Pura
- * Responsabilidades:
- * - Consultas SQL para estadísticas del dashboard
- * - Agregaciones y cálculos de métricas
- * - Formateo de datos para visualización
- * 
- * PROHIBIDO: No debe contener objetos req o res
- */
 class DashboardService {
-  // ============================================
-  // DASHBOARD SUMMARY (Resumen General)
-  // ============================================
-
-  /**
-   * Obtener resumen completo del dashboard (admin)
-   * @returns {Promise<object>} Métricas generales del sistema
-   */
   static async getDashboardSummary() {
-    try {
-      // 1. Estadísticas de metros cúbicos por estado
-      const cubicMetersStats = await this.getCubicMetersStats();
+    const [
+      activosResult,
+      entregasResult,
+      devolucionesResult,
+      firmasResult,
+      stockResult,
+      movimientosStockRecentResult,
+      movimientosActivoRecentResult,
+      articulosTopResult,
+    ] = await Promise.all([
+      db.query(
+        `
+        SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE estado = 'en_stock')::int AS en_stock,
+          COUNT(*) FILTER (WHERE estado = 'asignado')::int AS asignado,
+          COUNT(*) FILTER (WHERE estado = 'mantencion')::int AS mantencion,
+          COUNT(*) FILTER (WHERE estado = 'perdido')::int AS perdido,
+          COUNT(*) FILTER (WHERE estado = 'dado_de_baja')::int AS dado_de_baja
+        FROM activo
+        `
+      ),
+      db.query(
+        `
+        SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE estado = 'borrador')::int AS borrador,
+          COUNT(*) FILTER (WHERE estado = 'pendiente_firma')::int AS pendiente_firma,
+          COUNT(*) FILTER (WHERE estado = 'confirmada')::int AS confirmada,
+          COUNT(*) FILTER (WHERE confirmada_en >= NOW() - INTERVAL '30 days')::int AS confirmadas_30d
+        FROM entrega
+        `
+      ),
+      db.query(
+        `
+        SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE estado = 'borrador')::int AS borrador,
+          COUNT(*) FILTER (WHERE estado = 'confirmada')::int AS confirmada,
+          COUNT(*) FILTER (WHERE estado = 'anulada')::int AS anulada,
+          COUNT(*) FILTER (WHERE confirmada_en >= NOW() - INTERVAL '30 days')::int AS confirmadas_30d
+        FROM devolucion
+        `
+      ),
+      db.query(
+        `
+        SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE firmado_en >= NOW() - INTERVAL '30 days')::int AS firmadas_30d
+        FROM firma_entrega
+        `
+      ),
+      db.query(
+        `
+        SELECT
+          COALESCE(SUM(cantidad_disponible), 0) AS total_disponible,
+          COALESCE(SUM(cantidad_reservada), 0) AS total_reservado,
+          COUNT(*) FILTER (WHERE cantidad_disponible <= 0)::int AS registros_agotados
+        FROM stock
+        `
+      ),
+      db.query(
+        `
+        SELECT
+          ms.id,
+          'stock' AS origen,
+          ms.fecha_movimiento,
+          ms.tipo,
+          ms.cantidad,
+          a.nombre AS articulo_nombre,
+          uo.nombre AS ubicacion_origen_nombre,
+          ud.nombre AS ubicacion_destino_nombre
+        FROM movimiento_stock ms
+        INNER JOIN articulo a ON a.id = ms.articulo_id
+        LEFT JOIN ubicacion uo ON uo.id = ms.ubicacion_origen_id
+        LEFT JOIN ubicacion ud ON ud.id = ms.ubicacion_destino_id
+        ORDER BY ms.fecha_movimiento DESC
+        LIMIT 8
+        `
+      ),
+      db.query(
+        `
+        SELECT
+          ma.id,
+          'activo' AS origen,
+          ma.fecha_movimiento,
+          ma.tipo,
+          a.codigo AS activo_codigo,
+          ar.nombre AS articulo_nombre,
+          uo.nombre AS ubicacion_origen_nombre,
+          ud.nombre AS ubicacion_destino_nombre
+        FROM movimiento_activo ma
+        INNER JOIN activo a ON a.id = ma.activo_id
+        INNER JOIN articulo ar ON ar.id = a.articulo_id
+        LEFT JOIN ubicacion uo ON uo.id = ma.ubicacion_origen_id
+        LEFT JOIN ubicacion ud ON ud.id = ma.ubicacion_destino_id
+        ORDER BY ma.fecha_movimiento DESC
+        LIMIT 8
+        `
+      ),
+      db.query(
+        `
+        SELECT
+          a.id,
+          a.nombre,
+          COUNT(ms.id)::int AS movimientos_30d,
+          COALESCE(SUM(ms.cantidad), 0) AS cantidad_30d
+        FROM articulo a
+        LEFT JOIN movimiento_stock ms ON ms.articulo_id = a.id
+          AND ms.fecha_movimiento >= NOW() - INTERVAL '30 days'
+        GROUP BY a.id
+        ORDER BY movimientos_30d DESC, cantidad_30d DESC
+        LIMIT 8
+        `
+      ),
+    ]);
 
-      // 2. Estadísticas de andamios por estado
-      const scaffoldStats = await this.getScaffoldStats();
-
-      // 3. Proyectos activos
-      const activeProjects = await this.getActiveProjectsCount();
-
-      // 4. Clientes activos
-      const activeClients = await this.getActiveClientsCount();
-
-      // 5. Andamios creados en las últimas 24 horas
-      const recentScaffoldsCount = await this.getRecentScaffoldsCount();
-
-      // 6. Últimos 5 andamios creados
-      const recentScaffolds = await this.getRecentScaffolds();
-
-      return {
-        // Métricas de proyectos y clientes
-        activeProjects,
-        activeClients,
-
-        // Métricas de metros cúbicos
-        totalCubicMeters: parseFloat(cubicMetersStats.total_cubic_meters) || 0,
-        assembledCubicMeters: parseFloat(cubicMetersStats.assembled_cubic_meters) || 0,
-        disassembledCubicMeters: parseFloat(cubicMetersStats.disassembled_cubic_meters) || 0,
-        inProgressCubicMeters: parseFloat(cubicMetersStats.in_progress_cubic_meters) || 0,
-
-        // Métricas de andamios
-        totalScaffolds: parseInt(scaffoldStats.total_scaffolds, 10) || 0,
-        assembledScaffolds: parseInt(scaffoldStats.assembled_count, 10) || 0,
-        disassembledScaffolds: parseInt(scaffoldStats.disassembled_count, 10) || 0,
-        inProgressScaffolds: parseInt(scaffoldStats.in_progress_count, 10) || 0,
-        greenCards: parseInt(scaffoldStats.green_cards_count, 10) || 0,
-        redCards: parseInt(scaffoldStats.red_cards_count, 10) || 0,
-
-        // Andamios recientes
-        recentScaffoldsCount,
-        recentScaffolds,
-      };
-    } catch (error) {
-      logger.error('Error obteniendo resumen del dashboard:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Obtener resumen completo del dashboard de un proyecto específico
-   * @param {number} projectId - ID del proyecto
-   * @returns {Promise<object>} Métricas del proyecto
-   */
-  static async getProjectDashboardSummary(projectId) {
-    try {
-      // 1. Estadísticas de metros cúbicos por estado en el proyecto
-      const cubicMetersResult = await db.query(
-        `SELECT 
-          COALESCE(SUM(cubic_meters), 0) as total_cubic_meters,
-          COALESCE(SUM(CASE WHEN assembly_status = 'assembled' THEN cubic_meters ELSE 0 END), 0) as assembled_cubic_meters,
-          COALESCE(SUM(CASE WHEN assembly_status = 'disassembled' THEN cubic_meters ELSE 0 END), 0) as disassembled_cubic_meters,
-          COALESCE(SUM(CASE WHEN assembly_status = 'in_progress' THEN cubic_meters ELSE 0 END), 0) as in_progress_cubic_meters
-        FROM scaffolds
-        WHERE project_id = $1`,
-        [projectId]
-      );
-
-      // 2. Estadísticas de andamios por estado en el proyecto
-      const scaffoldStatsResult = await db.query(
-        `SELECT 
-          COUNT(*)::int as total_scaffolds,
-          COUNT(CASE WHEN assembly_status = 'assembled' THEN 1 END)::int as assembled_scaffolds,
-          COUNT(CASE WHEN assembly_status = 'disassembled' THEN 1 END)::int as disassembled_scaffolds,
-          COUNT(CASE WHEN assembly_status = 'in_progress' THEN 1 END)::int as in_progress_scaffolds,
-          COUNT(CASE WHEN card_status = 'green' THEN 1 END)::int as green_cards,
-          COUNT(CASE WHEN card_status = 'red' THEN 1 END)::int as red_cards
-        FROM scaffolds
-        WHERE project_id = $1`,
-        [projectId]
-      );
-
-      // 3. Andamios creados en las últimas 24 horas
-      const recentScaffoldsResult = await db.query(
-        `SELECT COUNT(*)::int as recent_count
-        FROM scaffolds
-        WHERE project_id = $1 
-        AND assembly_created_at >= NOW() - INTERVAL '24 hours'`,
-        [projectId]
-      );
-
-      // 4. Últimos 5 andamios creados en el proyecto
-      const recentScaffoldsListResult = await db.query(
-        `SELECT 
-          s.id, s.scaffold_number, s.area, s.tag, 
-          s.width, s.length, s.height, s.cubic_meters,
-          s.assembly_status, s.card_status, s.progress_percentage,
-          s.assembly_image_url, s.disassembly_image_url,
-          s.assembly_created_at, s.updated_at,
-          u.first_name as creator_first_name,
-          u.last_name as creator_last_name
-        FROM scaffolds s
-        LEFT JOIN users u ON s.created_by = u.id
-        WHERE s.project_id = $1
-        ORDER BY s.assembly_created_at DESC
-        LIMIT 5`,
-        [projectId]
-      );
-
-      // 5. Progreso promedio del proyecto
-      const progressResult = await db.query(
-        `SELECT 
-          COALESCE(AVG(progress_percentage), 0) as avg_progress
-        FROM scaffolds
-        WHERE project_id = $1`,
-        [projectId]
-      );
-
-      const cubicMetersStats = cubicMetersResult.rows[0];
-      const scaffoldStats = scaffoldStatsResult.rows[0];
-      const recentCount = recentScaffoldsResult.rows[0].recent_count;
-      const avgProgress = Math.round(parseFloat(progressResult.rows[0].avg_progress) || 0);
-
-      const recentScaffolds = await Promise.all(
-        (recentScaffoldsListResult.rows || []).map(async (scaffold) => ({
-          ...scaffold,
-          assembly_image_url: await resolveImageUrl(scaffold.assembly_image_url),
-          disassembly_image_url: await resolveImageUrl(scaffold.disassembly_image_url),
-        }))
-      );
-
-      return {
-        // Métricas de metros cúbicos
-        totalCubicMeters: parseFloat(cubicMetersStats.total_cubic_meters) || 0,
-        assembledCubicMeters: parseFloat(cubicMetersStats.assembled_cubic_meters) || 0,
-        disassembledCubicMeters: parseFloat(cubicMetersStats.disassembled_cubic_meters) || 0,
-        inProgressCubicMeters: parseFloat(cubicMetersStats.in_progress_cubic_meters) || 0,
-
-        // Métricas de andamios
-        totalScaffolds: scaffoldStats.total_scaffolds || 0,
-        assembledScaffolds: scaffoldStats.assembled_scaffolds || 0,
-        disassembledScaffolds: scaffoldStats.disassembled_scaffolds || 0,
-        inProgressScaffolds: scaffoldStats.in_progress_scaffolds || 0,
-        greenCards: scaffoldStats.green_cards || 0,
-        redCards: scaffoldStats.red_cards || 0,
-
-        // Métricas adicionales
-        recentScaffoldsCount: recentCount || 0,
-        recentScaffolds,
-        avgProgress: avgProgress,
-      };
-    } catch (error) {
-      logger.error('Error al obtener resumen del proyecto:', error);
-      throw error;
-    }
-  }
-
-  // ============================================
-  // MÉTRICAS DE METROS CÚBICOS
-  // ============================================
-
-  /**
-   * Obtener estadísticas de metros cúbicos por estado
-   * @returns {Promise<object>} Estadísticas de m³ agrupadas por estado
-   */
-  static async getCubicMetersStats() {
-    const query = `
-      SELECT 
-        SUM(CASE WHEN assembly_status = 'assembled' THEN cubic_meters ELSE 0 END) as assembled_cubic_meters,
-        SUM(CASE WHEN assembly_status = 'disassembled' THEN cubic_meters ELSE 0 END) as disassembled_cubic_meters,
-        SUM(CASE WHEN assembly_status = 'in_progress' THEN cubic_meters ELSE 0 END) as in_progress_cubic_meters,
-        SUM(cubic_meters) as total_cubic_meters
-      FROM scaffolds
-    `;
-
-    const result = await db.query(query);
-    return result.rows[0];
-  }
-
-  /**
-   * Obtener estadísticas detalladas de metros cúbicos
-   * @returns {Promise<object>} Estadísticas completas con conteos
-   */
-  static async getCubicMetersDetailedStats() {
-    const query = `
-      SELECT 
-        SUM(CASE WHEN assembly_status = 'assembled' THEN cubic_meters ELSE 0 END) as assembled_cubic_meters,
-        SUM(CASE WHEN assembly_status = 'disassembled' THEN cubic_meters ELSE 0 END) as disassembled_cubic_meters,
-        SUM(cubic_meters) as total_cubic_meters,
-        COUNT(*) FILTER (WHERE assembly_status = 'assembled') as assembled_count,
-        COUNT(*) FILTER (WHERE assembly_status = 'disassembled') as disassembled_count,
-        COUNT(*) as total_count,
-        COUNT(*) FILTER (WHERE card_status = 'green') as green_cards_count,
-        COUNT(*) FILTER (WHERE card_status = 'red') as red_cards_count
-      FROM scaffolds
-    `;
-
-    const result = await db.query(query);
-    const stats = result.rows[0];
+    const activos = activosResult.rows[0];
+    const entregas = entregasResult.rows[0];
+    const devoluciones = devolucionesResult.rows[0];
+    const firmas = firmasResult.rows[0];
+    const stock = stockResult.rows[0];
 
     return {
-      assembled_cubic_meters: parseFloat(stats.assembled_cubic_meters) || 0,
-      disassembled_cubic_meters: parseFloat(stats.disassembled_cubic_meters) || 0,
-      total_cubic_meters: parseFloat(stats.total_cubic_meters) || 0,
-      assembled_count: parseInt(stats.assembled_count, 10) || 0,
-      disassembled_count: parseInt(stats.disassembled_count, 10) || 0,
-      total_count: parseInt(stats.total_count, 10) || 0,
-      green_cards_count: parseInt(stats.green_cards_count, 10) || 0,
-      red_cards_count: parseInt(stats.red_cards_count, 10) || 0,
+      activos: {
+        total: activos.total || 0,
+        en_stock: activos.en_stock || 0,
+        asignado: activos.asignado || 0,
+        mantencion: activos.mantencion || 0,
+        perdido: activos.perdido || 0,
+        dado_de_baja: activos.dado_de_baja || 0,
+      },
+      entregas: {
+        total: entregas.total || 0,
+        borrador: entregas.borrador || 0,
+        pendiente_firma: entregas.pendiente_firma || 0,
+        confirmada: entregas.confirmada || 0,
+        confirmadas_30d: entregas.confirmadas_30d || 0,
+      },
+      devoluciones: {
+        total: devoluciones.total || 0,
+        borrador: devoluciones.borrador || 0,
+        confirmada: devoluciones.confirmada || 0,
+        anulada: devoluciones.anulada || 0,
+        confirmadas_30d: devoluciones.confirmadas_30d || 0,
+      },
+      firmas: {
+        total: firmas.total || 0,
+        firmadas_30d: firmas.firmadas_30d || 0,
+      },
+      stock: {
+        total_disponible: Number(stock.total_disponible || 0),
+        total_reservado: Number(stock.total_reservado || 0),
+        registros_agotados: stock.registros_agotados || 0,
+      },
+      movimientos_recientes: {
+        stock: movimientosStockRecentResult.rows,
+        activos: movimientosActivoRecentResult.rows,
+      },
+      articulos_top_movimiento_30d: articulosTopResult.rows,
     };
   }
 
-  // ============================================
-  // MÉTRICAS DE ANDAMIOS
-  // ============================================
+  static async getOperationalIndicators() {
+    const [stockMovementsResult, assetMovementsResult] = await Promise.all([
+      db.query(
+        `
+        SELECT
+          COUNT(*)::int AS total_movimientos,
+          COUNT(*) FILTER (WHERE tipo = 'entrada')::int AS entradas,
+          COUNT(*) FILTER (WHERE tipo = 'entrega')::int AS entregas,
+          COUNT(*) FILTER (WHERE tipo = 'devolucion')::int AS devoluciones,
+          COUNT(*) FILTER (WHERE tipo = 'baja')::int AS bajas,
+          COALESCE(SUM(cantidad), 0) AS cantidad_total
+        FROM movimiento_stock
+        WHERE fecha_movimiento >= NOW() - INTERVAL '30 days'
+        `
+      ),
+      db.query(
+        `
+        SELECT
+          COUNT(*)::int AS total_movimientos,
+          COUNT(*) FILTER (WHERE tipo = 'entrada')::int AS entradas,
+          COUNT(*) FILTER (WHERE tipo = 'entrega')::int AS entregas,
+          COUNT(*) FILTER (WHERE tipo = 'devolucion')::int AS devoluciones,
+          COUNT(*) FILTER (WHERE tipo = 'mantencion')::int AS mantenciones,
+          COUNT(*) FILTER (WHERE tipo = 'baja')::int AS bajas
+        FROM movimiento_activo
+        WHERE fecha_movimiento >= NOW() - INTERVAL '30 days'
+        `
+      ),
+    ]);
 
-  /**
-   * Obtener estadísticas de andamios por estado
-   * @returns {Promise<object>} Conteos de andamios agrupados
-   */
-  static async getScaffoldStats() {
-    const query = `
-      SELECT 
-        COUNT(*) FILTER (WHERE assembly_status = 'assembled') as assembled_count,
-        COUNT(*) FILTER (WHERE assembly_status = 'disassembled') as disassembled_count,
-        COUNT(*) FILTER (WHERE assembly_status = 'in_progress') as in_progress_count,
-        COUNT(*) as total_scaffolds,
-        COUNT(*) FILTER (WHERE card_status = 'green') as green_cards_count,
-        COUNT(*) FILTER (WHERE card_status = 'red') as red_cards_count
-      FROM scaffolds
-    `;
+    const stock = stockMovementsResult.rows[0];
+    const activos = assetMovementsResult.rows[0];
 
-    const result = await db.query(query);
-    return result.rows[0];
+    return {
+      periodo: '30d',
+      movimientos_stock: {
+        total: stock.total_movimientos || 0,
+        entradas: stock.entradas || 0,
+        entregas: stock.entregas || 0,
+        devoluciones: stock.devoluciones || 0,
+        bajas: stock.bajas || 0,
+        cantidad_total: Number(stock.cantidad_total || 0),
+      },
+      movimientos_activo: {
+        total: activos.total_movimientos || 0,
+        entradas: activos.entradas || 0,
+        entregas: activos.entregas || 0,
+        devoluciones: activos.devoluciones || 0,
+        mantenciones: activos.mantenciones || 0,
+        bajas: activos.bajas || 0,
+      },
+    };
   }
 
-  // ============================================
-  // MÉTRICAS DE PROYECTOS Y CLIENTES
-  // ============================================
+  static async getLocationDashboardSummary(ubicacionId) {
+    const [stockResult, activosResult, entregasResult] = await Promise.all([
+      db.query(
+        `
+        SELECT
+          COUNT(*)::int AS registros_stock,
+          COALESCE(SUM(cantidad_disponible), 0) AS total_disponible,
+          COALESCE(SUM(cantidad_reservada), 0) AS total_reservado
+        FROM stock
+        WHERE ubicacion_id = $1
+        `,
+        [ubicacionId]
+      ),
+      db.query(
+        `
+        SELECT
+          COUNT(*)::int AS total_activos,
+          COUNT(*) FILTER (WHERE estado = 'en_stock')::int AS en_stock,
+          COUNT(*) FILTER (WHERE estado = 'asignado')::int AS asignado,
+          COUNT(*) FILTER (WHERE estado = 'mantencion')::int AS mantencion
+        FROM activo
+        WHERE ubicacion_actual_id = $1
+        `,
+        [ubicacionId]
+      ),
+      db.query(
+        `
+        SELECT
+          COUNT(*)::int AS total_entregas,
+          COUNT(*) FILTER (WHERE estado = 'pendiente_firma')::int AS pendientes_firma,
+          COUNT(*) FILTER (WHERE estado = 'confirmada')::int AS confirmadas
+        FROM entrega
+        WHERE ubicacion_origen_id = $1
+           OR ubicacion_destino_id = $1
+        `,
+        [ubicacionId]
+      ),
+    ]);
 
-  /**
-   * Obtener cantidad de proyectos activos
-   * @returns {Promise<number>} Total de proyectos con status='active'
-   */
-  static async getActiveProjectsCount() {
-    const query = "SELECT COUNT(*) as total FROM projects WHERE status = 'active'";
-    const result = await db.query(query);
-    return parseInt(result.rows[0].total, 10);
+    return {
+      ubicacion_id: ubicacionId,
+      stock: {
+        registros_stock: stockResult.rows[0].registros_stock || 0,
+        total_disponible: Number(stockResult.rows[0].total_disponible || 0),
+        total_reservado: Number(stockResult.rows[0].total_reservado || 0),
+      },
+      activos: {
+        total: activosResult.rows[0].total_activos || 0,
+        en_stock: activosResult.rows[0].en_stock || 0,
+        asignado: activosResult.rows[0].asignado || 0,
+        mantencion: activosResult.rows[0].mantencion || 0,
+      },
+      entregas: {
+        total: entregasResult.rows[0].total_entregas || 0,
+        pendientes_firma: entregasResult.rows[0].pendientes_firma || 0,
+        confirmadas: entregasResult.rows[0].confirmadas || 0,
+      },
+    };
   }
 
-  /**
-   * Obtener cantidad de clientes activos
-   * @returns {Promise<number>} Total de clientes con active=true
-   */
-  static async getActiveClientsCount() {
-    const query = 'SELECT COUNT(*) as total FROM clients WHERE active = true';
-    const result = await db.query(query);
-    return parseInt(result.rows[0].total, 10);
+  static async getCubicMetersDetailedStats() {
+    return this.getOperationalIndicators();
   }
 
-  // ============================================
-  // ANDAMIOS RECIENTES
-  // ============================================
-
-  /**
-   * Obtener cantidad de andamios creados en las últimas 24 horas
-   * @returns {Promise<number>} Conteo de andamios recientes
-   */
-  static async getRecentScaffoldsCount() {
-    const query =
-      "SELECT COUNT(*) as total FROM scaffolds WHERE assembly_created_at >= NOW() - INTERVAL '24 hours'";
-    const result = await db.query(query);
-    return parseInt(result.rows[0].total, 10);
-  }
-
-  /**
-   * Obtener los últimos 5 andamios creados
-   * @returns {Promise<Array>} Lista de andamios recientes con detalles
-   */
-  static async getRecentScaffolds() {
-    const query = `
-      SELECT 
-        s.id, 
-        s.assembly_created_at as created_at, 
-        s.project_id, 
-        s.assembly_status, 
-        s.card_status,
-        p.name as project_name,
-        TRIM(COALESCE(creator.first_name, '') || ' ' || COALESCE(creator.last_name, '')) as created_by_name
-      FROM scaffolds s
-      JOIN projects p ON s.project_id = p.id
-      LEFT JOIN users creator ON s.created_by = creator.id
-      ORDER BY s.assembly_created_at DESC
-      LIMIT 5
-    `;
-
-    const result = await db.query(query);
-    return result.rows;
+  static async getProjectDashboardSummary(ubicacionId) {
+    return this.getLocationDashboardSummary(ubicacionId);
   }
 }
 

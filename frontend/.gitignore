@@ -23,3 +23,6 @@ yarn-debug.log*
 yarn-error.log*
 
 docs/
+.env
+service-account.json
+dist/

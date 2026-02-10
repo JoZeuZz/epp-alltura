@@ -55,7 +55,6 @@ const cacheControl =
 const getSharp = () => {
   try {
     // Lazy-load to avoid hard failure if dependency isn't installed.
-    // eslint-disable-next-line global-require
     return require('sharp');
   } catch (error) {
     logger.warn('Sharp not available for lossless compression', { error: error.message });

@@ -1,5 +1,6 @@
 const AuthService = require('../services/auth.service');
 const { logger } = require('../lib/logger');
+const { sendSuccess } = require('../lib/apiResponse');
 
 /**
  * AuthController
@@ -19,19 +20,39 @@ class AuthController {
    */
   static async register(req, res, next) {
     try {
-      const { email, password, first_name, last_name, role, rut, phone_number } = req.body;
-
-      const result = await AuthService.registerUser({
+      const {
         email,
+        email_login,
         password,
         first_name,
         last_name,
+        nombres,
+        apellidos,
         role,
         rut,
         phone_number,
+        telefono,
+      } = req.body;
+
+      const result = await AuthService.registerUser({
+        email,
+        email_login,
+        password,
+        first_name,
+        last_name,
+        nombres,
+        apellidos,
+        role,
+        rut,
+        phone_number,
+        telefono,
       });
 
-      return res.status(201).json(result);
+      return sendSuccess(res, {
+        status: 201,
+        message: 'Usuario registrado exitosamente',
+        data: result,
+      });
     } catch (error) {
       logger.error('Error en registro de usuario:', error);
       next(error);
@@ -44,13 +65,16 @@ class AuthController {
    */
   static async login(req, res, next) {
     try {
-      const { email, password } = req.body;
+      const { email, email_login, password } = req.body;
       const ip = req.ip || req.connection.remoteAddress;
       const userAgent = req.get('user-agent') || 'Unknown';
 
-      const result = await AuthService.loginUser(email, password, ip, userAgent);
+      const result = await AuthService.loginUser(email || email_login, password, ip, userAgent);
 
-      return res.status(200).json(result);
+      return sendSuccess(res, {
+        message: 'Inicio de sesión exitoso',
+        data: result,
+      });
     } catch (error) {
       logger.error('Error en login:', error);
       next(error);
@@ -68,8 +92,11 @@ class AuthController {
 
       await AuthService.logoutUser(userId, accessToken);
 
-      return res.status(200).json({
-        message: 'Logged out successfully',
+      return sendSuccess(res, {
+        message: 'Sesión cerrada exitosamente',
+        data: {
+          user_id: userId,
+        },
       });
     } catch (error) {
       logger.error('Error en logout:', error);
@@ -87,7 +114,10 @@ class AuthController {
 
       const result = await AuthService.refreshAccessToken(refreshToken);
 
-      return res.status(200).json(result);
+      return sendSuccess(res, {
+        message: 'Token renovado exitosamente',
+        data: result,
+      });
     } catch (error) {
       logger.error('Error en refresh token:', error);
       next(error);
@@ -105,7 +135,10 @@ class AuthController {
 
       const result = await AuthService.changePassword(userId, currentPassword, newPassword);
 
-      return res.status(200).json(result);
+      return sendSuccess(res, {
+        message: 'Contraseña actualizada exitosamente',
+        data: result,
+      });
     } catch (error) {
       logger.error('Error en cambio de contraseña:', error);
       next(error);

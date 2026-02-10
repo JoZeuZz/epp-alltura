@@ -12,7 +12,7 @@ export const usePost = <T, U>(key: string, url: string) => {
   });
 };
 
-export const usePut = <T, U extends { id?: number }>(
+export const usePut = <T, U extends { id?: number | string }>(
   key: string,
   url: string,
 ) => {
@@ -20,8 +20,8 @@ export const usePut = <T, U extends { id?: number }>(
   return useMutation<T, Error, U>({
     mutationFn: (data) => {
       // Si se provee un ID, se usa para la URL. Si no, se usa la URL base.
-      const finalUrl = data.id ? `${url}/${data.id}` : url;
       const { id, ...payload } = data;
+      const finalUrl = id !== undefined && id !== null && id !== '' ? `${url}/${id}` : url;
       return api.put<T>(finalUrl, payload);
     },
     onSuccess: () => {
@@ -32,8 +32,8 @@ export const usePut = <T, U extends { id?: number }>(
 
 export const useDelete = <T>(key: string, url: string) => {
   const queryClient = useQueryClient();
-  return useMutation<T, Error, number>({
-    mutationFn: (id: number) => api.del<T>(`${url}/${id}`),
+  return useMutation<T, Error, number | string>({
+    mutationFn: (id: number | string) => api.del<T>(`${url}/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [key] });
     },

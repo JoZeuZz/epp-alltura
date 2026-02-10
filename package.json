@@ -11,9 +11,15 @@
     "db:up": "docker-compose up -d",
     "db:logs": "docker-compose logs -f postgres_db",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "lint:backend": "npm run lint --prefix backend",
+    "lint:frontend": "npm run lint --prefix frontend",
+    "lint": "npm-run-all lint:backend lint:frontend",
+    "check:legacy": "node scripts/check-legacy.js",
+    "lint:ci": "npm-run-all lint check:legacy",
     "test": "npm-run-all test:backend test:frontend",
     "test:backend": "npm test --prefix backend",
-    "test:frontend": "npm test --prefix frontend"
+    "test:frontend": "npm test --prefix frontend",
+    "test:integration-db": "npm run test:integration-db --prefix backend"
   },
   "keywords": [],
   "author": "",
