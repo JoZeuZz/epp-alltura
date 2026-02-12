@@ -150,9 +150,13 @@ const AppLayout = () => {
   const activeLinkClass = `flex items-center px-3 py-2 text-white bg-primary-blue rounded-lg ${
     !isSidebarOpen ? 'lg:justify-center lg:px-2' : ''
   }`;
+  const navSectionClass = `px-3 pt-3 pb-1 text-[11px] font-semibold tracking-[0.08em] text-gray-400 uppercase ${
+    !isSidebarOpen ? 'lg:hidden' : ''
+  }`;
 
   const adminLinks = (
     <Fragment>
+      <p className={navSectionClass}>Operaciones</p>
       <NavLink
         to="/admin/dashboard"
         onClick={handleLinkClick}
@@ -182,6 +186,17 @@ const AppLayout = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h18v4H3V3zm0 7h18v11H3V10zm4 3v5m4-5v5m4-5v5" />
         </svg>
         <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Auditoría</span>
+      </NavLink>
+      <p className={navSectionClass}>Configuración</p>
+      <NavLink
+        to="/admin/users"
+        onClick={handleLinkClick}
+        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
+      >
+        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.655-.084-1.289-.241-1.892M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.655.084-1.289.241-1.892m0 0a5.002 5.002 0 019.518 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM6 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Usuarios del Sistema</span>
       </NavLink>
     </Fragment>
   );
@@ -475,11 +490,8 @@ const AppLayout = () => {
           {/* Logo centrado en móvil, a la izquierda en desktop */}
           <img src={logoWhite} alt="Alltura Logo" className="h-8 w-auto lg:ml-0" />
           
-          {/* Notification Bell - visible para todos los usuarios autenticados */}
-          <div className="lg:hidden p-2 -mr-2">
-            <NotificationBell variant="dark" />
-          </div>
-          <div className="hidden lg:block">
+          {/* Notification Bell - una sola instancia para evitar polling duplicado */}
+          <div className="p-2 -mr-2">
             <NotificationBell variant="dark" />
           </div>
         </header>

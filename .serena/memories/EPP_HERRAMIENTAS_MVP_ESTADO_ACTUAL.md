@@ -42,6 +42,16 @@
 - Compatibilidad legacy:
   - rutas `/api/users` y `/api/notifications` conservadas,
   - operación interna convergida a modelo MER.
+- Retiro legacy fase 2:
+  - `backend/src/middleware/validators.js` retirado del backend,
+  - `backend/src/lib/validators.js` y `backend/src/middleware/validate.js` retirados del backend,
+  - `backend/src/lib/validation/index.js` reducido a superficie MER activa (`PATTERNS`, `email`, `password`, `personName`, `rut`, `phoneNumber`, `userRole`, `pushSubscription`),
+  - guardrail de código `check:backend-validation` agregado al flujo CI para impedir reintroducción.
+- Retiro legacy adicional:
+  - alias dashboard legacy `/api/dashboard/cubic-meters` y `/api/dashboard/project/:projectId` retirados; quedan solo endpoints canónicos EPP,
+  - `frontend/src/services/apiService.legacy.ts` retirado,
+  - `frontend/src/pages/admin/UsersPage.tsx` retirado (huérfano no enrutado),
+  - `backend/src/models/user.js` retirado (sin referencias activas).
 
 ## Frontend MVP por rol
 - Navegación principal enfocada en flujo EPP por rol (`admin`, `supervisor`, `bodega`, `worker`).
@@ -71,6 +81,6 @@
 - Checklist manual de smoke funcional documentado en `docs/epp-smoke-checklist.md`.
 
 ## Riesgos técnicos vigentes
-- Persisten módulos legacy fuera del flujo EPP principal (andamios/proyectos) encapsulados pero no eliminados.
+- Persisten algunos artefactos legacy de negocio andamios/proyectos en historiales y documentación, aunque fuera de rutas operativas EPP.
 - Ejecución de smoke manual interactivo y evidencias por rol depende del entorno con navegador/dispositivos disponibles.
 - La suite `integration-db` requiere configuración explícita de DB de pruebas y guard de seguridad para reset.

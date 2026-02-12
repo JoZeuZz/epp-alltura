@@ -16,10 +16,16 @@ export default function NotificationBell({ variant = 'light' }: NotificationBell
     notifications,
     unreadCount,
     loading,
+    fetchNotifications,
     markAsRead,
     markAllAsRead,
     deleteNotif,
-  } = useNotifications({ autoRefresh: true, refreshInterval: 30000 });
+  } = useNotifications({
+    autoRefresh: true,
+    refreshInterval: 60000,
+    pauseWhenHidden: true,
+    autoRefreshMode: 'unread-only',
+  });
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -49,6 +55,17 @@ export default function NotificationBell({ variant = 'light' }: NotificationBell
     }
   };
 
+  const handleToggleDropdown = () => {
+    const shouldOpen = !isOpen;
+    setIsOpen(shouldOpen);
+
+    if (shouldOpen) {
+      fetchNotifications().catch((error: unknown) => {
+        console.error('Error refreshing notifications:', error);
+      });
+    }
+  };
+
   const recentNotifications = notifications.slice(0, 5);
 
   // Estilos dinámicos basados en la variante
@@ -60,7 +77,7 @@ export default function NotificationBell({ variant = 'light' }: NotificationBell
     <div className="relative" ref={dropdownRef}>
       {/* Bell Button */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggleDropdown}
         className={buttonClasses}
         aria-label={`Notificaciones${unreadCount > 0 ? ` (${unreadCount} no leídas)` : ''}`}
       >

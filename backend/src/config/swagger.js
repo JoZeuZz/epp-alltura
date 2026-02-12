@@ -506,50 +506,6 @@ const swaggerSpec = {
         },
       },
     },
-    '/api/dashboard/cubic-meters': {
-      get: {
-        tags: ['Dashboard'],
-        summary: 'Indicadores operativos (legacy)',
-        deprecated: true,
-        security: [{ bearerAuth: [] }],
-        responses: {
-          200: {
-            description: 'Indicadores obtenidos',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ApiSuccess' },
-              },
-            },
-          },
-        },
-      },
-    },
-    '/api/dashboard/project/{projectId}': {
-      get: {
-        tags: ['Dashboard'],
-        summary: 'Resumen por ubicación (legacy)',
-        deprecated: true,
-        security: [{ bearerAuth: [] }],
-        parameters: [
-          {
-            name: 'projectId',
-            in: 'path',
-            required: true,
-            schema: { type: 'string', format: 'uuid' },
-          },
-        ],
-        responses: {
-          200: {
-            description: 'Resumen por ubicación obtenido',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ApiSuccess' },
-              },
-            },
-          },
-        },
-      },
-    },
     '/api/dashboard/summary': {
       get: {
         tags: ['Dashboard'],

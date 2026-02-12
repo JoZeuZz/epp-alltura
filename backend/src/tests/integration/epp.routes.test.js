@@ -158,7 +158,7 @@ describe('EPP API Route Integration', () => {
     expect(Array.isArray(response.body.errors)).toBe(true);
   });
 
-  it('returns canonical dashboard indicators and legacy alias with deprecation header', async () => {
+  it('returns canonical dashboard indicators', async () => {
     const indicatorsPayload = {
       periodo: '30d',
       movimientos_stock: { total: 10 },
@@ -169,19 +169,12 @@ describe('EPP API Route Integration', () => {
     const app = buildApp();
 
     const canonical = await request(app).get('/api/dashboard/indicadores-operativos');
-    const legacy = await request(app).get('/api/dashboard/cubic-meters');
-
     expect(canonical.status).toBe(200);
     expect(canonical.body.success).toBe(true);
     expect(canonical.body.data).toEqual(indicatorsPayload);
-
-    expect(legacy.status).toBe(200);
-    expect(legacy.body.success).toBe(true);
-    expect(legacy.body.data).toEqual(indicatorsPayload);
-    expect(legacy.headers['x-deprecated-endpoint']).toBe('true');
   });
 
-  it('returns canonical location summary and legacy alias with deprecation header', async () => {
+  it('returns canonical location summary', async () => {
     const locationPayload = {
       ubicacion_id: '11111111-1111-4111-8111-111111111111',
       stock: { registros_stock: 3 },
@@ -195,17 +188,20 @@ describe('EPP API Route Integration', () => {
     const canonical = await request(app).get(
       '/api/dashboard/ubicaciones/11111111-1111-4111-8111-111111111111/resumen'
     );
-    const legacy = await request(app).get(
-      '/api/dashboard/project/11111111-1111-4111-8111-111111111111'
-    );
-
     expect(canonical.status).toBe(200);
     expect(canonical.body.success).toBe(true);
     expect(canonical.body.data).toEqual(locationPayload);
+  });
 
-    expect(legacy.status).toBe(200);
-    expect(legacy.body.success).toBe(true);
-    expect(legacy.body.data).toEqual(locationPayload);
-    expect(legacy.headers['x-deprecated-endpoint']).toBe('true');
+  it('returns 404 for removed legacy dashboard aliases', async () => {
+    const app = buildApp();
+
+    const oldIndicators = await request(app).get('/api/dashboard/cubic-meters');
+    const oldProjectSummary = await request(app).get(
+      '/api/dashboard/project/11111111-1111-4111-8111-111111111111'
+    );
+
+    expect(oldIndicators.status).toBe(404);
+    expect(oldProjectSummary.status).toBe(404);
   });
 });

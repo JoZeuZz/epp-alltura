@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getInAppNotifications,
   getUnreadNotificationsCount,
@@ -13,29 +13,49 @@ import type {
   NotificationStats,
 } from '../types/clientNotes';
 
-/**
- * Hook para gestionar notificaciones in-app
- */
-export const useNotifications = (params?: {
+type UseNotificationsParams = {
   unreadOnly?: boolean;
   autoRefresh?: boolean;
   refreshInterval?: number;
   limit?: number;
   offset?: number;
-}) => {
+  pauseWhenHidden?: boolean;
+  autoRefreshMode?: 'full' | 'unread-only';
+  refreshOnVisibilityReturn?: boolean;
+};
+
+const DEFAULT_REFRESH_INTERVAL = 60000;
+
+/**
+ * Hook para gestionar notificaciones in-app
+ */
+export const useNotifications = (params?: UseNotificationsParams) => {
+  const unreadOnly = params?.unreadOnly;
+  const autoRefresh = params?.autoRefresh ?? false;
+  const refreshInterval = params?.refreshInterval ?? DEFAULT_REFRESH_INTERVAL;
+  const limit = params?.limit ?? 20;
+  const offset = params?.offset ?? 0;
+  const pauseWhenHidden = params?.pauseWhenHidden ?? true;
+  const autoRefreshMode = params?.autoRefreshMode ?? 'full';
+  const refreshOnVisibilityReturn = params?.refreshOnVisibilityReturn ?? true;
+
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isDocumentVisible, setIsDocumentVisible] = useState(
+    typeof document === 'undefined' ? true : !document.hidden
+  );
+  const wasHiddenRef = useRef(false);
 
   const fetchNotifications = useCallback(async () => {
     try {
       setError(null);
       const response = (await getInAppNotifications({
-        unread_only: params?.unreadOnly,
-        limit: params?.limit || 20,
-        offset: params?.offset || 0,
+        unread_only: unreadOnly,
+        limit,
+        offset,
       })) as
         | InAppNotification[]
         | {
@@ -62,7 +82,7 @@ export const useNotifications = (params?: {
     } finally {
       setLoading(false);
     }
-  }, [params?.unreadOnly, params?.limit, params?.offset]);
+  }, [unreadOnly, limit, offset]);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -84,22 +104,69 @@ export const useNotifications = (params?: {
     }
   }, []);
 
-  useEffect(() => {
+  const runAutoRefresh = useCallback(() => {
+    if (autoRefreshMode === 'unread-only') {
+      fetchUnreadCount();
+      return;
+    }
+
     fetchNotifications();
     fetchUnreadCount();
-  }, [fetchNotifications, fetchUnreadCount]);
+  }, [autoRefreshMode, fetchNotifications, fetchUnreadCount]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsDocumentVisible(!document.hidden);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (autoRefreshMode === 'unread-only') {
+      setLoading(false);
+      fetchUnreadCount();
+      return;
+    }
+
+    fetchNotifications();
+    fetchUnreadCount();
+  }, [autoRefreshMode, fetchNotifications, fetchUnreadCount]);
 
   // Auto-refresh
   useEffect(() => {
-    if (params?.autoRefresh) {
-      const interval = setInterval(() => {
-        fetchNotifications();
-        fetchUnreadCount();
-      }, params.refreshInterval || 30000); // Default: 30 segundos
-
-      return () => clearInterval(interval);
+    if (!autoRefresh) {
+      return;
     }
-  }, [params?.autoRefresh, params?.refreshInterval, fetchNotifications, fetchUnreadCount]);
+
+    if (pauseWhenHidden && !isDocumentVisible) {
+      return;
+    }
+
+    const interval = window.setInterval(runAutoRefresh, refreshInterval);
+    return () => window.clearInterval(interval);
+  }, [autoRefresh, pauseWhenHidden, isDocumentVisible, runAutoRefresh, refreshInterval]);
+
+  useEffect(() => {
+    if (!autoRefresh) {
+      wasHiddenRef.current = !isDocumentVisible;
+      return;
+    }
+
+    if (!isDocumentVisible) {
+      wasHiddenRef.current = true;
+      return;
+    }
+
+    if (wasHiddenRef.current && refreshOnVisibilityReturn) {
+      runAutoRefresh();
+    }
+
+    wasHiddenRef.current = false;
+  }, [autoRefresh, isDocumentVisible, refreshOnVisibilityReturn, runAutoRefresh]);
 
   const markAsRead = async (notificationId: number) => {
     try {

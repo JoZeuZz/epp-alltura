@@ -21,7 +21,9 @@ export default function NotificationsPage() {
   } = useNotifications({
     unreadOnly: filter === 'unread',
     autoRefresh: true,
-    refreshInterval: 30000,
+    refreshInterval: 60000,
+    pauseWhenHidden: true,
+    autoRefreshMode: 'full',
     limit: ITEMS_PER_PAGE,
     offset: (currentPage - 1) * ITEMS_PER_PAGE,
   });

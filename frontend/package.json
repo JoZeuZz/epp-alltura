@@ -30,7 +30,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:smoke": "playwright test --config=playwright.config.ts",
-    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src --ext .ts,.tsx --max-warnings=0",
+    "lint": "eslint src --max-warnings=0",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,scss,md}\""
   },
   "browserslist": {
@@ -54,6 +54,7 @@
     "@typescript-eslint/parser": "^8.0.0",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.19",
+    "baseline-browser-mapping": "^2.9.19",
     "eslint": "^9.6.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
