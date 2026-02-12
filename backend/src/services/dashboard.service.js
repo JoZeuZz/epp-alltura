@@ -278,14 +278,6 @@ class DashboardService {
       },
     };
   }
-
-  static async getCubicMetersDetailedStats() {
-    return this.getOperationalIndicators();
-  }
-
-  static async getProjectDashboardSummary(ubicacionId) {
-    return this.getLocationDashboardSummary(ubicacionId);
-  }
 }
 
 module.exports = DashboardService;

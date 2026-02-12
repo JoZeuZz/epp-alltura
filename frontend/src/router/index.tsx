@@ -7,6 +7,7 @@ import type { User } from '../types/api';
 import { clearStoredTokens, refreshAccessToken } from '../services/authRefresh';
 
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
+const UsersPage = lazy(() => import('../pages/admin/UsersPage'));
 const SupervisorDashboard = lazy(() => import('../pages/supervisor/SupervisorDashboard'));
 const WarehouseDashboard = lazy(() => import('../pages/bodega/WarehouseDashboard'));
 const WorkerDashboard = lazy(() => import('../pages/worker/WorkerDashboard'));
@@ -280,6 +281,11 @@ export const router = createBrowserRouter([
         path: 'admin/auditoria',
         loader: adminDashboardLoader,
         element: <AdminDashboard />,
+      },
+      {
+        path: 'admin/users',
+        loader: requireRole(['admin']),
+        element: <UsersPage />,
       },
       {
         path: 'supervisor/dashboard',

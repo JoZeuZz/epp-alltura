@@ -22,12 +22,19 @@ const buildError = (message, statusCode = 400, code = null) => {
 
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
+const MAX_RUT_LENGTH = 20;
+
+const buildTemporaryRut = () => {
+  const suffix = randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase();
+  return `TMP-${suffix}`;
+};
+
 const normalizeRut = (rut) => {
-  const value = String(rut || '').trim();
+  const value = String(rut || '').trim().toUpperCase();
   if (value) {
     return value;
   }
-  return `TEMP-${randomUUID()}`;
+  return buildTemporaryRut();
 };
 
 const buildTokenPayloadUser = (user) => {
@@ -335,6 +342,10 @@ class UserService {
       throw buildError('Password is required', 400, 'PASSWORD_REQUIRED');
     }
 
+    if (rut.length > MAX_RUT_LENGTH) {
+      throw buildError(`RUT must not exceed ${MAX_RUT_LENGTH} characters`, 400, 'RUT_TOO_LONG');
+    }
+
     const existingUser = await UsuarioModel.findByEmailLogin(email);
     if (existingUser) {
       throw buildError('User with this email already exists', 400, 'EMAIL_IN_USE');
@@ -394,6 +405,23 @@ class UserService {
       return this.getUserById(usuarioId);
     } catch (error) {
       await client.query('ROLLBACK');
+
+      if (error?.code === '22001') {
+        throw buildError(
+          'Uno de los campos excede el largo permitido en base de datos.',
+          400,
+          'FIELD_LENGTH_EXCEEDED'
+        );
+      }
+
+      if (error?.code === '23505') {
+        throw buildError(
+          'El usuario ya existe con uno de los identificadores únicos (email o RUT).',
+          400,
+          'DUPLICATE_VALUE'
+        );
+      }
+
       throw error;
     } finally {
       client.release();

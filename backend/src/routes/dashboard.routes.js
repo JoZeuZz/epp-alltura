@@ -17,15 +17,5 @@ router.get(
   checkRole(['admin', 'supervisor', 'bodega']),
   DashboardController.getLocationSummary
 );
-router.get(
-  '/cubic-meters',
-  checkRole(['admin', 'supervisor', 'bodega']),
-  DashboardController.getCubicMetersStats
-);
-router.get(
-  '/project/:projectId',
-  checkRole(['admin', 'supervisor', 'bodega']),
-  DashboardController.getProjectSummary
-);
 
 module.exports = router;

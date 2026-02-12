@@ -15,7 +15,6 @@ export default defineConfig({
     ...(isDev
       ? [
           eslintPlugin({
-            overrideConfigFile: path.resolve(__dirname, '.eslintrc.cjs'),
             failOnError: false,
           }),
           checker({ typescript: true }),
@@ -49,5 +48,24 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: isDev,
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (
+            id.includes('/react/') ||
+            id.includes('/react-dom/') ||
+            id.includes('/react-router-dom/')
+          ) {
+            return 'vendor-react';
+          }
+          if (id.includes('/@tanstack/')) return 'vendor-query';
+          if (id.includes('/lucide-react/')) return 'vendor-icons';
+          if (id.includes('/date-fns/')) return 'vendor-date';
+          return 'vendor';
+        },
+      },
+    },
   },
 });

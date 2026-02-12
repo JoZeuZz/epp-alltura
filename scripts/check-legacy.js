@@ -5,8 +5,12 @@ const path = require('path');
 
 const FRONTEND_SRC_DIR = path.join(__dirname, '..', 'frontend', 'src');
 const ALLOWED_EXTENSIONS = new Set(['.ts', '.tsx']);
-const EXCLUDED_PATHS = [
+const EXCLUDED_PATH_PREFIXES = [
+  path.join('frontend', 'src', 'tests') + path.sep,
+];
+const FORBIDDEN_FILES = [
   path.join('frontend', 'src', 'services', 'apiService.legacy.ts'),
+  path.join('frontend', 'src', 'pages', 'admin', 'UsersPage.tsx'),
 ];
 
 const FORBIDDEN_PATTERNS = [
@@ -14,6 +18,8 @@ const FORBIDDEN_PATTERNS = [
   '/admin/scaffolds',
   '/client/',
   '/supervisor/project/',
+  '/dashboard/cubic-meters',
+  '/dashboard/project/',
 ];
 
 const collectSourceFiles = (dir, fileList = []) => {
@@ -33,7 +39,12 @@ const collectSourceFiles = (dir, fileList = []) => {
     const workspaceRelative = path.relative(path.join(__dirname, '..'), absolutePath);
     const normalizedRelative = workspaceRelative.split(path.sep).join(path.posix.sep);
 
-    if (EXCLUDED_PATHS.includes(normalizedRelative)) {
+    const isExcludedByPrefix = EXCLUDED_PATH_PREFIXES.some((prefix) => {
+      const normalizedPrefix = prefix.split(path.sep).join(path.posix.sep);
+      return normalizedRelative.startsWith(normalizedPrefix);
+    });
+
+    if (isExcludedByPrefix) {
       continue;
     }
 
@@ -55,6 +66,14 @@ const findPatternHits = (content, pattern) => {
 
 const files = collectSourceFiles(FRONTEND_SRC_DIR);
 const violations = [];
+const missingRetirements = [];
+
+for (const file of FORBIDDEN_FILES) {
+  const absolutePath = path.join(__dirname, '..', file);
+  if (fs.existsSync(absolutePath)) {
+    missingRetirements.push(file.split(path.sep).join(path.posix.sep));
+  }
+}
 
 for (const file of files) {
   const content = fs.readFileSync(file.absolutePath, 'utf8');
@@ -70,7 +89,14 @@ for (const file of files) {
   }
 }
 
-if (violations.length > 0) {
+if (missingRetirements.length > 0 || violations.length > 0) {
+  if (missingRetirements.length > 0) {
+    console.error('Se detectaron artefactos legacy que deben estar retirados:');
+    for (const file of missingRetirements) {
+      console.error(`- ${file}`);
+    }
+  }
+
   console.error('Se detectaron referencias legacy no permitidas en frontend/src:');
   for (const violation of violations) {
     console.error(`- ${violation.file}:${violation.line} -> "${violation.pattern}"`);
