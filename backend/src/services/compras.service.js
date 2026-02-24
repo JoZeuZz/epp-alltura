@@ -503,6 +503,130 @@ class ComprasService {
       ]
     );
   }
+
+  static async deleteIngreso(id) {
+    const client = await db.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      // 1. Verificar que el ingreso existe
+      const compraCheck = await client.query(
+        `SELECT id FROM compra WHERE id = $1`,
+        [id]
+      );
+
+      if (!compraCheck.rows.length) {
+        throw buildError('Ingreso no encontrado', 404, 'INGRESO_NOT_FOUND');
+      }
+
+      // 2. Obtener todos los movimientos de entrada asociados a esta compra
+      const movimientosResult = await client.query(
+        `
+        SELECT
+          ms.articulo_id,
+          ms.lote_id,
+          ms.ubicacion_destino_id AS ubicacion_id,
+          ms.cantidad
+        FROM movimiento_stock ms
+        WHERE ms.compra_id = $1
+          AND ms.tipo = 'entrada'
+        `,
+        [id]
+      );
+
+      // 3. Verificar que el stock disponible es suficiente para revertir cada movimiento
+      for (const mov of movimientosResult.rows) {
+        let stockResult;
+
+        if (mov.lote_id) {
+          stockResult = await client.query(
+            `
+            SELECT cantidad_disponible
+            FROM stock
+            WHERE articulo_id = $1
+              AND lote_id = $2
+              AND ubicacion_id = $3
+            FOR UPDATE
+            `,
+            [mov.articulo_id, mov.lote_id, mov.ubicacion_id]
+          );
+        } else {
+          stockResult = await client.query(
+            `
+            SELECT cantidad_disponible
+            FROM stock
+            WHERE articulo_id = $1
+              AND lote_id IS NULL
+              AND ubicacion_id = $2
+            FOR UPDATE
+            `,
+            [mov.articulo_id, mov.ubicacion_id]
+          );
+        }
+
+        const stockActual = Number(stockResult.rows[0]?.cantidad_disponible ?? 0);
+        if (stockActual < Number(mov.cantidad)) {
+          throw buildError(
+            `No se puede eliminar el ingreso: el stock disponible (${stockActual}) es insuficiente para revertir la cantidad ingresada (${mov.cantidad}). El artículo ya tiene movimientos comprometidos.`,
+            409,
+            'STOCK_INSUFICIENTE_REVERTIR'
+          );
+        }
+      }
+
+      // 4. Revertir el stock para cada movimiento de entrada
+      for (const mov of movimientosResult.rows) {
+        if (mov.lote_id) {
+          await client.query(
+            `
+            UPDATE stock
+            SET
+              cantidad_disponible = cantidad_disponible - $1,
+              actualizado_en = NOW()
+            WHERE articulo_id = $2
+              AND lote_id = $3
+              AND ubicacion_id = $4
+            `,
+            [mov.cantidad, mov.articulo_id, mov.lote_id, mov.ubicacion_id]
+          );
+        } else {
+          await client.query(
+            `
+            UPDATE stock
+            SET
+              cantidad_disponible = cantidad_disponible - $1,
+              actualizado_en = NOW()
+            WHERE articulo_id = $2
+              AND lote_id IS NULL
+              AND ubicacion_id = $3
+            `,
+            [mov.cantidad, mov.articulo_id, mov.ubicacion_id]
+          );
+        }
+      }
+
+      // 5. Eliminar los movimientos de stock de este ingreso
+      await client.query(
+        `DELETE FROM movimiento_stock WHERE compra_id = $1`,
+        [id]
+      );
+
+      // 6. Eliminar la compra (cascade elimina compra_detalle;
+      //    lote.compra_detalle_id queda en NULL por ON DELETE SET NULL)
+      await client.query(
+        `DELETE FROM compra WHERE id = $1`,
+        [id]
+      );
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 }
 
 module.exports = ComprasService;

@@ -140,6 +140,105 @@ const swaggerSpec = {
           },
         },
       },
+      post: {
+        tags: ['Catálogos'],
+        summary: 'Crear artículo',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          201: {
+            description: 'Artículo creado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiSuccess' },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/articulos/{id}': {
+      put: {
+        tags: ['Catálogos'],
+        summary: 'Actualizar artículo',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', format: 'uuid' },
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Artículo actualizado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiSuccess' },
+              },
+            },
+          },
+        },
+      },
+      delete: {
+        tags: ['Catálogos'],
+        summary: 'Desactivar artículo (eliminación lógica)',
+        description: 'Mantiene compatibilidad histórica. Esta acción solo marca el artículo como inactivo.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', format: 'uuid' },
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Artículo desactivado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiSuccess' },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/articulos/{id}/permanent': {
+      delete: {
+        tags: ['Catálogos'],
+        summary: 'Eliminar artículo permanentemente',
+        description:
+          'Solo disponible para admin. Elimina físicamente el artículo cuando no tiene trazabilidad asociada.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'id',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', format: 'uuid' },
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Artículo eliminado permanentemente',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiSuccess' },
+              },
+            },
+          },
+          409: {
+            description: 'Artículo bloqueado por trazabilidad',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiError' },
+              },
+            },
+          },
+        },
+      },
     },
     '/api/trabajadores': {
       get: {
@@ -430,11 +529,152 @@ const swaggerSpec = {
         },
       },
     },
+    '/api/inventario/ingresos': {
+      get: {
+        tags: ['Inventario'],
+        summary: 'Listar ingresos de inventario',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Ingresos obtenidos',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiSuccess' },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['Inventario'],
+        summary: 'Registrar ingreso de inventario (manual o con documento)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  fecha_ingreso: { type: 'string', format: 'date-time', nullable: true },
+                  notas: { type: 'string', nullable: true },
+                  documento_compra: {
+                    type: 'object',
+                    nullable: true,
+                    properties: {
+                      proveedor_id: { type: 'string', format: 'uuid' },
+                      tipo: { type: 'string', enum: ['factura', 'boleta', 'guia'] },
+                      numero: { type: 'string' },
+                      fecha: { type: 'string', format: 'date-time' },
+                    },
+                  },
+                  detalles: {
+                    type: 'array',
+                    minItems: 1,
+                    items: {
+                      type: 'object',
+                      properties: {
+                        articulo_id: { type: 'string', format: 'uuid' },
+                        ubicacion_id: { type: 'string', format: 'uuid' },
+                        cantidad: { type: 'number' },
+                        costo_unitario: { type: 'number' },
+                        lote: {
+                          type: 'object',
+                          nullable: true,
+                          properties: {
+                            codigo_lote: { type: 'string', nullable: true },
+                          },
+                        },
+                        activos: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              codigo: { type: 'string' },
+                              nro_serie: { type: 'string', nullable: true },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['payload_json'],
+                properties: {
+                  payload_json: {
+                    type: 'string',
+                    description: 'JSON string con la misma estructura del body application/json',
+                  },
+                  documento_archivo: {
+                    type: 'string',
+                    format: 'binary',
+                    description: 'Archivo opcional PDF/JPG/PNG/WEBP',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: 'Ingreso registrado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiSuccess' },
+              },
+            },
+          },
+        },
+      },
+    },
     '/api/inventario/stock': {
       get: {
         tags: ['Inventario'],
         summary: 'Consultar stock',
         security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'search',
+            in: 'query',
+            required: false,
+            schema: { type: 'string' },
+          },
+          {
+            name: 'articulo_id',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+          },
+          {
+            name: 'ubicacion_id',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+          },
+          {
+            name: 'lote_id',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', format: 'uuid' },
+          },
+          {
+            name: 'limit',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer', minimum: 1, maximum: 500 },
+          },
+          {
+            name: 'offset',
+            in: 'query',
+            required: false,
+            schema: { type: 'integer', minimum: 0 },
+          },
+        ],
         responses: {
           200: {
             description: 'Stock consultado',

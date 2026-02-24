@@ -36,6 +36,16 @@ class ComprasController {
       return next(error);
     }
   }
+
+  static async deleteIngreso(req, res, next) {
+    try {
+      await ComprasService.deleteIngreso(req.params.id);
+      return sendSuccess(res, { message: 'Ingreso eliminado correctamente. Stock y movimientos revertidos.' });
+    } catch (error) {
+      logger.error('Error deleting ingreso:', error);
+      return next(error);
+    }
+  }
 }
 
 module.exports = ComprasController;

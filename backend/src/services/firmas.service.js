@@ -318,6 +318,10 @@ class FirmasService {
         ft.expira_en,
         ft.usado_en,
         e.estado AS entrega_estado,
+        e.tipo AS entrega_tipo,
+        e.nota_destino,
+        uo.nombre AS ubicacion_origen_nombre,
+        ud.nombre AS ubicacion_destino_nombre,
         p.nombres,
         p.apellidos,
         p.rut,
@@ -328,6 +332,8 @@ class FirmasService {
       INNER JOIN trabajador t ON t.id = ft.trabajador_id
       INNER JOIN persona p ON p.id = t.persona_id
       LEFT JOIN firma_entrega fe ON fe.entrega_id = e.id
+      LEFT JOIN ubicacion uo ON uo.id = e.ubicacion_origen_id
+      LEFT JOIN ubicacion ud ON ud.id = e.ubicacion_destino_id
       WHERE ft.token_hash = $1
       LIMIT 1
       `,
@@ -349,9 +355,33 @@ class FirmasService {
       estadoToken = 'firmado';
     }
 
+    // Incluir detalles de la entrega para que la página pública pueda mostrarlos
+    const detallesResult = await db.query(
+      `
+      SELECT
+        ed.id,
+        ed.cantidad,
+        ed.condicion_salida,
+        ed.notas,
+        a.nombre AS articulo_nombre,
+        a.tipo AS articulo_tipo,
+        a.tracking_mode,
+        ac.codigo AS activo_codigo,
+        l.codigo_lote
+      FROM entrega_detalle ed
+      INNER JOIN articulo a ON a.id = ed.articulo_id
+      LEFT JOIN activo ac ON ac.id = ed.activo_id
+      LEFT JOIN lote l ON l.id = ed.lote_id
+      WHERE ed.entrega_id = $1
+      ORDER BY ed.id
+      `,
+      [tokenInfo.entrega_id]
+    );
+
     return {
       ...tokenInfo,
       estado_token: estadoToken,
+      detalles: detallesResult.rows,
     };
   }
 

@@ -7,6 +7,24 @@ import type { User } from '../types/api';
 import { clearStoredTokens, refreshAccessToken } from '../services/authRefresh';
 
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
+const AdminInventoryLayout = lazy(
+  () => import('../pages/admin/inventory/AdminInventoryLayout')
+);
+const AdminInventoryArticlesPage = lazy(
+  () => import('../pages/admin/inventory/AdminInventoryArticlesPage')
+);
+const AdminInventoryStockPage = lazy(
+  () => import('../pages/admin/inventory/AdminInventoryStockPage')
+);
+const AdminInventoryMovementsPage = lazy(
+  () => import('../pages/admin/inventory/AdminInventoryMovementsPage')
+);
+const AdminInventoryIngressPage = lazy(
+  () => import('../pages/admin/inventory/AdminInventoryIngressPage')
+);
+const AdminInventoryEgressPage = lazy(
+  () => import('../pages/admin/inventory/AdminInventoryEgressPage')
+);
 const UsersPage = lazy(() => import('../pages/admin/UsersPage'));
 const SupervisorDashboard = lazy(() => import('../pages/supervisor/SupervisorDashboard'));
 const WarehouseDashboard = lazy(() => import('../pages/bodega/WarehouseDashboard'));
@@ -15,6 +33,10 @@ const ProfilePage = lazy(() => import('../pages/ProfilePage'));
 const NotificationsPage = lazy(() => import('../pages/NotificationsPage'));
 const UnauthorizedPage = lazy(() => import('../pages/UnauthorizedPage'));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'));
+const PublicSignPage = lazy(() => import('../pages/PublicSignPage'));
+const AdminTrabajadoresPage = lazy(() => import('../pages/admin/AdminTrabajadoresPage'));
+const AdminUbicacionesPage = lazy(() => import('../pages/admin/AdminUbicacionesPage'));
+const AdminEntregasPage = lazy(() => import('../pages/admin/AdminEntregasPage'));
 
 const API_URL = '/api';
 type RouteRole = 'admin' | 'supervisor' | 'bodega' | 'worker';
@@ -230,6 +252,10 @@ async function warehouseDashboardLoader() {
   };
 }
 
+async function adminTrabajadoresLoader() {
+  return requireRole(['admin'])();
+}
+
 async function workerDashboardLoader() {
   const { user } = (await requireRole(['worker'])()) as { user: User };
 
@@ -262,6 +288,11 @@ export const router = createBrowserRouter([
     errorElement: <ErrorPage />,
   },
   {
+    path: '/firma/:token',
+    element: <PublicSignPage />,
+    errorElement: <ErrorPage />,
+  },
+  {
     path: '/',
     element: <AppLayout />,
     loader: protectedLoader,
@@ -286,6 +317,52 @@ export const router = createBrowserRouter([
         path: 'admin/users',
         loader: requireRole(['admin']),
         element: <UsersPage />,
+      },
+      {
+        path: 'admin/trabajadores',
+        loader: adminTrabajadoresLoader,
+        element: <AdminTrabajadoresPage />,
+      },
+      {
+        path: 'admin/ubicaciones',
+        loader: requireRole(['admin']),
+        element: <AdminUbicacionesPage />,
+      },
+      {
+        path: 'admin/entregas',
+        loader: requireRole(['admin', 'supervisor', 'bodega']),
+        element: <AdminEntregasPage />,
+      },
+      {
+        path: 'admin/inventario',
+        loader: requireRole(['admin']),
+        element: <AdminInventoryLayout />,
+        children: [
+          {
+            index: true,
+            loader: () => redirect('/admin/inventario/articulos'),
+          },
+          {
+            path: 'articulos',
+            element: <AdminInventoryArticlesPage />,
+          },
+          {
+            path: 'stock',
+            element: <AdminInventoryStockPage />,
+          },
+          {
+            path: 'movimientos',
+            element: <AdminInventoryMovementsPage />,
+          },
+          {
+            path: 'ingresos',
+            element: <AdminInventoryIngressPage />,
+          },
+          {
+            path: 'egresos',
+            element: <AdminInventoryEgressPage />,
+          },
+        ],
       },
       {
         path: 'supervisor/dashboard',

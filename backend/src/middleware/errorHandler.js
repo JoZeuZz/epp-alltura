@@ -165,14 +165,21 @@ const errorHandler = (err, req, res, _next) => {
   } else if (err.name === 'UnauthorizedError' || err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
     errorResponse = handleAuthError(err);
   } else {
+    const explicitErrors = Array.isArray(err.errors)
+      ? err.errors
+      : err.errors
+        ? [err.errors]
+        : null;
+
     // Error genérico
     errorResponse = {
       status: err.statusCode || err.status || 500,
       message: err.message || 'Error interno del servidor',
       errors:
-        process.env.NODE_ENV === 'development'
+        explicitErrors ||
+        (process.env.NODE_ENV === 'development'
           ? [{ message: err.message || 'Error interno del servidor', stack: err.stack }]
-          : [{ message: err.message || 'Error interno del servidor' }],
+          : [{ message: err.message || 'Error interno del servidor' }]),
     };
   }
 

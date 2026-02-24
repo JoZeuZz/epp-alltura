@@ -42,6 +42,16 @@ class EntregasController {
       return next(error);
     }
   }
+
+  static async anular(req, res, next) {
+    try {
+      const data = await EntregasService.anular(req.params.id, req.user.id);
+      return sendSuccess(res, { message: 'Entrega anulada correctamente', data });
+    } catch (error) {
+      logger.error('Error anulando entrega:', error);
+      return next(error);
+    }
+  }
 }
 
 module.exports = EntregasController;

@@ -404,6 +404,44 @@ class EntregasService {
       client.release();
     }
   }
+
+  static async anular(id, userId) {
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const entregaResult = await client.query(
+        `SELECT * FROM entrega WHERE id = $1 FOR UPDATE`,
+        [id]
+      );
+
+      if (!entregaResult.rows.length) {
+        throw buildError('Entrega no encontrada', 404);
+      }
+
+      const entrega = entregaResult.rows[0];
+      if (!['borrador', 'pendiente_firma'].includes(entrega.estado)) {
+        throw buildError(
+          `No se puede anular una entrega en estado "${entrega.estado}"`,
+          400
+        );
+      }
+
+      await client.query(
+        `UPDATE entrega SET estado = 'anulada' WHERE id = $1`,
+        [id]
+      );
+
+      // No se revierten movimientos de stock porque la entrega nunca fue confirmada
+      await client.query('COMMIT');
+      return this.getById(id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 }
 
 module.exports = EntregasService;

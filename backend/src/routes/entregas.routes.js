@@ -53,4 +53,11 @@ router.post(
   EntregasController.confirm
 );
 
+router.post(
+  '/:id/anular',
+  authMiddleware,
+  checkRole(['admin', 'supervisor']),
+  EntregasController.anular
+);
+
 module.exports = router;
