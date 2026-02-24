@@ -1,140 +1,248 @@
+// ─── Usuario / Autenticación ─────────────────────────────────────────────────
+
 export interface User {
   id: string;
   first_name: string;
   last_name: string;
   email: string;
-  role: 'admin' | 'supervisor' | 'client' | 'bodega' | 'worker' | 'trabajador';
+  role: 'admin' | 'supervisor' | 'bodega' | 'worker' | 'trabajador';
   password?: string;
-  client_id?: number | null; // ID de la empresa cliente (solo para role='client')
   created_at: string;
   rut?: string;
   phone_number?: string;
   profile_picture_url?: string;
 }
 
-export interface Project {
-  id: number;
-  client_id: number;
-  name: string;
-  status: 'active' | 'inactive' | 'completed';
-  created_at: string;
-  client_name: string;  active: boolean;
-  client_active: boolean;  assigned_client_id?: number; // Nuevo: ID del usuario cliente asignado
-  assigned_client_name?: string; // Nuevo: Nombre del cliente asignado
-  assigned_client_email?: string; // Nuevo: Email del cliente asignado
-  assigned_supervisor_id?: number; // Nuevo: ID del supervisor asignado (antes assignedTechnicianId)
-  assigned_supervisor_name?: string; // Nuevo: Nombre del supervisor asignado
-  assigned_supervisor_email?: string; // Nuevo: Email del supervisor asignado
-}
+// ─── Entidades EPP/Herramientas ───────────────────────────────────────────────
 
-export interface Client {
-  id: number;
-  name: string;
+export interface Persona {
+  id: string;
+  rut: string;
+  nombres: string;
+  apellidos: string;
+  telefono?: string;
   email?: string;
-  phone?: string;
-  address?: string;
-  specialty?: string;
-  active?: boolean;
-  created_at?: string;
-}
-
-export interface Scaffold {
-  id: number;
-  project_id?: number;
-  // Nuevos campos de estado
-  card_status: 'green' | 'red'; // Nuevo: estado de la tarjeta
-  assembly_status: 'assembled' | 'in_progress' | 'disassembled'; // Nuevo: estado de armado (3 estados)
-  initial_image: string; // Nuevo: imagen inicial obligatoria (antes assembly_image_url)
-  disassembly_image?: string; // Nuevo: imagen de desarmado (nullable)
-  created_by?: number; // Nuevo: ID del usuario que creó el andamio
-  created_by_name?: string; // Nuevo: Nombre del usuario que creó el andamio
-  // Campos existentes
-  assembly_image_url: string; // Mantener por compatibilidad (apuntará a initial_image)
-  cubic_meters: number;
-  user_name: string;
-  assembly_created_at: string;
-  status: 'assembled' | 'in_progress' | 'disassembled'; // Deprecado: usar assembly_status
-  created_at?: string; // Nuevo: timestamp de creación del andamio
-  updated_at?: string; // Nuevo: timestamp de última actualización
-  project_name?: string;
-  scaffold_number?: string;
-  area?: string;
-  tag?: string;
-  height: number;
-  width: number;
-  length: number;
-  depth: number;
-  progress_percentage: number;
-  assembly_notes: string;
-  location?: string;
-  observations?: string;
-  disassembly_image_url?: string; // Deprecado: usar disassembly_image
-  disassembled_at?: string;
-  disassembly_notes?: string;
-  user_id?: number; // Nuevo: ID del usuario asociado al andamio
-}
-
-export interface Report {
-  id: number;
-  assembly_image_url: string;
-  user_name: string;
-  cubic_meters: number;
-  assembly_created_at: string;
-  progress_percentage: number;
-  assembly_notes?: string;
-}
-
-/**
- * Interface para los datos de cambios en el historial de andamios
- * Define los campos que pueden cambiar en un andamio
- */
-export interface ScaffoldChangeData {
-  card_status?: 'green' | 'red';
-  assembly_status?: 'assembled' | 'in_progress' | 'disassembled';
-  progress_percentage?: number;
-  cubic_meters?: number;
-  width?: number;
-  length?: number;
-  height?: number;
-  scaffold_number?: string;
-  area?: string;
-  tag?: string;
-  location?: string;
-  observations?: string;
-  assembly_notes?: string;
-  disassembly_notes?: string;
-}
-
-/**
- * Nuevo: Interface para el historial de modificaciones de andamios
- * Registra todos los cambios realizados en un andamio
- */
-export interface ScaffoldHistory {
-  id: number;
-  scaffold_id: number;
-  user_id: number;
-  modified_by_name?: string;
-  modified_by_email?: string;
+  foto_url?: string;
+  estado: 'activo' | 'inactivo';
   created_at: string;
-  change_type: string; // Tipo de cambio: 'card_status', 'assembly_status', 'update', 'dimensions', etc.
-  previous_data: ScaffoldChangeData | null; // Datos anteriores tipados
-  new_data: ScaffoldChangeData | null; // Datos nuevos tipados
-  description: string; // Descripción legible del cambio
+  updated_at: string;
 }
 
-/**
- * Interface para estadísticas del dashboard
- */
-export interface DashboardStats {
-  assembled_cubic_meters: number;
-  disassembled_cubic_meters: number;
-  total_cubic_meters: number;
+export interface Trabajador extends Persona {
+  /** UUID del registro en tabla trabajador */
+  trabajador_id: string;
+  usuario_id?: string;
+  codigo_empleado?: string;
+  cargo?: string;
+  fecha_ingreso?: string;
+  /** Email asociado al login de usuario (si tiene cuenta) */
+  email_login?: string;
 }
 
-/**
- * Interface para respuestas de error de la API
- * Utilizada para tipado fuerte de errores HTTP
- */
+export interface Ubicacion {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  tipo?: string;
+  activo: boolean;
+  created_at: string;
+}
+
+export interface Proveedor {
+  id: string;
+  nombre: string;
+  rut?: string;
+  contacto?: string;
+  telefono?: string;
+  email?: string;
+  activo: boolean;
+  created_at: string;
+}
+
+export interface Articulo {
+  id: string;
+  nombre: string;
+  descripcion?: string;
+  categoria?: string;
+  tipo: 'consumible' | 'activo';
+  unidad_medida?: string;
+  requiere_talla: boolean;
+  tracking_mode: 'lote' | 'individual' | 'ninguno';
+  /** URL servida por /api/image-proxy */
+  imagen_url?: string;
+  activo: boolean;
+  created_at: string;
+}
+
+export interface Lote {
+  id: string;
+  articulo_id: string;
+  codigo_lote: string;
+  proveedor_id?: string;
+  ubicacion_id?: string;
+  fecha_vencimiento?: string;
+  cantidad_inicial: number;
+  estado: 'disponible' | 'agotado' | 'vencido' | 'retirado';
+  notas?: string;
+  created_at: string;
+}
+
+export interface Activo {
+  id: string;
+  articulo_id: string;
+  lote_id?: string;
+  codigo_activo: string;
+  talla?: string;
+  estado: 'disponible' | 'en_uso' | 'mantenimiento' | 'baja';
+  ubicacion_actual_id?: string;
+  notas?: string;
+  created_at: string;
+  /** Campos JOIN frecuentes */
+  articulo_nombre?: string;
+  ubicacion_nombre?: string;
+}
+
+export interface Stock {
+  id: string;
+  articulo_id: string;
+  ubicacion_id: string;
+  lote_id?: string;
+  cantidad: number;
+  created_at: string;
+  updated_at: string;
+  /** Campos JOIN */
+  articulo_nombre?: string;
+  ubicacion_nombre?: string;
+  codigo_lote?: string;
+}
+
+// ─── Entregas ─────────────────────────────────────────────────────────────────
+
+export type EntregaTipo = 'epp' | 'herramienta' | 'material' | 'equipo' | 'otro';
+export type EntregaEstado = 'pendiente' | 'pendiente_firma' | 'firmada' | 'cancelada';
+
+export interface Entrega {
+  id: string;
+  trabajador_id: string;
+  ubicacion_origen_id?: string;
+  ubicacion_destino_id?: string;
+  usuario_bod_id?: string;
+  tipo: EntregaTipo;
+  estado: EntregaEstado;
+  nota_destino?: string;
+  created_at: string;
+  updated_at: string;
+  /** Campos JOIN */
+  trabajador_nombres?: string;
+  trabajador_apellidos?: string;
+  trabajador_rut?: string;
+  ubicacion_origen_nombre?: string;
+  ubicacion_destino_nombre?: string;
+}
+
+export interface EntregaDetalle {
+  id: string;
+  entrega_id: string;
+  articulo_id?: string;
+  activo_id?: string;
+  lote_id?: string;
+  cantidad: number;
+  condicion_salida?: string;
+  notas?: string;
+  /** Campos JOIN */
+  articulo_nombre?: string;
+  articulo_tipo?: 'consumible' | 'activo';
+  tracking_mode?: 'lote' | 'individual' | 'ninguno';
+  activo_codigo?: string;
+  codigo_lote?: string;
+}
+
+// ─── Firmas ───────────────────────────────────────────────────────────────────
+
+export interface FirmaEntrega {
+  id: string;
+  entrega_id: string;
+  trabajador_id: string;
+  metodo: 'en_dispositivo' | 'qr_link';
+  firma_imagen_url?: string;
+  texto_aceptacion?: string;
+  ip_firmante?: string;
+  firmado_en: string;
+}
+
+export interface FirmaToken {
+  id: string;
+  entrega_id: string;
+  token_hash: string;
+  expira_en: string;
+  usado_en?: string;
+  created_at: string;
+}
+
+// ─── Custodia / Devoluciones ──────────────────────────────────────────────────
+
+export type CustodiaEstado = 'activa' | 'devuelta' | 'baja';
+
+export interface CustodiaActivo {
+  id: string;
+  activo_id: string;
+  trabajador_id: string;
+  entrega_detalle_id?: string;
+  ubicacion_destino_id?: string;
+  fecha_inicio: string;
+  fecha_fin?: string;
+  estado: CustodiaEstado;
+  /** Campos JOIN */
+  activo_codigo?: string;
+  articulo_nombre?: string;
+  trabajador_nombres?: string;
+  trabajador_apellidos?: string;
+  ubicacion_destino_nombre?: string;
+}
+
+export interface Devolucion {
+  id: string;
+  trabajador_id: string;
+  usuario_bod_id?: string;
+  supervisor_id?: string;
+  estado: 'pendiente' | 'aprobada' | 'rechazada';
+  notas?: string;
+  created_at: string;
+  updated_at: string;
+  /** Campos JOIN */
+  trabajador_nombres?: string;
+  trabajador_apellidos?: string;
+}
+
+export interface DevolucionDetalle {
+  id: string;
+  devolucion_id: string;
+  activo_id?: string;
+  lote_id?: string;
+  articulo_id?: string;
+  cantidad?: number;
+  condicion_retorno?: string;
+  notas?: string;
+  /** Campos JOIN */
+  articulo_nombre?: string;
+  activo_codigo?: string;
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
+export interface DashboardSummary {
+  total_trabajadores: number;
+  entregas_pendientes: number;
+  entregas_firmadas: number;
+  activos_en_uso: number;
+  activos_disponibles: number;
+  devoluciones_pendientes: number;
+  stock_bajo?: number;
+  lotes_por_vencer?: number;
+}
+
+// ─── Respuestas de error API ──────────────────────────────────────────────────
+
 export interface ApiErrorResponse {
   message?: string;
   error?: string;
@@ -142,10 +250,6 @@ export interface ApiErrorResponse {
   errors?: Array<{ field: string; message: string }>;
 }
 
-/**
- * Interface para errores capturados de la API
- * Utilizada en bloques catch para manejo de errores tipado
- */
 export interface ApiError {
   response?: {
     data?: ApiErrorResponse;

@@ -62,5 +62,11 @@ router.put(
   ArticulosController.update
 );
 router.delete('/:id', authMiddleware, checkRole(['admin']), ArticulosController.remove);
+router.delete(
+  '/:id/permanent',
+  authMiddleware,
+  checkRole(['admin']),
+  ArticulosController.removePermanent
+);
 
 module.exports = router;

@@ -30,11 +30,24 @@ const waitForDatabase = async (retries = 20, delay = 2000) => {
 };
 
 const loadSchemaSql = () => {
-  const schemaPath = path.resolve(__dirname, '../../../db/init/001-init.sql');
-  if (!fs.existsSync(schemaPath)) {
-    throw new Error(`Schema file not found: ${schemaPath}`);
+  const initDir = path.resolve(__dirname, '../../../db/init');
+  if (!fs.existsSync(initDir)) {
+    throw new Error(`DB init directory not found: ${initDir}`);
   }
-  return fs.readFileSync(schemaPath, 'utf8');
+
+  const sqlFiles = fs
+    .readdirSync(initDir)
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+
+  if (!sqlFiles.length) {
+    throw new Error(`No SQL files found in: ${initDir}`);
+  }
+
+  return sqlFiles.map((file) => {
+    const fullPath = path.join(initDir, file);
+    return { file, sql: fs.readFileSync(fullPath, 'utf8') };
+  });
 };
 
 const initializeDatabase = async () => {
@@ -42,13 +55,14 @@ const initializeDatabase = async () => {
   const client = await pool.connect();
 
   try {
-    const sql = loadSchemaSql();
+    const schemaFiles = loadSchemaSql();
 
     await client.query('BEGIN');
-    await client.query(sql);
+    for (const { file, sql } of schemaFiles) {
+      await client.query(sql);
+      logger.info(`Database schema initialized from db/init/${file}`);
+    }
     await client.query('COMMIT');
-
-    logger.info('Database schema initialized from db/init/001-init.sql');
   } catch (err) {
     await client.query('ROLLBACK');
     logger.error('Error initializing database schema:', err);

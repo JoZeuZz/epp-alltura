@@ -48,6 +48,7 @@ const losslessCompressionEnabled =
 const stripMetadataEnabled =
   (process.env.IMAGE_STRIP_METADATA || 'true').toLowerCase() !== 'false';
 const maxImageBytes = parseInt(process.env.IMAGE_MAX_BYTES || '26214400', 10);
+const maxDocumentBytes = parseInt(process.env.DOCUMENT_MAX_BYTES || '26214400', 10);
 const jpegQuality = parseInt(process.env.IMAGE_JPEG_QUALITY || '92', 10);
 const cacheControl =
   process.env.IMAGE_CACHE_CONTROL || 'private, max-age=31536000, immutable';
@@ -70,6 +71,13 @@ const supportedImageMimeTypes = new Set([
   'image/png',
   'image/webp',
   'image/avif',
+]);
+const supportedDocumentMimeTypes = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
 ]);
 
 const detectImageSignature = (buffer) => {
@@ -105,6 +113,23 @@ const detectImageSignature = (buffer) => {
   }
 
   return null;
+};
+
+const detectDocumentSignature = (buffer) => {
+  if (!buffer || buffer.length < 4) {
+    return null;
+  }
+
+  if (
+    buffer[0] === 0x25 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x44 &&
+    buffer[3] === 0x46
+  ) {
+    return 'application/pdf';
+  }
+
+  return detectImageSignature(buffer);
 };
 
 const readFileHeader = async (file, length = 32) => {
@@ -150,6 +175,33 @@ const validateImageSignature = async (file) => {
       throw error;
     }
   }
+};
+
+const validateDocumentSignature = async (file) => {
+  const header = await readFileHeader(file);
+  if (!header) return;
+
+  const detected = detectDocumentSignature(header);
+  if (!detected) {
+    const error = new Error('El archivo no parece ser un documento válido.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const declared = normalizeMimeType(file.mimetype);
+  if (declared && supportedDocumentMimeTypes.has(declared)) {
+    if (declared === 'image/jpg' && detected === 'image/jpeg') {
+      return detected;
+    }
+
+    if (declared !== detected) {
+      const error = new Error('El tipo de documento no coincide con el contenido.');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  return detected;
 };
 
 const getIncomingSize = async (file) => {
@@ -443,6 +495,105 @@ const uploadFile = async (file) => {
 };
 
 /**
+ * Uploads a document file (PDF or image) to storage.
+ * @param {object} file The file object from multer.
+ * @returns {Promise<string>} The public URL of the uploaded document.
+ */
+const uploadDocument = async (file) => {
+  if (!file) {
+    throw new Error('Archivo inválido para carga de documento.');
+  }
+
+  const incomingSize = await getIncomingSize(file);
+  if (maxDocumentBytes > 0 && incomingSize > maxDocumentBytes) {
+    const error = new Error(
+      `El documento supera el tamaño máximo permitido (${Math.round(
+        maxDocumentBytes / (1024 * 1024)
+      )} MB).`
+    );
+    error.statusCode = 413;
+    throw error;
+  }
+
+  const declaredMime = normalizeMimeType(file.mimetype);
+  if (declaredMime && !supportedDocumentMimeTypes.has(declaredMime)) {
+    const error = new Error('Solo se permiten documentos PDF o imágenes JPG/PNG/WEBP.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const detectedMime = await validateDocumentSignature(file);
+
+  if (detectedMime && detectedMime.startsWith('image/')) {
+    return uploadFile(file);
+  }
+
+  if (resolvedProvider === 'gcs' && !isGCSConfigured) {
+    throw new Error(
+      'Google Cloud Storage no está configurado. Revisa GCS_PROJECT_ID, GCS_BUCKET_NAME y GOOGLE_APPLICATION_CREDENTIALS.'
+    );
+  }
+
+  const extensionByMime = {
+    'application/pdf': '.pdf',
+    'image/jpeg': '.jpg',
+    'image/jpg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+  };
+  const contentType = detectedMime || declaredMime || 'application/octet-stream';
+  const fallbackExt = path.extname(file.originalname || '') || '.bin';
+  const extension = extensionByMime[contentType] || fallbackExt;
+  const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${extension}`;
+  const { limiter, getTotalBytes } = createSizeLimiter(maxDocumentBytes);
+  const stream = file.buffer
+    ? (() => {
+        const pass = new PassThrough();
+        pass.end(file.buffer);
+        return pass;
+      })()
+    : fs.createReadStream(file.path);
+
+  try {
+    if (resolvedProvider === 'local') {
+      if (!fs.existsSync(localUploadsDir)) {
+        fs.mkdirSync(localUploadsDir, { recursive: true });
+      }
+
+      const filePath = path.join(localUploadsDir, filename);
+      await pipeline(stream, limiter, fs.createWriteStream(filePath));
+
+      logger.debug('Documento almacenado localmente', { filename, size: getTotalBytes() });
+      const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+      return `${backendUrl}/uploads/${filename}`;
+    }
+
+    const objectName = gcsPrefix ? `${gcsPrefix}/${filename}` : filename;
+    const blob = bucket.file(objectName);
+    const blobStream = blob.createWriteStream({
+      resumable: false,
+      metadata: {
+        contentType,
+        cacheControl,
+      },
+    });
+
+    await pipeline(stream, limiter, blobStream);
+    logger.debug('Documento subido a GCS', { objectName, size: getTotalBytes() });
+
+    return `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
+  } catch (error) {
+    if (error.statusCode) {
+      throw error;
+    }
+    const providerLabel = resolvedProvider === 'local' ? 'local' : 'GCS';
+    throw new Error(`Unable to upload document (${providerLabel}): ${error.message}`);
+  } finally {
+    await cleanupTempFile(file);
+  }
+};
+
+/**
  * Resolve an image URL to a signed URL when using GCS (for private buckets).
  * Falls back to the original URL if signing is not available.
  * @param {string} imageUrl
@@ -538,4 +689,4 @@ const deleteFileByUrl = async (imageUrl) => {
   }
 };
 
-module.exports = { uploadFile, deleteFileByUrl, resolveImageUrl };
+module.exports = { uploadFile, uploadDocument, deleteFileByUrl, resolveImageUrl };

@@ -43,6 +43,15 @@ jest.mock('../../services/dashboard.service', () => ({
   getLocationDashboardSummary: jest.fn(),
 }));
 
+jest.mock('../../services/inventario.service', () => ({
+  getStock: jest.fn(),
+  getStockMovements: jest.fn(),
+  getAssetMovements: jest.fn(),
+  getAuditoria: jest.fn(),
+  getIngresos: jest.fn(),
+  createIngreso: jest.fn(),
+}));
+
 jest.mock('../../lib/logger', () => ({
   logger: {
     info: jest.fn(),
@@ -60,10 +69,12 @@ const entregasRoutes = require('../../routes/entregas.routes');
 const firmasRoutes = require('../../routes/firmas.routes');
 const devolucionesRoutes = require('../../routes/devoluciones.routes');
 const dashboardRoutes = require('../../routes/dashboard.routes');
+const inventarioRoutes = require('../../routes/inventario.routes');
 const EntregasService = require('../../services/entregas.service');
 const FirmasService = require('../../services/firmas.service');
 const DevolucionesService = require('../../services/devoluciones.service');
 const DashboardService = require('../../services/dashboard.service');
+const InventarioService = require('../../services/inventario.service');
 
 describe('EPP API Route Integration', () => {
   const buildApp = () => {
@@ -73,6 +84,7 @@ describe('EPP API Route Integration', () => {
     app.use('/api/firmas', firmasRoutes);
     app.use('/api/devoluciones', devolucionesRoutes);
     app.use('/api/dashboard', dashboardRoutes);
+    app.use('/api/inventario', inventarioRoutes);
     app.use(errorHandler);
     return app;
   };
@@ -203,5 +215,62 @@ describe('EPP API Route Integration', () => {
 
     expect(oldIndicators.status).toBe(404);
     expect(oldProjectSummary.status).toBe(404);
+  });
+
+  it('creates inventory ingreso without documento and returns standardized envelope', async () => {
+    InventarioService.createIngreso.mockResolvedValue({
+      id: 'compra-1',
+      documento_compra_id: null,
+      detalles: [{ id: 'detalle-1' }],
+    });
+
+    const app = buildApp();
+
+    const response = await request(app).post('/api/inventario/ingresos').send({
+      fecha_ingreso: '2026-02-12T00:00:00.000Z',
+      notas: 'Ingreso manual de prueba',
+      detalles: [
+        {
+          articulo_id: '44444444-4444-4444-8444-444444444444',
+          ubicacion_id: '33333333-3333-4333-8333-333333333333',
+          cantidad: 3,
+          costo_unitario: 1000,
+        },
+      ],
+    });
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(response.body.message).toBe('Ingreso de inventario registrado correctamente');
+    expect(response.body.data.id).toBe('compra-1');
+  });
+
+  it('rejects multipart ingreso with document file but missing metadata', async () => {
+    const app = buildApp();
+
+    const response = await request(app)
+      .post('/api/inventario/ingresos')
+      .field(
+        'payload_json',
+        JSON.stringify({
+          fecha_ingreso: '2026-02-12T00:00:00.000Z',
+          detalles: [
+            {
+              articulo_id: '44444444-4444-4444-8444-444444444444',
+              ubicacion_id: '33333333-3333-4333-8333-333333333333',
+              cantidad: 1,
+              costo_unitario: 1000,
+            },
+          ],
+        })
+      )
+      .attach('documento_archivo', Buffer.from('%PDF-1.4\n%EOF\n', 'utf8'), {
+        filename: 'test.pdf',
+        contentType: 'application/pdf',
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toContain('documento_compra');
   });
 });

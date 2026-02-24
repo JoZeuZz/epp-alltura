@@ -52,6 +52,16 @@ class ArticulosController {
       return next(error);
     }
   }
+
+  static async removePermanent(req, res, next) {
+    try {
+      const data = await ArticulosService.removePermanent(req.params.id);
+      return sendSuccess(res, { message: 'Artículo eliminado permanentemente', data });
+    } catch (error) {
+      logger.error('Error deleting articulo permanently:', error);
+      return next(error);
+    }
+  }
 }
 
 module.exports = ArticulosController;

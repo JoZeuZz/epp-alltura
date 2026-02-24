@@ -88,5 +88,6 @@ router.post(
   validateBody(createCompraSchema),
   ComprasController.create
 );
+router.delete('/:id', authMiddleware, checkRole(['admin']), ComprasController.deleteIngreso);
 
 module.exports = router;

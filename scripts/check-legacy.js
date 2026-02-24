@@ -10,7 +10,6 @@ const EXCLUDED_PATH_PREFIXES = [
 ];
 const FORBIDDEN_FILES = [
   path.join('frontend', 'src', 'services', 'apiService.legacy.ts'),
-  path.join('frontend', 'src', 'pages', 'admin', 'UsersPage.tsx'),
 ];
 
 const FORBIDDEN_PATTERNS = [

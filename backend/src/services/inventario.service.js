@@ -1,6 +1,32 @@
 const db = require('../db');
+const ComprasService = require('./compras.service');
+const EgresosService = require('./egresos.service');
+
+const parseBoundedInteger = (value, { min, max, fallback }) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+
+  const integerValue = Math.trunc(numeric);
+  if (integerValue < min) return min;
+  if (integerValue > max) return max;
+  return integerValue;
+};
 
 class InventarioService {
+  static async getIngresos(filters = {}) {
+    return ComprasService.list(filters);
+  }
+
+  static async createIngreso(payload, userId) {
+    return ComprasService.create(payload, userId);
+  }
+
+  static async deleteIngreso(id) {
+    return ComprasService.deleteIngreso(id);
+  }
+
   static async getStock(filters = {}) {
     const values = [];
     const conditions = [];
@@ -47,6 +73,24 @@ class InventarioService {
     }
 
     query += ' ORDER BY a.nombre ASC, u.nombre ASC';
+
+    const hasLimit = filters.limit !== undefined && filters.limit !== null && filters.limit !== '';
+    const hasOffset = filters.offset !== undefined && filters.offset !== null && filters.offset !== '';
+
+    if (hasLimit) {
+      const limit = parseBoundedInteger(filters.limit, { min: 1, max: 500, fallback: 100 });
+      values.push(limit);
+      query += ` LIMIT $${values.length}`;
+    }
+
+    if (hasOffset) {
+      const offset = parseBoundedInteger(filters.offset, { min: 0, max: 1000000, fallback: 0 });
+      if (!hasLimit) {
+        query += ' LIMIT ALL';
+      }
+      values.push(offset);
+      query += ` OFFSET $${values.length}`;
+    }
 
     const { rows } = await db.query(query, values);
     return rows;
@@ -184,6 +228,66 @@ class InventarioService {
     return rows;
   }
 
+  static async getActivos(filters = {}) {
+    const values = [];
+    const conditions = [];
+
+    if (filters.articulo_id) {
+      values.push(filters.articulo_id);
+      conditions.push(`ar.id = $${values.length}`);
+    }
+
+    if (filters.ubicacion_id) {
+      values.push(filters.ubicacion_id);
+      conditions.push(`a.ubicacion_actual_id = $${values.length}`);
+    }
+
+    if (filters.estado) {
+      values.push(filters.estado);
+      conditions.push(`a.estado = $${values.length}`);
+    }
+
+    if (filters.search) {
+      values.push(`%${filters.search}%`);
+      conditions.push(
+        `(a.codigo ILIKE $${values.length} OR COALESCE(a.nro_serie,'') ILIKE $${values.length} OR ar.nombre ILIKE $${values.length})`
+      );
+    }
+
+    const limit = Math.min(Math.max(Number(filters.limit) || 100, 1), 500);
+    values.push(limit);
+
+    let query = `
+      SELECT
+        a.id,
+        a.codigo,
+        a.nro_serie,
+        a.estado,
+        a.valor,
+        a.fecha_vencimiento,
+        a.fecha_compra,
+        a.creado_en,
+        ar.id AS articulo_id,
+        ar.nombre AS articulo_nombre,
+        ar.tipo AS articulo_tipo,
+        u.id AS ubicacion_id,
+        u.nombre AS ubicacion_nombre,
+        u.tipo AS ubicacion_tipo
+      FROM activo a
+      INNER JOIN articulo ar ON ar.id = a.articulo_id
+      LEFT JOIN ubicacion u ON u.id = a.ubicacion_actual_id
+    `;
+
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(' AND ')}`;
+    }
+
+    query += ` ORDER BY ar.nombre ASC, a.codigo ASC LIMIT $${values.length}`;
+
+    const { rows } = await db.query(query, values);
+    return rows;
+  }
+
   static async getAuditoria(filters = {}) {
     const values = [];
     const conditions = [];
@@ -219,6 +323,59 @@ class InventarioService {
     }
 
     query += ` ORDER BY a.creado_en DESC LIMIT $${values.length}`;
+
+    const { rows } = await db.query(query, values);
+    return rows;
+  }
+
+  static async getEgresos(filters = {}) {
+    return EgresosService.list(filters);
+  }
+
+  static async getEgresoById(id) {
+    return EgresosService.getById(id);
+  }
+
+  static async createEgreso(payload, userId) {
+    return EgresosService.create(payload, userId);
+  }
+
+  static async deleteEgreso(id) {
+    return EgresosService.deleteEgreso(id);
+  }
+
+  static async getLotes(filters = {}) {
+    const values = [];
+    const conditions = [];
+
+    if (filters.articulo_id) {
+      values.push(filters.articulo_id);
+      conditions.push(`l.articulo_id = $${values.length}`);
+    }
+
+    if (filters.estado) {
+      values.push(filters.estado);
+      conditions.push(`l.estado = $${values.length}`);
+    }
+
+    let query = `
+      SELECT
+        l.id,
+        l.articulo_id,
+        l.codigo_lote,
+        l.fecha_fabricacion,
+        l.fecha_vencimiento,
+        l.estado,
+        a.nombre AS articulo_nombre
+      FROM lote l
+      INNER JOIN articulo a ON a.id = l.articulo_id
+    `;
+
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(' AND ')}`;
+    }
+
+    query += ` ORDER BY l.creado_en DESC`;
 
     const { rows } = await db.query(query, values);
     return rows;

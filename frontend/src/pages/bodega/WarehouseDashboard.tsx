@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useLoaderData, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { QRCodeSVG } from 'qrcode.react';
 import { post } from '../../services/apiService';
 import SignaturePad from '../../components/forms/SignaturePad';
 
@@ -485,9 +486,9 @@ const WarehouseDashboard: React.FC = () => {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200">
-                <th className="text-left py-2 px-2">Entrega</th>
+                  <th className="text-left py-2 px-2">Entrega</th>
                 <th className="text-left py-2 px-2">Estado</th>
-                <th className="text-left py-2 px-2">Token</th>
+                <th className="text-left py-2 px-2">QR Firma</th>
                 <th className="text-left py-2 px-2">Acciones</th>
               </tr>
             </thead>
@@ -496,7 +497,33 @@ const WarehouseDashboard: React.FC = () => {
                 <tr key={item.id} className="border-b last:border-b-0 border-gray-100">
                   <td className="py-2 px-2">{item.id.slice(0, 8)}</td>
                   <td className="py-2 px-2">{item.estado}</td>
-                  <td className="py-2 px-2">{tokenMap[item.id] ? tokenMap[item.id].slice(0, 12) : '-'}</td>
+                  <td className="py-3 px-2">
+                    {tokenMap[item.id] ? (
+                      <div className="flex flex-col items-start gap-2">
+                        <QRCodeSVG
+                          value={`${window.location.origin}/firma/${tokenMap[item.id]}`}
+                          size={120}
+                          bgColor="#ffffff"
+                          fgColor="#1E2A4A"
+                          level="M"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              `${window.location.origin}/firma/${tokenMap[item.id]}`
+                            );
+                            toast.success('Enlace copiado al portapapeles.');
+                          }}
+                          className="text-xs text-primary-blue underline hover:text-blue-800 transition-colors"
+                        >
+                          Copiar enlace
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 text-xs italic">Sin QR</span>
+                    )}
+                  </td>
                   <td className="py-2 px-2 flex gap-2 flex-wrap">
                     <button
                       className="px-2 py-1 text-xs rounded bg-gray-700 text-white"
