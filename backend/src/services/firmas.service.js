@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const db = require('../db');
+const { writeAuditEvent } = require('../lib/auditoriaDb');
 
 const buildError = (message, statusCode = 400, code = null) => {
   const error = new Error(message);
@@ -44,6 +45,14 @@ const normalizeAcceptanceText = (generalText, detailText) => {
 
 const buildTokenUrl = (token) => `/firmas/tokens/${token}`;
 
+const getExpectedSignerWorkerId = (entrega) => {
+  if (entrega?.tipo === 'traslado') {
+    return entrega.transportista_trabajador_id || entrega.trabajador_id;
+  }
+
+  return entrega?.trabajador_id || null;
+};
+
 class FirmasService {
   static async createSignatureInDevice(entregaId, payload, meta, actor = null) {
     const client = await db.pool.connect();
@@ -65,6 +74,7 @@ class FirmasService {
       }
 
       const entrega = entregaResult.rows[0];
+      const expectedSignerWorkerId = getExpectedSignerWorkerId(entrega);
 
       if (actor) {
         const actorRoles = new Set(Array.isArray(actor.roles) ? actor.roles : [actor.role]);
@@ -82,7 +92,7 @@ class FirmasService {
             [actor.id]
           );
 
-          if (!workerResult.rows.length || workerResult.rows[0].id !== entrega.trabajador_id) {
+          if (!workerResult.rows.length || workerResult.rows[0].id !== expectedSignerWorkerId) {
             throw buildError(
               'No tienes permisos para firmar esta entrega',
               403,
@@ -92,12 +102,13 @@ class FirmasService {
         }
       }
 
-      const trabajadorId = payload.trabajador_id || entrega.trabajador_id;
+      const trabajadorId = payload.trabajador_id || expectedSignerWorkerId;
 
       const firma = await this.insertSignature(client, {
         entrega,
         trabajadorId,
         metodo: 'en_dispositivo',
+        actorUserId: actor?.id || null,
         textoAceptacion: payload.texto_aceptacion,
         textoAceptacionDetalle: payload.texto_aceptacion_detalle,
         firmaImagenUrl: payload.firma_imagen_url,
@@ -146,6 +157,7 @@ class FirmasService {
       }
 
       const entrega = entregaResult.rows[0];
+      const expectedSignerWorkerId = getExpectedSignerWorkerId(entrega);
       if (entrega.estado === 'confirmada') {
         throw buildError('No se puede generar token para una entrega confirmada', 400, 'DELIVERY_CONFIRMED');
       }
@@ -180,8 +192,21 @@ class FirmasService {
         VALUES ($1, $2, $3, $4, NOW() + ($5 || ' minutes')::interval)
         RETURNING id, entrega_id, trabajador_id, expira_en
         `,
-        [entregaId, entrega.trabajador_id, creadoPorUsuarioId, tokenHash, String(expiryMinutes)]
+        [entregaId, expectedSignerWorkerId, creadoPorUsuarioId, tokenHash, String(expiryMinutes)]
       );
+
+          await writeAuditEvent({
+            client,
+            entidadTipo: 'firma_token',
+            entidadId: tokenResult.rows[0].id,
+            accion: 'crear',
+            usuarioId: creadoPorUsuarioId,
+            diff: {
+              entrega_id: entregaId,
+              trabajador_id: expectedSignerWorkerId,
+              expira_minutos: expiryMinutes,
+            },
+          });
 
       if (entrega.estado === 'borrador') {
         await client.query(
@@ -271,6 +296,7 @@ class FirmasService {
         entrega: entregaResult.rows[0],
         trabajadorId: tokenRow.trabajador_id,
         metodo: 'qr_link',
+        actorUserId: null,
         textoAceptacion: payload.texto_aceptacion,
         textoAceptacionDetalle: payload.texto_aceptacion_detalle,
         firmaImagenUrl: payload.firma_imagen_url,
@@ -414,7 +440,10 @@ class FirmasService {
       FROM entrega e
       INNER JOIN entrega_detalle d ON d.entrega_id = e.id
       LEFT JOIN firma_entrega f ON f.entrega_id = e.id
-      WHERE e.trabajador_id = $1
+      WHERE (
+        e.trabajador_id = $1
+        OR (e.tipo = 'traslado' AND COALESCE(e.transportista_trabajador_id, e.trabajador_id) = $1)
+      )
         AND e.estado IN ('borrador', 'pendiente_firma')
         AND f.id IS NULL
       GROUP BY e.id
@@ -440,7 +469,9 @@ class FirmasService {
       throw buildError('La entrega se encuentra anulada', 400, 'DELIVERY_CANCELLED');
     }
 
-    if (entrega.trabajador_id !== signatureInput.trabajadorId) {
+    const expectedSignerWorkerId = getExpectedSignerWorkerId(entrega);
+
+    if (expectedSignerWorkerId !== signatureInput.trabajadorId) {
       throw buildError('El trabajador de la firma no coincide con la entrega', 403, 'WORKER_MISMATCH');
     }
 
@@ -495,6 +526,19 @@ class FirmasService {
         signatureInput.userAgent || null,
       ]
     );
+
+    await writeAuditEvent({
+      client,
+      entidadTipo: 'firma_entrega',
+      entidadId: signatureResult.rows[0].id,
+      accion: 'firmar',
+      usuarioId: signatureInput.actorUserId || null,
+      diff: {
+        entrega_id: entrega.id,
+        trabajador_id: signatureInput.trabajadorId,
+        metodo: signatureInput.metodo,
+      },
+    });
 
     if (entrega.estado === 'borrador') {
       await client.query(

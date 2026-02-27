@@ -2,6 +2,19 @@ const db = require('../db');
 const ComprasService = require('./compras.service');
 const EgresosService = require('./egresos.service');
 
+const csvEscape = (value) => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  const stringValue = String(value);
+  if (/[",\n]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  }
+
+  return stringValue;
+};
+
 const parseBoundedInteger = (value, { min, max, fallback }) => {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) {
@@ -162,6 +175,55 @@ class InventarioService {
 
     const { rows } = await db.query(query, values);
     return rows;
+  }
+
+  static async exportStockMovementsCsv(filters = {}) {
+    const exportFilters = {
+      ...filters,
+      limit: Number(filters.limit) > 0 ? Number(filters.limit) : 5000,
+    };
+
+    const rows = await this.getStockMovements(exportFilters);
+
+    const headers = [
+      'id',
+      'fecha_movimiento',
+      'tipo',
+      'articulo_nombre',
+      'codigo_lote',
+      'cantidad',
+      'ubicacion_origen',
+      'ubicacion_destino',
+      'responsable_email',
+      'compra_id',
+      'entrega_id',
+      'devolucion_id',
+      'notas',
+    ];
+
+    const lines = [headers.join(',')];
+
+    for (const row of rows) {
+      lines.push(
+        [
+          csvEscape(row.id),
+          csvEscape(row.fecha_movimiento),
+          csvEscape(row.tipo),
+          csvEscape(row.articulo_nombre),
+          csvEscape(row.codigo_lote),
+          csvEscape(row.cantidad),
+          csvEscape(row.ubicacion_origen_nombre),
+          csvEscape(row.ubicacion_destino_nombre),
+          csvEscape(row.responsable_email),
+          csvEscape(row.compra_id),
+          csvEscape(row.entrega_id),
+          csvEscape(row.devolucion_id),
+          csvEscape(row.notas),
+        ].join(',')
+      );
+    }
+
+    return lines.join('\n');
   }
 
   static async getAssetMovements(filters = {}) {

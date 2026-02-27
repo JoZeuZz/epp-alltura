@@ -80,6 +80,21 @@ class InventarioController {
     }
   }
 
+  static async exportStockMovementsCsv(req, res, next) {
+    try {
+      const csvContent = await InventarioService.exportStockMovementsCsv(req.query || {});
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      const filename = `movimientos-stock-${timestamp}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.status(200).send(`\uFEFF${csvContent}`);
+    } catch (error) {
+      logger.error('Error exporting stock movements CSV:', error);
+      return next(error);
+    }
+  }
+
   static async getAssetMovements(req, res, next) {
     try {
       const data = await InventarioService.getAssetMovements(req.query || {});

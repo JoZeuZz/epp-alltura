@@ -6,7 +6,6 @@ class TrabajadorModel {
     this.id = data.id;
     this.persona_id = data.persona_id;
     this.usuario_id = data.usuario_id;
-    this.codigo_empleado = data.codigo_empleado;
     this.cargo = data.cargo;
     this.fecha_ingreso = data.fecha_ingreso;
     this.fecha_salida = data.fecha_salida;
@@ -18,7 +17,6 @@ class TrabajadorModel {
   static async create({
     persona_id,
     usuario_id,
-    codigo_empleado,
     cargo,
     fecha_ingreso,
     fecha_salida,
@@ -27,15 +25,14 @@ class TrabajadorModel {
     const { rows } = await db.query(
       `
       INSERT INTO trabajador (
-        persona_id, usuario_id, codigo_empleado, cargo, fecha_ingreso, fecha_salida, estado
+        persona_id, usuario_id, cargo, fecha_ingreso, fecha_salida, estado
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
       `,
       [
         persona_id,
         usuario_id || null,
-        codigo_empleado || null,
         cargo || null,
         fecha_ingreso || null,
         fecha_salida || null,
@@ -76,7 +73,7 @@ class TrabajadorModel {
     if (search) {
       values.push(`%${search}%`);
       conditions.push(
-        `(p.rut ILIKE $${values.length} OR p.nombres ILIKE $${values.length} OR p.apellidos ILIKE $${values.length} OR t.codigo_empleado ILIKE $${values.length})`
+        `(p.rut ILIKE $${values.length} OR p.nombres ILIKE $${values.length} OR p.apellidos ILIKE $${values.length})`
       );
     }
 
@@ -101,7 +98,6 @@ class TrabajadorModel {
     const { clause, values } = buildSetClause({
       persona_id: fields.persona_id,
       usuario_id: fields.usuario_id,
-      codigo_empleado: fields.codigo_empleado,
       cargo: fields.cargo,
       fecha_ingreso: fields.fecha_ingreso,
       fecha_salida: fields.fecha_salida,

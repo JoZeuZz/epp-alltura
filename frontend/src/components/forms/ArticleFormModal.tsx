@@ -32,7 +32,7 @@ const INITIAL_FORM: ArticleFormValues = {
   marca: '',
   modelo: '',
   categoria: '',
-  tracking_mode: 'cantidad',
+  tracking_mode: 'serial',
   retorno_mode: 'retornable',
   requiere_vencimiento: false,
   unidad_medida: 'unidad',
@@ -89,6 +89,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
   }, [initialValues, isEditMode, isOpen]);
 
   const isConsumable = formValues.tipo === 'consumible';
+  const isRetornable = formValues.retorno_mode === 'retornable';
 
   const validateForm = useMemo(
     () => (values: ArticleFormValues): FormErrors => {
@@ -116,7 +117,15 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
       setFormValues((prev) => ({
         ...prev,
         tipo,
-        retorno_mode: tipo === 'consumible' ? 'consumible' : prev.retorno_mode,
+        retorno_mode: tipo === 'consumible' ? 'consumible' : 'retornable',
+        tracking_mode: tipo === 'consumible' ? 'cantidad' : 'serial',
+      }));
+    } else if (field === 'retorno_mode') {
+      const retornoMode = value as ArticleFormValues['retorno_mode'];
+      setFormValues((prev) => ({
+        ...prev,
+        retorno_mode: retornoMode,
+        tracking_mode: retornoMode === 'retornable' ? 'serial' : prev.tracking_mode,
       }));
     } else {
       setFormValues((prev) => ({ ...prev, [field]: value }));
@@ -209,8 +218,9 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           <div>
             <label className="label-base text-gray-700">Tracking mode *</label>
             <select
-              className="w-full border rounded-md p-2"
+              className="w-full border rounded-md p-2 disabled:bg-gray-100"
               value={formValues.tracking_mode}
+              disabled={isConsumable || isRetornable}
               onChange={(event) =>
                 handleFieldChange(
                   'tracking_mode',
@@ -218,8 +228,9 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
                 )
               }
             >
+              <option value="serial">Serial (por unidad)</option>
               <option value="lote">Lote</option>
-              <option value="cantidad">Cantidad</option>
+              <option value="cantidad">Cantidad (agregado)</option>
             </select>
           </div>
 
@@ -236,7 +247,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
                 )
               }
             >
-              <option value="retornable">Retornable</option>
+              <option value="retornable">Retornable (activo)</option>
               <option value="consumible">Consumible</option>
             </select>
           </div>

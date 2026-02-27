@@ -166,7 +166,7 @@ class DashboardService {
   }
 
   static async getOperationalIndicators() {
-    const [stockMovementsResult, assetMovementsResult] = await Promise.all([
+    const [stockMovementsResult, assetMovementsResult, consumiblesResult, ubicacionesResult, firmasResult] = await Promise.all([
       db.query(
         `
         SELECT
@@ -193,10 +193,49 @@ class DashboardService {
         WHERE fecha_movimiento >= NOW() - INTERVAL '30 days'
         `
       ),
+      db.query(
+        `
+        SELECT
+          COUNT(*)::int AS movimientos_consumibles_30d,
+          COALESCE(SUM(ms.cantidad), 0) AS cantidad_consumibles_30d
+        FROM movimiento_stock ms
+        INNER JOIN articulo a ON a.id = ms.articulo_id
+        WHERE ms.fecha_movimiento >= NOW() - INTERVAL '30 days'
+          AND a.retorno_mode = 'consumible'
+        `
+      ),
+      db.query(
+        `
+        SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (
+            WHERE tipo = 'bodega'
+              AND COALESCE(ubicacion_subtipo, 'fija') = 'fija'
+              AND fecha_cierre_operacion IS NULL
+          )::int AS bodegas_activas,
+          COUNT(*) FILTER (
+            WHERE tipo = 'bodega'
+              AND ubicacion_subtipo = 'transitoria'
+              AND fecha_cierre_operacion IS NULL
+          )::int AS bodegas_transitorias_activas
+        FROM ubicacion
+        `
+      ),
+      db.query(
+        `
+        SELECT
+          COUNT(*)::int AS actas_firmadas_30d
+        FROM firma_entrega
+        WHERE firmado_en >= NOW() - INTERVAL '30 days'
+        `
+      ),
     ]);
 
     const stock = stockMovementsResult.rows[0];
     const activos = assetMovementsResult.rows[0];
+    const consumibles = consumiblesResult.rows[0];
+    const ubicaciones = ubicacionesResult.rows[0];
+    const firmas = firmasResult.rows[0];
 
     return {
       periodo: '30d',
@@ -215,6 +254,18 @@ class DashboardService {
         devoluciones: activos.devoluciones || 0,
         mantenciones: activos.mantenciones || 0,
         bajas: activos.bajas || 0,
+      },
+      consumibles: {
+        movimientos_30d: consumibles.movimientos_consumibles_30d || 0,
+        cantidad_30d: Number(consumibles.cantidad_consumibles_30d || 0),
+      },
+      ubicaciones: {
+        total: ubicaciones.total || 0,
+        bodegas_activas: ubicaciones.bodegas_activas || 0,
+        bodegas_transitorias_activas: ubicaciones.bodegas_transitorias_activas || 0,
+      },
+      firmas: {
+        actas_firmadas_30d: firmas.actas_firmadas_30d || 0,
       },
     };
   }

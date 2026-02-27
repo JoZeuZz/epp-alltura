@@ -1,6 +1,7 @@
 const db = require('../db');
 const PersonaModel = require('../models/persona');
 const TrabajadorModel = require('../models/trabajador');
+const { normalizeRut } = require('../lib/validation');
 
 class TrabajadoresService {
   static async list(filters = {}) {
@@ -49,6 +50,9 @@ class TrabajadoresService {
           throw error;
         }
 
+        // Normalizar RUT antes de insertar
+        data.rut = normalizeRut(data.rut);
+
         const existingPersona = await PersonaModel.findByRut(data.rut);
         if (existingPersona) {
           const error = new Error('Ya existe una persona con ese RUT');
@@ -91,15 +95,14 @@ class TrabajadoresService {
       const trabajadorResult = await client.query(
         `
         INSERT INTO trabajador (
-          persona_id, usuario_id, codigo_empleado, cargo, fecha_ingreso, fecha_salida, estado
+          persona_id, usuario_id, cargo, fecha_ingreso, fecha_salida, estado
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id
         `,
         [
           personaId,
           data.usuario_id || null,
-          data.codigo_empleado || null,
           data.cargo || null,
           data.fecha_ingreso || null,
           data.fecha_salida || null,
@@ -130,6 +133,8 @@ class TrabajadoresService {
       await client.query('BEGIN');
 
       if (data.rut || data.nombres || data.apellidos || data.telefono || data.email || data.persona_estado) {
+        // Normalizar RUT si viene en la actualización
+        if (data.rut) data.rut = normalizeRut(data.rut);
         await client.query(
           `
           UPDATE persona
@@ -156,7 +161,6 @@ class TrabajadoresService {
 
       const fields = {
         usuario_id: data.usuario_id,
-        codigo_empleado: data.codigo_empleado,
         cargo: data.cargo,
         fecha_ingreso: data.fecha_ingreso,
         fecha_salida: data.fecha_salida,

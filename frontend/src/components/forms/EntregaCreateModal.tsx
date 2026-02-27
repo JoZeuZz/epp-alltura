@@ -14,12 +14,12 @@ interface TrabajadorOption {
   apellidos: string;
   rut: string;
   cargo?: string | null;
-  codigo_empleado?: string | null;
 }
 
 interface UbicacionOption {
   id: string;
   nombre: string;
+  tipo?: 'bodega' | 'planta' | 'proyecto' | 'taller_mantencion';
 }
 
 interface ArticuloOption {
@@ -78,6 +78,8 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 }) => {
   const [step, setStep] = useState<1 | 2>(1);
   const [trabajadorId, setTrabajadorId] = useState('');
+  const [transportistaTrabajadorId, setTransportistaTrabajadorId] = useState('');
+  const [receptorTrabajadorId, setReceptorTrabajadorId] = useState('');
   const [tipo, setTipo] = useState<EntregaTipo>('entrega');
   const [ubicacionOrigenId, setUbicacionOrigenId] = useState('');
   const [ubicacionDestinoId, setUbicacionDestinoId] = useState('');
@@ -92,6 +94,8 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
     if (!isOpen) {
       setStep(1);
       setTrabajadorId('');
+      setTransportistaTrabajadorId('');
+      setReceptorTrabajadorId('');
       setTipo('entrega');
       setUbicacionOrigenId('');
       setUbicacionDestinoId('');
@@ -107,16 +111,30 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
     return (
       t.nombres.toLowerCase().includes(q) ||
       t.apellidos.toLowerCase().includes(q) ||
-      t.rut.toLowerCase().includes(q) ||
-      (t.codigo_empleado ?? '').toLowerCase().includes(q)
+      t.rut.toLowerCase().includes(q)
     );
+  });
+
+  const isTraslado = tipo === 'traslado';
+
+  const ubicacionesOrigen = ubicaciones.filter((u) => {
+    if (!u.tipo) return true;
+    return u.tipo === 'bodega';
+  });
+
+  const ubicacionesDestino = ubicaciones.filter((u) => {
+    if (!u.tipo) return true;
+    if (isTraslado) return u.tipo === 'bodega';
+    return u.tipo === 'planta';
   });
 
   // Step 1 validation
   const canGoToStep2 =
-    trabajadorId !== '' &&
+    (isTraslado ? transportistaTrabajadorId !== '' : trabajadorId !== '') &&
     ubicacionOrigenId !== '' &&
     ubicacionDestinoId !== '' &&
+    ubicacionOrigenId !== ubicacionDestinoId &&
+    (!isTraslado || receptorTrabajadorId !== '') &&
     tipo !== ('' as EntregaTipo);
 
   // Step 2 helpers
@@ -136,9 +154,31 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 
   const articuloOf = (id: string) => articulos.find((a) => a.id === id);
 
+  const updateArticuloDetalle = (idx: number, articuloId: string) => {
+    const art = articuloOf(articuloId);
+    setDetalles((prev) =>
+      prev.map((d, i) => {
+        if (i !== idx) return d;
+
+        return {
+          ...d,
+          articulo_id: articuloId,
+          activo_id: art?.tracking_mode === 'serial' ? d.activo_id ?? null : null,
+          lote_id: art?.tracking_mode === 'lote' ? d.lote_id ?? null : null,
+          cantidad: art?.tracking_mode === 'serial' ? 1 : d.cantidad,
+        };
+      })
+    );
+  };
+
   const handleSubmit = async () => {
     setError(null);
     // Validate detalles
+    if (ubicacionOrigenId === ubicacionDestinoId) {
+      setError('La ubicación de origen y destino no puede ser la misma.');
+      return;
+    }
+
     for (const d of detalles) {
       if (!d.articulo_id) {
         setError('Todos los ítems deben tener un artículo seleccionado.');
@@ -148,16 +188,44 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
         setError('La cantidad de cada ítem debe ser mayor a 0.');
         return;
       }
+
+      const art = articuloOf(d.articulo_id);
+      if (!art) {
+        setError('Hay artículos inválidos en los ítems.');
+        return;
+      }
+
+      if (art.tracking_mode === 'serial') {
+        if (!d.activo_id) {
+          setError(`El artículo "${art.nombre}" requiere Activo ID por ser serial.`);
+          return;
+        }
+
+        if (Number(d.cantidad) !== 1) {
+          setError(`El artículo "${art.nombre}" serial debe tener cantidad 1.`);
+          return;
+        }
+      }
+
+      if (art.retorno_mode === 'consumible' && d.activo_id) {
+        setError(`El artículo "${art.nombre}" es consumible y no admite Activo ID.`);
+        return;
+      }
     }
 
+    const resolvedTrabajadorId = isTraslado ? transportistaTrabajadorId : trabajadorId;
+
     const payload: EntregaCreatePayload = {
-      trabajador_id: trabajadorId,
+      trabajador_id: resolvedTrabajadorId,
+      transportista_trabajador_id: isTraslado ? transportistaTrabajadorId : null,
+      receptor_trabajador_id: isTraslado ? receptorTrabajadorId || null : null,
       ubicacion_origen_id: ubicacionOrigenId,
       ubicacion_destino_id: ubicacionDestinoId,
       tipo,
       nota_destino: notaDestino || null,
       detalles: detalles.map((d) => ({
         ...d,
+        activo_id: d.activo_id || null,
         lote_id: d.lote_id || null,
         notas: d.notas || null,
       })),
@@ -172,6 +240,8 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   };
 
   const selectedTrabajador = trabajadores.find((t) => t.id === trabajadorId);
+  const selectedTransportista = trabajadores.find((t) => t.id === transportistaTrabajadorId);
+  const selectedReceptor = trabajadores.find((t) => t.id === receptorTrabajadorId);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Nueva entrega">
@@ -204,18 +274,24 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
           {/* Trabajador */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Trabajador <span className="text-red-500">*</span>
+              {isTraslado ? 'Transportista' : 'Trabajador'} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
-              placeholder="Buscar por nombre, RUT o código..."
+              placeholder="Buscar por nombre o RUT..."
               value={trabajadorSearch}
               onChange={(e) => setTrabajadorSearch(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none mb-2"
             />
             <select
-              value={trabajadorId}
-              onChange={(e) => setTrabajadorId(e.target.value)}
+              value={isTraslado ? transportistaTrabajadorId : trabajadorId}
+              onChange={(e) => {
+                if (isTraslado) {
+                  setTransportistaTrabajadorId(e.target.value);
+                } else {
+                  setTrabajadorId(e.target.value);
+                }
+              }}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
             >
               <option value="">— Seleccionar trabajador —</option>
@@ -226,12 +302,39 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                 </option>
               ))}
             </select>
-            {selectedTrabajador && (
+            {((isTraslado ? selectedTransportista : selectedTrabajador)) && (
               <p className="mt-1 text-xs text-green-600 font-medium">
-                ✓ {selectedTrabajador.nombres} {selectedTrabajador.apellidos}
+                ✓ {(isTraslado ? selectedTransportista : selectedTrabajador)?.nombres}{' '}
+                {(isTraslado ? selectedTransportista : selectedTrabajador)?.apellidos}
               </p>
             )}
           </div>
+
+          {isTraslado && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Receptor en bodega destino <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={receptorTrabajadorId}
+                onChange={(e) => setReceptorTrabajadorId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+              >
+                <option value="">— Seleccionar receptor —</option>
+                {filteredTrabajadores.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.nombres} {t.apellidos} · {t.rut}
+                    {t.cargo ? ` · ${t.cargo}` : ''}
+                  </option>
+                ))}
+              </select>
+              {selectedReceptor && (
+                <p className="mt-1 text-xs text-green-600 font-medium">
+                  ✓ {selectedReceptor.nombres} {selectedReceptor.apellidos}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Tipo */}
           <div>
@@ -267,7 +370,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
             >
               <option value="">— Seleccionar ubicación origen —</option>
-              {ubicaciones.map((u) => (
+              {ubicacionesOrigen.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.nombre}
                 </option>
@@ -286,7 +389,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
             >
               <option value="">— Seleccionar ubicación destino —</option>
-              {ubicaciones.map((u) => (
+              {ubicacionesDestino.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.nombre}
                 </option>
@@ -317,6 +420,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
             const art = articuloOf(detalle.articulo_id);
             const artLotes = art ? lotesForArticulo(art.id) : [];
             const needsLote = art?.tracking_mode === 'lote';
+            const needsSerial = art?.tracking_mode === 'serial';
 
             return (
               <div key={idx} className="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
@@ -341,7 +445,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                   <select
                     value={detalle.articulo_id}
                     onChange={(e) =>
-                      updateDetalle(idx, 'articulo_id', e.target.value)
+                      updateArticuloDetalle(idx, e.target.value)
                     }
                     className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
                   >
@@ -365,6 +469,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                       min={1}
                       step="any"
                       value={detalle.cantidad}
+                      disabled={needsSerial}
                       onChange={(e) =>
                         updateDetalle(idx, 'cantidad', Number(e.target.value))
                       }
@@ -392,6 +497,21 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                     </select>
                   </div>
                 </div>
+
+                {needsSerial && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Activo ID <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={detalle.activo_id ?? ''}
+                      onChange={(e) => updateDetalle(idx, 'activo_id', e.target.value || null)}
+                      placeholder="UUID del activo serial"
+                      className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+                    />
+                  </div>
+                )}
 
                 {/* Lote (solo si tracking_mode === 'lote') */}
                 {needsLote && (

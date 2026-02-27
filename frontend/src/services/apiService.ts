@@ -290,6 +290,27 @@ export const getInventoryStock = (params?: InventoryStockQueryParams) =>
 export const getInventoryStockMovements = (params?: InventoryMovementQueryParams) =>
   get('/inventario/movimientos-stock', params);
 
+export const exportInventoryStockMovementsCsv = async (params?: InventoryMovementQueryParams) => {
+  const response = await apiService.get('/inventario/movimientos-stock/export', {
+    params,
+    responseType: 'blob',
+  });
+
+  const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+  const contentDisposition = String(response.headers['content-disposition'] || '');
+  const fileNameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+  const fileName = fileNameMatch?.[1] || 'movimientos-stock.csv';
+
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', fileName);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+};
+
 export const getInventoryIngresos = (params?: {
   proveedor_id?: string;
   creado_por_usuario_id?: string;
@@ -365,7 +386,13 @@ export const deleteInventoryEgreso = (id: string) =>
 // ============ ENTREGAS ============
 
 export type EntregaTipo = 'entrega' | 'prestamo' | 'traslado';
-export type EntregaEstado = 'borrador' | 'pendiente_firma' | 'confirmada' | 'anulada';
+export type EntregaEstado =
+  | 'borrador'
+  | 'pendiente_firma'
+  | 'en_transito'
+  | 'recibido'
+  | 'confirmada'
+  | 'anulada';
 export type CondicionSalida = 'ok' | 'usado' | 'danado';
 
 export interface EntregaDetalleRow {
@@ -388,6 +415,8 @@ export interface EntregaRow {
   id: string;
   creado_por_usuario_id: string;
   trabajador_id: string;
+  transportista_trabajador_id?: string | null;
+  receptor_trabajador_id?: string | null;
   nombres?: string;
   apellidos?: string;
   rut?: string;
@@ -396,7 +425,10 @@ export interface EntregaRow {
   tipo: EntregaTipo;
   estado: EntregaEstado;
   nota_destino?: string | null;
+  motivo_anulacion?: string | null;
   creado_en?: string | null;
+  recibido_en?: string | null;
+  recibido_por_usuario_id?: string | null;
   confirmada_en?: string | null;
   detalles?: EntregaDetalleRow[];
 }
@@ -412,6 +444,8 @@ export interface EntregaDetallePayload {
 
 export interface EntregaCreatePayload {
   trabajador_id: string;
+  transportista_trabajador_id?: string | null;
+  receptor_trabajador_id?: string | null;
   ubicacion_origen_id: string;
   ubicacion_destino_id: string;
   tipo: EntregaTipo;
@@ -437,8 +471,11 @@ export const createEntrega = (payload: EntregaCreatePayload) =>
 export const confirmEntrega = (id: string) =>
   post<EntregaRow>(`/entregas/${id}/confirm`);
 
-export const anularEntrega = (id: string) =>
-  post<EntregaRow>(`/entregas/${id}/anular`);
+export const recibirTraslado = (id: string, payload?: { receptor_trabajador_id?: string | null }) =>
+  post<EntregaRow>(`/entregas/${id}/recibir`, payload || {});
+
+export const anularEntrega = (id: string, payload: { motivo: string }) =>
+  post<EntregaRow>(`/entregas/${id}/anular`, payload);
 
 export const firmarEntregaDispositivo = (
   entregaId: string,

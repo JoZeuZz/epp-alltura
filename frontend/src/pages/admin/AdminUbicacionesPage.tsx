@@ -11,6 +11,7 @@ import { post, put } from '../../services/apiService';
 
 type TipoUbicacion = 'bodega' | 'planta' | 'proyecto' | 'taller_mantencion';
 type EstadoUbicacion = 'activo' | 'inactivo';
+type TipoUbicacionOperativa = 'bodega' | 'planta';
 
 interface Ubicacion {
   id: string;
@@ -54,6 +55,11 @@ const TIPO_COLORS: Record<TipoUbicacion, string> = {
   planta: 'bg-purple-100 text-purple-700',
   proyecto: 'bg-orange-100 text-orange-700',
   taller_mantencion: 'bg-yellow-100 text-yellow-700',
+};
+
+const TIPO_FORM_LABELS: Record<TipoUbicacionOperativa, string> = {
+  bodega: 'Bodega',
+  planta: 'Planta',
 };
 
 const toErrorMessage = (error: unknown): string => {
@@ -166,9 +172,13 @@ const UbicacionFormModal: React.FC<UbicacionFormModalProps> = ({
               value={values.tipo}
               onChange={(e) => setField('tipo', e.target.value as TipoUbicacion)}
             >
-              {(Object.entries(TIPO_LABELS) as [TipoUbicacion, string][]).map(([key, label]) => (
+              {(Object.entries(TIPO_FORM_LABELS) as [TipoUbicacionOperativa, string][]).map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
               ))}
+              {values.tipo === 'proyecto' && <option value="proyecto">Proyecto</option>}
+              {values.tipo === 'taller_mantencion' && (
+                <option value="taller_mantencion">Taller Mantención</option>
+              )}
             </select>
             {errors.tipo && <p className="text-red-500 text-xs mt-1">{errors.tipo}</p>}
           </div>
@@ -427,7 +437,7 @@ const AdminUbicacionesPage: React.FC = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Ubicaciones</h1>
           <p className="text-neutral-gray mt-1 text-sm">
-            Bodegas, plantas, proyectos y talleres donde se almacena o usa el EPP.
+            Bodegas y plantas donde se almacena o usa el EPP.
           </p>
         </div>
         <button

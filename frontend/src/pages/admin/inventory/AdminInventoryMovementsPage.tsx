@@ -1,7 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import { ResponsiveTable, type TableColumn } from '../../../components/layout';
 import { useGet } from '../../../hooks';
+import { exportInventoryStockMovementsCsv } from '../../../services/apiService';
 
 interface MovementRow {
   id: string;
@@ -105,11 +107,29 @@ const AdminInventoryMovementsPage: React.FC = () => {
 
   const tipos = ['entrada', 'salida', 'reserva', 'liberacion', 'ajuste', 'devolucion', 'entrega'];
 
+  const handleExport = async () => {
+    try {
+      await exportInventoryStockMovementsCsv(queryParams);
+      toast.success('CSV exportado correctamente.');
+    } catch {
+      toast.error('No se pudo exportar el CSV de movimientos.');
+    }
+  };
+
   return (
     <section className="bg-white rounded-lg shadow-md p-5 space-y-4" data-tour="admin-inventory-movements-table">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold text-dark-blue">Movimientos de Stock</h2>
-        <p className="text-sm text-gray-500">Entradas y salidas registradas en la operación.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold text-dark-blue">Movimientos de Stock</h2>
+          <p className="text-sm text-gray-500">Entradas y salidas registradas en la operación.</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleExport}
+          className="inline-flex items-center justify-center px-3 py-2 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50"
+        >
+          Exportar CSV
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">

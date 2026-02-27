@@ -32,7 +32,6 @@ export interface Trabajador extends Persona {
   /** UUID del registro en tabla trabajador */
   trabajador_id: string;
   usuario_id?: string;
-  codigo_empleado?: string;
   cargo?: string;
   fecha_ingreso?: string;
   /** Email asociado al login de usuario (si tiene cuenta) */

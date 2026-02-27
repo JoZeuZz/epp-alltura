@@ -6,6 +6,7 @@ import ConfirmationModal from '../../components/ConfirmationModal';
 import { ResponsiveTable, type TableColumn } from '../../components/layout';
 import { useGet } from '../../hooks';
 import { post, put } from '../../services/apiService';
+import { isValidRut, normalizeRut } from '../../utils/rutUtils';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -23,7 +24,6 @@ interface Trabajador extends Persona {
   id: string;
   persona_id: string;
   usuario_id?: string;
-  codigo_empleado?: string;
   cargo?: string;
   fecha_ingreso?: string;
   estado: 'activo' | 'inactivo';
@@ -36,7 +36,6 @@ interface TrabajadorFormValues {
   apellidos: string;
   telefono: string;
   email: string;
-  codigo_empleado: string;
   cargo: string;
   fecha_ingreso: string;
   estado: 'activo' | 'inactivo';
@@ -52,7 +51,6 @@ const INITIAL_FORM: TrabajadorFormValues = {
   apellidos: '',
   telefono: '',
   email: '',
-  codigo_empleado: '',
   cargo: '',
   fecha_ingreso: '',
   estado: 'activo',
@@ -66,7 +64,6 @@ const mapTrabajadorToForm = (t?: Trabajador | null): TrabajadorFormValues => {
     apellidos: t.apellidos ?? '',
     telefono: t.telefono ?? '',
     email: t.email ?? '',
-    codigo_empleado: t.codigo_empleado ?? '',
     cargo: t.cargo ?? '',
     fecha_ingreso: t.fecha_ingreso ? t.fecha_ingreso.slice(0, 10) : '',
     estado: t.estado ?? 'activo',
@@ -81,7 +78,13 @@ const toErrorMessage = (error: unknown): string => {
 
 const validateForm = (values: TrabajadorFormValues, isEdit: boolean): FormErrors => {
   const errors: FormErrors = {};
-  if (!isEdit && !values.rut.trim()) errors.rut = 'El RUT es obligatorio.';
+  if (!isEdit) {
+    if (!values.rut.trim()) {
+      errors.rut = 'El RUT es obligatorio.';
+    } else if (!isValidRut(values.rut)) {
+      errors.rut = 'RUT inválido — verifique el número y el dígito verificador.';
+    }
+  }
   if (!values.nombres.trim()) errors.nombres = 'Los nombres son obligatorios.';
   if (!values.apellidos.trim()) errors.apellidos = 'Los apellidos son obligatorios.';
   if (values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
@@ -167,23 +170,16 @@ const TrabajadorFormModal: React.FC<TrabajadorFormModalProps> = ({
             </label>
             <input
               className={inputClass('rut')}
-              placeholder="12.345.678-9"
+              placeholder="12345678-9"
               value={values.rut}
               onChange={(e) => setField('rut', e.target.value)}
+              onBlur={(e) => {
+                const normalized = normalizeRut(e.target.value);
+                if (normalized !== e.target.value) setField('rut', normalized);
+              }}
               disabled={isEdit}
             />
             {errors.rut && <p className="text-red-500 text-xs mt-1">{errors.rut}</p>}
-          </div>
-
-          {/* Código Empleado */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Código Empleado</label>
-            <input
-              className={inputClass('codigo_empleado')}
-              placeholder="EMP-001"
-              value={values.codigo_empleado}
-              onChange={(e) => setField('codigo_empleado', e.target.value)}
-            />
           </div>
 
           {/* Nombres */}
@@ -340,8 +336,7 @@ const AdminTrabajadoresPage: React.FC = () => {
         !q ||
         `${t.nombres} ${t.apellidos}`.toLowerCase().includes(q) ||
         (t.rut ?? '').toLowerCase().includes(q) ||
-        (t.cargo ?? '').toLowerCase().includes(q) ||
-        (t.codigo_empleado ?? '').toLowerCase().includes(q);
+        (t.cargo ?? '').toLowerCase().includes(q);
       return matchEstado && matchSearch;
     });
   }, [trabajadores, search, filterEstado]);
@@ -441,9 +436,6 @@ const AdminTrabajadoresPage: React.FC = () => {
       render: (_v, t) => (
         <div>
           <p className="text-sm">{t.cargo || <span className="text-gray-400 italic">Sin cargo</span>}</p>
-          {t.codigo_empleado && (
-            <p className="text-neutral-gray text-xs">Cód: {t.codigo_empleado}</p>
-          )}
         </div>
       ),
     },

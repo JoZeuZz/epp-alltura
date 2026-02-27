@@ -15,6 +15,19 @@ interface WarehouseLoaderData {
   proveedores?: any[];
 }
 
+interface UbicacionOption {
+  id: string;
+  nombre: string;
+  tipo?: 'bodega' | 'planta' | 'proyecto' | 'taller_mantencion';
+}
+
+interface ArticuloOption {
+  id: string;
+  nombre: string;
+  tracking_mode?: 'serial' | 'lote' | 'cantidad';
+  retorno_mode?: 'retornable' | 'consumible';
+}
+
 const emptyDeliveryDetail = () => ({
   articulo_id: '',
   activo_id: '',
@@ -36,13 +49,19 @@ const emptyReturnDetail = () => ({
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
+const ACCEPTANCE_TEXT_DEFAULT =
+  'Declaro recibir los EPP/herramientas detallados, en condición declarada, asumiendo custodia y uso responsable.';
+
+const ACCEPTANCE_TEXT_TRASLADO =
+  'Declaro transportar y custodiar temporalmente los artículos indicados en este traslado, asumiendo responsabilidad por su resguardo hasta la recepción en la bodega destino.';
+
 const WarehouseDashboard: React.FC = () => {
   const loader = useLoaderData() as WarehouseLoaderData;
   const location = useLocation();
 
   const [trabajadores] = useState<any[]>(loader.trabajadores || []);
-  const [ubicaciones] = useState<any[]>(loader.ubicaciones || []);
-  const [articulos] = useState<any[]>(loader.articulos || []);
+  const [ubicaciones] = useState<UbicacionOption[]>(loader.ubicaciones || []);
+  const [articulos] = useState<ArticuloOption[]>(loader.articulos || []);
   const [stock] = useState<any[]>(loader.stock || []);
   const [entregas, setEntregas] = useState<any[]>(loader.entregas || []);
   const [devoluciones, setDevoluciones] = useState<any[]>(loader.devoluciones || []);
@@ -51,6 +70,8 @@ const WarehouseDashboard: React.FC = () => {
 
   const [deliveryForm, setDeliveryForm] = useState({
     trabajador_id: '',
+    transportista_trabajador_id: '',
+    receptor_trabajador_id: '',
     ubicacion_origen_id: '',
     ubicacion_destino_id: '',
     tipo: 'entrega',
@@ -60,8 +81,7 @@ const WarehouseDashboard: React.FC = () => {
 
   const [signatureForm, setSignatureForm] = useState({
     entregaId: '',
-    texto_aceptacion:
-      'Declaro recibir los EPP/herramientas detallados, en condición declarada, asumiendo custodia y uso responsable.',
+    texto_aceptacion: ACCEPTANCE_TEXT_DEFAULT,
   });
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [signaturePadKey, setSignaturePadKey] = useState(0);
@@ -102,6 +122,11 @@ const WarehouseDashboard: React.FC = () => {
     [devoluciones]
   );
 
+  const selectedPendingDelivery = useMemo(
+    () => pendingDeliveries.find((item) => item.id === signatureForm.entregaId) || null,
+    [pendingDeliveries, signatureForm.entregaId]
+  );
+
   const selectedPurchaseArticle = useMemo(
     () => articulos.find((item) => item.id === purchaseForm.articulo_id),
     [articulos, purchaseForm.articulo_id]
@@ -115,6 +140,28 @@ const WarehouseDashboard: React.FC = () => {
     });
   };
 
+  const isTraslado = deliveryForm.tipo === 'traslado';
+
+  const availableOriginLocations = useMemo(
+    () => ubicaciones.filter((item) => !item.tipo || item.tipo === 'bodega'),
+    [ubicaciones]
+  );
+
+  const availableDestinationLocations = useMemo(() => {
+    if (isTraslado) {
+      return ubicaciones.filter((item) => !item.tipo || item.tipo === 'bodega');
+    }
+
+    return ubicaciones.filter((item) => !item.tipo || item.tipo === 'planta');
+  }, [ubicaciones, isTraslado]);
+
+  const returnableArticles = useMemo(
+    () => articulos.filter((item) => item.retorno_mode !== 'consumible'),
+    [articulos]
+  );
+
+  const getArticuloById = (articuloId: string) => articulos.find((item) => item.id === articuloId);
+
   const setReturnDetail = (index: number, key: string, value: string | number) => {
     setReturnForm((prev) => {
       const detalles = [...prev.detalles];
@@ -127,8 +174,64 @@ const WarehouseDashboard: React.FC = () => {
     e.preventDefault();
 
     try {
+      const resolvedTrabajadorId = isTraslado
+        ? deliveryForm.transportista_trabajador_id
+        : deliveryForm.trabajador_id;
+
+      if (!resolvedTrabajadorId) {
+        toast.error(isTraslado ? 'Selecciona transportista.' : 'Selecciona trabajador.');
+        return;
+      }
+
+      if (isTraslado && !deliveryForm.receptor_trabajador_id) {
+        toast.error('Selecciona receptor para el traslado.');
+        return;
+      }
+
+      if (!deliveryForm.ubicacion_origen_id || !deliveryForm.ubicacion_destino_id) {
+        toast.error('Selecciona ubicación de origen y destino.');
+        return;
+      }
+
+      if (deliveryForm.ubicacion_origen_id === deliveryForm.ubicacion_destino_id) {
+        toast.error('La ubicación de origen y destino no puede ser la misma.');
+        return;
+      }
+
+      for (const detail of deliveryForm.detalles) {
+        const art = getArticuloById(detail.articulo_id);
+        if (!art) {
+          toast.error('Hay un artículo inválido en el detalle de entrega.');
+          return;
+        }
+
+        if (art.tracking_mode === 'serial') {
+          if (!detail.activo_id) {
+            toast.error(`El artículo ${art.nombre} requiere Activo ID por ser serial.`);
+            return;
+          }
+
+          if (Number(detail.cantidad) !== 1) {
+            toast.error(`El artículo ${art.nombre} serial debe tener cantidad 1.`);
+            return;
+          }
+        }
+
+        if (art.retorno_mode === 'consumible' && detail.activo_id) {
+          toast.error(`El artículo ${art.nombre} es consumible y no admite Activo ID.`);
+          return;
+        }
+      }
+
       const payload = {
         ...deliveryForm,
+        trabajador_id: resolvedTrabajadorId,
+        transportista_trabajador_id: isTraslado
+          ? deliveryForm.transportista_trabajador_id
+          : null,
+        receptor_trabajador_id: isTraslado
+          ? deliveryForm.receptor_trabajador_id
+          : null,
         detalles: deliveryForm.detalles.map((detail) => ({
           ...detail,
           activo_id: detail.activo_id || null,
@@ -139,7 +242,14 @@ const WarehouseDashboard: React.FC = () => {
 
       const created = await post<any>('/entregas', payload);
       setEntregas((prev) => [created, ...prev]);
-      setDeliveryForm((prev) => ({ ...prev, nota_destino: '', detalles: [emptyDeliveryDetail()] }));
+      setDeliveryForm((prev) => ({
+        ...prev,
+        trabajador_id: '',
+        transportista_trabajador_id: '',
+        receptor_trabajador_id: '',
+        nota_destino: '',
+        detalles: [emptyDeliveryDetail()],
+      }));
       toast.success('Entrega creada en borrador.');
     } catch (error: any) {
       toast.error(error?.response?.data?.message || error.message || 'No se pudo crear la entrega');
@@ -320,21 +430,51 @@ const WarehouseDashboard: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <select
               className="border rounded-md p-2"
-              value={deliveryForm.trabajador_id}
-              onChange={(e) => setDeliveryForm((prev) => ({ ...prev, trabajador_id: e.target.value }))}
+              value={isTraslado ? deliveryForm.transportista_trabajador_id : deliveryForm.trabajador_id}
+              onChange={(e) =>
+                setDeliveryForm((prev) =>
+                  isTraslado
+                    ? { ...prev, transportista_trabajador_id: e.target.value }
+                    : { ...prev, trabajador_id: e.target.value }
+                )
+              }
               required
             >
-              <option value="">Selecciona trabajador</option>
+              <option value="">{isTraslado ? 'Selecciona transportista' : 'Selecciona trabajador'}</option>
               {trabajadores.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.nombres} {item.apellidos}
                 </option>
               ))}
             </select>
+            {isTraslado && (
+              <select
+                className="border rounded-md p-2"
+                value={deliveryForm.receptor_trabajador_id}
+                onChange={(e) =>
+                  setDeliveryForm((prev) => ({ ...prev, receptor_trabajador_id: e.target.value }))
+                }
+                required
+              >
+                <option value="">Selecciona receptor en bodega destino</option>
+                {trabajadores.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.nombres} {item.apellidos}
+                  </option>
+                ))}
+              </select>
+            )}
             <select
               className="border rounded-md p-2"
               value={deliveryForm.tipo}
-              onChange={(e) => setDeliveryForm((prev) => ({ ...prev, tipo: e.target.value }))}
+              onChange={(e) =>
+                setDeliveryForm((prev) => ({
+                  ...prev,
+                  tipo: e.target.value,
+                  ubicacion_origen_id: '',
+                  ubicacion_destino_id: '',
+                }))
+              }
             >
               <option value="entrega">Entrega</option>
               <option value="prestamo">Préstamo</option>
@@ -347,7 +487,7 @@ const WarehouseDashboard: React.FC = () => {
               required
             >
               <option value="">Ubicación origen</option>
-              {ubicaciones.map((item) => (
+              {availableOriginLocations.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.nombre}
                 </option>
@@ -360,7 +500,7 @@ const WarehouseDashboard: React.FC = () => {
               required
             >
               <option value="">Ubicación destino</option>
-              {ubicaciones.map((item) => (
+              {availableDestinationLocations.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.nombre}
                 </option>
@@ -380,7 +520,20 @@ const WarehouseDashboard: React.FC = () => {
                 <select
                   className="border rounded-md p-2"
                   value={detail.articulo_id}
-                  onChange={(e) => setDeliveryDetail(index, 'articulo_id', e.target.value)}
+                  onChange={(e) => {
+                    const articuloId = e.target.value;
+                    setDeliveryDetail(index, 'articulo_id', articuloId);
+                    const art = getArticuloById(articuloId);
+                    if (art?.tracking_mode !== 'serial') {
+                      setDeliveryDetail(index, 'activo_id', '');
+                    }
+                    if (art?.tracking_mode !== 'lote') {
+                      setDeliveryDetail(index, 'lote_id', '');
+                    }
+                    if (art?.tracking_mode === 'serial') {
+                      setDeliveryDetail(index, 'cantidad', 1);
+                    }
+                  }}
                   required
                 >
                   <option value="">Artículo</option>
@@ -395,12 +548,14 @@ const WarehouseDashboard: React.FC = () => {
                   placeholder="Activo ID (si serial)"
                   value={detail.activo_id}
                   onChange={(e) => setDeliveryDetail(index, 'activo_id', e.target.value)}
+                  disabled={getArticuloById(detail.articulo_id)?.tracking_mode !== 'serial'}
                 />
                 <input
                   className="border rounded-md p-2"
                   placeholder="Lote ID (opcional)"
                   value={detail.lote_id}
                   onChange={(e) => setDeliveryDetail(index, 'lote_id', e.target.value)}
+                  disabled={getArticuloById(detail.articulo_id)?.tracking_mode !== 'lote'}
                 />
                 <input
                   className="border rounded-md p-2"
@@ -410,6 +565,7 @@ const WarehouseDashboard: React.FC = () => {
                   placeholder="Cantidad"
                   value={detail.cantidad}
                   onChange={(e) => setDeliveryDetail(index, 'cantidad', Number(e.target.value))}
+                  disabled={getArticuloById(detail.articulo_id)?.tracking_mode === 'serial'}
                   required
                 />
               </div>
@@ -457,7 +613,19 @@ const WarehouseDashboard: React.FC = () => {
           <select
             className="border rounded-md p-2"
             value={signatureForm.entregaId}
-            onChange={(e) => setSignatureForm((prev) => ({ ...prev, entregaId: e.target.value }))}
+            onChange={(e) => {
+              const entregaId = e.target.value;
+              const entregaSeleccionada = pendingDeliveries.find((item) => item.id === entregaId);
+              const acceptanceText = entregaSeleccionada?.tipo === 'traslado'
+                ? ACCEPTANCE_TEXT_TRASLADO
+                : ACCEPTANCE_TEXT_DEFAULT;
+
+              setSignatureForm((prev) => ({
+                ...prev,
+                entregaId,
+                texto_aceptacion: acceptanceText,
+              }));
+            }}
           >
             <option value="">Selecciona entrega</option>
             {pendingDeliveries.map((item) => (
@@ -474,7 +642,11 @@ const WarehouseDashboard: React.FC = () => {
           <SignaturePad
             key={`warehouse-signature-${signaturePadKey}`}
             required
-            label="Firma manuscrita de recepción"
+            label={
+              selectedPendingDelivery?.tipo === 'traslado'
+                ? 'Firma manuscrita de transportista'
+                : 'Firma manuscrita de recepción'
+            }
             onChange={(_dataUrl, file) => setSignatureFile(file)}
           />
           <button className="px-3 py-2 rounded-md bg-dark-blue text-white" type="submit">
@@ -594,7 +766,7 @@ const WarehouseDashboard: React.FC = () => {
                   onChange={(e) => setReturnDetail(index, 'articulo_id', e.target.value)}
                 >
                   <option value="">Artículo</option>
-                  {articulos.map((item) => (
+                  {returnableArticles.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.nombre}
                     </option>
