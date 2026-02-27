@@ -90,7 +90,6 @@ const mapUsuarioRecord = (row) => {
     estado: row.estado,
     trabajador_id: row.trabajador_id || null,
     cargo: row.cargo || null,
-    codigo_empleado: row.codigo_empleado || null,
     created_at: row.created_at,
     client_id: null,
   };
@@ -112,7 +111,6 @@ const getUserByIdRaw = async (userId) => {
       p.foto_url AS profile_picture_url,
       t.id AS trabajador_id,
       t.cargo,
-      t.codigo_empleado,
       ARRAY_REMOVE(ARRAY_AGG(r.nombre), NULL) AS roles
     FROM usuario u
     LEFT JOIN persona p ON p.id = u.persona_id
@@ -301,7 +299,6 @@ class UserService {
         p.foto_url AS profile_picture_url,
         t.id AS trabajador_id,
         t.cargo,
-        t.codigo_empleado,
         ARRAY_REMOVE(ARRAY_AGG(r.nombre), NULL) AS roles
       FROM usuario u
       LEFT JOIN persona p ON p.id = u.persona_id

@@ -43,9 +43,19 @@ class EntregasController {
     }
   }
 
+  static async recibirTraslado(req, res, next) {
+    try {
+      const data = await EntregasService.recibirTraslado(req.params.id, req.user.id, req.body || {});
+      return sendSuccess(res, { message: 'Traslado recibido correctamente', data });
+    } catch (error) {
+      logger.error('Error receiving traslado:', error);
+      return next(error);
+    }
+  }
+
   static async anular(req, res, next) {
     try {
-      const data = await EntregasService.anular(req.params.id, req.user.id);
+      const data = await EntregasService.anular(req.params.id, req.user.id, req.body.motivo);
       return sendSuccess(res, { message: 'Entrega anulada correctamente', data });
     } catch (error) {
       logger.error('Error anulando entrega:', error);

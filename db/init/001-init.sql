@@ -47,7 +47,6 @@ CREATE TABLE IF NOT EXISTS trabajador (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   persona_id UUID NOT NULL UNIQUE REFERENCES persona(id) ON DELETE CASCADE,
   usuario_id UUID UNIQUE REFERENCES usuario(id) ON DELETE SET NULL,
-  codigo_empleado VARCHAR(50) UNIQUE,
   cargo VARCHAR(120),
   fecha_ingreso TIMESTAMPTZ,
   fecha_salida TIMESTAMPTZ,
@@ -390,7 +389,6 @@ CREATE INDEX IF NOT EXISTS idx_usuario_email_login ON usuario(email_login);
 CREATE INDEX IF NOT EXISTS idx_usuario_estado ON usuario(estado);
 
 CREATE INDEX IF NOT EXISTS idx_trabajador_usuario_id ON trabajador(usuario_id);
-CREATE INDEX IF NOT EXISTS idx_trabajador_codigo_empleado ON trabajador(codigo_empleado);
 CREATE INDEX IF NOT EXISTS idx_trabajador_estado ON trabajador(estado);
 
 CREATE INDEX IF NOT EXISTS idx_ubicacion_tipo ON ubicacion(tipo);

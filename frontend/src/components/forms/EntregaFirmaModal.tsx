@@ -14,6 +14,10 @@ const TEXTO_ACEPTACION =
   'Declaro haber recibido los artículos indicados en esta entrega en conformidad, ' +
   'comprometiéndome a su correcto uso y cuidado según las políticas de la empresa.';
 
+const TEXTO_ACEPTACION_TRASLADO =
+  'Declaro transportar y custodiar temporalmente los artículos indicados en este traslado, ' +
+  'asumiendo responsabilidad por su resguardo hasta la recepción en la bodega destino.';
+
 const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
   isOpen,
   onClose,
@@ -133,8 +137,12 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
     }
 
     const firmaBase64 = canvas.toDataURL('image/png');
+    const acceptanceText = entrega.tipo === 'traslado'
+      ? TEXTO_ACEPTACION_TRASLADO
+      : TEXTO_ACEPTACION;
+
     try {
-      await onFirmar(entrega.id, firmaBase64, TEXTO_ACEPTACION);
+      await onFirmar(entrega.id, firmaBase64, acceptanceText);
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
       setError(e?.response?.data?.message ?? e?.message ?? 'Error al registrar la firma.');
@@ -148,12 +156,16 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
       ? `${entrega.nombres} ${entrega.apellidos}`
       : '—';
 
+  const isTraslado = entrega.tipo === 'traslado';
+  const acceptanceText = isTraslado ? TEXTO_ACEPTACION_TRASLADO : TEXTO_ACEPTACION;
+  const signerLabel = isTraslado ? 'transportista' : 'trabajador';
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Firma de recepción">
+    <Modal isOpen={isOpen} onClose={onClose} title={isTraslado ? 'Firma de traslado' : 'Firma de recepción'}>
       {/* Resumen entrega */}
       <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
         <p className="text-sm text-gray-700">
-          <span className="font-medium">Trabajador:</span> {trabajadorNombre}
+          <span className="font-medium">{isTraslado ? 'Transportista' : 'Trabajador'}:</span> {trabajadorNombre}
           {entrega.rut ? ` · RUT ${entrega.rut}` : ''}
         </p>
         <p className="text-sm text-gray-700 mt-1">
@@ -172,14 +184,14 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
 
       {/* Texto de aceptación */}
       <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-        <p className="text-xs text-gray-600 leading-relaxed">{TEXTO_ACEPTACION}</p>
+        <p className="text-xs text-gray-600 leading-relaxed">{acceptanceText}</p>
       </div>
 
       {/* Canvas firma */}
       <div className="mb-2">
         <div className="flex items-center justify-between mb-1">
           <span className="text-sm font-medium text-gray-700">
-            Firma del trabajador <span className="text-red-500">*</span>
+            {`Firma del ${signerLabel}`} <span className="text-red-500">*</span>
           </span>
           <button
             type="button"

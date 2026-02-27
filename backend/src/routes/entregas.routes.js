@@ -30,11 +30,21 @@ const entregaDetalleSchema = Joi.object({
 
 const createEntregaSchema = Joi.object({
   trabajador_id: uuid.required(),
+  transportista_trabajador_id: uuid.allow(null),
+  receptor_trabajador_id: uuid.allow(null),
   ubicacion_origen_id: uuid.required(),
   ubicacion_destino_id: uuid.required(),
   tipo: Joi.string().valid('entrega', 'prestamo', 'traslado').required(),
   nota_destino: Joi.string().trim().max(1000).allow('', null),
   detalles: Joi.array().items(entregaDetalleSchema).min(1).required(),
+});
+
+const anularEntregaSchema = Joi.object({
+  motivo: Joi.string().trim().min(5).max(1000).required(),
+});
+
+const recibirTrasladoSchema = Joi.object({
+  receptor_trabajador_id: uuid.allow(null),
 });
 
 router.get('/', authMiddleware, checkRole(['admin', 'supervisor', 'bodega']), EntregasController.list);
@@ -54,9 +64,18 @@ router.post(
 );
 
 router.post(
+  '/:id/recibir',
+  authMiddleware,
+  checkRole(['admin', 'supervisor', 'bodega']),
+  validateBody(recibirTrasladoSchema),
+  EntregasController.recibirTraslado
+);
+
+router.post(
   '/:id/anular',
   authMiddleware,
   checkRole(['admin', 'supervisor']),
+  validateBody(anularEntregaSchema),
   EntregasController.anular
 );
 

@@ -18,7 +18,7 @@ const bcrypt = require('bcrypt');
 const db = require('../db');
 const { validatePasswordStrength, PASSWORD_CONFIG } = require('../middleware/passwordPolicy');
 const { toDbRole } = require('../lib/roleUtils');
-const { PATTERNS } = require('../validation');
+const { validateRutChileno, normalizeRut: normalizeRutLib } = require('../lib/validation');
 
 const ALLOWED_ROLES = new Set(['admin', 'supervisor', 'bodega']);
 
@@ -36,7 +36,7 @@ const print = (message, color = 'reset') => {
 };
 
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
-const normalizeRut = (rut) => String(rut || '').trim().toUpperCase();
+const normalizeRut = (rut) => normalizeRutLib(String(rut || '').trim());
 
 const ask = (question) =>
   new Promise((resolve) => {
@@ -116,7 +116,7 @@ const validateEmail = (email) => {
   return emailRegex.test(email);
 };
 
-const validateRut = (rut) => PATTERNS.RUT.test(rut);
+const validateRut = (rut) => validateRutChileno(rut);
 
 const ensureRoleExists = async (roleName) => {
   const { rows } = await db.query('SELECT id, nombre FROM rol WHERE nombre = $1 LIMIT 1', [roleName]);

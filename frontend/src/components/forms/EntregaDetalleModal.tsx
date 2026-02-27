@@ -11,6 +11,8 @@ interface EntregaDetalleModalProps {
 const ESTADO_LABELS: Record<EntregaEstado, string> = {
   borrador: 'Borrador',
   pendiente_firma: 'Pendiente firma',
+  en_transito: 'En tránsito',
+  recibido: 'Recibido',
   confirmada: 'Confirmada',
   anulada: 'Anulada',
 };
@@ -18,6 +20,8 @@ const ESTADO_LABELS: Record<EntregaEstado, string> = {
 const ESTADO_CLASSES: Record<EntregaEstado, string> = {
   borrador: 'bg-gray-100 text-gray-700',
   pendiente_firma: 'bg-yellow-100 text-yellow-800',
+  en_transito: 'bg-indigo-100 text-indigo-800',
+  recibido: 'bg-teal-100 text-teal-800',
   confirmada: 'bg-green-100 text-green-800',
   anulada: 'bg-red-100 text-red-700',
 };
@@ -161,8 +165,8 @@ const EntregaDetalleModal: React.FC<EntregaDetalleModalProps> = ({
         )}
       </div>
 
-      {/* Firma (solo si confirmada) */}
-      {estado === 'confirmada' && (
+      {/* Firma (visible cuando el flujo ya fue cerrado) */}
+      {(estado === 'confirmada' || estado === 'recibido') && (
         <div className="border-t pt-4">
           <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Firma de recepción</h3>
           {(entrega as unknown as { firma_imagen_url?: string; firmado_en?: string }).firma_imagen_url ? (

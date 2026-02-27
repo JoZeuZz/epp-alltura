@@ -7,6 +7,7 @@ import { useGet } from '../../hooks';
 import {
   createEntrega,
   confirmEntrega,
+  recibirTraslado,
   anularEntrega,
   firmarEntregaDispositivo,
   type EntregaRow,
@@ -25,6 +26,8 @@ const QUERY_KEY = 'admin-entregas';
 const ESTADO_LABELS: Record<EntregaEstado, string> = {
   borrador: 'Borrador',
   pendiente_firma: 'Pendiente firma',
+  en_transito: 'En tránsito',
+  recibido: 'Recibido',
   confirmada: 'Confirmada',
   anulada: 'Anulada',
 };
@@ -32,6 +35,8 @@ const ESTADO_LABELS: Record<EntregaEstado, string> = {
 const ESTADO_CLASSES: Record<EntregaEstado, string> = {
   borrador: 'bg-gray-100 text-gray-700',
   pendiente_firma: 'bg-yellow-100 text-yellow-800',
+  en_transito: 'bg-indigo-100 text-indigo-800',
+  recibido: 'bg-teal-100 text-teal-800',
   confirmada: 'bg-green-100 text-green-800',
   anulada: 'bg-red-100 text-red-700',
 };
@@ -52,6 +57,8 @@ const FILTER_TABS: { label: string; value: EntregaEstado | 'todas' }[] = [
   { label: 'Todas', value: 'todas' },
   { label: 'Borrador', value: 'borrador' },
   { label: 'Pendiente firma', value: 'pendiente_firma' },
+  { label: 'En tránsito', value: 'en_transito' },
+  { label: 'Recibidas', value: 'recibido' },
   { label: 'Confirmadas', value: 'confirmada' },
   { label: 'Anuladas', value: 'anulada' },
 ];
@@ -75,7 +82,9 @@ const AdminEntregasPage: React.FC = () => {
   const [entregaDetalle, setEntregaDetalle] = useState<EntregaRow | null>(null);
   const [entregaFirma, setEntregaFirma] = useState<EntregaRow | null>(null);
   const [entregaConfirmar, setEntregaConfirmar] = useState<EntregaRow | null>(null);
+  const [entregaRecibir, setEntregaRecibir] = useState<EntregaRow | null>(null);
   const [entregaAnular, setEntregaAnular] = useState<EntregaRow | null>(null);
+  const [motivoAnulacion, setMotivoAnulacion] = useState('');
 
   // Datos
   const filterParams = filterEstado !== 'todas' ? { estado: filterEstado } : undefined;
@@ -113,11 +122,22 @@ const AdminEntregasPage: React.FC = () => {
   });
 
   const anularMutation = useMutation({
-    mutationFn: (id: string) => anularEntrega(id),
+    mutationFn: ({ id, motivo }: { id: string; motivo: string }) => anularEntrega(id, { motivo }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       toast.success('Entrega anulada correctamente.');
       setEntregaAnular(null);
+      setMotivoAnulacion('');
+    },
+    onError: (err) => toast.error(toErrorMessage(err)),
+  });
+
+  const recibirMutation = useMutation({
+    mutationFn: (id: string) => recibirTraslado(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      toast.success('Traslado recibido correctamente.');
+      setEntregaRecibir(null);
     },
     onError: (err) => toast.error(toErrorMessage(err)),
   });
@@ -239,10 +259,23 @@ const AdminEntregasPage: React.FC = () => {
               </button>
             )}
 
+            {/* Recibir traslado — solo en en_transito */}
+            {estado === 'en_transito' && row.tipo === 'traslado' && (
+              <button
+                onClick={() => setEntregaRecibir(row)}
+                className="px-2 py-1 text-xs text-teal-600 hover:text-teal-800 hover:underline"
+              >
+                Recibir
+              </button>
+            )}
+
             {/* Anular — en borrador o pendiente_firma */}
             {(estado === 'borrador' || estado === 'pendiente_firma') && (
               <button
-                onClick={() => setEntregaAnular(row)}
+                onClick={() => {
+                  setEntregaAnular(row);
+                  setMotivoAnulacion('');
+                }}
                 className="px-2 py-1 text-xs text-red-500 hover:text-red-700 hover:underline"
               >
                 Anular
@@ -352,11 +385,36 @@ const AdminEntregasPage: React.FC = () => {
         variant="info"
       />
 
+      {/* Recibir traslado */}
+      <ConfirmationModal
+        isOpen={!!entregaRecibir}
+        onClose={() => setEntregaRecibir(null)}
+        onConfirm={() => entregaRecibir && recibirMutation.mutate(entregaRecibir.id)}
+        title="Recibir traslado"
+        message={
+          entregaRecibir
+            ? `¿Confirmar recepción del traslado para ${entregaRecibir.nombres ?? ''} ${entregaRecibir.apellidos ?? ''}?`
+            : ''
+        }
+        confirmText="Recibir"
+        variant="info"
+        confirmDisabled={recibirMutation.isPending}
+      />
+
       {/* Anular entrega */}
       <ConfirmationModal
         isOpen={!!entregaAnular}
-        onClose={() => setEntregaAnular(null)}
-        onConfirm={() => entregaAnular && anularMutation.mutate(entregaAnular.id)}
+        onClose={() => {
+          setEntregaAnular(null);
+          setMotivoAnulacion('');
+        }}
+        onConfirm={() =>
+          entregaAnular &&
+          anularMutation.mutate({
+            id: entregaAnular.id,
+            motivo: motivoAnulacion.trim(),
+          })
+        }
         title="Anular entrega"
         message={
           entregaAnular
@@ -365,7 +423,24 @@ const AdminEntregasPage: React.FC = () => {
         }
         confirmText="Anular"
         variant="danger"
-      />
+        confirmDisabled={motivoAnulacion.trim().length < 5 || anularMutation.isPending}
+      >
+        <div className="mt-4">
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Motivo de anulación <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            rows={3}
+            value={motivoAnulacion}
+            onChange={(e) => setMotivoAnulacion(e.target.value)}
+            placeholder="Indica el motivo (mínimo 5 caracteres)..."
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Debe quedar evidencia del motivo para auditoría.
+          </p>
+        </div>
+      </ConfirmationModal>
     </div>
   );
 };

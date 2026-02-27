@@ -8,18 +8,52 @@ class UbicacionModel {
     this.tipo = data.tipo;
     this.cliente = data.cliente;
     this.direccion = data.direccion;
+    this.ubicacion_subtipo = data.ubicacion_subtipo;
+    this.fecha_inicio_operacion = data.fecha_inicio_operacion;
+    this.fecha_cierre_operacion = data.fecha_cierre_operacion;
+    this.planta_padre_id = data.planta_padre_id;
     this.estado = data.estado;
     this.creado_en = data.creado_en;
   }
 
-  static async create({ nombre, tipo, cliente, direccion, estado = 'activo' }) {
+  static async create({
+    nombre,
+    tipo,
+    cliente,
+    direccion,
+    ubicacion_subtipo,
+    fecha_inicio_operacion,
+    fecha_cierre_operacion,
+    planta_padre_id,
+    estado = 'activo',
+  }) {
     const { rows } = await db.query(
       `
-      INSERT INTO ubicacion (nombre, tipo, cliente, direccion, estado)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO ubicacion (
+        nombre,
+        tipo,
+        cliente,
+        direccion,
+        ubicacion_subtipo,
+        fecha_inicio_operacion,
+        fecha_cierre_operacion,
+        planta_padre_id,
+        estado
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
       `,
-      [nombre, tipo, cliente || null, direccion || null, estado]
+      [
+        nombre,
+        tipo,
+        cliente || null,
+        direccion || null,
+        ubicacion_subtipo || null,
+        fecha_inicio_operacion || null,
+        fecha_cierre_operacion || null,
+        planta_padre_id || null,
+        estado,
+      ]
     );
 
     return new UbicacionModel(rows[0]);
@@ -31,7 +65,7 @@ class UbicacionModel {
   }
 
   static async findAll(filters = {}) {
-    const { estado, tipo, search } = filters;
+    const { estado, tipo, ubicacion_subtipo, planta_padre_id, search } = filters;
     const { limit, offset } = normalizePagination(filters.limit, filters.offset);
 
     const conditions = [];
@@ -45,6 +79,16 @@ class UbicacionModel {
     if (tipo) {
       values.push(tipo);
       conditions.push(`tipo = $${values.length}`);
+    }
+
+    if (ubicacion_subtipo) {
+      values.push(ubicacion_subtipo);
+      conditions.push(`ubicacion_subtipo = $${values.length}`);
+    }
+
+    if (planta_padre_id) {
+      values.push(planta_padre_id);
+      conditions.push(`planta_padre_id = $${values.length}`);
     }
 
     if (search) {
@@ -70,6 +114,10 @@ class UbicacionModel {
       tipo: fields.tipo,
       cliente: fields.cliente,
       direccion: fields.direccion,
+      ubicacion_subtipo: fields.ubicacion_subtipo,
+      fecha_inicio_operacion: fields.fecha_inicio_operacion,
+      fecha_cierre_operacion: fields.fecha_cierre_operacion,
+      planta_padre_id: fields.planta_padre_id,
       estado: fields.estado,
     });
 

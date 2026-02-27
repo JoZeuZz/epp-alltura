@@ -17,6 +17,38 @@ const validateBody = (schema) => {
   };
 };
 
+const validateArticuloClassification = (value, helpers) => {
+  const tipo = value.tipo;
+  const trackingMode = value.tracking_mode;
+  const retornoMode = value.retorno_mode;
+
+  if (retornoMode === 'retornable' && trackingMode !== 'serial') {
+    return helpers.error('any.custom', {
+      message: 'Los artículos retornables deben usar tracking_mode "serial"',
+    });
+  }
+
+  if (retornoMode === 'consumible' && trackingMode === 'serial') {
+    return helpers.error('any.custom', {
+      message: 'Los artículos consumibles no pueden usar tracking_mode "serial"',
+    });
+  }
+
+  if (tipo === 'consumible' && retornoMode !== 'consumible') {
+    return helpers.error('any.custom', {
+      message: 'Los artículos de tipo "consumible" deben tener retorno_mode "consumible"',
+    });
+  }
+
+  if ((tipo === 'herramienta' || tipo === 'epp') && retornoMode === 'retornable' && trackingMode !== 'serial') {
+    return helpers.error('any.custom', {
+      message: 'Herramientas/EPP retornables deben gestionarse por unidad (tracking_mode "serial")',
+    });
+  }
+
+  return value;
+};
+
 const articuloCreateSchema = Joi.object({
   tipo: Joi.string().valid('herramienta', 'epp', 'consumible').required(),
   nombre: Joi.string().trim().min(2).max(150).required(),
@@ -29,7 +61,11 @@ const articuloCreateSchema = Joi.object({
   requiere_vencimiento: Joi.boolean().default(false),
   unidad_medida: Joi.string().trim().max(50).required(),
   estado: Joi.string().valid('activo', 'inactivo').default('activo'),
-});
+})
+  .custom(validateArticuloClassification, 'article classification validation')
+  .messages({
+    'any.custom': '{{#message}}',
+  });
 
 const articuloUpdateSchema = Joi.object({
   tipo: Joi.string().valid('herramienta', 'epp', 'consumible'),
@@ -43,7 +79,40 @@ const articuloUpdateSchema = Joi.object({
   requiere_vencimiento: Joi.boolean(),
   unidad_medida: Joi.string().trim().max(50),
   estado: Joi.string().valid('activo', 'inactivo'),
-}).min(1);
+})
+  .min(1)
+  .custom((value, helpers) => {
+    if (value.tracking_mode === undefined && value.retorno_mode === undefined && value.tipo === undefined) {
+      return value;
+    }
+
+    const tipo = value.tipo;
+    const trackingMode = value.tracking_mode;
+    const retornoMode = value.retorno_mode;
+
+    if (retornoMode === 'retornable' && trackingMode && trackingMode !== 'serial') {
+      return helpers.error('any.custom', {
+        message: 'Los artículos retornables deben usar tracking_mode "serial"',
+      });
+    }
+
+    if (retornoMode === 'consumible' && trackingMode === 'serial') {
+      return helpers.error('any.custom', {
+        message: 'Los artículos consumibles no pueden usar tracking_mode "serial"',
+      });
+    }
+
+    if (tipo === 'consumible' && retornoMode && retornoMode !== 'consumible') {
+      return helpers.error('any.custom', {
+        message: 'Los artículos de tipo "consumible" deben tener retorno_mode "consumible"',
+      });
+    }
+
+    return value;
+  }, 'article classification update validation')
+  .messages({
+    'any.custom': '{{#message}}',
+  });
 
 router.get('/', authMiddleware, ArticulosController.list);
 router.get('/:id', authMiddleware, ArticulosController.getById);

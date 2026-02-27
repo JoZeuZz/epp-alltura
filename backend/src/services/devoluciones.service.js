@@ -1,4 +1,5 @@
 const db = require('../db');
+const { writeAuditEvent } = require('../lib/auditoriaDb');
 
 const CUSTODIA_STATE_BY_DISPOSICION = {
   devuelto: 'devuelta',
@@ -54,6 +55,50 @@ const appendDispositionNote = (note, disposition) => {
 };
 
 class DevolucionesService {
+  static async validateReceivingLocationOperational(client, ubicacionId) {
+    const locationResult = await client.query(
+      `
+      SELECT id, tipo, estado, fecha_inicio_operacion, fecha_cierre_operacion
+      FROM ubicacion
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [ubicacionId]
+    );
+
+    if (!locationResult.rows.length) {
+      throw buildError('Ubicación de recepción no encontrada', 400, 'LOCATION_NOT_FOUND');
+    }
+
+    const location = locationResult.rows[0];
+    if (location.estado !== 'activo') {
+      throw buildError('La ubicación de recepción debe estar activa', 400, 'LOCATION_NOT_ACTIVE');
+    }
+
+    const now = Date.now();
+    if (location.fecha_inicio_operacion) {
+      const startAt = new Date(location.fecha_inicio_operacion).getTime();
+      if (Number.isFinite(startAt) && startAt > now) {
+        throw buildError(
+          'La ubicación de recepción aún no inicia su vigencia operativa',
+          400,
+          'LOCATION_NOT_YET_OPERATIONAL'
+        );
+      }
+    }
+
+    if (location.fecha_cierre_operacion) {
+      const closedAt = new Date(location.fecha_cierre_operacion).getTime();
+      if (Number.isFinite(closedAt) && closedAt <= now) {
+        throw buildError(
+          'La ubicación de recepción está fuera de vigencia operativa',
+          400,
+          'LOCATION_CLOSED'
+        );
+      }
+    }
+  }
+
   static async list(filters = {}) {
     const values = [];
     const conditions = [];
@@ -173,18 +218,7 @@ class DevolucionesService {
         throw buildError('Trabajador no encontrado', 400, 'WORKER_NOT_FOUND');
       }
 
-      const ubicacionResult = await client.query(
-        `
-        SELECT id
-        FROM ubicacion
-        WHERE id = $1
-        `,
-        [payload.ubicacion_recepcion_id]
-      );
-
-      if (!ubicacionResult.rows.length) {
-        throw buildError('Ubicación de recepción no encontrada', 400, 'LOCATION_NOT_FOUND');
-      }
+      await this.validateReceivingLocationOperational(client, payload.ubicacion_recepcion_id);
 
       const devolucionInsertResult = await client.query(
         `
@@ -238,6 +272,28 @@ class DevolucionesService {
           throw buildError('Cada detalle debe indicar articulo_id o activo_id', 400, 'ARTICLE_REQUIRED');
         }
 
+        const articleResult = await client.query(
+          `
+          SELECT id, nombre, retorno_mode
+          FROM articulo
+          WHERE id = $1
+          `,
+          [articuloId]
+        );
+
+        if (!articleResult.rows.length) {
+          throw buildError(`Artículo ${articuloId} no encontrado`, 400, 'ARTICLE_NOT_FOUND');
+        }
+
+        const article = articleResult.rows[0];
+        if (article.retorno_mode === 'consumible') {
+          throw buildError(
+            `El artículo ${article.nombre} es consumible y no admite devolución estándar. Regístralo como ajuste excepcional de inventario.`,
+            400,
+            'CONSUMABLE_RETURN_NOT_ALLOWED'
+          );
+        }
+
         await client.query(
           `
           INSERT INTO devolucion_detalle (
@@ -266,6 +322,20 @@ class DevolucionesService {
           ]
         );
       }
+
+      await writeAuditEvent({
+        client,
+        entidadTipo: 'devolucion',
+        entidadId: devolucionId,
+        accion: 'crear',
+        usuarioId: userId,
+        diff: {
+          estado: 'borrador',
+          trabajador_id: payload.trabajador_id,
+          ubicacion_recepcion_id: payload.ubicacion_recepcion_id,
+          detalles_count: detalles.length,
+        },
+      });
 
       await client.query('COMMIT');
       return this.getById(devolucionId);
@@ -305,6 +375,8 @@ class DevolucionesService {
           'INVALID_RETURN_STATE'
         );
       }
+
+      await this.validateReceivingLocationOperational(client, devolucion.ubicacion_recepcion_id);
 
       const detallesResult = await client.query(
         `
@@ -445,6 +517,32 @@ class DevolucionesService {
             throw buildError('Detalle sin artículo no puede ser confirmado', 400, 'ARTICLE_REQUIRED');
           }
 
+          const articleResult = await client.query(
+            `
+            SELECT id, nombre, retorno_mode
+            FROM articulo
+            WHERE id = $1
+            `,
+            [detalle.articulo_id]
+          );
+
+          if (!articleResult.rows.length) {
+            throw buildError(
+              `Artículo ${detalle.articulo_id} no encontrado`,
+              400,
+              'ARTICLE_NOT_FOUND'
+            );
+          }
+
+          const article = articleResult.rows[0];
+          if (article.retorno_mode === 'consumible') {
+            throw buildError(
+              `El artículo ${article.nombre} es consumible y no admite devolución estándar. Usa un ajuste excepcional autorizado.`,
+              400,
+              'CONSUMABLE_RETURN_NOT_ALLOWED'
+            );
+          }
+
           const movementType = MOV_STOCK_TYPE_BY_DISPOSICION[disposition];
 
           if (disposition === 'devuelto') {
@@ -552,6 +650,19 @@ class DevolucionesService {
         `,
         [id, userId]
       );
+
+      await writeAuditEvent({
+        client,
+        entidadTipo: 'devolucion',
+        entidadId: id,
+        accion: 'devolver',
+        usuarioId: userId,
+        diff: {
+          estado_anterior: devolucion.estado,
+          estado_nuevo: 'confirmada',
+          detalles_count: detalles.length,
+        },
+      });
 
       await client.query('COMMIT');
       return this.getById(id);

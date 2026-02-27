@@ -183,8 +183,8 @@ const seedBaseData = async () => {
 
   await db.query(
     `
-    INSERT INTO trabajador (id, persona_id, usuario_id, codigo_empleado, cargo, estado)
-    VALUES ($1, $2, $3, 'EMP-0001', 'Operario', 'activo')
+    INSERT INTO trabajador (id, persona_id, usuario_id, cargo, estado)
+    VALUES ($1, $2, $3, 'Operario', 'activo')
     `,
     [IDS.trabajadorId, IDS.trabajadorPersonaId, IDS.trabajadorUserId]
   );

@@ -12,6 +12,7 @@ interface ConfirmationModalProps {
   confirmText?: string;
   cancelText?: string;
   variant?: 'danger' | 'warning' | 'info';
+  confirmDisabled?: boolean;
   children?: ReactNode;
 }
 
@@ -24,6 +25,7 @@ export default function ConfirmationModal({
   confirmText = 'Confirmar',
   cancelText = 'Cancelar',
   variant = 'danger',
+  confirmDisabled = false,
   children,
 }: ConfirmationModalProps) {
   const getVariantStyles = () => {
@@ -120,7 +122,8 @@ export default function ConfirmationModal({
           </button>
           <button
             type="button"
-            className={`inline-flex justify-center items-center rounded-xl border-2 border-transparent ${styles.buttonBg} px-6 py-3 label-base text-white shadow-lg ${styles.glowColor} focus:outline-none focus:ring-4 focus:ring-offset-2 transition-all duration-200 min-h-touch`}
+            className={`inline-flex justify-center items-center rounded-xl border-2 border-transparent ${styles.buttonBg} px-6 py-3 label-base text-white shadow-lg ${styles.glowColor} focus:outline-none focus:ring-4 focus:ring-offset-2 transition-all duration-200 min-h-touch disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none`}
+            disabled={confirmDisabled}
             onClick={() => {
               onConfirm();
               onClose();

@@ -3,6 +3,7 @@ const Joi = require('joi');
 const TrabajadoresController = require('../controllers/trabajadores.controller');
 const { authMiddleware } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roles');
+const { rut: rutValidator } = require('../lib/validation');
 
 const router = express.Router();
 
@@ -22,12 +23,11 @@ const uuid = Joi.string().guid({ version: ['uuidv4', 'uuidv5'] });
 const trabajadorCreateSchema = Joi.object({
   persona_id: uuid,
   usuario_id: uuid.allow(null),
-  rut: Joi.string().trim().max(20),
+  rut: rutValidator,
   nombres: Joi.string().trim().min(2).max(150),
   apellidos: Joi.string().trim().min(2).max(150),
   telefono: Joi.string().trim().max(30).allow('', null),
   email: Joi.string().trim().email({ tlds: { allow: false } }).allow('', null),
-  codigo_empleado: Joi.string().trim().max(50).allow('', null),
   cargo: Joi.string().trim().max(120).allow('', null),
   fecha_ingreso: Joi.date().iso().allow(null),
   fecha_salida: Joi.date().iso().allow(null),
@@ -37,13 +37,12 @@ const trabajadorCreateSchema = Joi.object({
 const trabajadorUpdateSchema = Joi.object({
   persona_id: uuid,
   usuario_id: uuid.allow(null),
-  rut: Joi.string().trim().max(20),
+  rut: rutValidator,
   nombres: Joi.string().trim().min(2).max(150),
   apellidos: Joi.string().trim().min(2).max(150),
   telefono: Joi.string().trim().max(30).allow('', null),
   email: Joi.string().trim().email({ tlds: { allow: false } }).allow('', null),
   persona_estado: Joi.string().valid('activo', 'inactivo'),
-  codigo_empleado: Joi.string().trim().max(50).allow('', null),
   cargo: Joi.string().trim().max(120).allow('', null),
   fecha_ingreso: Joi.date().iso().allow(null),
   fecha_salida: Joi.date().iso().allow(null),

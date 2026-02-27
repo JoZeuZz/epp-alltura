@@ -245,6 +245,13 @@ router.get(
 );
 
 router.get(
+  '/movimientos-stock/export',
+  authMiddleware,
+  checkRole(['admin', 'supervisor', 'bodega']),
+  InventarioController.exportStockMovementsCsv
+);
+
+router.get(
   '/movimientos-activo',
   authMiddleware,
   checkRole(['admin', 'supervisor', 'bodega']),
