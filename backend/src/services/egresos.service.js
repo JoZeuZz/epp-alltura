@@ -17,7 +17,75 @@ const toQuantity = (value) => {
   return qty;
 };
 
+const ACTIVO_STATE_BY_EGRESO = {
+  salida: 'perdido',
+  consumo: 'perdido',
+  ajuste: 'perdido',
+  baja: 'dado_de_baja',
+};
+
+const MOV_ACTIVO_TYPE_BY_EGRESO = {
+  salida: 'salida',
+  consumo: 'ajuste',
+  ajuste: 'ajuste',
+  baja: 'baja',
+};
+
 class EgresosService {
+  static normalizeCreateDetails(rawDetalles) {
+    const normalized = [];
+    const seenAssetIds = new Set();
+
+    for (const rawDetalle of rawDetalles) {
+      if (rawDetalle.activo_id) {
+        throw buildError(
+          'Payload legacy no soportado: use activo_ids para egresos serializados',
+          400,
+          'LEGACY_ASSET_PAYLOAD_NOT_ALLOWED'
+        );
+      }
+
+      const activoIds = Array.isArray(rawDetalle.activo_ids)
+        ? rawDetalle.activo_ids.filter(Boolean)
+        : [];
+
+      if (activoIds.length > 0) {
+        for (const activoId of activoIds) {
+          if (seenAssetIds.has(activoId)) {
+            throw buildError(
+              `Activo duplicado en payload: ${activoId}`,
+              400,
+              'DUPLICATE_ASSET_IN_PAYLOAD'
+            );
+          }
+          seenAssetIds.add(activoId);
+
+          normalized.push({
+            articulo_id: rawDetalle.articulo_id,
+            ubicacion_id: rawDetalle.ubicacion_id,
+            activo_id: activoId,
+            lote_id: null,
+            cantidad: 1,
+            notas: rawDetalle.notas,
+          });
+        }
+
+        continue;
+      }
+
+      normalized.push({
+        articulo_id: rawDetalle.articulo_id,
+        ubicacion_id: rawDetalle.ubicacion_id,
+        activo_id: null,
+        lote_id: rawDetalle.lote_id || null,
+        cantidad: rawDetalle.cantidad,
+        notas: rawDetalle.notas,
+      });
+    }
+
+    return normalized;
+  }
+
   static async list(filters = {}) {
     const values = [];
     const conditions = [];
@@ -45,7 +113,7 @@ class EgresosService {
     let query = `
       SELECT
         e.*,
-        u.nombre_usuario AS creado_por_nombre,
+        u.email_login AS creado_por_nombre,
         COUNT(ed.id)::int AS cantidad_items,
         COALESCE(SUM(ed.cantidad), 0) AS cantidad_total
       FROM egreso e
@@ -58,7 +126,7 @@ class EgresosService {
     }
 
     query += `
-      GROUP BY e.id, u.nombre_usuario
+      GROUP BY e.id, u.email_login
       ORDER BY e.creado_en DESC
     `;
 
@@ -74,7 +142,7 @@ class EgresosService {
       `
       SELECT
         e.*,
-        u.nombre_usuario AS creado_por_nombre
+        u.email_login AS creado_por_nombre
       FROM egreso e
       LEFT JOIN usuario u ON u.id = e.creado_por_usuario_id
       WHERE e.id = $1
@@ -93,11 +161,14 @@ class EgresosService {
         a.nombre AS articulo_nombre,
         a.tracking_mode,
         ub.nombre AS ubicacion_nombre,
+        ac.codigo AS activo_codigo,
+        ac.nro_serie AS activo_nro_serie,
         l.codigo_lote,
         l.fecha_vencimiento AS lote_fecha_vencimiento
       FROM egreso_detalle ed
       INNER JOIN articulo a ON a.id = ed.articulo_id
       INNER JOIN ubicacion ub ON ub.id = ed.ubicacion_id
+      LEFT JOIN activo ac ON ac.id = ed.activo_id
       LEFT JOIN lote l ON l.id = ed.lote_id
       WHERE ed.egreso_id = $1
       ORDER BY ed.id
@@ -112,10 +183,12 @@ class EgresosService {
   }
 
   static async create(payload, userId) {
-    const detalles = Array.isArray(payload.detalles) ? payload.detalles : [];
-    if (!detalles.length) {
+    const rawDetalles = Array.isArray(payload.detalles) ? payload.detalles : [];
+    if (!rawDetalles.length) {
       throw buildError('Debe incluir al menos un detalle en el egreso', 400, 'DETAIL_REQUIRED');
     }
+
+    const detalles = this.normalizeCreateDetails(rawDetalles);
 
     const client = await db.pool.connect();
 
@@ -156,7 +229,7 @@ class EgresosService {
 
         // 3. Validar artículo
         const articuloResult = await client.query(
-          `SELECT id, nombre, tracking_mode FROM articulo WHERE id = $1`,
+          `SELECT id, nombre, tracking_mode, retorno_mode FROM articulo WHERE id = $1`,
           [detalle.articulo_id]
         );
         if (!articuloResult.rows.length) {
@@ -169,6 +242,142 @@ class EgresosService {
 
         const articulo = articuloResult.rows[0];
         const loteId = detalle.lote_id || null;
+
+        if (detalle.activo_id) {
+          if (articulo.tracking_mode !== 'serial') {
+            throw buildError(
+              `El artículo "${articulo.nombre}" no admite activo_ids por no ser serial`,
+              400,
+              'INVALID_SERIAL_ASSET'
+            );
+          }
+
+          const activoResult = await client.query(
+            `
+            SELECT id, articulo_id, estado, ubicacion_actual_id
+            FROM activo
+            WHERE id = $1
+            FOR UPDATE
+            `,
+            [detalle.activo_id]
+          );
+
+          if (!activoResult.rows.length) {
+            throw buildError(`Activo ${detalle.activo_id} no encontrado`, 400, 'ASSET_NOT_FOUND');
+          }
+
+          const activo = activoResult.rows[0];
+          if (activo.articulo_id !== detalle.articulo_id) {
+            throw buildError(
+              `El activo ${detalle.activo_id} no corresponde al artículo ${detalle.articulo_id}`,
+              400,
+              'ASSET_ARTICLE_MISMATCH'
+            );
+          }
+
+          if (activo.estado !== 'en_stock') {
+            throw buildError(
+              `Activo ${detalle.activo_id} no está disponible para egreso`,
+              409,
+              'ASSET_NOT_AVAILABLE'
+            );
+          }
+
+          if (activo.ubicacion_actual_id !== detalle.ubicacion_id) {
+            throw buildError(
+              `Activo ${detalle.activo_id} no pertenece a la ubicación indicada`,
+              409,
+              'ASSET_LOCATION_MISMATCH'
+            );
+          }
+
+          const activeCustodyResult = await client.query(
+            `
+            SELECT id
+            FROM custodia_activo
+            WHERE activo_id = $1
+              AND estado = 'activa'
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [detalle.activo_id]
+          );
+
+          if (activeCustodyResult.rows.length > 0) {
+            throw buildError(
+              `Activo ${detalle.activo_id} tiene custodia activa y no puede egresarse`,
+              409,
+              'ASSET_HAS_ACTIVE_CUSTODY'
+            );
+          }
+
+          const newAssetState = ACTIVO_STATE_BY_EGRESO[payload.tipo_motivo] || 'perdido';
+          const movActivoType = MOV_ACTIVO_TYPE_BY_EGRESO[payload.tipo_motivo] || 'ajuste';
+
+          await client.query(
+            `
+            UPDATE activo
+            SET estado = $1
+            WHERE id = $2
+            `,
+            [newAssetState, detalle.activo_id]
+          );
+
+          await client.query(
+            `
+            INSERT INTO egreso_detalle (
+              egreso_id,
+              articulo_id,
+              ubicacion_id,
+              activo_id,
+              lote_id,
+              cantidad,
+              notas
+            )
+            VALUES ($1, $2, $3, $4, NULL, 1, $5)
+            `,
+            [
+              egresoId,
+              detalle.articulo_id,
+              detalle.ubicacion_id,
+              detalle.activo_id,
+              detalle.notas || null,
+            ]
+          );
+
+          await client.query(
+            `
+            INSERT INTO movimiento_activo (
+              activo_id,
+              tipo,
+              ubicacion_origen_id,
+              ubicacion_destino_id,
+              responsable_usuario_id,
+              egreso_id,
+              notas
+            )
+            VALUES ($1, $2, $3, NULL, $4, $5, $6)
+            `,
+            [
+              detalle.activo_id,
+              movActivoType,
+              detalle.ubicacion_id,
+              userId,
+              egresoId,
+              detalle.notas || null,
+            ]
+          );
+
+          continue;
+        }
+
+        if (articulo.tracking_mode === 'serial') {
+          throw buildError(
+            `El artículo "${articulo.nombre}" requiere activo_ids para egreso serializado`,
+            400,
+            'SERIAL_ASSETS_REQUIRED'
+          );
+        }
 
         // 4. Bloquear y verificar stock disponible
         let stockResult;
@@ -239,11 +448,12 @@ class EgresosService {
             egreso_id,
             articulo_id,
             ubicacion_id,
+            activo_id,
             lote_id,
             cantidad,
             notas
           )
-          VALUES ($1, $2, $3, $4, $5, $6)
+          VALUES ($1, $2, $3, NULL, $4, $5, $6)
           `,
           [egresoId, detalle.articulo_id, detalle.ubicacion_id, loteId, qty, detalle.notas || null]
         );
@@ -316,6 +526,17 @@ class EgresosService {
         [id]
       );
 
+      const serialDetailsResult = await client.query(
+        `
+        SELECT activo_id
+        FROM egreso_detalle
+        WHERE egreso_id = $1
+          AND activo_id IS NOT NULL
+        FOR UPDATE
+        `,
+        [id]
+      );
+
       // 3. Revertir stock para cada movimiento
       for (const mov of movimientosResult.rows) {
         if (mov.lote_id) {
@@ -342,6 +563,23 @@ class EgresosService {
       // 4. Eliminar movimientos de stock
       await client.query(
         `DELETE FROM movimiento_stock WHERE egreso_id = $1`,
+        [id]
+      );
+
+      // 4.1 Revertir activos serializados
+      for (const detalle of serialDetailsResult.rows) {
+        await client.query(
+          `
+          UPDATE activo
+          SET estado = 'en_stock'
+          WHERE id = $1
+          `,
+          [detalle.activo_id]
+        );
+      }
+
+      await client.query(
+        `DELETE FROM movimiento_activo WHERE egreso_id = $1`,
         [id]
       );
 

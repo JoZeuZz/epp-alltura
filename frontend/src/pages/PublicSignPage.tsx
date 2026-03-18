@@ -8,6 +8,7 @@ type PageState = 'loading' | 'form' | 'success' | 'expired' | 'used' | 'error';
 interface EntregaDetalle {
   id: string;
   cantidad: number;
+  tipo_item_entrega?: 'retornable' | 'asignacion';
   condicion_salida: string;
   notas?: string;
   articulo_nombre: string;
@@ -49,16 +50,59 @@ const buildDefaultAcceptanceText = (
   apellidos: string,
   detalles: EntregaDetalle[]
 ): string => {
-  const nombreArticulos = detalles
-    .map((d) => {
-      const cod = d.activo_codigo ? ` (cód. ${d.activo_codigo})` : '';
-      return `${d.articulo_nombre}${cod} x${Number(d.cantidad)}`;
-    })
-    .join(', ');
+  const isRetornableDetalle = (d: EntregaDetalle) => {
+    if (d.tipo_item_entrega) {
+      return d.tipo_item_entrega === 'retornable';
+    }
+
+    // Compatibilidad histórica previa a migración 008.
+    return d.tracking_mode === 'serial' || Boolean(d.activo_codigo);
+  };
+
+  const toDetalleLabel = (d: EntregaDetalle) => {
+    const cod = d.activo_codigo ? ` (cód. ${d.activo_codigo})` : '';
+    return `${d.articulo_nombre}${cod} x${Number(d.cantidad)}`;
+  };
+
+  const retornables = detalles.filter(isRetornableDetalle);
+  const asignados = detalles.filter((d) => !isRetornableDetalle(d));
+
+  const nombreArticulos = detalles.map(toDetalleLabel).join(', ');
+  const retornablesTexto = retornables.map(toDetalleLabel).join(', ');
+  const asignadosTexto = asignados.map(toDetalleLabel).join(', ');
+
+  if (detalles.length > 0 && retornables.length === 0 && asignados.length === detalles.length) {
+    return (
+      `Yo, ${nombres} ${apellidos}, declaro recibir conforme los siguientes EPP/herramientas: ` +
+      `${nombreArticulos || 'los artículos detallados'}. ` +
+      `Acepto hacerme responsable de su uso correcto y cuidado, ` +
+      `y me comprometo a reportar cualquier extravío o daño a mi supervisor.`
+    );
+  }
+
+  if (retornables.length > 0 && asignados.length === 0) {
+    return (
+      `Yo, ${nombres} ${apellidos}, declaro recibir conforme los siguientes artículos retornables: ` +
+      `${retornablesTexto}. ` +
+      `Acepto hacerme responsable de su custodia, uso correcto y devolución, ` +
+      `y me comprometo a reportar cualquier extravío o daño a mi supervisor.`
+    );
+  }
+
+  if (retornables.length > 0 && asignados.length > 0) {
+    return (
+      `Yo, ${nombres} ${apellidos}, declaro recibir conforme los artículos retornables (${retornablesTexto}) ` +
+      `y los artículos de asignación/consumo (${asignadosTexto}). ` +
+      `Acepto hacerme responsable de la custodia, uso correcto y devolución de los ítems retornables, ` +
+      `y del uso correcto de los ítems de asignación/consumo. ` +
+      `Me comprometo a reportar cualquier extravío o daño a mi supervisor.`
+    );
+  }
+
   return (
     `Yo, ${nombres} ${apellidos}, declaro recibir conforme los siguientes EPP/herramientas: ` +
     `${nombreArticulos || 'los artículos detallados'}. ` +
-    `Acepto hacerme responsable de su custodia, uso correcto y devolución, ` +
+    `Acepto hacerme responsable de su uso correcto y cuidado, ` +
     `y me comprometo a reportar cualquier extravío o daño a mi supervisor.`
   );
 };
@@ -265,7 +309,7 @@ const PublicSignPage: React.FC = () => {
   const info = tokenInfo!;
   const tipoLabel: Record<string, string> = {
     entrega: 'Entrega',
-    prestamo: 'Préstamo',
+    prestamo: 'Entrega',
     traslado: 'Traslado',
   };
 

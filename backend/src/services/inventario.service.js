@@ -350,6 +350,54 @@ class InventarioService {
     return rows;
   }
 
+  static async getActivosDisponibles(filters = {}) {
+    const articuloId = String(filters.articulo_id || '').trim();
+    const ubicacionId = String(filters.ubicacion_id || '').trim();
+
+    if (!articuloId || !ubicacionId) {
+      const error = new Error('Debe enviar articulo_id y ubicacion_id para consultar activos disponibles.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const values = [articuloId, ubicacionId];
+    const conditions = [
+      'a.articulo_id = $1',
+      'a.ubicacion_actual_id = $2',
+      "a.estado = 'en_stock'",
+      "ar.tracking_mode = 'serial'",
+    ];
+
+    if (filters.search) {
+      values.push(`%${filters.search}%`);
+      conditions.push(`(a.codigo ILIKE $${values.length} OR COALESCE(a.nro_serie,'') ILIKE $${values.length})`);
+    }
+
+    const limit = parseBoundedInteger(filters.limit, { min: 1, max: 200, fallback: 25 });
+    values.push(limit);
+
+    const query = `
+      SELECT
+        a.id,
+        a.codigo,
+        a.nro_serie,
+        a.estado,
+        a.articulo_id,
+        ar.nombre AS articulo_nombre,
+        a.ubicacion_actual_id AS ubicacion_id,
+        u.nombre AS ubicacion_nombre
+      FROM activo a
+      INNER JOIN articulo ar ON ar.id = a.articulo_id
+      INNER JOIN ubicacion u ON u.id = a.ubicacion_actual_id
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY a.codigo ASC
+      LIMIT $${values.length}
+    `;
+
+    const { rows } = await db.query(query, values);
+    return rows;
+  }
+
   static async getAuditoria(filters = {}) {
     const values = [];
     const conditions = [];

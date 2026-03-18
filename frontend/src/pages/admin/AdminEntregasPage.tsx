@@ -5,10 +5,12 @@ import ConfirmationModal from '../../components/ConfirmationModal';
 import { ResponsiveTable, type TableColumn } from '../../components/layout';
 import { useGet } from '../../hooks';
 import {
+  getEntregaById,
   createEntrega,
   confirmEntrega,
   recibirTraslado,
   anularEntrega,
+  deshacerEntrega,
   firmarEntregaDispositivo,
   type EntregaRow,
   type EntregaEstado,
@@ -30,6 +32,7 @@ const ESTADO_LABELS: Record<EntregaEstado, string> = {
   recibido: 'Recibido',
   confirmada: 'Confirmada',
   anulada: 'Anulada',
+  revertida_admin: 'Revertida',
 };
 
 const ESTADO_CLASSES: Record<EntregaEstado, string> = {
@@ -39,17 +42,18 @@ const ESTADO_CLASSES: Record<EntregaEstado, string> = {
   recibido: 'bg-teal-100 text-teal-800',
   confirmada: 'bg-green-100 text-green-800',
   anulada: 'bg-red-100 text-red-700',
+  revertida_admin: 'bg-slate-200 text-slate-700',
 };
 
 const TIPO_LABELS: Record<EntregaTipo, string> = {
   entrega: 'Entrega',
-  prestamo: 'Préstamo',
+  prestamo: 'Entrega',
   traslado: 'Traslado',
 };
 
 const TIPO_CLASSES: Record<EntregaTipo, string> = {
   entrega: 'bg-blue-100 text-blue-700',
-  prestamo: 'bg-purple-100 text-purple-700',
+  prestamo: 'bg-blue-100 text-blue-700',
   traslado: 'bg-orange-100 text-orange-700',
 };
 
@@ -61,6 +65,7 @@ const FILTER_TABS: { label: string; value: EntregaEstado | 'todas' }[] = [
   { label: 'Recibidas', value: 'recibido' },
   { label: 'Confirmadas', value: 'confirmada' },
   { label: 'Anuladas', value: 'anulada' },
+  { label: 'Revertidas', value: 'revertida_admin' },
 ];
 
 const toErrorMessage = (error: unknown): string => {
@@ -84,7 +89,9 @@ const AdminEntregasPage: React.FC = () => {
   const [entregaConfirmar, setEntregaConfirmar] = useState<EntregaRow | null>(null);
   const [entregaRecibir, setEntregaRecibir] = useState<EntregaRow | null>(null);
   const [entregaAnular, setEntregaAnular] = useState<EntregaRow | null>(null);
+  const [entregaDeshacer, setEntregaDeshacer] = useState<EntregaRow | null>(null);
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
+  const [motivoDeshacer, setMotivoDeshacer] = useState('');
 
   // Datos
   const filterParams = filterEstado !== 'todas' ? { estado: filterEstado } : undefined;
@@ -138,6 +145,17 @@ const AdminEntregasPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       toast.success('Traslado recibido correctamente.');
       setEntregaRecibir(null);
+    },
+    onError: (err) => toast.error(toErrorMessage(err)),
+  });
+
+  const deshacerMutation = useMutation({
+    mutationFn: ({ id, motivo }: { id: string; motivo: string }) => deshacerEntrega(id, { motivo }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      toast.success('Entrega deshecha correctamente.');
+      setEntregaDeshacer(null);
+      setMotivoDeshacer('');
     },
     onError: (err) => toast.error(toErrorMessage(err)),
   });
@@ -208,7 +226,7 @@ const AdminEntregasPage: React.FC = () => {
     {
       key: 'detalles',
       header: 'Ítems',
-      render: (_v, row) => row.detalles?.length ?? 0,
+      render: (_v, row) => row.cantidad_items ?? row.detalles?.length ?? 0,
     },
     {
       key: 'estado',
@@ -233,7 +251,15 @@ const AdminEntregasPage: React.FC = () => {
           <div className="flex gap-1 flex-wrap">
             {/* Ver detalle — siempre visible */}
             <button
-              onClick={() => setEntregaDetalle(row)}
+              onClick={async () => {
+                try {
+                  const fullDetail = await getEntregaById(row.id);
+                  setEntregaDetalle(fullDetail ?? row);
+                } catch {
+                  setEntregaDetalle(row);
+                  toast.error('No se pudo cargar el detalle completo de la entrega.');
+                }
+              }}
               className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
             >
               Ver
@@ -281,6 +307,18 @@ const AdminEntregasPage: React.FC = () => {
                 Anular
               </button>
             )}
+
+            {estado !== 'anulada' && estado !== 'revertida_admin' && (
+              <button
+                onClick={() => {
+                  setEntregaDeshacer(row);
+                  setMotivoDeshacer('');
+                }}
+                className="px-2 py-1 text-xs text-orange-600 hover:text-orange-800 hover:underline"
+              >
+                Deshacer
+              </button>
+            )}
           </div>
         );
       },
@@ -296,7 +334,7 @@ const AdminEntregasPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Entregas</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Gestión de entregas, préstamos y traslados de artículos a trabajadores.
+            Gestión de entregas y traslados de artículos a trabajadores.
           </p>
         </div>
         <button
@@ -438,6 +476,47 @@ const AdminEntregasPage: React.FC = () => {
           />
           <p className="mt-1 text-xs text-gray-500">
             Debe quedar evidencia del motivo para auditoría.
+          </p>
+        </div>
+      </ConfirmationModal>
+
+      {/* Deshacer entrega (solo admin) */}
+      <ConfirmationModal
+        isOpen={!!entregaDeshacer}
+        onClose={() => {
+          setEntregaDeshacer(null);
+          setMotivoDeshacer('');
+        }}
+        onConfirm={() =>
+          entregaDeshacer &&
+          deshacerMutation.mutate({
+            id: entregaDeshacer.id,
+            motivo: motivoDeshacer.trim(),
+          })
+        }
+        title="Deshacer entrega"
+        message={
+          entregaDeshacer
+            ? `¿Deshacer la entrega de ${entregaDeshacer.nombres ?? ''} ${entregaDeshacer.apellidos ?? ''}? Esta acción revertirá inventario y custodias cuando corresponda.`
+            : ''
+        }
+        confirmText="Deshacer"
+        variant="warning"
+        confirmDisabled={motivoDeshacer.trim().length < 5 || deshacerMutation.isPending}
+      >
+        <div className="mt-4">
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Motivo de reversa <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            rows={3}
+            value={motivoDeshacer}
+            onChange={(e) => setMotivoDeshacer(e.target.value)}
+            placeholder="Indica el motivo (mínimo 5 caracteres)..."
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Esta acción queda registrada en auditoría.
           </p>
         </div>
       </ConfirmationModal>

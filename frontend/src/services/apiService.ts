@@ -207,6 +207,45 @@ export interface InventoryStockQueryParams {
   offset?: number;
 }
 
+export interface InventoryAvailableAssetQueryParams {
+  articulo_id: string;
+  ubicacion_id: string;
+  search?: string;
+  limit?: number;
+}
+
+export interface InventoryAvailableAssetRow {
+  id: string;
+  codigo: string;
+  nro_serie?: string | null;
+  estado: 'en_stock' | 'entregado' | 'mantencion' | 'baja' | string;
+  articulo_id: string;
+  articulo_nombre?: string;
+  ubicacion_id: string;
+  ubicacion_nombre?: string;
+}
+
+export interface ReturnEligibleAssetQueryParams {
+  trabajador_id: string;
+  articulo_id?: string;
+  search?: string;
+  limit?: number;
+}
+
+export interface ReturnEligibleAssetRow {
+  custodia_activo_id: string;
+  trabajador_id: string;
+  desde_en: string;
+  activo_id: string;
+  codigo: string;
+  nro_serie?: string | null;
+  activo_estado?: string;
+  articulo_id: string;
+  articulo_nombre?: string;
+  ubicacion_actual_id?: string | null;
+  ubicacion_actual_nombre?: string | null;
+}
+
 export interface InventoryMovementQueryParams {
   articulo_id?: string;
   tipo?: string;
@@ -287,6 +326,12 @@ export interface InventoryIngresoCreatePayload {
 export const getInventoryStock = (params?: InventoryStockQueryParams) =>
   get('/inventario/stock', params);
 
+export const getInventoryAvailableAssets = (params: InventoryAvailableAssetQueryParams) =>
+  get<InventoryAvailableAssetRow[]>('/inventario/activos-disponibles', params);
+
+export const getReturnEligibleAssets = (params: ReturnEligibleAssetQueryParams) =>
+  get<ReturnEligibleAssetRow[]>('/devoluciones/activos-elegibles', params);
+
 export const getInventoryStockMovements = (params?: InventoryMovementQueryParams) =>
   get('/inventario/movimientos-stock', params);
 
@@ -358,7 +403,8 @@ export interface EgresoRow {
 export interface InventoryEgresoDetallePayload {
   articulo_id: string;
   ubicacion_id: string;
-  cantidad: number;
+  cantidad?: number;
+  activo_ids?: string[];
   lote_id?: string | null;
   notas?: string | null;
 }
@@ -392,7 +438,8 @@ export type EntregaEstado =
   | 'en_transito'
   | 'recibido'
   | 'confirmada'
-  | 'anulada';
+  | 'anulada'
+  | 'revertida_admin';
 export type CondicionSalida = 'ok' | 'usado' | 'danado';
 
 export interface EntregaDetalleRow {
@@ -406,6 +453,7 @@ export interface EntregaDetalleRow {
   activo_codigo?: string | null;
   lote_id?: string | null;
   codigo_lote?: string | null;
+  tipo_item_entrega?: 'retornable' | 'asignacion';
   cantidad: number;
   condicion_salida: CondicionSalida;
   notas?: string | null;
@@ -430,14 +478,17 @@ export interface EntregaRow {
   recibido_en?: string | null;
   recibido_por_usuario_id?: string | null;
   confirmada_en?: string | null;
+  cantidad_items?: number;
+  firma_imagen_url?: string | null;
+  firmado_en?: string | null;
   detalles?: EntregaDetalleRow[];
 }
 
 export interface EntregaDetallePayload {
   articulo_id: string;
-  activo_id?: string | null;
+  activo_ids?: string[];
   lote_id?: string | null;
-  cantidad: number;
+  cantidad?: number;
   condicion_salida?: CondicionSalida;
   notas?: string | null;
 }
@@ -448,7 +499,8 @@ export interface EntregaCreatePayload {
   receptor_trabajador_id?: string | null;
   ubicacion_origen_id: string;
   ubicacion_destino_id: string;
-  tipo: EntregaTipo;
+  tipo?: EntregaTipo;
+  es_traslado?: boolean;
   nota_destino?: string | null;
   detalles: EntregaDetallePayload[];
 }
@@ -477,6 +529,9 @@ export const recibirTraslado = (id: string, payload?: { receptor_trabajador_id?:
 export const anularEntrega = (id: string, payload: { motivo: string }) =>
   post<EntregaRow>(`/entregas/${id}/anular`, payload);
 
+export const deshacerEntrega = (id: string, payload: { motivo: string }) =>
+  post<EntregaRow>(`/entregas/${id}/deshacer`, payload);
+
 export const firmarEntregaDispositivo = (
   entregaId: string,
   firmaBase64: string,
@@ -493,6 +548,26 @@ export const firmarEntregaDispositivo = (
   formData.append('texto_aceptacion', textoAceptacion);
   return apiService
     .post(`/firmas/entregas/${entregaId}/firmar-dispositivo`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    .then((res) => res.data);
+};
+
+export const firmarDevolucionDispositivo = (
+  devolucionId: string,
+  firmaBase64: string,
+  textoAceptacion: string
+) => {
+  const formData = new FormData();
+  const byteString = atob(firmaBase64.split(',')[1] ?? firmaBase64);
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+  const blob = new Blob([ab], { type: 'image/png' });
+  formData.append('firma_archivo', blob, 'firma-devolucion.png');
+  formData.append('texto_aceptacion', textoAceptacion);
+  return apiService
+    .post(`/devoluciones/${devolucionId}/firmar-dispositivo`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     .then((res) => res.data);

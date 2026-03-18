@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import Modal from '../Modal';
 import type {
-  EntregaTipo,
   EntregaCreatePayload,
   EntregaDetallePayload,
   CondicionSalida,
 } from '../../services/apiService';
+import AssetUnitSelector from './AssetUnitSelector';
 
 interface TrabajadorOption {
   id: string;
@@ -46,12 +46,6 @@ interface EntregaCreateModalProps {
   lotes?: LoteOption[];
 }
 
-const TIPO_LABELS: Record<EntregaTipo, string> = {
-  entrega: 'Entrega definitiva',
-  prestamo: 'Préstamo',
-  traslado: 'Traslado',
-};
-
 const CONDICION_LABELS: Record<CondicionSalida, string> = {
   ok: 'Bueno',
   usado: 'Usado',
@@ -63,6 +57,7 @@ const EMPTY_DETALLE: EntregaDetallePayload = {
   cantidad: 1,
   condicion_salida: 'ok',
   lote_id: null,
+  activo_ids: [],
   notas: null,
 };
 
@@ -80,7 +75,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   const [trabajadorId, setTrabajadorId] = useState('');
   const [transportistaTrabajadorId, setTransportistaTrabajadorId] = useState('');
   const [receptorTrabajadorId, setReceptorTrabajadorId] = useState('');
-  const [tipo, setTipo] = useState<EntregaTipo>('entrega');
+  const [esTraslado, setEsTraslado] = useState(false);
   const [ubicacionOrigenId, setUbicacionOrigenId] = useState('');
   const [ubicacionDestinoId, setUbicacionDestinoId] = useState('');
   const [notaDestino, setNotaDestino] = useState('');
@@ -96,7 +91,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       setTrabajadorId('');
       setTransportistaTrabajadorId('');
       setReceptorTrabajadorId('');
-      setTipo('entrega');
+      setEsTraslado(false);
       setUbicacionOrigenId('');
       setUbicacionDestinoId('');
       setNotaDestino('');
@@ -105,6 +100,22 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       setTrabajadorSearch('');
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    setDetalles((prev) =>
+      prev.map((detalle) => {
+        const art = articuloOf(detalle.articulo_id);
+        if (art?.tracking_mode !== 'serial') {
+          return detalle;
+        }
+
+        return {
+          ...detalle,
+          activo_ids: [],
+        };
+      })
+    );
+  }, [ubicacionOrigenId]);
 
   const filteredTrabajadores = trabajadores.filter((t) => {
     const q = trabajadorSearch.toLowerCase();
@@ -115,7 +126,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
     );
   });
 
-  const isTraslado = tipo === 'traslado';
+  const isTraslado = esTraslado;
 
   const ubicacionesOrigen = ubicaciones.filter((u) => {
     if (!u.tipo) return true;
@@ -134,8 +145,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
     ubicacionOrigenId !== '' &&
     ubicacionDestinoId !== '' &&
     ubicacionOrigenId !== ubicacionDestinoId &&
-    (!isTraslado || receptorTrabajadorId !== '') &&
-    tipo !== ('' as EntregaTipo);
+    (!isTraslado || receptorTrabajadorId !== '');
 
   // Step 2 helpers
   const addDetalle = () =>
@@ -163,7 +173,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
         return {
           ...d,
           articulo_id: articuloId,
-          activo_id: art?.tracking_mode === 'serial' ? d.activo_id ?? null : null,
+          activo_ids: art?.tracking_mode === 'serial' ? [] : [],
           lote_id: art?.tracking_mode === 'lote' ? d.lote_id ?? null : null,
           cantidad: art?.tracking_mode === 'serial' ? 1 : d.cantidad,
         };
@@ -178,6 +188,8 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       setError('La ubicación de origen y destino no puede ser la misma.');
       return;
     }
+
+    const selectedAssetIds = new Set<string>();
 
     for (const d of detalles) {
       if (!d.articulo_id) {
@@ -196,19 +208,28 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       }
 
       if (art.tracking_mode === 'serial') {
-        if (!d.activo_id) {
-          setError(`El artículo "${art.nombre}" requiere Activo ID por ser serial.`);
+        const serialIds = Array.isArray(d.activo_ids) ? d.activo_ids.filter(Boolean) : [];
+        if (serialIds.length === 0) {
+          setError(`El artículo "${art.nombre}" requiere al menos un activo por ser serial.`);
           return;
         }
 
-        if (Number(d.cantidad) !== 1) {
-          setError(`El artículo "${art.nombre}" serial debe tener cantidad 1.`);
+        if (new Set(serialIds).size !== serialIds.length) {
+          setError(`El artículo "${art.nombre}" tiene activos duplicados.`);
           return;
+        }
+
+        for (const serialId of serialIds) {
+          if (selectedAssetIds.has(serialId)) {
+            setError(`No puedes repetir el mismo activo (${serialId}) en más de un ítem.`);
+            return;
+          }
+          selectedAssetIds.add(serialId);
         }
       }
 
-      if (art.retorno_mode === 'consumible' && d.activo_id) {
-        setError(`El artículo "${art.nombre}" es consumible y no admite Activo ID.`);
+      if (art.retorno_mode === 'consumible' && (d.activo_ids?.length || 0) > 0) {
+        setError(`El artículo "${art.nombre}" es consumible y no admite activos serializados.`);
         return;
       }
     }
@@ -221,12 +242,14 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       receptor_trabajador_id: isTraslado ? receptorTrabajadorId || null : null,
       ubicacion_origen_id: ubicacionOrigenId,
       ubicacion_destino_id: ubicacionDestinoId,
-      tipo,
+      es_traslado: isTraslado,
       nota_destino: notaDestino || null,
       detalles: detalles.map((d) => ({
-        ...d,
-        activo_id: d.activo_id || null,
+        articulo_id: d.articulo_id,
+        activo_ids: d.activo_ids?.length ? d.activo_ids : undefined,
         lote_id: d.lote_id || null,
+        cantidad: d.activo_ids?.length ? undefined : Number(d.cantidad),
+        condicion_salida: d.condicion_salida || 'ok',
         notas: d.notas || null,
       })),
     };
@@ -336,27 +359,30 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
             </div>
           )}
 
-          {/* Tipo */}
+          {/* Modo de movimiento */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tipo <span className="text-red-500">*</span>
+              Movimiento
             </label>
-            <div className="grid grid-cols-3 gap-2">
-              {(Object.keys(TIPO_LABELS) as EntregaTipo[]).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTipo(t)}
-                  className={`py-2 px-3 rounded-lg border text-sm font-medium transition-colors ${
-                    tipo === t
-                      ? 'bg-primary-blue border-primary-blue text-white'
-                      : 'border-gray-300 text-gray-700 hover:border-primary-blue'
-                  }`}
-                >
-                  {TIPO_LABELS[t]}
-                </button>
-              ))}
+            <div className="flex items-center gap-3 rounded-lg border border-gray-300 px-3 py-2">
+              <input
+                id="entrega-es-traslado"
+                type="checkbox"
+                checked={isTraslado}
+                onChange={(e) => {
+                  setEsTraslado(e.target.checked);
+                  setUbicacionOrigenId('');
+                  setUbicacionDestinoId('');
+                }}
+                className="h-4 w-4 rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
+              />
+              <label htmlFor="entrega-es-traslado" className="text-sm text-gray-700 select-none">
+                Es traslado entre bodegas
+              </label>
             </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Si no está marcado, se registra como entrega estándar.
+            </p>
           </div>
 
           {/* Ubicación origen */}
@@ -499,18 +525,17 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                 </div>
 
                 {needsSerial && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Activo ID <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={detalle.activo_id ?? ''}
-                      onChange={(e) => updateDetalle(idx, 'activo_id', e.target.value || null)}
-                      placeholder="UUID del activo serial"
-                      className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
-                    />
-                  </div>
+                  <AssetUnitSelector
+                    value={detalle.activo_ids ?? []}
+                    onChange={(next) => updateDetalle(idx, 'activo_ids', next)}
+                    articuloId={detalle.articulo_id || undefined}
+                    ubicacionId={ubicacionOrigenId || undefined}
+                    excludedIds={detalles.flatMap((row, rowIdx) =>
+                      rowIdx === idx ? [] : (row.activo_ids ?? []).filter(Boolean)
+                    )}
+                    label="Seleccionar activo"
+                    required
+                  />
                 )}
 
                 {/* Lote (solo si tracking_mode === 'lote') */}

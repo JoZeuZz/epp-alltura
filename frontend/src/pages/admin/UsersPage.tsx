@@ -16,6 +16,13 @@ interface UserRecord extends User {
   estado?: UserStatus;
 }
 
+interface UserDeleteResult {
+  id: string;
+  estado?: UserStatus | 'eliminado';
+  action: 'deleted' | 'deactivated';
+  reason?: string;
+}
+
 interface UserFormValues {
   first_name: string;
   last_name: string;
@@ -186,10 +193,10 @@ const UsersPage: React.FC = () => {
 
   const createUser = usePost<UserRecord, UserCreatePayload>('admin-users', '/users');
   const updateUser = usePut<UserRecord, UserUpdatePayload>('admin-users', '/users');
-  const deactivateUser = useDelete<{ id: string; estado: UserStatus }>('admin-users', '/users');
+  const removeUser = useDelete<UserDeleteResult>('admin-users', '/users');
 
   const isSaving = createUser.isPending || updateUser.isPending;
-  const isDeleting = deactivateUser.isPending;
+  const isDeleting = removeUser.isPending;
 
   const filteredUsers = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -314,14 +321,18 @@ const UsersPage: React.FC = () => {
     if (!userToDelete) return;
 
     if (currentUser?.id === userToDelete.id) {
-      toast.error('No puedes desactivar tu propio usuario administrador.');
+      toast.error('No puedes eliminar tu propio usuario administrador.');
       closeDeleteModal();
       return;
     }
 
     try {
-      await deactivateUser.mutateAsync(userToDelete.id);
-      toast.success('Usuario desactivado correctamente.');
+      const result = await removeUser.mutateAsync(userToDelete.id);
+      if (result.action === 'deleted') {
+        toast.success('Usuario eliminado correctamente.');
+      } else {
+        toast.success('Usuario desactivado por tener asignaciones.');
+      }
       closeDeleteModal();
     } catch (deleteError) {
       toast.error(toErrorMessage(deleteError));
@@ -397,9 +408,9 @@ const UsersPage: React.FC = () => {
                 event.stopPropagation();
                 openDeleteModal(row);
               }}
-              disabled={row.estado === 'inactivo' || currentUser?.id === row.id}
+              disabled={currentUser?.id === row.id}
             >
-              Desactivar
+              Eliminar
             </button>
           </div>
         ),
@@ -555,10 +566,10 @@ const UsersPage: React.FC = () => {
                     onClick: () => openEditModal(user),
                   },
                   {
-                    label: 'Desactivar',
+                    label: 'Eliminar',
                     variant: 'danger',
                     onClick: () => openDeleteModal(user),
-                    show: user.estado !== 'inactivo' && currentUser?.id !== user.id,
+                    show: currentUser?.id !== user.id,
                   },
                 ]}
               />
@@ -760,12 +771,12 @@ const UsersPage: React.FC = () => {
         isOpen={isDeleteModalOpen}
         onClose={closeDeleteModal}
         onConfirm={handleConfirmDelete}
-        title="Desactivar usuario"
+        title="Eliminar usuario"
         message={`Se desactivará el usuario "${formatNameParts(
           userToDelete?.first_name,
           userToDelete?.last_name
-        )}". Podrá reactivarse editando su estado.`}
-        confirmText={isDeleting ? 'Desactivando...' : 'Desactivar'}
+        )}" si tiene asignaciones; si no tiene, se eliminará definitivamente.`}
+        confirmText={isDeleting ? 'Procesando...' : 'Eliminar'}
         cancelText="Cancelar"
         variant="danger"
       />

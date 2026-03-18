@@ -113,7 +113,10 @@ class UserController {
 
   static async createUser(req, res, next) {
     try {
-      const userData = req.body;
+      const userData = {
+        ...req.body,
+        created_by_admin_id: req.user?.id || null,
+      };
       const newUser = await UserService.createUser(userData);
 
       return sendSuccess(res, {
@@ -151,10 +154,15 @@ class UserController {
   static async deleteUser(req, res, next) {
     try {
       const userId = req.params.id;
-      const deletedUser = await UserService.deleteUser(userId);
+      const deletedUser = await UserService.deleteUser(userId, req.user);
+
+      const message =
+        deletedUser.action === 'deleted'
+          ? 'Usuario eliminado correctamente'
+          : 'Usuario desactivado correctamente';
 
       return sendSuccess(res, {
-        message: 'Usuario desactivado correctamente',
+        message,
         data: deletedUser,
       });
     } catch (error) {

@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { post } from '../../services/apiService';
 import SignaturePad from '../../components/forms/SignaturePad';
+import AssetUnitSelector from '../../components/forms/AssetUnitSelector';
+import ReturnAssetSelector from '../../components/forms/ReturnAssetSelector';
 
 interface WarehouseLoaderData {
   trabajadores?: any[];
@@ -30,7 +32,7 @@ interface ArticuloOption {
 
 const emptyDeliveryDetail = () => ({
   articulo_id: '',
-  activo_id: '',
+  activo_ids: [] as string[],
   lote_id: '',
   cantidad: 1,
   condicion_salida: 'ok',
@@ -39,7 +41,7 @@ const emptyDeliveryDetail = () => ({
 
 const emptyReturnDetail = () => ({
   articulo_id: '',
-  activo_id: '',
+  activo_ids: [] as string[],
   lote_id: '',
   cantidad: 1,
   condicion_entrada: 'ok',
@@ -54,6 +56,9 @@ const ACCEPTANCE_TEXT_DEFAULT =
 
 const ACCEPTANCE_TEXT_TRASLADO =
   'Declaro transportar y custodiar temporalmente los artículos indicados en este traslado, asumiendo responsabilidad por su resguardo hasta la recepción en la bodega destino.';
+
+const ACCEPTANCE_TEXT_DEVOLUCION =
+  'Declaro haber recepcionado los artículos devueltos y validado su condición de entrada según el registro de devolución.';
 
 const WarehouseDashboard: React.FC = () => {
   const loader = useLoaderData() as WarehouseLoaderData;
@@ -74,7 +79,7 @@ const WarehouseDashboard: React.FC = () => {
     receptor_trabajador_id: '',
     ubicacion_origen_id: '',
     ubicacion_destino_id: '',
-    tipo: 'entrega',
+    es_traslado: false,
     nota_destino: '',
     detalles: [emptyDeliveryDetail()],
   });
@@ -92,6 +97,13 @@ const WarehouseDashboard: React.FC = () => {
     notas: '',
     detalles: [emptyReturnDetail()],
   });
+
+  const [returnSignatureForm, setReturnSignatureForm] = useState({
+    devolucionId: '',
+    texto_aceptacion: ACCEPTANCE_TEXT_DEVOLUCION,
+  });
+  const [returnSignatureFile, setReturnSignatureFile] = useState<File | null>(null);
+  const [returnSignaturePadKey, setReturnSignaturePadKey] = useState(0);
 
   const [purchaseForm, setPurchaseForm] = useState({
     proveedor_id: '',
@@ -118,7 +130,7 @@ const WarehouseDashboard: React.FC = () => {
   );
 
   const pendingReturns = useMemo(
-    () => devoluciones.filter((item) => item.estado === 'borrador'),
+    () => devoluciones.filter((item) => item.estado === 'borrador' || item.estado === 'pendiente_firma'),
     [devoluciones]
   );
 
@@ -132,7 +144,7 @@ const WarehouseDashboard: React.FC = () => {
     [articulos, purchaseForm.articulo_id]
   );
 
-  const setDeliveryDetail = (index: number, key: string, value: string | number) => {
+  const setDeliveryDetail = (index: number, key: string, value: string | number | string[]) => {
     setDeliveryForm((prev) => {
       const detalles = [...prev.detalles];
       detalles[index] = { ...detalles[index], [key]: value };
@@ -140,7 +152,7 @@ const WarehouseDashboard: React.FC = () => {
     });
   };
 
-  const isTraslado = deliveryForm.tipo === 'traslado';
+  const isTraslado = deliveryForm.es_traslado;
 
   const availableOriginLocations = useMemo(
     () => ubicaciones.filter((item) => !item.tipo || item.tipo === 'bodega'),
@@ -162,10 +174,17 @@ const WarehouseDashboard: React.FC = () => {
 
   const getArticuloById = (articuloId: string) => articulos.find((item) => item.id === articuloId);
 
-  const setReturnDetail = (index: number, key: string, value: string | number) => {
+  const setReturnDetail = (index: number, key: string, value: string | number | string[]) => {
     setReturnForm((prev) => {
       const detalles = [...prev.detalles];
       detalles[index] = { ...detalles[index], [key]: value };
+
+      if (key === 'articulo_id') {
+        detalles[index].activo_ids = [];
+        detalles[index].lote_id = '';
+        detalles[index].cantidad = 1;
+      }
+
       return { ...prev, detalles };
     });
   };
@@ -198,6 +217,8 @@ const WarehouseDashboard: React.FC = () => {
         return;
       }
 
+      const selectedDeliveryAssetIds = new Set<string>();
+
       for (const detail of deliveryForm.detalles) {
         const art = getArticuloById(detail.articulo_id);
         if (!art) {
@@ -206,19 +227,28 @@ const WarehouseDashboard: React.FC = () => {
         }
 
         if (art.tracking_mode === 'serial') {
-          if (!detail.activo_id) {
-            toast.error(`El artículo ${art.nombre} requiere Activo ID por ser serial.`);
+          const serialIds = Array.isArray(detail.activo_ids) ? detail.activo_ids.filter(Boolean) : [];
+          if (serialIds.length === 0) {
+            toast.error(`El artículo ${art.nombre} requiere al menos un activo serializado.`);
             return;
           }
 
-          if (Number(detail.cantidad) !== 1) {
-            toast.error(`El artículo ${art.nombre} serial debe tener cantidad 1.`);
+          if (new Set(serialIds).size !== serialIds.length) {
+            toast.error(`El artículo ${art.nombre} tiene activos serializados duplicados.`);
             return;
+          }
+
+          for (const serialId of serialIds) {
+            if (selectedDeliveryAssetIds.has(serialId)) {
+              toast.error(`No puedes repetir el mismo activo (${serialId}) en más de un ítem.`);
+              return;
+            }
+            selectedDeliveryAssetIds.add(serialId);
           }
         }
 
-        if (art.retorno_mode === 'consumible' && detail.activo_id) {
-          toast.error(`El artículo ${art.nombre} es consumible y no admite Activo ID.`);
+        if (art.retorno_mode === 'consumible' && (detail.activo_ids?.length || 0) > 0) {
+          toast.error(`El artículo ${art.nombre} es consumible y no admite activos serializados.`);
           return;
         }
       }
@@ -226,6 +256,7 @@ const WarehouseDashboard: React.FC = () => {
       const payload = {
         ...deliveryForm,
         trabajador_id: resolvedTrabajadorId,
+        es_traslado: isTraslado,
         transportista_trabajador_id: isTraslado
           ? deliveryForm.transportista_trabajador_id
           : null,
@@ -234,8 +265,9 @@ const WarehouseDashboard: React.FC = () => {
           : null,
         detalles: deliveryForm.detalles.map((detail) => ({
           ...detail,
-          activo_id: detail.activo_id || null,
+          activo_ids: detail.activo_ids?.length ? detail.activo_ids : undefined,
           lote_id: detail.lote_id || null,
+          cantidad: detail.activo_ids?.length ? undefined : Number(detail.cantidad),
           notas: detail.notas || null,
         })),
       };
@@ -316,13 +348,60 @@ const WarehouseDashboard: React.FC = () => {
     e.preventDefault();
 
     try {
+      if (!returnForm.trabajador_id) {
+        toast.error('Selecciona trabajador.');
+        return;
+      }
+
+      if (!returnForm.ubicacion_recepcion_id) {
+        toast.error('Selecciona ubicación de recepción.');
+        return;
+      }
+
+      const selectedReturnAssetIds = new Set<string>();
+
+      for (const detail of returnForm.detalles) {
+        const art = getArticuloById(detail.articulo_id);
+
+        if (!art) {
+          toast.error('Hay un artículo inválido en el detalle de devolución.');
+          return;
+        }
+
+        const serialIds = Array.isArray(detail.activo_ids) ? detail.activo_ids.filter(Boolean) : [];
+
+        if (art.tracking_mode === 'serial') {
+          if (serialIds.length === 0) {
+            toast.error(`El artículo ${art.nombre} requiere seleccionar un activo.`);
+            return;
+          }
+
+          if (new Set(serialIds).size !== serialIds.length) {
+            toast.error(`El artículo ${art.nombre} tiene activos duplicados.`);
+            return;
+          }
+
+          for (const serialId of serialIds) {
+            if (selectedReturnAssetIds.has(serialId)) {
+              toast.error(`No puedes repetir el mismo activo (${serialId}) en más de un ítem.`);
+              return;
+            }
+            selectedReturnAssetIds.add(serialId);
+          }
+        } else if (Number(detail.cantidad) <= 0) {
+          toast.error(`El artículo ${art.nombre} requiere cantidad mayor que cero.`);
+          return;
+        }
+      }
+
       const payload = {
         ...returnForm,
         detalles: returnForm.detalles.map((detail) => ({
           ...detail,
           articulo_id: detail.articulo_id || null,
-          activo_id: detail.activo_id || null,
+          activo_ids: detail.activo_ids?.length ? detail.activo_ids : undefined,
           lote_id: detail.lote_id || null,
+          cantidad: detail.activo_ids?.length ? 1 : Number(detail.cantidad),
           notas: detail.notas || null,
         })),
       };
@@ -343,6 +422,41 @@ const WarehouseDashboard: React.FC = () => {
       toast.success('Devolución confirmada.');
     } catch (error: any) {
       toast.error(error?.response?.data?.message || error.message || 'No se pudo confirmar la devolución');
+    }
+  };
+
+  const handleSignReturnInDevice = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!returnSignatureForm.devolucionId) {
+      toast.error('Selecciona una devolución para registrar firma.');
+      return;
+    }
+
+    if (!returnSignatureFile) {
+      toast.error('Debes capturar una firma manuscrita antes de continuar.');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('firma_archivo', returnSignatureFile, returnSignatureFile.name);
+      formData.append('texto_aceptacion', returnSignatureForm.texto_aceptacion);
+
+      await post(`/devoluciones/${returnSignatureForm.devolucionId}/firmar-dispositivo`, formData);
+
+      setDevoluciones((prev) =>
+        prev.map((item) =>
+          item.id === returnSignatureForm.devolucionId
+            ? { ...item, estado: 'pendiente_firma' }
+            : item
+        )
+      );
+      setReturnSignatureFile(null);
+      setReturnSignaturePadKey((prev) => prev + 1);
+      toast.success('Firma de devolución registrada.');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || error.message || 'No se pudo registrar la firma de devolución');
     }
   };
 
@@ -464,22 +578,21 @@ const WarehouseDashboard: React.FC = () => {
                 ))}
               </select>
             )}
-            <select
-              className="border rounded-md p-2"
-              value={deliveryForm.tipo}
-              onChange={(e) =>
-                setDeliveryForm((prev) => ({
-                  ...prev,
-                  tipo: e.target.value,
-                  ubicacion_origen_id: '',
-                  ubicacion_destino_id: '',
-                }))
-              }
-            >
-              <option value="entrega">Entrega</option>
-              <option value="prestamo">Préstamo</option>
-              <option value="traslado">Traslado</option>
-            </select>
+            <label className="border rounded-md p-2 flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={deliveryForm.es_traslado}
+                onChange={(e) =>
+                  setDeliveryForm((prev) => ({
+                    ...prev,
+                    es_traslado: e.target.checked,
+                    ubicacion_origen_id: '',
+                    ubicacion_destino_id: '',
+                  }))
+                }
+              />
+              Es traslado entre bodegas
+            </label>
             <select
               className="border rounded-md p-2"
               value={deliveryForm.ubicacion_origen_id}
@@ -525,7 +638,7 @@ const WarehouseDashboard: React.FC = () => {
                     setDeliveryDetail(index, 'articulo_id', articuloId);
                     const art = getArticuloById(articuloId);
                     if (art?.tracking_mode !== 'serial') {
-                      setDeliveryDetail(index, 'activo_id', '');
+                      setDeliveryDetail(index, 'activo_ids', []);
                     }
                     if (art?.tracking_mode !== 'lote') {
                       setDeliveryDetail(index, 'lote_id', '');
@@ -543,13 +656,19 @@ const WarehouseDashboard: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                <input
-                  className="border rounded-md p-2"
-                  placeholder="Activo ID (si serial)"
-                  value={detail.activo_id}
-                  onChange={(e) => setDeliveryDetail(index, 'activo_id', e.target.value)}
-                  disabled={getArticuloById(detail.articulo_id)?.tracking_mode !== 'serial'}
-                />
+                <div className="md:col-span-2">
+                  <AssetUnitSelector
+                    value={detail.activo_ids || []}
+                    onChange={(next) => setDeliveryDetail(index, 'activo_ids', next)}
+                    articuloId={detail.articulo_id || undefined}
+                    ubicacionId={deliveryForm.ubicacion_origen_id || undefined}
+                    excludedIds={deliveryForm.detalles.flatMap((row, rowIndex) =>
+                      rowIndex === index ? [] : (row.activo_ids || []).filter(Boolean)
+                    )}
+                    label="Seleccionar activo"
+                    disabled={getArticuloById(detail.articulo_id)?.tracking_mode !== 'serial'}
+                  />
+                </div>
                 <input
                   className="border rounded-md p-2"
                   placeholder="Lote ID (opcional)"
@@ -757,7 +876,11 @@ const WarehouseDashboard: React.FC = () => {
             onChange={(e) => setReturnForm((prev) => ({ ...prev, notas: e.target.value }))}
           />
 
-          {returnForm.detalles.map((detail, index) => (
+          {returnForm.detalles.map((detail, index) => {
+            const selectedArticle = getArticuloById(detail.articulo_id);
+            const isSerial = selectedArticle?.tracking_mode === 'serial';
+
+            return (
             <div key={`return-detail-${index}`} className="border rounded-md p-3 bg-gray-50">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                 <select
@@ -772,17 +895,25 @@ const WarehouseDashboard: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                <input
-                  className="border rounded-md p-2"
-                  placeholder="Activo ID"
-                  value={detail.activo_id}
-                  onChange={(e) => setReturnDetail(index, 'activo_id', e.target.value)}
-                />
+                <div className="md:col-span-2">
+                  <ReturnAssetSelector
+                    value={detail.activo_ids || []}
+                    onChange={(next) => setReturnDetail(index, 'activo_ids', next)}
+                    trabajadorId={returnForm.trabajador_id || undefined}
+                    articuloId={detail.articulo_id || undefined}
+                    excludedIds={returnForm.detalles.flatMap((row, rowIndex) =>
+                      rowIndex === index ? [] : (row.activo_ids || []).filter(Boolean)
+                    )}
+                    label="Seleccionar activo"
+                    disabled={!isSerial}
+                  />
+                </div>
                 <input
                   className="border rounded-md p-2"
                   placeholder="Lote ID"
                   value={detail.lote_id}
                   onChange={(e) => setReturnDetail(index, 'lote_id', e.target.value)}
+                  disabled={isSerial}
                 />
                 <input
                   className="border rounded-md p-2"
@@ -791,6 +922,7 @@ const WarehouseDashboard: React.FC = () => {
                   step={0.0001}
                   value={detail.cantidad}
                   onChange={(e) => setReturnDetail(index, 'cantidad', Number(e.target.value))}
+                  disabled={isSerial}
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
@@ -822,7 +954,8 @@ const WarehouseDashboard: React.FC = () => {
                 />
               </div>
             </div>
-          ))}
+            );
+          })}
 
           <div className="flex gap-2">
             <button
@@ -840,14 +973,53 @@ const WarehouseDashboard: React.FC = () => {
 
         <div className="mt-4">
           <h3 className="font-semibold text-dark-blue mb-2">Devoluciones Pendientes de Confirmación</h3>
+          <form className="space-y-2 mb-3" onSubmit={handleSignReturnInDevice}>
+            <select
+              className="border rounded-md p-2 w-full"
+              value={returnSignatureForm.devolucionId}
+              onChange={(e) =>
+                setReturnSignatureForm((prev) => ({
+                  ...prev,
+                  devolucionId: e.target.value,
+                }))
+              }
+            >
+              <option value="">Selecciona devolución</option>
+              {pendingReturns.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.id.slice(0, 8)} - {item.estado}
+                </option>
+              ))}
+            </select>
+            <textarea
+              className="border rounded-md p-2 w-full"
+              value={returnSignatureForm.texto_aceptacion}
+              onChange={(e) =>
+                setReturnSignatureForm((prev) => ({ ...prev, texto_aceptacion: e.target.value }))
+              }
+            />
+            <SignaturePad
+              key={`warehouse-return-signature-${returnSignaturePadKey}`}
+              required
+              label="Firma manuscrita de recepción de devolución"
+              onChange={(_dataUrl, file) => setReturnSignatureFile(file)}
+            />
+            <button className="px-3 py-2 rounded-md bg-dark-blue text-white" type="submit">
+              Firmar Devolución
+            </button>
+          </form>
+
           <div className="flex flex-wrap gap-2">
             {pendingReturns.map((item) => (
               <button
                 key={item.id}
-                className="px-3 py-2 rounded-md bg-gray-700 text-white text-sm"
+                className="px-3 py-2 rounded-md bg-gray-700 text-white text-sm disabled:opacity-50"
                 onClick={() => handleConfirmReturn(item.id)}
+                disabled={item.estado !== 'pendiente_firma'}
               >
-                Confirmar {item.id.slice(0, 8)}
+                {item.estado === 'pendiente_firma'
+                  ? `Confirmar ${item.id.slice(0, 8)}`
+                  : `Firma requerida ${item.id.slice(0, 8)}`}
               </button>
             ))}
           </div>

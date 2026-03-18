@@ -1,4 +1,20 @@
 const request = require('supertest');
+const fs = require('node:fs');
+const path = require('node:path');
+const dotenv = require('dotenv');
+
+const dotenvCandidates = [
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), '..', '.env'),
+  path.resolve(__dirname, '../../..', '.env'),
+  path.resolve(__dirname, '../../../../.env'),
+];
+
+for (const envPath of dotenvCandidates) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath, override: false });
+  }
+}
 
 const RUN_DB_INTEGRATION = process.env.RUN_INTEGRATION_DB_TESTS === 'true';
 const HAS_REQUIRED_ENV =
@@ -191,11 +207,11 @@ const seedBaseData = async () => {
 
   await db.query(
     `
-    INSERT INTO ubicacion (id, nombre, tipo, estado)
+    INSERT INTO ubicacion (id, nombre, tipo, ubicacion_subtipo, estado)
     VALUES
-      ($1, 'Bodega Central', 'bodega', 'activo'),
-      ($2, 'Faena Norte', 'proyecto', 'activo'),
-      ($3, 'Taller Mantencion', 'taller_mantencion', 'activo')
+      ($1, 'Bodega Central', 'bodega', 'fija', 'activo'),
+      ($2, 'Faena Norte', 'planta', NULL, 'activo'),
+      ($3, 'Taller Mantencion', 'taller_mantencion', NULL, 'activo')
     `,
     [IDS.ubicacionOrigenId, IDS.ubicacionDestinoId, IDS.ubicacionRecepcionId]
   );
@@ -257,8 +273,7 @@ const createPurchase = async (app, serialCodes = ['SER-0001']) => {
 const createDeliveryWithItems = async (app, serialAssetIds, cantidad = 2) => {
   const detalles = serialAssetIds.map((assetId) => ({
     articulo_id: IDS.articuloSerialId,
-    activo_id: assetId,
-    cantidad: 1,
+    activo_ids: [assetId],
     condicion_salida: 'ok',
   }));
 
@@ -281,7 +296,11 @@ const createDeliveryWithItems = async (app, serialAssetIds, cantidad = 2) => {
       detalles,
     });
 
-  expect(entregaResponse.status).toBe(201);
+  if (entregaResponse.status !== 201) {
+    throw new Error(
+      `createDeliveryWithItems expected 201, got ${entregaResponse.status}: ${JSON.stringify(entregaResponse.body)}`
+    );
+  }
   return entregaResponse.body.data;
 };
 
@@ -292,6 +311,19 @@ const signDeliveryInDevice = async (app, entregaId, actor = 'bodega') => {
     .send({
       firma_imagen_url: 'https://example.com/signatures/firma.png',
       texto_aceptacion: 'Acepto recepción de activos y custodia responsable para uso operacional.',
+    });
+
+  expect(response.status).toBe(201);
+  return response.body.data;
+};
+
+const signReturnInDevice = async (app, devolucionId, actor = 'bodega') => {
+  const response = await request(app)
+    .post(`/api/devoluciones/${devolucionId}/firmar-dispositivo`)
+    .set('x-test-actor', actor)
+    .send({
+      firma_imagen_url: 'https://example.com/signatures/firma-devolucion.png',
+      texto_aceptacion: 'Declaro recepcionar la devolución y validar la condición de entrada.',
     });
 
   expect(response.status).toBe(201);
@@ -329,7 +361,11 @@ maybeDescribe('EPP flow integration with real DB', () => {
       .set('x-test-actor', 'bodega')
       .send();
 
-    expect(confirmEntregaResponse.status).toBe(200);
+    if (confirmEntregaResponse.status !== 200) {
+      throw new Error(
+        `confirm entrega expected 200, got ${confirmEntregaResponse.status}: ${JSON.stringify(confirmEntregaResponse.body)}`
+      );
+    }
     expect(confirmEntregaResponse.body.data.estado).toBe('confirmada');
 
     const devolucionDraftResponse = await request(app)
@@ -340,13 +376,7 @@ maybeDescribe('EPP flow integration with real DB', () => {
         ubicacion_recepcion_id: IDS.ubicacionRecepcionId,
         detalles: [
           {
-            activo_id: serialAssetId,
-            cantidad: 1,
-            condicion_entrada: 'ok',
-            disposicion: 'devuelto',
-          },
-          {
-            articulo_id: IDS.articuloCantidadId,
+            activo_ids: [serialAssetId],
             cantidad: 1,
             condicion_entrada: 'ok',
             disposicion: 'devuelto',
@@ -357,6 +387,8 @@ maybeDescribe('EPP flow integration with real DB', () => {
     expect(devolucionDraftResponse.status).toBe(201);
 
     const devolucionId = devolucionDraftResponse.body.data.id;
+    await signReturnInDevice(app, devolucionId, 'bodega');
+
     const confirmDevolucionResponse = await request(app)
       .post(`/api/devoluciones/${devolucionId}/confirm`)
       .set('x-test-actor', 'bodega')
@@ -393,7 +425,6 @@ maybeDescribe('EPP flow integration with real DB', () => {
     );
     const movStockTipos = movStockResult.rows.map((row) => row.tipo);
     expect(movStockTipos).toContain('entrega');
-    expect(movStockTipos).toContain('devolucion');
 
     const firmaResult = await db.query(
       'SELECT firma_imagen_url, texto_hash FROM firma_entrega WHERE entrega_id = $1',
@@ -419,6 +450,130 @@ maybeDescribe('EPP flow integration with real DB', () => {
     expect(response.body.message).toMatch(/sin una firma/i);
   });
 
+  it('returns validation error when confirming a devolucion without return signature', async () => {
+    const compra = await createPurchase(app, ['SER-RET-NO-SIGN-01']);
+    const serialDetail = compra.detalles.find((item) => item.articulo_id === IDS.articuloSerialId);
+    const serialAssetId = serialDetail.activos[0].id;
+
+    const entrega = await createDeliveryWithItems(app, [serialAssetId], 0);
+    await signDeliveryInDevice(app, entrega.id, 'trabajador');
+
+    const confirmEntregaResponse = await request(app)
+      .post(`/api/entregas/${entrega.id}/confirm`)
+      .set('x-test-actor', 'bodega')
+      .send();
+
+    expect(confirmEntregaResponse.status).toBe(200);
+
+    const devolucionDraftResponse = await request(app)
+      .post('/api/devoluciones')
+      .set('x-test-actor', 'bodega')
+      .send({
+        trabajador_id: IDS.trabajadorId,
+        ubicacion_recepcion_id: IDS.ubicacionRecepcionId,
+        detalles: [
+          {
+            activo_ids: [serialAssetId],
+            cantidad: 1,
+            condicion_entrada: 'ok',
+            disposicion: 'devuelto',
+          },
+        ],
+      });
+
+    expect(devolucionDraftResponse.status).toBe(201);
+
+    const response = await request(app)
+      .post(`/api/devoluciones/${devolucionDraftResponse.body.data.id}/confirm`)
+      .set('x-test-actor', 'bodega')
+      .send();
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toMatch(/sin una firma/i);
+  });
+
+  it('returns items count in list and signature/details in entrega detail', async () => {
+    const compra = await createPurchase(app, ['SER-DETAIL-01']);
+    const serialDetail = compra.detalles.find((item) => item.articulo_id === IDS.articuloSerialId);
+    const serialAssetId = serialDetail.activos[0].id;
+
+    const entrega = await createDeliveryWithItems(app, [serialAssetId], 2);
+    await signDeliveryInDevice(app, entrega.id, 'trabajador');
+
+    const confirmEntregaResponse = await request(app)
+      .post(`/api/entregas/${entrega.id}/confirm`)
+      .set('x-test-actor', 'bodega')
+      .send();
+
+    expect(confirmEntregaResponse.status).toBe(200);
+
+    const listResponse = await request(app)
+      .get('/api/entregas')
+      .set('x-test-actor', 'admin');
+
+    expect(listResponse.status).toBe(200);
+    const listedEntrega = listResponse.body.data.find((row) => row.id === entrega.id);
+    expect(listedEntrega).toBeTruthy();
+    expect(listedEntrega.cantidad_items).toBeGreaterThan(0);
+
+    const detailResponse = await request(app)
+      .get(`/api/entregas/${entrega.id}`)
+      .set('x-test-actor', 'admin');
+
+    expect(detailResponse.status).toBe(200);
+    expect(Array.isArray(detailResponse.body.data.detalles)).toBe(true);
+    expect(detailResponse.body.data.detalles.length).toBeGreaterThan(0);
+    expect(detailResponse.body.data.firma_imagen_url).toBe('https://example.com/signatures/firma.png');
+    expect(detailResponse.body.data.firmado_en).toBeTruthy();
+  });
+
+  it('lists serial assets available for delivery selector and eligible assets for return selector', async () => {
+    const compra = await createPurchase(app, ['SER-SELECTOR-01']);
+    const serialDetail = compra.detalles.find((item) => item.articulo_id === IDS.articuloSerialId);
+    const serialAssetId = serialDetail.activos[0].id;
+
+    const availableAssetsResponse = await request(app)
+      .get('/api/inventario/activos-disponibles')
+      .set('x-test-actor', 'bodega')
+      .query({
+        articulo_id: IDS.articuloSerialId,
+        ubicacion_id: IDS.ubicacionOrigenId,
+        limit: 25,
+      });
+
+    expect(availableAssetsResponse.status).toBe(200);
+    expect(Array.isArray(availableAssetsResponse.body.data)).toBe(true);
+
+    const foundAvailable = availableAssetsResponse.body.data.some((row) => row.id === serialAssetId);
+    expect(foundAvailable).toBe(true);
+
+    const entrega = await createDeliveryWithItems(app, [serialAssetId], 0);
+    await signDeliveryInDevice(app, entrega.id, 'trabajador');
+
+    const confirmEntregaResponse = await request(app)
+      .post(`/api/entregas/${entrega.id}/confirm`)
+      .set('x-test-actor', 'bodega')
+      .send();
+
+    expect(confirmEntregaResponse.status).toBe(200);
+
+    const eligibleReturnResponse = await request(app)
+      .get('/api/devoluciones/activos-elegibles')
+      .set('x-test-actor', 'bodega')
+      .query({
+        trabajador_id: IDS.trabajadorId,
+        articulo_id: IDS.articuloSerialId,
+        limit: 25,
+      });
+
+    expect(eligibleReturnResponse.status).toBe(200);
+    expect(Array.isArray(eligibleReturnResponse.body.data)).toBe(true);
+
+    const foundEligible = eligibleReturnResponse.body.data.some((row) => row.activo_id === serialAssetId);
+    expect(foundEligible).toBe(true);
+  });
+
   it('enforces one-time token usage for signature links', async () => {
     const compra = await createPurchase(app, ['SER-TOKEN-01']);
     const serialDetail = compra.detalles.find((item) => item.articulo_id === IDS.articuloSerialId);
@@ -440,7 +595,11 @@ maybeDescribe('EPP flow integration with real DB', () => {
         texto_aceptacion: 'Acepto recepción con token y asumo custodia de activos.',
       });
 
-    expect(firstUseResponse.status).toBe(201);
+    if (firstUseResponse.status !== 201) {
+      throw new Error(
+        `first token signature expected 201, got ${firstUseResponse.status}: ${JSON.stringify(firstUseResponse.body)}`
+      );
+    }
 
     const secondUseResponse = await request(app)
       .post(`/api/firmas/tokens/${token}/firmar`)
@@ -477,7 +636,11 @@ maybeDescribe('EPP flow integration with real DB', () => {
       .set('x-test-actor', 'bodega')
       .send();
 
-    expect(confirmEntregaResponse.status).toBe(200);
+    if (confirmEntregaResponse.status !== 200) {
+      throw new Error(
+        `confirm entrega before devolucion expected 200, got ${confirmEntregaResponse.status}: ${JSON.stringify(confirmEntregaResponse.body)}`
+      );
+    }
 
     const dispositionMap = [
       { assetId: assetIds[0], disposicion: 'devuelto', custodia: 'devuelta', activo: 'en_stock', mov: 'devolucion' },
@@ -493,7 +656,7 @@ maybeDescribe('EPP flow integration with real DB', () => {
         trabajador_id: IDS.trabajadorId,
         ubicacion_recepcion_id: IDS.ubicacionRecepcionId,
         detalles: dispositionMap.map((entry) => ({
-          activo_id: entry.assetId,
+          activo_ids: [entry.assetId],
           cantidad: 1,
           condicion_entrada: 'ok',
           disposicion: entry.disposicion,
@@ -502,6 +665,7 @@ maybeDescribe('EPP flow integration with real DB', () => {
 
     expect(devolucionDraftResponse.status).toBe(201);
     const devolucionId = devolucionDraftResponse.body.data.id;
+    await signReturnInDevice(app, devolucionId, 'bodega');
 
     const confirmDevolucionResponse = await request(app)
       .post(`/api/devoluciones/${devolucionId}/confirm`)
@@ -536,5 +700,139 @@ maybeDescribe('EPP flow integration with real DB', () => {
       );
       expect(movementRow.rows[0].tipo).toBe(entry.mov);
     }
+  });
+
+  it('creates and deletes serial egreso using activo_ids with asset rollback', async () => {
+    const compra = await createPurchase(app, ['SER-EGRESO-01']);
+    const serialDetail = compra.detalles.find((item) => item.articulo_id === IDS.articuloSerialId);
+    const serialAssetId = serialDetail.activos[0].id;
+
+    const createEgresoResponse = await request(app)
+      .post('/api/inventario/egresos')
+      .set('x-test-actor', 'admin')
+      .send({
+        tipo_motivo: 'baja',
+        notas: 'Baja técnica por prueba de integración',
+        detalles: [
+          {
+            articulo_id: IDS.articuloSerialId,
+            ubicacion_id: IDS.ubicacionOrigenId,
+            activo_ids: [serialAssetId],
+            notas: 'Activo unitario egresado',
+          },
+        ],
+      });
+
+    if (createEgresoResponse.status !== 201) {
+      throw new Error(
+        `create serial egreso expected 201, got ${createEgresoResponse.status}: ${JSON.stringify(createEgresoResponse.body)}`
+      );
+    }
+    const egresoId = createEgresoResponse.body.data.id;
+
+    const activoAfterEgreso = await db.query(
+      'SELECT estado FROM activo WHERE id = $1',
+      [serialAssetId]
+    );
+    expect(activoAfterEgreso.rows[0].estado).toBe('dado_de_baja');
+
+    const movActivo = await db.query(
+      'SELECT tipo FROM movimiento_activo WHERE egreso_id = $1 AND activo_id = $2 ORDER BY fecha_movimiento DESC LIMIT 1',
+      [egresoId, serialAssetId]
+    );
+    expect(movActivo.rows[0].tipo).toBe('baja');
+
+    const deleteEgresoResponse = await request(app)
+      .delete(`/api/inventario/egresos/${egresoId}`)
+      .set('x-test-actor', 'admin')
+      .send();
+
+    expect(deleteEgresoResponse.status).toBe(200);
+
+    const activoAfterDelete = await db.query(
+      'SELECT estado FROM activo WHERE id = $1',
+      [serialAssetId]
+    );
+    expect(activoAfterDelete.rows[0].estado).toBe('en_stock');
+  });
+
+  it('allows admin to undo confirmed entrega and restores stock/custody/asset location', async () => {
+    const compra = await createPurchase(app, ['SER-UNDO-01']);
+    const serialDetail = compra.detalles.find((item) => item.articulo_id === IDS.articuloSerialId);
+    const serialAssetId = serialDetail.activos[0].id;
+
+    const entrega = await createDeliveryWithItems(app, [serialAssetId], 2);
+    await signDeliveryInDevice(app, entrega.id, 'trabajador');
+
+    const confirmEntregaResponse = await request(app)
+      .post(`/api/entregas/${entrega.id}/confirm`)
+      .set('x-test-actor', 'bodega')
+      .send();
+
+    expect(confirmEntregaResponse.status).toBe(200);
+    expect(confirmEntregaResponse.body.data.estado).toBe('confirmada');
+
+    const undoResponse = await request(app)
+      .post(`/api/entregas/${entrega.id}/deshacer`)
+      .set('x-test-actor', 'admin')
+      .send({ motivo: 'Error de despacho en bodega central.' });
+
+    expect(undoResponse.status).toBe(200);
+    expect(undoResponse.body.data.estado).toBe('revertida_admin');
+
+    const custodyRow = await db.query(
+      'SELECT estado, hasta_en FROM custodia_activo WHERE activo_id = $1 ORDER BY desde_en DESC LIMIT 1',
+      [serialAssetId]
+    );
+    expect(custodyRow.rows[0].estado).toBe('devuelta');
+    expect(custodyRow.rows[0].hasta_en).not.toBeNull();
+
+    const assetRow = await db.query(
+      'SELECT estado, ubicacion_actual_id FROM activo WHERE id = $1',
+      [serialAssetId]
+    );
+    expect(assetRow.rows[0].estado).toBe('en_stock');
+    expect(assetRow.rows[0].ubicacion_actual_id).toBe(IDS.ubicacionOrigenId);
+
+    const stockOriginRow = await db.query(
+      `
+      SELECT cantidad_disponible
+      FROM stock
+      WHERE ubicacion_id = $1
+        AND articulo_id = $2
+        AND lote_id IS NULL
+      `,
+      [IDS.ubicacionOrigenId, IDS.articuloCantidadId]
+    );
+    expect(Number(stockOriginRow.rows[0].cantidad_disponible)).toBe(5);
+
+    const undoMovement = await db.query(
+      `
+      SELECT tipo, ubicacion_origen_id, ubicacion_destino_id
+      FROM movimiento_stock
+      WHERE entrega_id = $1
+        AND tipo = 'devolucion'
+      ORDER BY fecha_movimiento DESC
+      LIMIT 1
+      `,
+      [entrega.id]
+    );
+    expect(undoMovement.rows.length).toBe(1);
+    expect(undoMovement.rows[0].ubicacion_origen_id).toBe(IDS.ubicacionDestinoId);
+    expect(undoMovement.rows[0].ubicacion_destino_id).toBe(IDS.ubicacionOrigenId);
+
+    const activosEnStockResponse = await request(app)
+      .get('/api/inventario/activos')
+      .set('x-test-actor', 'admin')
+      .query({
+        articulo_id: IDS.articuloSerialId,
+        ubicacion_id: IDS.ubicacionOrigenId,
+        estado: 'en_stock',
+        limit: 25,
+      });
+
+    expect(activosEnStockResponse.status).toBe(200);
+    const serialVisible = activosEnStockResponse.body.data.some((row) => row.id === serialAssetId);
+    expect(serialVisible).toBe(true);
   });
 });

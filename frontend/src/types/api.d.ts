@@ -144,6 +144,7 @@ export interface EntregaDetalle {
   entrega_id: string;
   articulo_id?: string;
   activo_id?: string;
+  activo_ids?: string[];
   lote_id?: string;
   cantidad: number;
   condicion_salida?: string;
@@ -217,6 +218,7 @@ export interface DevolucionDetalle {
   id: string;
   devolucion_id: string;
   activo_id?: string;
+  activo_ids?: string[];
   lote_id?: string;
   articulo_id?: string;
   cantidad?: number;

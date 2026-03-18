@@ -62,3 +62,28 @@ docker-compose up -d
 ```
 
 Esto levantará un contenedor PostgreSQL y mapeará el puerto `5432` del contenedor al `localhost` del host, por lo que la configuración por defecto (`DB_HOST=localhost`) funcionará. Si prefieres usar una instancia local de PostgreSQL, edita `backend/.env` con tus credenciales y crea la base de datos antes de iniciar el backend.
+
+## Seed de desarrollo automatico
+
+En entorno local, al crear la base por primera vez con Docker Compose de desarrollo, se ejecutan los SQL en `db/init` incluyendo `009-dev-seed.sql`.
+
+Este seed deja un dataset completo para pruebas manuales de inventario y flujos operacionales:
+
+- Ubicaciones base (`Bodega Central`, `Faena Norte`, `Taller Mantencion`).
+- Proveedor y articulos de ejemplo:
+  - `Taladro Industrial` (serial, retornable).
+  - `Arnes de Seguridad` (serial, retornable).
+  - `Guante de cabritilla` (consumible).
+- Activos seriales:
+  - Taladros `TAL-001` .. `TAL-005`.
+  - Arneses `ARN-001` .. `ARN-003`.
+- Ingreso, egreso consumible con remanente, entrega mixta y devolucion de ejemplo.
+
+### Usuarios demo
+
+- Password comun: `Dev12345!`
+- `admin.dev@alltura.local` (admin)
+- `bodega.dev@alltura.local` (bodega)
+- `supervisor.dev@alltura.local` (supervisor)
+- `juan.herrera@alltura.local` (trabajador)
+- `maria.rojas@alltura.local` (trabajador)

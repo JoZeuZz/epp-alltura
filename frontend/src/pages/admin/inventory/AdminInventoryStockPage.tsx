@@ -23,25 +23,68 @@ interface StockRow {
   cantidad_reservada?: number;
 }
 
-// TODO: Activos serializados — descomentar cuando se requiera gestión serial
-// interface ActivoRow {
-//   id: string;
-//   codigo?: string;
-//   nro_serie?: string | null;
-//   articulo_nombre?: string;
-//   articulo_tipo?: string;
-//   ubicacion_nombre?: string | null;
-//   estado?: string;
-//   fecha_vencimiento?: string | null;
-//   fecha_compra?: string | null;
-// }
-// const estadoBadge = (estado?: string) => { ... };
-// const estadoLabel = (estado?: string) => { ... };
+interface ActivoRow {
+  id: string;
+  codigo?: string;
+  nro_serie?: string | null;
+  articulo_nombre?: string;
+  ubicacion_nombre?: string | null;
+  estado?: string;
+  fecha_vencimiento?: string | null;
+}
 
 const toNumber = (value: unknown): number => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 0;
   return parsed;
+};
+
+const estadoActivoLabel = (estado?: string) => {
+  const value = String(estado || '').toLowerCase();
+  switch (value) {
+    case 'en_stock':
+      return 'En stock';
+    case 'asignado':
+      return 'Asignado';
+    case 'mantencion':
+      return 'Mantención';
+    case 'perdido':
+      return 'Perdido';
+    case 'dado_de_baja':
+      return 'Baja';
+    case 'en_traslado':
+      return 'En traslado';
+    default:
+      return estado || '—';
+  }
+};
+
+const estadoActivoBadgeClass = (estado?: string) => {
+  const value = String(estado || '').toLowerCase();
+  switch (value) {
+    case 'en_stock':
+      return 'bg-green-100 text-green-700';
+    case 'asignado':
+      return 'bg-blue-100 text-blue-700';
+    case 'mantencion':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'perdido':
+    case 'dado_de_baja':
+      return 'bg-red-100 text-red-700';
+    case 'en_traslado':
+      return 'bg-indigo-100 text-indigo-700';
+    default:
+      return 'bg-gray-100 text-gray-700';
+  }
+};
+
+const formatDate = (iso?: string | null) => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('es-CL', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
 };
 
 const AdminInventoryStockPage: React.FC = () => {
@@ -81,9 +124,24 @@ const AdminInventoryStockPage: React.FC = () => {
     { placeholderData: keepPreviousData }
   );
 
-  // TODO: Activos serializados — descomentar para habilitar tab de activos
-  // const { data: activos = [], isLoading: activosLoading, error: activosError } =
-  //   useGet<ActivoRow[]>(['admin-inventory', 'activos', activoQueryParams], '/inventario/activos', activoQueryParams, { placeholderData: keepPreviousData });
+  const activosQueryParams = useMemo(
+    () => ({
+      ...queryParams,
+      estado: 'en_stock',
+    }),
+    [queryParams]
+  );
+
+  const {
+    data: activos = [],
+    isLoading: activosLoading,
+    error: activosError,
+  } = useGet<ActivoRow[]>(
+    ['admin-inventory', 'activos', activosQueryParams],
+    '/inventario/activos',
+    activosQueryParams,
+    { placeholderData: keepPreviousData }
+  );
 
   const columns = useMemo<TableColumn<StockRow>[]>(
     () => [
@@ -105,6 +163,47 @@ const AdminInventoryStockPage: React.FC = () => {
         key: 'codigo_lote',
         header: 'Lote',
         render: (value) => String(value || '-'),
+      },
+    ],
+    []
+  );
+
+  const activosColumns = useMemo<TableColumn<ActivoRow>[]>(
+    () => [
+      {
+        key: 'codigo',
+        header: 'Código activo',
+      },
+      {
+        key: 'nro_serie',
+        header: 'Nro serie',
+        render: (value) => String(value || '—'),
+      },
+      {
+        key: 'articulo_nombre',
+        header: 'Artículo',
+      },
+      {
+        key: 'ubicacion_nombre',
+        header: 'Ubicación',
+        render: (value) => String(value || '—'),
+      },
+      {
+        key: 'estado',
+        header: 'Estado',
+        render: (value) => {
+          const estado = String(value || '');
+          return (
+            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${estadoActivoBadgeClass(estado)}`}>
+              {estadoActivoLabel(estado)}
+            </span>
+          );
+        },
+      },
+      {
+        key: 'fecha_vencimiento',
+        header: 'Vence',
+        render: (value) => formatDate(String(value || '')),
       },
     ],
     []
@@ -171,8 +270,19 @@ const AdminInventoryStockPage: React.FC = () => {
         emptyMessage="Sin registros de stock para los filtros seleccionados."
       />
 
+      <ResponsiveTable
+        caption="Activos serializados en stock"
+        columns={activosColumns}
+        data={activos}
+        loading={activosLoading}
+        emptyMessage="Sin activos serializados en stock para los filtros seleccionados."
+      />
+
       {error && (
         <p className="text-sm text-red-600">No se pudo cargar el stock. Reintenta en unos segundos.</p>
+      )}
+      {activosError && (
+        <p className="text-sm text-red-600">No se pudieron cargar los activos serializados. Reintenta en unos segundos.</p>
       )}
     </section>
   );

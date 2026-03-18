@@ -1,10 +1,17 @@
 const db = require('../db');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
+const { resolveImageUrl } = require('../lib/googleCloud');
 
 const buildError = (message, statusCode = 400) => {
   const error = new Error(message);
   error.statusCode = statusCode;
   return error;
+};
+
+const appendAdminUndoNote = (note, motivo) => {
+  const suffix = `[reversa_admin:${motivo}]`;
+  if (!note) return suffix;
+  return `${note} ${suffix}`;
 };
 
 const ROUTE_RULES = {
@@ -13,7 +20,88 @@ const ROUTE_RULES = {
   traslado: { origen: 'bodega', destino: 'bodega' },
 };
 
+const resolveEntregaTipo = (payload = {}) => {
+  if (typeof payload.es_traslado === 'boolean') {
+    return payload.es_traslado ? 'traslado' : 'entrega';
+  }
+
+  if (payload.tipo === 'traslado') {
+    return 'traslado';
+  }
+
+  // Compatibilidad: todo tipo no-traslado (incluido "prestamo") se unifica como entrega.
+  return 'entrega';
+};
+
+const resolveDetalleTipoEntrega = (article) => {
+  if (!article) return 'asignacion';
+  return article.retorno_mode === 'retornable' ? 'retornable' : 'asignacion';
+};
+
 class EntregasService {
+  static normalizeCreateDetails(rawDetalles) {
+    const normalized = [];
+    const seenAssetIds = new Set();
+
+    for (const rawDetalle of rawDetalles) {
+      if (rawDetalle.activo_id) {
+        throw buildError(
+          'Payload legacy no soportado: use activo_ids para artículos serializados',
+          400
+        );
+      }
+
+      const activoIds = Array.isArray(rawDetalle.activo_ids)
+        ? rawDetalle.activo_ids.filter(Boolean)
+        : [];
+
+      if (activoIds.length > 0) {
+        if (rawDetalle.cantidad !== undefined && rawDetalle.cantidad !== null) {
+          throw buildError(
+            'No debe enviar cantidad junto con activo_ids para artículos serializados',
+            400
+          );
+        }
+
+        for (const activoId of activoIds) {
+          if (seenAssetIds.has(activoId)) {
+            throw buildError(`Activo duplicado en payload: ${activoId}`, 400);
+          }
+          seenAssetIds.add(activoId);
+
+          normalized.push({
+            articulo_id: rawDetalle.articulo_id,
+            activo_id: activoId,
+            lote_id: null,
+            cantidad: 1,
+            condicion_salida: rawDetalle.condicion_salida,
+            notas: rawDetalle.notas,
+          });
+        }
+
+        continue;
+      }
+
+      if (rawDetalle.cantidad === undefined || rawDetalle.cantidad === null) {
+        throw buildError(
+          `Debe enviar cantidad para artículo ${rawDetalle.articulo_id} cuando no use activo_ids`,
+          400
+        );
+      }
+
+      normalized.push({
+        articulo_id: rawDetalle.articulo_id,
+        activo_id: null,
+        lote_id: rawDetalle.lote_id || null,
+        cantidad: rawDetalle.cantidad,
+        condicion_salida: rawDetalle.condicion_salida,
+        notas: rawDetalle.notas,
+      });
+    }
+
+    return normalized;
+  }
+
   static async validateWorkerActive(client, trabajadorId) {
     const { rows } = await client.query(
       `
@@ -59,17 +147,22 @@ class EntregasService {
       SELECT
         e.*,
         p.nombres,
-        p.apellidos
+        p.apellidos,
+        COUNT(d.id)::int AS cantidad_items
       FROM entrega e
       INNER JOIN trabajador t ON t.id = e.trabajador_id
       INNER JOIN persona p ON p.id = t.persona_id
+      LEFT JOIN entrega_detalle d ON d.entrega_id = e.id
     `;
 
     if (conditions.length > 0) {
       query += ` WHERE ${conditions.join(' AND ')}`;
     }
 
-    query += ' ORDER BY e.creado_en DESC';
+    query += `
+      GROUP BY e.id, p.id
+      ORDER BY e.creado_en DESC
+    `;
 
     const { rows } = await db.query(query, values);
     return rows;
@@ -82,10 +175,13 @@ class EntregasService {
         e.*,
         p.rut,
         p.nombres,
-        p.apellidos
+        p.apellidos,
+        f.firma_imagen_url,
+        f.firmado_en
       FROM entrega e
       INNER JOIN trabajador t ON t.id = e.trabajador_id
       INNER JOIN persona p ON p.id = t.persona_id
+      LEFT JOIN firma_entrega f ON f.entrega_id = e.id
       WHERE e.id = $1
       `,
       [id]
@@ -114,8 +210,14 @@ class EntregasService {
       [id]
     );
 
+    const entrega = entregaResult.rows[0];
+    const firmaImagenUrl = entrega.firma_imagen_url
+      ? await resolveImageUrl(entrega.firma_imagen_url)
+      : entrega.firma_imagen_url;
+
     return {
-      ...entregaResult.rows[0],
+      ...entrega,
+      firma_imagen_url: firmaImagenUrl,
       detalles: detalleResult.rows,
     };
   }
@@ -250,6 +352,8 @@ class EntregasService {
         );
       }
 
+      detalle.tipo_item_entrega = resolveDetalleTipoEntrega(article);
+
       if (detalle.activo_id) {
         const active = activeMap.get(detalle.activo_id);
         if (!active) {
@@ -267,16 +371,24 @@ class EntregasService {
   }
 
   static async create(payload, userId) {
-    const detalles = Array.isArray(payload.detalles) ? payload.detalles : [];
-    if (detalles.length === 0) {
+    const rawDetalles = Array.isArray(payload.detalles) ? payload.detalles : [];
+    if (rawDetalles.length === 0) {
       throw buildError('Debe incluir al menos un detalle en la entrega', 400);
     }
+
+    const detalles = this.normalizeCreateDetails(rawDetalles);
+    const tipo = resolveEntregaTipo(payload);
 
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
 
-      await this.validateMovementRoute(client, payload);
+      const movementPayload = {
+        ...payload,
+        tipo,
+      };
+
+      await this.validateMovementRoute(client, movementPayload);
       await this.validateWorkerActive(client, payload.trabajador_id);
 
       if (payload.transportista_trabajador_id) {
@@ -312,7 +424,7 @@ class EntregasService {
           payload.receptor_trabajador_id || null,
           payload.ubicacion_origen_id,
           payload.ubicacion_destino_id,
-          payload.tipo,
+          tipo,
           payload.nota_destino || null,
         ]
       );
@@ -323,9 +435,9 @@ class EntregasService {
         await client.query(
           `
           INSERT INTO entrega_detalle (
-            entrega_id, articulo_id, activo_id, lote_id, cantidad, condicion_salida, notas
+            entrega_id, articulo_id, activo_id, lote_id, cantidad, tipo_item_entrega, condicion_salida, notas
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           `,
           [
             entregaId,
@@ -333,6 +445,7 @@ class EntregasService {
             detalle.activo_id || null,
             detalle.lote_id || null,
             detalle.cantidad,
+            detalle.tipo_item_entrega || 'asignacion',
             detalle.condicion_salida || 'ok',
             detalle.notas || null,
           ]
@@ -346,7 +459,7 @@ class EntregasService {
         accion: 'crear',
         usuarioId: userId,
         diff: {
-          tipo: payload.tipo,
+          tipo,
           trabajador_id: payload.trabajador_id,
           transportista_trabajador_id: payload.transportista_trabajador_id || null,
           receptor_trabajador_id: payload.receptor_trabajador_id || null,
@@ -490,7 +603,26 @@ class EntregasService {
             ]
           );
 
-          if (entrega.tipo !== 'traslado') {
+          if (entrega.tipo !== 'traslado' && detalle.tipo_item_entrega === 'retornable') {
+            const activeCustodyResult = await client.query(
+              `
+              SELECT id
+              FROM custodia_activo
+              WHERE activo_id = $1
+                AND estado = 'activa'
+              LIMIT 1
+              FOR UPDATE
+              `,
+              [detalle.activo_id]
+            );
+
+            if (activeCustodyResult.rows.length > 0) {
+              throw buildError(
+                `Activo ${detalle.activo_id} ya tiene una custodia activa`,
+                400
+              );
+            }
+
             await client.query(
               `
               INSERT INTO custodia_activo (
@@ -609,14 +741,16 @@ class EntregasService {
         }
       }
 
+      const nextEstado = entrega.tipo === 'traslado' ? 'en_transito' : 'confirmada';
+
       await client.query(
         `
         UPDATE entrega
         SET estado = $2,
-            confirmada_en = CASE WHEN $2 = 'confirmada' THEN NOW() ELSE confirmada_en END
+            confirmada_en = CASE WHEN $3 THEN NOW() ELSE confirmada_en END
         WHERE id = $1
         `,
-        [id, entrega.tipo === 'traslado' ? 'en_transito' : 'confirmada']
+        [id, nextEstado, nextEstado === 'confirmada']
       );
 
       await writeAuditEvent({
@@ -627,7 +761,7 @@ class EntregasService {
         usuarioId: userId,
         diff: {
           estado_anterior: entrega.estado,
-          estado_nuevo: entrega.tipo === 'traslado' ? 'en_transito' : 'confirmada',
+          estado_nuevo: nextEstado,
           tipo: entrega.tipo,
         },
       });
@@ -807,6 +941,306 @@ class EntregasService {
           estado_nuevo: 'recibido',
           tipo: entrega.tipo,
           receptor_trabajador_id: payload.receptor_trabajador_id || entrega.receptor_trabajador_id || null,
+        },
+      });
+
+      await client.query('COMMIT');
+      return this.getById(id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async deshacer(id, userId, motivo) {
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const normalizedMotivo = String(motivo || '').trim();
+      if (normalizedMotivo.length < 5) {
+        throw buildError('Debe indicar un motivo de deshacer de al menos 5 caracteres', 400);
+      }
+
+      const entregaResult = await client.query(
+        `
+        SELECT *
+        FROM entrega
+        WHERE id = $1
+        FOR UPDATE
+        `,
+        [id]
+      );
+
+      if (!entregaResult.rows.length) {
+        throw buildError('Entrega no encontrada', 404);
+      }
+
+      const entrega = entregaResult.rows[0];
+      if (['anulada', 'revertida_admin'].includes(entrega.estado)) {
+        throw buildError(`La entrega ya está cerrada en estado "${entrega.estado}"`, 400);
+      }
+
+      if (['borrador', 'pendiente_firma'].includes(entrega.estado)) {
+        await client.query(
+          `
+          UPDATE entrega
+          SET estado = 'anulada',
+              motivo_anulacion = $2,
+              deshecha_por_usuario_id = $3,
+              deshecha_en = NOW()
+          WHERE id = $1
+          `,
+          [id, normalizedMotivo, userId]
+        );
+
+        await writeAuditEvent({
+          client,
+          entidadTipo: 'entrega',
+          entidadId: id,
+          accion: 'actualizar',
+          usuarioId: userId,
+          diff: {
+            accion_operativa: 'deshacer_pre_confirmacion',
+            estado_anterior: entrega.estado,
+            estado_nuevo: 'anulada',
+            motivo_anulacion: normalizedMotivo,
+          },
+        });
+
+        await client.query('COMMIT');
+        return this.getById(id);
+      }
+
+      if (!['confirmada', 'en_transito', 'recibido'].includes(entrega.estado)) {
+        throw buildError(`No se puede deshacer una entrega en estado "${entrega.estado}"`, 400);
+      }
+
+      const detalleResult = await client.query(
+        `
+        SELECT *
+        FROM entrega_detalle
+        WHERE entrega_id = $1
+        ORDER BY id
+        FOR UPDATE
+        `,
+        [id]
+      );
+
+      const detalles = detalleResult.rows;
+      if (detalles.length === 0) {
+        throw buildError('La entrega no tiene detalles para revertir', 400);
+      }
+
+      for (const detalle of detalles) {
+        if (detalle.activo_id) {
+          const activoResult = await client.query(
+            `
+            SELECT *
+            FROM activo
+            WHERE id = $1
+            FOR UPDATE
+            `,
+            [detalle.activo_id]
+          );
+
+          if (!activoResult.rows.length) {
+            throw buildError(`Activo ${detalle.activo_id} no encontrado`, 400);
+          }
+
+          const activo = activoResult.rows[0];
+
+          if (entrega.tipo !== 'traslado' && detalle.tipo_item_entrega === 'retornable') {
+            const custodyResult = await client.query(
+              `
+              SELECT id
+              FROM custodia_activo
+              WHERE entrega_id = $1
+                AND activo_id = $2
+                AND estado = 'activa'
+                AND hasta_en IS NULL
+              LIMIT 1
+              FOR UPDATE
+              `,
+              [entrega.id, detalle.activo_id]
+            );
+
+            if (!custodyResult.rows.length) {
+              throw buildError(
+                `No se puede deshacer: el activo ${detalle.activo_id} ya no tiene custodia activa de esta entrega`,
+                409
+              );
+            }
+
+            await client.query(
+              `
+              UPDATE custodia_activo
+              SET estado = 'devuelta',
+                  hasta_en = NOW()
+              WHERE id = $1
+              `,
+              [custodyResult.rows[0].id]
+            );
+          }
+
+          await client.query(
+            `
+            UPDATE activo
+            SET estado = 'en_stock',
+                ubicacion_actual_id = $2
+            WHERE id = $1
+            `,
+            [detalle.activo_id, entrega.ubicacion_origen_id]
+          );
+
+          await client.query(
+            `
+            INSERT INTO movimiento_activo (
+              activo_id,
+              tipo,
+              ubicacion_origen_id,
+              ubicacion_destino_id,
+              responsable_usuario_id,
+              entrega_id,
+              notas
+            )
+            VALUES ($1, 'devolucion', $2, $3, $4, $5, $6)
+            `,
+            [
+              detalle.activo_id,
+              activo.ubicacion_actual_id,
+              entrega.ubicacion_origen_id,
+              userId,
+              entrega.id,
+              appendAdminUndoNote(detalle.notas, normalizedMotivo),
+            ]
+          );
+
+          continue;
+        }
+
+        const qty = Number(detalle.cantidad);
+        const originStockResult = await client.query(
+          `
+          SELECT *
+          FROM stock
+          WHERE ubicacion_id = $1
+            AND articulo_id = $2
+            AND lote_id IS NOT DISTINCT FROM $3
+          FOR UPDATE
+          `,
+          [entrega.ubicacion_origen_id, detalle.articulo_id, detalle.lote_id]
+        );
+
+        if (!originStockResult.rows.length) {
+          throw buildError(
+            `No existe stock de origen para revertir artículo ${detalle.articulo_id}`,
+            400
+          );
+        }
+
+        const destinationStockResult = await client.query(
+          `
+          SELECT *
+          FROM stock
+          WHERE ubicacion_id = $1
+            AND articulo_id = $2
+            AND lote_id IS NOT DISTINCT FROM $3
+          FOR UPDATE
+          `,
+          [entrega.ubicacion_destino_id, detalle.articulo_id, detalle.lote_id]
+        );
+
+        if (!destinationStockResult.rows.length) {
+          throw buildError(
+            `No existe stock en destino para revertir artículo ${detalle.articulo_id}`,
+            409
+          );
+        }
+
+        const destinationStock = destinationStockResult.rows[0];
+        if (Number(destinationStock.cantidad_disponible) < qty) {
+          throw buildError(
+            `No se puede deshacer: stock insuficiente en destino para artículo ${detalle.articulo_id}`,
+            409
+          );
+        }
+
+        await client.query(
+          `
+          UPDATE stock
+          SET cantidad_disponible = cantidad_disponible - $1,
+              actualizado_en = NOW()
+          WHERE id = $2
+          `,
+          [qty, destinationStock.id]
+        );
+
+        await client.query(
+          `
+          UPDATE stock
+          SET cantidad_disponible = cantidad_disponible + $1,
+              actualizado_en = NOW()
+          WHERE id = $2
+          `,
+          [qty, originStockResult.rows[0].id]
+        );
+
+        await client.query(
+          `
+          INSERT INTO movimiento_stock (
+            articulo_id,
+            lote_id,
+            tipo,
+            ubicacion_origen_id,
+            ubicacion_destino_id,
+            cantidad,
+            responsable_usuario_id,
+            entrega_id,
+            notas
+          )
+          VALUES ($1, $2, 'devolucion', $3, $4, $5, $6, $7, $8)
+          `,
+          [
+            detalle.articulo_id,
+            detalle.lote_id || null,
+            entrega.ubicacion_destino_id,
+            entrega.ubicacion_origen_id,
+            qty,
+            userId,
+            entrega.id,
+            appendAdminUndoNote(detalle.notas, normalizedMotivo),
+          ]
+        );
+      }
+
+      await client.query(
+        `
+        UPDATE entrega
+        SET estado = 'revertida_admin',
+            motivo_anulacion = $2,
+            deshecha_por_usuario_id = $3,
+            deshecha_en = NOW()
+        WHERE id = $1
+        `,
+        [id, normalizedMotivo, userId]
+      );
+
+      await writeAuditEvent({
+        client,
+        entidadTipo: 'entrega',
+        entidadId: id,
+        accion: 'actualizar',
+        usuarioId: userId,
+        diff: {
+          accion_operativa: 'deshacer_post_confirmacion',
+          estado_anterior: entrega.estado,
+          estado_nuevo: 'revertida_admin',
+          tipo: entrega.tipo,
+          motivo_anulacion: normalizedMotivo,
+          detalles_count: detalles.length,
         },
       });
 

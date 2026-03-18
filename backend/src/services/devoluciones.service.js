@@ -1,5 +1,7 @@
 const db = require('../db');
+const crypto = require('crypto');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
+const { resolveImageUrl } = require('../lib/googleCloud');
 
 const CUSTODIA_STATE_BY_DISPOSICION = {
   devuelto: 'devuelta',
@@ -38,6 +40,9 @@ const buildError = (message, statusCode = 400, code = null) => {
   return error;
 };
 
+const hashValue = (value) =>
+  crypto.createHash('sha256').update(String(value), 'utf8').digest('hex');
+
 const toQuantity = (value, fieldName = 'cantidad') => {
   const qty = Number(value);
   if (!Number.isFinite(qty) || qty <= 0) {
@@ -55,6 +60,88 @@ const appendDispositionNote = (note, disposition) => {
 };
 
 class DevolucionesService {
+  static normalizeCreateDetails(rawDetalles) {
+    const normalized = [];
+    const seenAssetIds = new Set();
+
+    for (const rawDetalle of rawDetalles) {
+      if (rawDetalle.activo_id) {
+        throw buildError(
+          'Payload legacy no soportado: use activo_ids para devoluciones de activos',
+          400,
+          'LEGACY_ASSET_PAYLOAD_NOT_ALLOWED'
+        );
+      }
+
+      const activoIds = Array.isArray(rawDetalle.activo_ids)
+        ? rawDetalle.activo_ids.filter(Boolean)
+        : [];
+
+      if (activoIds.length > 0) {
+        if (Number(rawDetalle.cantidad) !== 1) {
+          throw buildError(
+            'Los detalles con activo_ids deben usar cantidad 1',
+            400,
+            'INVALID_ASSET_QTY'
+          );
+        }
+
+        if (rawDetalle.lote_id) {
+          throw buildError(
+            'No debe enviar lote_id junto con activo_ids',
+            400,
+            'INVALID_ASSET_LOTE'
+          );
+        }
+
+        for (const activoId of activoIds) {
+          if (seenAssetIds.has(activoId)) {
+            throw buildError(
+              `Activo duplicado en payload: ${activoId}`,
+              400,
+              'DUPLICATE_ASSET_IN_PAYLOAD'
+            );
+          }
+          seenAssetIds.add(activoId);
+
+          normalized.push({
+            custodia_activo_id: rawDetalle.custodia_activo_id || null,
+            articulo_id: rawDetalle.articulo_id || null,
+            activo_id: activoId,
+            lote_id: null,
+            cantidad: 1,
+            condicion_entrada: rawDetalle.condicion_entrada,
+            disposicion: rawDetalle.disposicion,
+            notas: rawDetalle.notas,
+          });
+        }
+
+        continue;
+      }
+
+      if (rawDetalle.cantidad === undefined || rawDetalle.cantidad === null) {
+        throw buildError(
+          'Debe enviar cantidad para devoluciones sin activo_ids',
+          400,
+          'INVALID_QUANTITY'
+        );
+      }
+
+      normalized.push({
+        custodia_activo_id: rawDetalle.custodia_activo_id || null,
+        articulo_id: rawDetalle.articulo_id || null,
+        activo_id: null,
+        lote_id: rawDetalle.lote_id || null,
+        cantidad: rawDetalle.cantidad,
+        condicion_entrada: rawDetalle.condicion_entrada,
+        disposicion: rawDetalle.disposicion,
+        notas: rawDetalle.notas,
+      });
+    }
+
+    return normalized;
+  }
+
   static async validateReceivingLocationOperational(client, ubicacionId) {
     const locationResult = await client.query(
       `
@@ -153,11 +240,15 @@ class DevolucionesService {
         p.apellidos,
         p.email,
         p.telefono,
-        u.email_login AS recibido_por_email
+        u.email_login AS recibido_por_email,
+        f.firma_imagen_url,
+        f.firmado_en,
+        f.receptor_usuario_id
       FROM devolucion d
       INNER JOIN trabajador t ON t.id = d.trabajador_id
       INNER JOIN persona p ON p.id = t.persona_id
       INNER JOIN usuario u ON u.id = d.recibido_por_usuario_id
+      LEFT JOIN firma_devolucion f ON f.devolucion_id = d.id
       WHERE d.id = $1
       `,
       [id]
@@ -189,17 +280,138 @@ class DevolucionesService {
       [id]
     );
 
+    const devolucion = devolucionResult.rows[0];
+    const firmaImagenUrl = devolucion.firma_imagen_url
+      ? await resolveImageUrl(devolucion.firma_imagen_url)
+      : devolucion.firma_imagen_url;
+
     return {
-      ...devolucionResult.rows[0],
+      ...devolucion,
+      firma_imagen_url: firmaImagenUrl,
       detalles: detallesResult.rows,
     };
   }
 
+  static async signInDevice(id, payload, meta, actorUserId) {
+    const acceptanceText = String(payload?.texto_aceptacion || '').trim();
+    if (!acceptanceText) {
+      throw buildError('El texto de aceptación es obligatorio', 400, 'ACCEPTANCE_TEXT_REQUIRED');
+    }
+
+    const signatureImageUrl = String(payload?.firma_imagen_url || '').trim();
+    if (!signatureImageUrl) {
+      throw buildError('La firma es obligatoria', 400, 'SIGNATURE_IMAGE_REQUIRED');
+    }
+
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const devolucionResult = await client.query(
+        `
+        SELECT *
+        FROM devolucion
+        WHERE id = $1
+        FOR UPDATE
+        `,
+        [id]
+      );
+
+      if (!devolucionResult.rows.length) {
+        throw buildError('Devolución no encontrada', 404, 'RETURN_NOT_FOUND');
+      }
+
+      const devolucion = devolucionResult.rows[0];
+      if (!['borrador', 'pendiente_firma'].includes(devolucion.estado)) {
+        throw buildError(
+          `No se puede firmar una devolución en estado "${devolucion.estado}"`,
+          400,
+          'INVALID_RETURN_STATE'
+        );
+      }
+
+      const existingSignatureResult = await client.query(
+        `
+        SELECT id
+        FROM firma_devolucion
+        WHERE devolucion_id = $1
+        LIMIT 1
+        FOR UPDATE
+        `,
+        [id]
+      );
+
+      if (existingSignatureResult.rows.length) {
+        throw buildError('La devolución ya tiene una firma registrada', 409, 'RETURN_ALREADY_SIGNED');
+      }
+
+      await client.query(
+        `
+        INSERT INTO firma_devolucion (
+          devolucion_id,
+          receptor_usuario_id,
+          metodo,
+          texto_aceptacion,
+          texto_hash,
+          firma_imagen_url,
+          ip,
+          user_agent
+        )
+        VALUES ($1, $2, 'en_dispositivo', $3, $4, $5, $6, $7)
+        `,
+        [
+          id,
+          actorUserId,
+          acceptanceText,
+          hashValue(acceptanceText),
+          signatureImageUrl,
+          meta?.ip || null,
+          meta?.userAgent || null,
+        ]
+      );
+
+      if (devolucion.estado === 'borrador') {
+        await client.query(
+          `
+          UPDATE devolucion
+          SET estado = 'pendiente_firma'
+          WHERE id = $1
+          `,
+          [id]
+        );
+      }
+
+      await writeAuditEvent({
+        client,
+        entidadTipo: 'devolucion',
+        entidadId: id,
+        accion: 'firmar',
+        usuarioId: actorUserId,
+        diff: {
+          estado_anterior: devolucion.estado,
+          estado_nuevo: devolucion.estado === 'borrador' ? 'pendiente_firma' : devolucion.estado,
+        },
+        ip: meta?.ip || null,
+        userAgent: meta?.userAgent || null,
+      });
+
+      await client.query('COMMIT');
+      return this.getById(id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   static async create(payload, userId) {
-    const detalles = Array.isArray(payload.detalles) ? payload.detalles : [];
-    if (detalles.length === 0) {
+    const rawDetalles = Array.isArray(payload.detalles) ? payload.detalles : [];
+    if (rawDetalles.length === 0) {
       throw buildError('Debe incluir al menos un detalle en la devolución', 400, 'DETAIL_REQUIRED');
     }
+
+    const detalles = this.normalizeCreateDetails(rawDetalles);
 
     const client = await db.pool.connect();
     try {
@@ -260,6 +472,14 @@ class DevolucionesService {
 
           if (!activoResult.rows.length) {
             throw buildError(`Activo ${activoId} no encontrado`, 400, 'ASSET_NOT_FOUND');
+          }
+
+          if (articuloId && articuloId !== activoResult.rows[0].articulo_id) {
+            throw buildError(
+              `El activo ${activoId} no corresponde al artículo ${articuloId}`,
+              400,
+              'ASSET_ARTICLE_MISMATCH'
+            );
           }
 
           articuloId = activoResult.rows[0].articulo_id;
@@ -368,11 +588,29 @@ class DevolucionesService {
       }
 
       const devolucion = devolucionResult.rows[0];
-      if (devolucion.estado !== 'borrador') {
+      if (devolucion.estado !== 'pendiente_firma') {
         throw buildError(
           `No se puede confirmar una devolución en estado "${devolucion.estado}"`,
           400,
           'INVALID_RETURN_STATE'
+        );
+      }
+
+      const signatureResult = await client.query(
+        `
+        SELECT id
+        FROM firma_devolucion
+        WHERE devolucion_id = $1
+        LIMIT 1
+        `,
+        [id]
+      );
+
+      if (!signatureResult.rows.length) {
+        throw buildError(
+          'No se puede confirmar la devolución sin una firma de recepción registrada',
+          400,
+          'RETURN_SIGNATURE_REQUIRED'
         );
       }
 
@@ -719,6 +957,67 @@ class DevolucionesService {
       trabajador_id: trabajadorId,
       custodias: custodiasResult.rows,
     };
+  }
+
+  static async getEligibleAssets(filters = {}) {
+    const trabajadorId = String(filters.trabajador_id || '').trim();
+    if (!trabajadorId) {
+      throw buildError('Debe enviar trabajador_id para consultar activos elegibles.', 400, 'WORKER_REQUIRED');
+    }
+
+    const values = [trabajadorId];
+    const conditions = [
+      'c.trabajador_id = $1',
+      "c.estado = 'activa'",
+      'c.hasta_en IS NULL',
+      "ar.tracking_mode = 'serial'",
+      "ar.retorno_mode = 'retornable'",
+    ];
+
+    if (filters.articulo_id) {
+      values.push(filters.articulo_id);
+      conditions.push(`ar.id = $${values.length}`);
+    }
+
+    if (filters.search) {
+      values.push(`%${filters.search}%`);
+      conditions.push(
+        `(a.codigo ILIKE $${values.length} OR COALESCE(a.nro_serie, '') ILIKE $${values.length} OR ar.nombre ILIKE $${values.length})`
+      );
+    }
+
+    const rawLimit = Number(filters.limit);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.min(Math.max(Math.trunc(rawLimit), 1), 200)
+      : 25;
+    values.push(limit);
+
+    const { rows } = await db.query(
+      `
+      SELECT
+        c.id AS custodia_activo_id,
+        c.trabajador_id,
+        c.desde_en,
+        a.id AS activo_id,
+        a.codigo,
+        a.nro_serie,
+        a.estado AS activo_estado,
+        ar.id AS articulo_id,
+        ar.nombre AS articulo_nombre,
+        u.id AS ubicacion_actual_id,
+        u.nombre AS ubicacion_actual_nombre
+      FROM custodia_activo c
+      INNER JOIN activo a ON a.id = c.activo_id
+      INNER JOIN articulo ar ON ar.id = a.articulo_id
+      LEFT JOIN ubicacion u ON u.id = a.ubicacion_actual_id
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY c.desde_en DESC
+      LIMIT $${values.length}
+      `,
+      values
+    );
+
+    return rows;
   }
 }
 

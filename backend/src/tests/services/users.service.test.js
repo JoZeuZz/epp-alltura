@@ -89,3 +89,117 @@ describe('UserService.createUser', () => {
     });
   });
 });
+
+describe('UserService.deleteUser', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('rechaza auto eliminación del admin', async () => {
+    db.query.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'user-admin',
+          persona_id: 'persona-admin',
+          trabajador_id: null,
+          creado_por_admin_id: null,
+          roles: ['admin'],
+        },
+      ],
+    });
+
+    await expect(
+      UserService.deleteUser('user-admin', {
+        id: 'user-admin',
+        role_db: 'admin',
+      })
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      code: 'USER_SELF_DELETE_FORBIDDEN',
+    });
+  });
+
+  it('desactiva usuario cuando tiene asignaciones activas', async () => {
+    db.query.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'user-worker',
+          persona_id: 'persona-worker',
+          trabajador_id: 'trabajador-1',
+          creado_por_admin_id: null,
+          roles: ['trabajador'],
+        },
+      ],
+    });
+
+    const mockClient = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({ rows: [{ total: 1 }] })
+        .mockResolvedValueOnce({ rows: [{ entregas: 0, devoluciones: 0, compras: 0 }] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce(undefined),
+      release: jest.fn(),
+    };
+
+    db.pool.connect.mockResolvedValue(mockClient);
+
+    const result = await UserService.deleteUser('user-worker', {
+      id: 'admin-1',
+      role_db: 'admin',
+    });
+
+    expect(result).toMatchObject({
+      id: 'user-worker',
+      action: 'deactivated',
+      reason: 'has_assignments',
+      estado: 'inactivo',
+    });
+  });
+
+  it('elimina físicamente cuando no tiene asignaciones', async () => {
+    db.query.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'user-supervisor',
+          persona_id: 'persona-supervisor',
+          trabajador_id: null,
+          creado_por_admin_id: null,
+          roles: ['supervisor'],
+        },
+      ],
+    });
+
+    const mockClient = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({ rows: [{ entregas: 0, devoluciones: 0, compras: 0 }] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ has_user_ref: false, has_worker_ref: false }] })
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce(undefined),
+      release: jest.fn(),
+    };
+
+    db.pool.connect.mockResolvedValue(mockClient);
+
+    const result = await UserService.deleteUser('user-supervisor', {
+      id: 'admin-1',
+      role_db: 'admin',
+    });
+
+    expect(result).toMatchObject({
+      id: 'user-supervisor',
+      action: 'deleted',
+      reason: 'no_assignments',
+      estado: 'eliminado',
+      persona_deleted: true,
+    });
+  });
+});

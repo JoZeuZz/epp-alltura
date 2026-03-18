@@ -296,7 +296,7 @@ class FirmasService {
         entrega: entregaResult.rows[0],
         trabajadorId: tokenRow.trabajador_id,
         metodo: 'qr_link',
-        actorUserId: null,
+        actorUserId: tokenRow.creado_por_usuario_id,
         textoAceptacion: payload.texto_aceptacion,
         textoAceptacionDetalle: payload.texto_aceptacion_detalle,
         firmaImagenUrl: payload.firma_imagen_url,
@@ -387,6 +387,7 @@ class FirmasService {
       SELECT
         ed.id,
         ed.cantidad,
+        ed.tipo_item_entrega,
         ed.condicion_salida,
         ed.notas,
         a.nombre AS articulo_nombre,
