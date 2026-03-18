@@ -31,7 +31,10 @@ const validateBody = (schema) => {
   };
 };
 
-const uuid = Joi.string().guid({ version: ['uuidv4', 'uuidv5'] });
+const uuid = Joi.string()
+  .trim()
+  .pattern(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)
+  .messages({ 'string.pattern.base': '{{#label}} must be a valid GUID' });
 
 const documentoCompraSchema = Joi.object({
   proveedor_id: uuid.required(),
@@ -194,9 +197,32 @@ const createEgresoSchema = Joi.object({
     Joi.object({
       articulo_id: uuid.required(),
       ubicacion_id: uuid.required(),
-      cantidad: Joi.number().positive().required(),
+      cantidad: Joi.number().positive().optional(),
+      activo_ids: Joi.array().items(uuid).min(1).optional(),
       lote_id: uuid.allow(null),
       notas: Joi.string().trim().max(1000).allow('', null),
+    }).custom((value, helpers) => {
+      if ((!value.activo_ids || value.activo_ids.length === 0) && (value.cantidad === undefined || value.cantidad === null)) {
+        return helpers.error('any.custom', {
+          message: 'Cada detalle debe incluir cantidad o activo_ids',
+        });
+      }
+
+      if (value.activo_ids && value.cantidad !== undefined && value.cantidad !== null) {
+        return helpers.error('any.custom', {
+          message: 'No debe combinar cantidad con activo_ids en el mismo detalle',
+        });
+      }
+
+      if (value.activo_ids && value.lote_id) {
+        return helpers.error('any.custom', {
+          message: 'No debe enviar lote_id junto con activo_ids',
+        });
+      }
+
+      return value;
+    }, 'egreso detail validation').messages({
+      'any.custom': '{{#message}}',
     })
   ).min(1).required(),
 });
@@ -263,6 +289,13 @@ router.get(
   authMiddleware,
   checkRole(['admin', 'supervisor', 'bodega']),
   InventarioController.getActivos
+);
+
+router.get(
+  '/activos-disponibles',
+  authMiddleware,
+  checkRole(['admin', 'supervisor', 'bodega']),
+  InventarioController.getActivosDisponibles
 );
 
 router.get(

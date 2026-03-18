@@ -24,6 +24,9 @@ const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
 const MAX_RUT_LENGTH = 20;
 
+const resolveUserDbRoles = (user) =>
+  normalizeDbRoles(user?.roles_db || user?.roles || user?.role_db || user?.role);
+
 const buildTemporaryRut = () => {
   const suffix = randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase();
   return `TMP-${suffix}`;
@@ -101,6 +104,7 @@ const getUserByIdRaw = async (userId) => {
     SELECT
       u.id,
       u.persona_id,
+      u.creado_por_admin_id,
       u.email_login AS email,
       u.estado,
       u.creado_en AS created_at,
@@ -125,6 +129,99 @@ const getUserByIdRaw = async (userId) => {
   );
 
   return rows[0] || null;
+};
+
+const getRootAdminId = async (client) => {
+  const { rows } = await client.query(
+    `
+    SELECT u.id
+    FROM usuario u
+    INNER JOIN usuario_rol ur ON ur.usuario_id = u.id
+    INNER JOIN rol r ON r.id = ur.rol_id
+    WHERE r.nombre = 'admin'
+    ORDER BY u.creado_en ASC, u.id ASC
+    LIMIT 1
+    `
+  );
+
+  return rows[0]?.id || null;
+};
+
+const getDeleteAssignmentSummary = async (client, targetUserId, trabajadorId) => {
+  let activeCustodies = 0;
+
+  if (trabajadorId) {
+    const custodyResult = await client.query(
+      `
+      SELECT COUNT(*)::int AS total
+      FROM custodia_activo
+      WHERE trabajador_id = $1
+        AND estado = 'activa'
+        AND hasta_en IS NULL
+      `,
+      [trabajadorId]
+    );
+    activeCustodies = custodyResult.rows[0]?.total || 0;
+  }
+
+  const activityResult = await client.query(
+    `
+    SELECT
+      (SELECT COUNT(*)::int FROM entrega WHERE creado_por_usuario_id = $1) AS entregas,
+      (SELECT COUNT(*)::int FROM entrega WHERE recibido_por_usuario_id = $1) AS entregas_recibidas,
+      (SELECT COUNT(*)::int FROM devolucion WHERE recibido_por_usuario_id = $1) AS devoluciones,
+      (SELECT COUNT(*)::int FROM compra WHERE creado_por_usuario_id = $1) AS compras,
+      (SELECT COUNT(*)::int FROM egreso WHERE creado_por_usuario_id = $1) AS egresos,
+      (SELECT COUNT(*)::int FROM movimiento_stock WHERE responsable_usuario_id = $1) AS movimientos_stock,
+      (SELECT COUNT(*)::int FROM movimiento_activo WHERE responsable_usuario_id = $1) AS movimientos_activo,
+      (SELECT COUNT(*)::int FROM inspeccion_activo WHERE responsable_usuario_id = $1) AS inspecciones,
+      (SELECT COUNT(*)::int FROM documento WHERE creado_por_usuario_id = $1) AS documentos,
+      (SELECT COUNT(*)::int FROM firma_token WHERE creado_por_usuario_id = $1) AS firmas_token,
+      (SELECT COUNT(*)::int FROM auditoria WHERE usuario_id = $1) AS auditorias
+    `,
+    [targetUserId]
+  );
+
+  const activity = activityResult.rows[0] || {};
+  const entregas = activity.entregas || 0;
+  const entregasRecibidas = activity.entregas_recibidas || 0;
+  const devoluciones = activity.devoluciones || 0;
+  const compras = activity.compras || 0;
+  const egresos = activity.egresos || 0;
+  const movimientosStock = activity.movimientos_stock || 0;
+  const movimientosActivo = activity.movimientos_activo || 0;
+  const inspecciones = activity.inspecciones || 0;
+  const documentos = activity.documentos || 0;
+  const firmasToken = activity.firmas_token || 0;
+  const auditorias = activity.auditorias || 0;
+
+  return {
+    activeCustodies,
+    entregas,
+    entregas_recibidas: entregasRecibidas,
+    devoluciones,
+    compras,
+    egresos,
+    movimientos_stock: movimientosStock,
+    movimientos_activo: movimientosActivo,
+    inspecciones,
+    documentos,
+    firmas_token: firmasToken,
+    auditorias,
+    hasAssignments:
+      activeCustodies > 0 ||
+      entregas > 0 ||
+      entregasRecibidas > 0 ||
+      devoluciones > 0 ||
+      compras > 0 ||
+      egresos > 0 ||
+      movimientosStock > 0 ||
+      movimientosActivo > 0 ||
+      inspecciones > 0 ||
+      documentos > 0 ||
+      firmasToken > 0 ||
+      auditorias > 0,
+  };
 };
 
 const ensureWorkerRecord = async (client, usuarioId, personaId, shouldBeActive) => {
@@ -378,11 +475,11 @@ class UserService {
 
       const usuarioResult = await client.query(
         `
-        INSERT INTO usuario (persona_id, email_login, password_hash, estado)
-        VALUES ($1, $2, $3, 'activo')
+        INSERT INTO usuario (persona_id, email_login, password_hash, estado, creado_por_admin_id)
+        VALUES ($1, $2, $3, 'activo', $4)
         RETURNING id
         `,
-        [personaId, email, passwordHash]
+        [personaId, email, passwordHash, userData.created_by_admin_id || null]
       );
 
       const usuarioId = usuarioResult.rows[0].id;
@@ -528,26 +625,112 @@ class UserService {
     }
   }
 
-  static async deleteUser(userId) {
+  static async deleteUser(userId, requesterUser = null) {
     const existing = await getUserByIdRaw(userId);
     if (!existing) {
       throw buildError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    const requesterId = requesterUser?.id;
+    if (!requesterId) {
+      throw buildError('Unauthorized', 401, 'UNAUTHORIZED');
+    }
+
+    if (requesterId === userId) {
+      throw buildError('No puedes eliminar tu propio usuario administrador.', 403, 'USER_SELF_DELETE_FORBIDDEN');
+    }
+
+    const requesterRoles = resolveUserDbRoles(requesterUser);
+    if (!requesterRoles.includes('admin')) {
+      throw buildError('Solo un administrador puede ejecutar esta acción.', 403, 'FORBIDDEN');
     }
 
     const client = await db.pool.connect();
 
     try {
       await client.query('BEGIN');
-      await client.query('UPDATE usuario SET estado = $2 WHERE id = $1', [userId, 'inactivo']);
-      await client.query('UPDATE persona SET estado = $2 WHERE id = $1', [existing.persona_id, 'inactivo']);
-      await client.query('UPDATE trabajador SET estado = $2 WHERE usuario_id = $1', [userId, 'inactivo']);
+
+      const assignmentSummary = await getDeleteAssignmentSummary(client, userId, existing.trabajador_id);
+
+      if (assignmentSummary.hasAssignments) {
+        await client.query('UPDATE usuario SET estado = $2 WHERE id = $1', [userId, 'inactivo']);
+        await client.query('UPDATE persona SET estado = $2 WHERE id = $1', [existing.persona_id, 'inactivo']);
+        await client.query('UPDATE trabajador SET estado = $2 WHERE usuario_id = $1', [userId, 'inactivo']);
+
+        await client.query('COMMIT');
+
+        logger.info(`Usuario ${userId} desactivado por admin ${requesterId} por tener asignaciones`);
+
+        return {
+          id: userId,
+          estado: 'inactivo',
+          action: 'deactivated',
+          reason: 'has_assignments',
+          assignments: assignmentSummary,
+        };
+      }
+
+      const targetRoles = normalizeDbRoles(existing.roles);
+      const targetIsAdmin = targetRoles.includes('admin');
+
+      if (targetIsAdmin) {
+        const targetCreatorAdminId = existing.creado_por_admin_id || null;
+
+        if (targetCreatorAdminId && targetCreatorAdminId !== requesterId) {
+          throw buildError(
+            'No puedes eliminar este administrador porque fue creado por otro administrador.',
+            403,
+            'ADMIN_OWNERSHIP_FORBIDDEN'
+          );
+        }
+
+        if (!targetCreatorAdminId) {
+          const rootAdminId = await getRootAdminId(client);
+          if (!rootAdminId || rootAdminId !== requesterId) {
+            throw buildError(
+              'Solo el administrador raíz puede eliminar administradores históricos.',
+              403,
+              'ROOT_ADMIN_REQUIRED'
+            );
+          }
+        }
+      }
+
+      await client.query('DELETE FROM trabajador WHERE usuario_id = $1', [userId]);
+      await client.query('DELETE FROM usuario_rol WHERE usuario_id = $1', [userId]);
+      await client.query('DELETE FROM usuario WHERE id = $1', [userId]);
+
+      let personaDeleted = false;
+      if (existing.persona_id) {
+        const personaRefResult = await client.query(
+          `
+          SELECT
+            EXISTS(SELECT 1 FROM usuario WHERE persona_id = $1) AS has_user_ref,
+            EXISTS(SELECT 1 FROM trabajador WHERE persona_id = $1) AS has_worker_ref
+          `,
+          [existing.persona_id]
+        );
+
+        const hasUserRef = personaRefResult.rows[0]?.has_user_ref;
+        const hasWorkerRef = personaRefResult.rows[0]?.has_worker_ref;
+
+        if (!hasUserRef && !hasWorkerRef) {
+          await client.query('DELETE FROM persona WHERE id = $1', [existing.persona_id]);
+          personaDeleted = true;
+        }
+      }
+
       await client.query('COMMIT');
 
-      logger.info(`Usuario ${userId} desactivado por admin`);
+      logger.info(`Usuario ${userId} eliminado por admin ${requesterId}`);
 
       return {
         id: userId,
-        estado: 'inactivo',
+        estado: 'eliminado',
+        action: 'deleted',
+        reason: 'no_assignments',
+        assignments: assignmentSummary,
+        persona_deleted: personaDeleted,
       };
     } catch (error) {
       await client.query('ROLLBACK');

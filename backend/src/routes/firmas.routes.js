@@ -31,7 +31,10 @@ const validateBody = (schema) => {
   };
 };
 
-const uuid = Joi.string().guid({ version: ['uuidv4', 'uuidv5'] });
+const uuid = Joi.string()
+  .trim()
+  .pattern(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)
+  .messages({ 'string.pattern.base': '{{#label}} must be a valid GUID' });
 
 const tokenGenerationSchema = Joi.object({
   expira_minutos: Joi.number().integer().min(5).max(1440).default(60),

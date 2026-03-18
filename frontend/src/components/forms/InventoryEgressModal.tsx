@@ -5,6 +5,7 @@ import type {
   InventoryEgresoCreatePayload,
   InventoryEgresoDetallePayload,
 } from '../../services/apiService';
+import AssetUnitSelector from './AssetUnitSelector';
 
 interface ArticuloOption {
   id: string;
@@ -44,6 +45,7 @@ const EMPTY_DETALLE: InventoryEgresoDetallePayload = {
   articulo_id: '',
   ubicacion_id: '',
   cantidad: 1,
+  activo_ids: [],
   lote_id: null,
   notas: null,
 };
@@ -82,7 +84,17 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
       // Al cambiar artículo, limpiar lote
       if (field === 'articulo_id') {
         updated[index].lote_id = null;
+        updated[index].activo_ids = [];
+        updated[index].cantidad = 1;
       }
+
+      if (field === 'ubicacion_id') {
+        const articulo = articulos.find((a) => a.id === updated[index].articulo_id);
+        if (articulo?.tracking_mode === 'serial') {
+          updated[index].activo_ids = [];
+        }
+      }
+
       return updated;
     });
     setError('');
@@ -97,6 +109,8 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
   };
 
   const validate = (): boolean => {
+    const selectedAssetIds = new Set<string>();
+
     for (let i = 0; i < detalles.length; i++) {
       const d = detalles[i];
       if (!d.articulo_id) {
@@ -107,7 +121,32 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
         setError(`Fila ${i + 1}: selecciona una ubicación de origen.`);
         return false;
       }
-      if (Number(d.cantidad) <= 0) {
+
+      const articulo = articulos.find((a) => a.id === d.articulo_id);
+      if (!articulo) {
+        setError(`Fila ${i + 1}: artículo inválido.`);
+        return false;
+      }
+
+      if (articulo.tracking_mode === 'serial') {
+        const serialIds = Array.isArray(d.activo_ids) ? d.activo_ids.filter(Boolean) : [];
+        if (serialIds.length === 0) {
+          setError(`Fila ${i + 1}: debes seleccionar un activo.`);
+          return false;
+        }
+        if (new Set(serialIds).size !== serialIds.length) {
+          setError(`Fila ${i + 1}: hay activos duplicados.`);
+          return false;
+        }
+
+        for (const serialId of serialIds) {
+          if (selectedAssetIds.has(serialId)) {
+            setError(`Fila ${i + 1}: el activo ${serialId} ya fue seleccionado en otra fila.`);
+            return false;
+          }
+          selectedAssetIds.add(serialId);
+        }
+      } else if (Number(d.cantidad) <= 0) {
         setError(`Fila ${i + 1}: la cantidad debe ser mayor que cero.`);
         return false;
       }
@@ -123,10 +162,12 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
       tipo_motivo: tipoMotivo,
       notas: notasGenerales.trim() || null,
       detalles: detalles.map((d) => ({
+        ...d,
         articulo_id: d.articulo_id,
         ubicacion_id: d.ubicacion_id,
-        cantidad: Number(d.cantidad),
-        lote_id: d.lote_id || null,
+        cantidad: d.activo_ids?.length ? undefined : Number(d.cantidad),
+        activo_ids: d.activo_ids?.length ? d.activo_ids : undefined,
+        lote_id: d.activo_ids?.length ? null : d.lote_id || null,
         notas: d.notas?.trim() || null,
       })),
     };
@@ -204,6 +245,7 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
           {detalles.map((detalle, index) => {
             const lotesDelArticulo = lotes.filter((l) => l.articulo_id === detalle.articulo_id);
             const articuloSeleccionado = articulos.find((a) => a.id === detalle.articulo_id);
+            const isSerial = articuloSeleccionado?.tracking_mode === 'serial';
 
             return (
               <div
@@ -264,11 +306,28 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
                       type="number"
                       min={0.0001}
                       step={0.0001}
+                      disabled={isSerial}
                       className="w-full border rounded-md p-2"
                       value={detalle.cantidad}
                       onChange={(e) => setDetalleField(index, 'cantidad', Number(e.target.value))}
                     />
                   </div>
+
+                  {isSerial && (
+                    <div className="md:col-span-2">
+                      <AssetUnitSelector
+                        value={detalle.activo_ids ?? []}
+                        onChange={(next) => setDetalleField(index, 'activo_ids', next)}
+                        articuloId={detalle.articulo_id || undefined}
+                        ubicacionId={detalle.ubicacion_id || undefined}
+                        excludedIds={detalles.flatMap((row, rowIndex) =>
+                          rowIndex === index ? [] : (row.activo_ids ?? []).filter(Boolean)
+                        )}
+                        label="Seleccionar activo"
+                        required
+                      />
+                    </div>
+                  )}
 
                   {articuloSeleccionado?.tracking_mode === 'lote' && (
                     <div>

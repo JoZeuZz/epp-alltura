@@ -115,6 +115,16 @@ class InventarioController {
     }
   }
 
+  static async getActivosDisponibles(req, res, next) {
+    try {
+      const data = await InventarioService.getActivosDisponibles(req.query || {});
+      return sendSuccess(res, { message: 'Activos disponibles obtenidos correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching available activos:', error);
+      return next(error);
+    }
+  }
+
   static async getAuditoria(req, res, next) {
     try {
       const data = await InventarioService.getAuditoria(req.query || {});

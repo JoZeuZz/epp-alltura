@@ -11,7 +11,7 @@ interface EntregaFirmaModalProps {
 }
 
 const TEXTO_ACEPTACION =
-  'Declaro haber recibido los artículos indicados en esta entrega en conformidad, ' +
+  'Declaro haber recibido los artículos indicados en esta entrega, ' +
   'comprometiéndome a su correcto uso y cuidado según las políticas de la empresa.';
 
 const TEXTO_ACEPTACION_TRASLADO =
@@ -76,7 +76,6 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
 
   const startDraw = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-      e.preventDefault();
       const canvas = canvasRef.current;
       if (!canvas) return;
       isDrawing.current = true;
@@ -87,7 +86,6 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
 
   const draw = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-      e.preventDefault();
       if (!isDrawing.current) return;
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -158,10 +156,11 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
 
   const isTraslado = entrega.tipo === 'traslado';
   const acceptanceText = isTraslado ? TEXTO_ACEPTACION_TRASLADO : TEXTO_ACEPTACION;
-  const signerLabel = isTraslado ? 'transportista' : 'trabajador';
+  const signerLabel = isTraslado ? 'transportista' : 'receptor';
+  const itemsCount = entrega.cantidad_items ?? entrega.detalles?.length ?? 0;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={isTraslado ? 'Firma de traslado' : 'Firma de recepción'}>
+    <Modal isOpen={isOpen} onClose={onClose} title={isTraslado ? 'Firma de traslado' : 'Firma de entrega'}>
       {/* Resumen entrega */}
       <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
         <p className="text-sm text-gray-700">
@@ -170,14 +169,14 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
         </p>
         <p className="text-sm text-gray-700 mt-1">
           <span className="font-medium">Artículos:</span>{' '}
-          {entrega.detalles?.length ?? 0} ítem(s)
+          {itemsCount} ítem(s)
         </p>
         <p className="text-sm text-gray-700 mt-1">
           <span className="font-medium">Tipo:</span>{' '}
           {entrega.tipo === 'entrega'
-            ? 'Entrega definitiva'
+            ? 'Entrega'
             : entrega.tipo === 'prestamo'
-            ? 'Préstamo'
+            ? 'Entrega'
             : 'Traslado'}
         </p>
       </div>
@@ -207,6 +206,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
             width={600}
             height={200}
             className="w-full touch-none cursor-crosshair"
+            style={{ touchAction: 'none' }}
             onMouseDown={startDraw}
             onMouseMove={draw}
             onMouseUp={endDraw}

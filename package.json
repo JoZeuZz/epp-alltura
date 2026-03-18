@@ -20,7 +20,8 @@
     "test": "npm-run-all test:backend test:frontend",
     "test:backend": "npm test --prefix backend",
     "test:frontend": "npm test --prefix frontend",
-    "test:integration-db": "npm run test:integration-db --prefix backend"
+    "test:integration-db": "npm run test:integration-db --prefix backend",
+    "test:smoke:real": "npm run test:smoke:real --prefix frontend"
   },
   "keywords": [],
   "author": "",

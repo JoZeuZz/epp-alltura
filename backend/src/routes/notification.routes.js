@@ -9,7 +9,10 @@ const router = express.Router();
 
 router.use(authMiddleware);
 
-const uuid = Joi.string().guid({ version: ['uuidv4', 'uuidv5'] });
+const uuid = Joi.string()
+  .trim()
+  .pattern(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)
+  .messages({ 'string.pattern.base': '{{#label}} must be a valid GUID' });
 
 const subscribeSchema = Joi.object({
   subscription: pushSubscription.required(),

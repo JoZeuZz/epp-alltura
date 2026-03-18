@@ -15,6 +15,7 @@ const ESTADO_LABELS: Record<EntregaEstado, string> = {
   recibido: 'Recibido',
   confirmada: 'Confirmada',
   anulada: 'Anulada',
+  revertida_admin: 'Revertida',
 };
 
 const ESTADO_CLASSES: Record<EntregaEstado, string> = {
@@ -24,11 +25,12 @@ const ESTADO_CLASSES: Record<EntregaEstado, string> = {
   recibido: 'bg-teal-100 text-teal-800',
   confirmada: 'bg-green-100 text-green-800',
   anulada: 'bg-red-100 text-red-700',
+  revertida_admin: 'bg-slate-200 text-slate-700',
 };
 
 const TIPO_LABELS: Record<EntregaTipo, string> = {
-  entrega: 'Entrega definitiva',
-  prestamo: 'Préstamo',
+  entrega: 'Entrega',
+  prestamo: 'Entrega',
   traslado: 'Traslado',
 };
 
@@ -169,17 +171,17 @@ const EntregaDetalleModal: React.FC<EntregaDetalleModalProps> = ({
       {(estado === 'confirmada' || estado === 'recibido') && (
         <div className="border-t pt-4">
           <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Firma de recepción</h3>
-          {(entrega as unknown as { firma_imagen_url?: string; firmado_en?: string }).firma_imagen_url ? (
+          {entrega.firma_imagen_url ? (
             <div className="flex flex-col sm:flex-row gap-4 items-start">
               <img
-                src={(entrega as unknown as { firma_imagen_url: string }).firma_imagen_url}
+                src={entrega.firma_imagen_url}
                 alt="Firma del trabajador"
                 className="border border-gray-200 rounded-lg max-h-32 bg-white"
               />
               <div>
                 <p className="text-sm text-gray-700">
                   <span className="font-medium">Firmado el:</span>{' '}
-                  {formatDate((entrega as unknown as { firmado_en?: string }).firmado_en)}
+                  {formatDate(entrega.firmado_en)}
                 </p>
               </div>
             </div>

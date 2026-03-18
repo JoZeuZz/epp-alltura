@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS persona (
 CREATE TABLE IF NOT EXISTS usuario (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   persona_id UUID REFERENCES persona(id) ON DELETE SET NULL,
+  creado_por_admin_id UUID REFERENCES usuario(id) ON DELETE SET NULL,
   email_login VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo', 'bloqueado')),
@@ -195,7 +196,7 @@ CREATE TABLE IF NOT EXISTS entrega (
   trabajador_id UUID NOT NULL REFERENCES trabajador(id),
   ubicacion_origen_id UUID NOT NULL REFERENCES ubicacion(id),
   ubicacion_destino_id UUID NOT NULL REFERENCES ubicacion(id),
-  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrega', 'prestamo', 'traslado')),
+  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrega', 'traslado')),
   estado VARCHAR(25) NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'pendiente_firma', 'confirmada', 'anulada')),
   nota_destino TEXT,
   creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -209,6 +210,7 @@ CREATE TABLE IF NOT EXISTS entrega_detalle (
   activo_id UUID REFERENCES activo(id) ON DELETE SET NULL,
   lote_id UUID REFERENCES lote(id) ON DELETE SET NULL,
   cantidad NUMERIC(14,4) NOT NULL CHECK (cantidad > 0),
+  tipo_item_entrega VARCHAR(20) NOT NULL CHECK (tipo_item_entrega IN ('retornable', 'asignacion')),
   condicion_salida VARCHAR(20) NOT NULL CHECK (condicion_salida IN ('ok', 'usado', 'danado')),
   notas TEXT
 );

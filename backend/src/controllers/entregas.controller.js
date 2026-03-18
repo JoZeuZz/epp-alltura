@@ -62,6 +62,16 @@ class EntregasController {
       return next(error);
     }
   }
+
+  static async deshacer(req, res, next) {
+    try {
+      const data = await EntregasService.deshacer(req.params.id, req.user.id, req.body.motivo);
+      return sendSuccess(res, { message: 'Entrega deshecha correctamente', data });
+    } catch (error) {
+      logger.error('Error deshaciendo entrega:', error);
+      return next(error);
+    }
+  }
 }
 
 module.exports = EntregasController;
