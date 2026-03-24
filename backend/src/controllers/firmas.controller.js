@@ -2,6 +2,7 @@ const FirmasService = require('../services/firmas.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
 const { uploadFile, deleteFileByUrl } = require('../lib/googleCloud');
+const signatureEvents = require('../lib/signatureEvents');
 
 const buildRequestMeta = (req) => ({
   ip: req.ip || req.connection?.remoteAddress || null,
@@ -41,6 +42,17 @@ const cleanupUploadedSignature = async (uploadedSignatureUrl) => {
 };
 
 class FirmasController {
+  static async streamDeliverySignatureEvents(req, res, _next) {
+    const clientId = signatureEvents.addClient({
+      res,
+      userId: req.user?.id || null,
+    });
+
+    req.on('close', () => {
+      signatureEvents.removeClient(clientId);
+    });
+  }
+
   static async generateToken(req, res, next) {
     try {
       const data = await FirmasService.generateToken(

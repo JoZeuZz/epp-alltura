@@ -118,6 +118,14 @@ const ensureSignatureInput = (req, _res, next) => {
   );
 };
 
+const authFromHeaderOrQuery = (req, res, next) => {
+  if (!req.headers.authorization && req.query?.access_token) {
+    req.headers.authorization = `Bearer ${req.query.access_token}`;
+  }
+
+  return authMiddleware(req, res, next);
+};
+
 const optionalSignatureUpload = (req, res, next) => {
   const contentType = String(req.headers['content-type'] || '').toLowerCase();
   if (contentType.includes('multipart/form-data')) {
@@ -127,6 +135,12 @@ const optionalSignatureUpload = (req, res, next) => {
 };
 
 router.get('/tokens/:token', FirmasController.getTokenInfo);
+router.get(
+  '/events/deliveries',
+  authFromHeaderOrQuery,
+  checkRole(['admin', 'supervisor', 'bodega', 'trabajador', 'worker', 'client']),
+  FirmasController.streamDeliverySignatureEvents
+);
 router.post(
   '/tokens/:token/firmar',
   optionalSignatureUpload,

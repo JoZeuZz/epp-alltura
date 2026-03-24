@@ -50,7 +50,7 @@ const loteSchema = Joi.object({
 const compraDetalleSchema = Joi.object({
   articulo_id: uuid.required(),
   ubicacion_id: uuid.required(),
-  cantidad: Joi.number().positive().required(),
+  cantidad: Joi.number().integer().positive().required(),
   costo_unitario: Joi.number().min(0).required(),
   notas: Joi.string().trim().max(1000).allow('', null),
   lote_id: uuid.allow(null),

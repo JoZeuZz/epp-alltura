@@ -48,7 +48,7 @@ const mapArticuloToFormValues = (articulo?: Articulo | null): ArticleFormValues 
     marca: articulo.marca || '',
     modelo: articulo.modelo || '',
     categoria: articulo.categoria || '',
-    tracking_mode: articulo.tracking_mode || 'cantidad',
+    tracking_mode: articulo.tracking_mode || 'lote',
     retorno_mode: articulo.retorno_mode || 'retornable',
     requiere_vencimiento: Boolean(articulo.requiere_vencimiento),
     unidad_medida: articulo.unidad_medida || 'unidad',
@@ -118,7 +118,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
         ...prev,
         tipo,
         retorno_mode: tipo === 'consumible' ? 'consumible' : 'retornable',
-        tracking_mode: tipo === 'consumible' ? 'cantidad' : 'serial',
+        tracking_mode: tipo === 'consumible' ? 'lote' : 'serial',
       }));
     } else if (field === 'retorno_mode') {
       const retornoMode = value as ArticleFormValues['retorno_mode'];
@@ -216,7 +216,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           </div>
 
           <div>
-            <label className="label-base text-gray-700">Tracking mode *</label>
+            <label className="label-base text-gray-700">Modo de seguimiento *</label>
             <select
               className="w-full border rounded-md p-2 disabled:bg-gray-100"
               value={formValues.tracking_mode}
@@ -228,9 +228,8 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
                 )
               }
             >
-              <option value="serial">Serial (por unidad)</option>
-              <option value="lote">Lote</option>
-              <option value="cantidad">Cantidad (agregado)</option>
+              <option value="serial">Por Unidad</option>
+              <option value="lote">Por Lote</option>
             </select>
           </div>
 

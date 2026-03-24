@@ -1,6 +1,7 @@
 import React from 'react';
 import Modal from '../Modal';
 import type { EntregaRow, EntregaEstado, EntregaTipo, CondicionSalida } from '../../services/apiService';
+import { formatQuantityInteger } from '../../utils/quantity';
 
 interface EntregaDetalleModalProps {
   isOpen: boolean;
@@ -140,7 +141,7 @@ const EntregaDetalleModal: React.FC<EntregaDetalleModalProps> = ({
                   return (
                     <tr key={d.id}>
                       <td className="px-3 py-2 text-gray-900">{d.articulo_nombre ?? `#${d.articulo_id}`}</td>
-                      <td className="px-3 py-2 text-center text-gray-700">{d.cantidad}</td>
+                      <td className="px-3 py-2 text-center text-gray-700">{formatQuantityInteger(d.cantidad)}</td>
                       <td className="px-3 py-2">
                         {cond ? (
                           <span

@@ -105,7 +105,7 @@ BEGIN
     (
       '00000000-0000-0000-0000-000000000403',
       'consumible', 'Guante de cabritilla', 'SegurPlus', 'GC-01', 'EPP Mano',
-      'cantidad', 'consumible', 'bajo',
+      'lote', 'consumible', 'bajo',
       FALSE, 'par', 'activo'
     )
   ON CONFLICT (id) DO NOTHING;

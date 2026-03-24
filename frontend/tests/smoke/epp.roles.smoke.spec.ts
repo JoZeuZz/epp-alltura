@@ -142,7 +142,7 @@ const setupApiMocks = async (page: Page) => {
       return json(
         envelope([
           { id: 'articulo-1', nombre: 'Taladro', tracking_mode: 'serial' },
-          { id: 'articulo-2', nombre: 'Guante', tracking_mode: 'cantidad' },
+          { id: 'articulo-2', nombre: 'Guante', tracking_mode: 'lote' },
         ])
       );
     }

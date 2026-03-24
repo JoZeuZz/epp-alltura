@@ -3,9 +3,12 @@ import { useLoaderData, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { QRCodeSVG } from 'qrcode.react';
 import { post } from '../../services/apiService';
+import { getEntregaById } from '../../services/apiService';
 import SignaturePad from '../../components/forms/SignaturePad';
 import AssetUnitSelector from '../../components/forms/AssetUnitSelector';
 import ReturnAssetSelector from '../../components/forms/ReturnAssetSelector';
+import { parseQuantityInteger } from '../../utils/quantity';
+import { useDeliverySignatureEvents } from '../../hooks/useDeliverySignatureEvents';
 
 interface WarehouseLoaderData {
   trabajadores?: any[];
@@ -26,9 +29,14 @@ interface UbicacionOption {
 interface ArticuloOption {
   id: string;
   nombre: string;
-  tracking_mode?: 'serial' | 'lote' | 'cantidad';
+  tracking_mode?: 'serial' | 'lote';
   retorno_mode?: 'retornable' | 'consumible';
 }
+
+const trackingModeLabel = (mode?: ArticuloOption['tracking_mode']) => {
+  if (mode === 'lote') return 'Por Lote';
+  return 'Por Unidad';
+};
 
 const emptyDeliveryDetail = () => ({
   articulo_id: '',
@@ -60,6 +68,17 @@ const ACCEPTANCE_TEXT_TRASLADO =
 const ACCEPTANCE_TEXT_DEVOLUCION =
   'Declaro haber recepcionado los artículos devueltos y validado su condición de entrada según el registro de devolución.';
 
+interface DeliveryTokenMeta {
+  token: string;
+  expira_en?: string;
+}
+
+const isTokenStillValid = (expiraEn?: string): boolean => {
+  if (!expiraEn) return false;
+  const timestamp = new Date(expiraEn).getTime();
+  return Number.isFinite(timestamp) && timestamp > Date.now();
+};
+
 const WarehouseDashboard: React.FC = () => {
   const loader = useLoaderData() as WarehouseLoaderData;
   const location = useLocation();
@@ -71,7 +90,47 @@ const WarehouseDashboard: React.FC = () => {
   const [entregas, setEntregas] = useState<any[]>(loader.entregas || []);
   const [devoluciones, setDevoluciones] = useState<any[]>(loader.devoluciones || []);
 
-  const [tokenMap, setTokenMap] = useState<Record<string, string>>({});
+  const [tokenMap, setTokenMap] = useState<Record<string, DeliveryTokenMeta>>({});
+
+  useDeliverySignatureEvents({
+    onSigned: async (event) => {
+      if (event.metodo !== 'qr_link') {
+        return;
+      }
+
+      try {
+        const updatedEntrega = await getEntregaById(event.entrega_id);
+        setEntregas((prev) => {
+          const index = prev.findIndex((item) => item.id === event.entrega_id);
+          if (index === -1) {
+            return prev;
+          }
+
+          const next = [...prev];
+          next[index] = { ...next[index], ...updatedEntrega };
+          return next;
+        });
+      } catch (_error) {
+        setEntregas((prev) =>
+          prev.map((item) =>
+            item.id === event.entrega_id ? { ...item, firmado_en: event.firmado_en } : item
+          )
+        );
+      }
+
+      setTokenMap((prev) => {
+        if (!prev[event.entrega_id]) {
+          return prev;
+        }
+
+        const next = { ...prev };
+        delete next[event.entrega_id];
+        return next;
+      });
+
+      toast.success('Firma remota recibida. Ya puedes confirmar la entrega.');
+    },
+  });
 
   const [deliveryForm, setDeliveryForm] = useState({
     trabajador_id: '',
@@ -289,13 +348,26 @@ const WarehouseDashboard: React.FC = () => {
   };
 
   const handleGenerateToken = async (entregaId: string) => {
+    const cached = tokenMap[entregaId];
+    if (cached && isTokenStillValid(cached.expira_en)) {
+      toast.success('QR vigente reutilizado.');
+      return;
+    }
+
     try {
-      const response = await post<any>(`/firmas/entregas/${entregaId}/token`, { expira_minutos: 60 });
+      const response = await post<any>(`/firmas/entregas/${entregaId}/token`, { expira_minutos: 30 });
       setTokenMap((prev) => ({
         ...prev,
-        [entregaId]: response.token,
+        [entregaId]: {
+          token: response.token,
+          expira_en: response.expira_en,
+        },
       }));
-      toast.success('Token de firma generado.');
+      if (response.reused) {
+        toast.success('QR vigente reutilizado.');
+      } else {
+        toast.success('QR de firma generado (expira en 30 minutos).');
+      }
     } catch (error: any) {
       toast.error(error?.response?.data?.message || error.message || 'No se pudo generar token');
     }
@@ -652,7 +724,7 @@ const WarehouseDashboard: React.FC = () => {
                   <option value="">Artículo</option>
                   {articulos.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.nombre} ({item.tracking_mode})
+                      {item.nombre} ({trackingModeLabel(item.tracking_mode)})
                     </option>
                   ))}
                 </select>
@@ -679,11 +751,11 @@ const WarehouseDashboard: React.FC = () => {
                 <input
                   className="border rounded-md p-2"
                   type="number"
-                  min={0.0001}
-                  step={0.0001}
+                  min={1}
+                  step={1}
                   placeholder="Cantidad"
                   value={detail.cantidad}
-                  onChange={(e) => setDeliveryDetail(index, 'cantidad', Number(e.target.value))}
+                  onChange={(e) => setDeliveryDetail(index, 'cantidad', parseQuantityInteger(e.target.value, 1))}
                   disabled={getArticuloById(detail.articulo_id)?.tracking_mode === 'serial'}
                   required
                 />
@@ -792,17 +864,26 @@ const WarehouseDashboard: React.FC = () => {
                     {tokenMap[item.id] ? (
                       <div className="flex flex-col items-start gap-2">
                         <QRCodeSVG
-                          value={`${window.location.origin}/firma/${tokenMap[item.id]}`}
+                          value={`${window.location.origin}/firma/${tokenMap[item.id].token}`}
                           size={120}
                           bgColor="#ffffff"
                           fgColor="#1E2A4A"
                           level="M"
                         />
+                        {tokenMap[item.id].expira_en && (
+                          <span className="text-xs text-gray-500">
+                            Expira: {new Date(tokenMap[item.id].expira_en as string).toLocaleTimeString('es-CL', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
+                            const link = `${window.location.origin}/firma/${tokenMap[item.id].token}`;
                             navigator.clipboard.writeText(
-                              `${window.location.origin}/firma/${tokenMap[item.id]}`
+                              link
                             );
                             toast.success('Enlace copiado al portapapeles.');
                           }}
@@ -810,6 +891,16 @@ const WarehouseDashboard: React.FC = () => {
                         >
                           Copiar enlace
                         </button>
+                        <a
+                          href={`https://wa.me/?text=${encodeURIComponent(
+                            `Firma esta entrega en: ${window.location.origin}/firma/${tokenMap[item.id].token}`
+                          )}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-green-700 underline hover:text-green-900 transition-colors"
+                        >
+                          Compartir por WhatsApp
+                        </a>
                       </div>
                     ) : (
                       <span className="text-gray-400 text-xs italic">Sin QR</span>
@@ -820,7 +911,7 @@ const WarehouseDashboard: React.FC = () => {
                       className="px-2 py-1 text-xs rounded bg-gray-700 text-white"
                       onClick={() => handleGenerateToken(item.id)}
                     >
-                      Generar Token QR
+                      QR
                     </button>
                     <button
                       className="px-2 py-1 text-xs rounded bg-primary-blue text-white"
@@ -918,10 +1009,10 @@ const WarehouseDashboard: React.FC = () => {
                 <input
                   className="border rounded-md p-2"
                   type="number"
-                  min={0.0001}
-                  step={0.0001}
+                  min={1}
+                  step={1}
                   value={detail.cantidad}
-                  onChange={(e) => setReturnDetail(index, 'cantidad', Number(e.target.value))}
+                  onChange={(e) => setReturnDetail(index, 'cantidad', parseQuantityInteger(e.target.value, 1))}
                   disabled={isSerial}
                 />
               </div>
@@ -1087,7 +1178,7 @@ const WarehouseDashboard: React.FC = () => {
               <option value="">Artículo</option>
               {articulos.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.nombre} ({item.tracking_mode})
+                  {item.nombre} ({trackingModeLabel(item.tracking_mode)})
                 </option>
               ))}
             </select>
@@ -1107,11 +1198,11 @@ const WarehouseDashboard: React.FC = () => {
             <input
               className="border rounded-md p-2"
               type="number"
-              min={0.0001}
-              step={0.0001}
+              min={1}
+              step={1}
               placeholder="Cantidad"
               value={purchaseForm.cantidad}
-              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, cantidad: Number(e.target.value) }))}
+              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, cantidad: parseQuantityInteger(e.target.value, 1) }))}
             />
             <input
               className="border rounded-md p-2"

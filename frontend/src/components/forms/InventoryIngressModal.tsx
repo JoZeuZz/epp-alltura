@@ -6,6 +6,7 @@ import {
   type TrackingMode,
 } from '../../pages/admin/inventory/inventoryIngress.utils';
 import type { InventoryIngresoCreatePayload } from '../../services/apiService';
+import { parseQuantityInteger } from '../../utils/quantity';
 
 interface ArticuloOption {
   id: string;
@@ -53,6 +54,11 @@ const INITIAL_FORM_STATE: InventoryIngressFormValues = {
 };
 
 const fileAccept = '.pdf,image/jpeg,image/png,image/webp';
+
+const trackingModeLabel = (mode?: TrackingMode) => {
+  if (mode === 'lote') return 'Por Lote';
+  return 'Por Unidad';
+};
 
 const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
   isOpen,
@@ -218,7 +224,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
                 <option value="">Seleccionar artículo</option>
                 {articulos.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.nombre} ({item.tracking_mode})
+                    {item.nombre} ({trackingModeLabel(item.tracking_mode)})
                   </option>
                 ))}
               </select>
@@ -265,7 +271,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
         {step === 2 ? (
           <section className="space-y-3" data-tour="admin-inventory-ingress-step-2">
             <div className="rounded-md bg-blue-50 border border-blue-100 px-3 py-2 text-sm text-blue-700">
-              Tracking activo: <strong>{trackingMode || 'No definido'}</strong>
+              Modo activo: <strong>{trackingMode ? trackingModeLabel(trackingMode) : 'No definido'}</strong>
             </div>
 
             {trackingMode === 'serial' ? (
@@ -287,11 +293,11 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
                   <label className="label-base text-gray-700">Cantidad *</label>
                   <input
                     type="number"
-                    min={0.0001}
-                    step={0.0001}
+                    min={1}
+                    step={1}
                     className="w-full border rounded-md p-2"
                     value={form.cantidad}
-                    onChange={(event) => setField('cantidad', Number(event.target.value))}
+                    onChange={(event) => setField('cantidad', parseQuantityInteger(event.target.value, 1))}
                   />
                 </div>
 

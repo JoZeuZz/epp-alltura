@@ -6,7 +6,6 @@ interface DashboardData {
   stock?: any[];
   movimientosStock?: any[];
   movimientosActivo?: any[];
-  auditoria?: any[];
 }
 
 const Card: React.FC<{ title: string; value: string | number }> = ({ title, value }) => (
@@ -77,7 +76,6 @@ const AdminDashboard: React.FC = () => {
         <p className="text-neutral-gray mt-1">
           {section === 'dashboard' && 'KPIs operativos de inventario, entregas, devoluciones y firmas.'}
           {section === 'trazabilidad' && 'Trazabilidad completa de movimientos de stock y activos.'}
-          {section === 'auditoria' && 'Auditoría de acciones y cambios críticos en el sistema.'}
         </p>
       </div>
 
@@ -116,19 +114,6 @@ const AdminDashboard: React.FC = () => {
             item.activo_codigo || '-',
             item.articulo_nombre || '-',
             item.ubicacion_destino_nombre || '-',
-          ])}
-        />
-      )}
-
-      {(section === 'dashboard' || section === 'auditoria') && (
-        <DataTable
-          title="Auditoría Reciente"
-          columns={['Fecha', 'Entidad', 'Acción', 'Usuario']}
-          rows={(data.auditoria || []).slice(0, 12).map((item) => [
-            new Date(item.creado_en).toLocaleString(),
-            `${item.entidad_tipo}:${item.entidad_id}`,
-            item.accion,
-            item.usuario_email || '-',
           ])}
         />
       )}

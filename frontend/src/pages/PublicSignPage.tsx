@@ -380,18 +380,6 @@ const PublicSignPage: React.FC = () => {
               <p className="text-amber-700 text-xs font-semibold mb-1">Al firmar confirmas lo siguiente:</p>
               <p className="text-amber-900 text-sm leading-relaxed">{textoAceptacion}</p>
             </div>
-            <textarea
-              className="w-full border border-gray-200 rounded-lg p-3 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-primary-blue"
-              rows={4}
-              value={textoAceptacion}
-              onChange={(e) => setTextoAceptacion(e.target.value)}
-              required
-              minLength={10}
-              aria-label="Texto de aceptación editable"
-            />
-            <p className="text-neutral-gray text-xs mt-1">
-              Puedes editar el texto antes de firmar si necesitas precisar algo.
-            </p>
           </div>
 
           {/* Pad de firma */}
@@ -399,6 +387,7 @@ const PublicSignPage: React.FC = () => {
             <SignaturePad
               key={`public-sign-${padKey}`}
               required
+              showPreview={false}
               label="Firma aquí con tu dedo"
               onChange={(_dataUrl, file) => {
                 setSignatureFile(file);

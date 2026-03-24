@@ -70,6 +70,26 @@ class InventarioController {
     }
   }
 
+  static async getStockSummary(req, res, next) {
+    try {
+      const data = await InventarioService.getStockSummary(req.query || {});
+      return sendSuccess(res, { message: 'Resumen de stock obtenido correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching stock summary:', error);
+      return next(error);
+    }
+  }
+
+  static async getStockPaged(req, res, next) {
+    try {
+      const data = await InventarioService.getStockPaged(req.query || {});
+      return sendSuccess(res, { message: 'Detalle de stock obtenido correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching paged stock detail:', error);
+      return next(error);
+    }
+  }
+
   static async getStockMovements(req, res, next) {
     try {
       const data = await InventarioService.getStockMovements(req.query || {});
@@ -115,6 +135,16 @@ class InventarioController {
     }
   }
 
+  static async getActivosPaged(req, res, next) {
+    try {
+      const data = await InventarioService.getActivosPaged(req.query || {});
+      return sendSuccess(res, { message: 'Activos paginados obtenidos correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching paged activos:', error);
+      return next(error);
+    }
+  }
+
   static async getActivosDisponibles(req, res, next) {
     try {
       const data = await InventarioService.getActivosDisponibles(req.query || {});
@@ -137,7 +167,7 @@ class InventarioController {
 
   static async deleteIngreso(req, res, next) {
     try {
-      await InventarioService.deleteIngreso(req.params.id);
+      await InventarioService.deleteIngreso(req.params.id, req.user.id);
       return sendSuccess(res, { message: 'Ingreso eliminado correctamente. Stock y movimientos revertidos.' });
     } catch (error) {
       logger.error('Error deleting ingreso:', error);
@@ -181,7 +211,7 @@ class InventarioController {
 
   static async deleteEgreso(req, res, next) {
     try {
-      await InventarioService.deleteEgreso(req.params.id);
+      await InventarioService.deleteEgreso(req.params.id, req.user.id);
       return sendSuccess(res, { message: 'Egreso eliminado correctamente. Stock revertido.' });
     } catch (error) {
       logger.error('Error deleting egreso:', error);

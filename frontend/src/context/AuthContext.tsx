@@ -1,4 +1,5 @@
 import React, { useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import * as api from '../services/apiService';
 import { jwtDecode } from 'jwt-decode';
 import { User } from '../types/api';
@@ -10,6 +11,7 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -27,6 +29,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const refreshedToken = await refreshAccessToken();
             if (!refreshedToken) {
               clearStoredTokens();
+              queryClient.clear();
               if (isMounted) setUser(null);
               return;
             }
@@ -44,6 +47,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } catch (error) {
         console.error('Error validating token on mount:', error);
         clearStoredTokens();
+        queryClient.clear();
         if (isMounted) setUser(null);
       } finally {
         if (isMounted) setLoading(false);
@@ -55,7 +59,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [queryClient]);
 
   const login = useCallback(async (email: string, password: string) => {
     try {
@@ -78,10 +82,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = useCallback(() => {
     clearStoredTokens();
+    queryClient.clear();
     setUser(null);
     // Redirigir al login
     window.location.href = '/login';
-  }, []);
+  }, [queryClient]);
 
   const refreshUserData = useCallback((newUserData: User, token?: string) => {
     try {

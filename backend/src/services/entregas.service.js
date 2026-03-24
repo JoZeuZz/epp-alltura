@@ -313,7 +313,7 @@ class EntregasService {
       }
 
       const quantity = Number(detalle.cantidad);
-      if (!Number.isFinite(quantity) || quantity <= 0) {
+      if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isInteger(quantity)) {
         throw buildError(`Cantidad inválida para artículo ${detalle.articulo_id}`, 400);
       }
 
@@ -1246,6 +1246,84 @@ class EntregasService {
 
       await client.query('COMMIT');
       return this.getById(id);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async permanentDelete(id, userId) {
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const entregaResult = await client.query(
+        `
+        SELECT *
+        FROM entrega
+        WHERE id = $1
+        FOR UPDATE
+        `,
+        [id]
+      );
+
+      if (!entregaResult.rows.length) {
+        throw buildError('Entrega no encontrada', 404);
+      }
+
+      const entrega = entregaResult.rows[0];
+      if (!['anulada', 'revertida_admin'].includes(entrega.estado)) {
+        throw buildError(
+          `Solo se pueden eliminar entregas en estado "anulada" o "revertida_admin" (estado actual: "${entrega.estado}")`,
+          400
+        );
+      }
+
+      // Limpieza defensiva: si existen custodias asociadas, se eliminan para no violar FK.
+      await client.query(
+        `
+        DELETE FROM custodia_activo
+        WHERE entrega_id = $1
+        `,
+        [id]
+      );
+
+      await client.query(
+        `
+        DELETE FROM documento_referencia
+        WHERE entidad_tipo = 'entrega'
+          AND entidad_id = $1
+        `,
+        [id]
+      );
+
+      // Decisión de producto: borrar también auditoría histórica de esta entrega.
+      await client.query(
+        `
+        DELETE FROM auditoria
+        WHERE entidad_tipo = 'entrega'
+          AND entidad_id = $1
+        `,
+        [id]
+      );
+
+      await client.query(
+        `
+        DELETE FROM entrega
+        WHERE id = $1
+        `,
+        [id]
+      );
+
+      await client.query('COMMIT');
+
+      return {
+        id,
+        estado_anterior: entrega.estado,
+        eliminado_por_usuario_id: userId,
+      };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

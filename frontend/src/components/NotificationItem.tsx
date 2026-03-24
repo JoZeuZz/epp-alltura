@@ -33,7 +33,6 @@ const notificationColors: Record<string, string> = {
 const EPP_ALLOWED_PATHS = new Set([
   '/admin/dashboard',
   '/admin/trazabilidad',
-  '/admin/auditoria',
   '/supervisor/dashboard',
   '/supervisor/trazabilidad',
   '/bodega/dashboard',

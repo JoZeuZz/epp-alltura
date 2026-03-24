@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
   `inline-flex items-center rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
@@ -7,6 +7,8 @@ const tabClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 const AdminInventoryLayout: React.FC = () => {
+  const location = useLocation();
+
   return (
     <div className="space-y-6" data-tour="admin-inventory-layout">
       <section className="space-y-2">
@@ -36,7 +38,7 @@ const AdminInventoryLayout: React.FC = () => {
         </nav>
       </section>
 
-      <Outlet />
+      <Outlet key={location.pathname} />
     </div>
   );
 };

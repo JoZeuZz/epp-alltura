@@ -6,12 +6,18 @@ import type {
   InventoryEgresoDetallePayload,
 } from '../../services/apiService';
 import AssetUnitSelector from './AssetUnitSelector';
+import { parseQuantityInteger } from '../../utils/quantity';
 
 interface ArticuloOption {
   id: string;
   nombre: string;
-  tracking_mode: 'serial' | 'lote' | 'cantidad';
+  tracking_mode: 'serial' | 'lote';
 }
+
+const trackingModeLabel = (mode?: ArticuloOption['tracking_mode']) => {
+  if (mode === 'lote') return 'Por Lote';
+  return 'Por Unidad';
+};
 
 interface UbicacionOption {
   id: string;
@@ -278,7 +284,7 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
                       <option value="">Seleccionar artículo</option>
                       {articulos.map((a) => (
                         <option key={a.id} value={a.id}>
-                          {a.nombre} ({a.tracking_mode})
+                          {a.nombre} ({trackingModeLabel(a.tracking_mode)})
                         </option>
                       ))}
                     </select>
@@ -304,12 +310,12 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
                     <label className="label-base text-gray-700">Cantidad *</label>
                     <input
                       type="number"
-                      min={0.0001}
-                      step={0.0001}
+                      min={1}
+                      step={1}
                       disabled={isSerial}
                       className="w-full border rounded-md p-2"
                       value={detalle.cantidad}
-                      onChange={(e) => setDetalleField(index, 'cantidad', Number(e.target.value))}
+                      onChange={(e) => setDetalleField(index, 'cantidad', parseQuantityInteger(e.target.value, 1))}
                     />
                   </div>
 

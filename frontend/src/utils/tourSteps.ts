@@ -93,15 +93,6 @@ export const onboardingStepsByRole: Record<TourRole, TourStep[]> = {
       mobilePlacement: 'bottom',
     },
     {
-      id: 'admin-auditoria',
-      role: 'admin',
-      route: '/admin/auditoria',
-      title: 'Auditoría',
-      body: 'Consulta eventos y acciones de usuarios para seguimiento de cumplimiento.',
-      placement: 'center',
-      mobilePlacement: 'bottom',
-    },
-    {
       id: 'admin-tour-launcher',
       role: 'admin',
       route: '*',

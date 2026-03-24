@@ -37,6 +37,7 @@ const PublicSignPage = lazy(() => import('../pages/PublicSignPage'));
 const AdminTrabajadoresPage = lazy(() => import('../pages/admin/AdminTrabajadoresPage'));
 const AdminUbicacionesPage = lazy(() => import('../pages/admin/AdminUbicacionesPage'));
 const AdminEntregasPage = lazy(() => import('../pages/admin/AdminEntregasPage'));
+const AdminDevolucionesPage = lazy(() => import('../pages/admin/AdminDevolucionesPage'));
 
 const API_URL = '/api';
 type RouteRole = 'admin' | 'supervisor' | 'bodega' | 'worker';
@@ -190,12 +191,11 @@ const requireRole = (allowedRoles: RouteRole[]) => async () => {
 async function adminDashboardLoader() {
   const { user } = (await requireRole(['admin'])()) as { user: User };
 
-  const [summary, stock, movimientosStock, movimientosActivo, auditoria] = await Promise.all([
+  const [summary, stock, movimientosStock, movimientosActivo] = await Promise.all([
     fetchAPI('/dashboard/summary').catch(() => null),
     fetchAPI('/inventario/stock').catch(() => []),
     fetchAPI('/inventario/movimientos-stock?limit=25').catch(() => []),
     fetchAPI('/inventario/movimientos-activo?limit=25').catch(() => []),
-    fetchAPI('/inventario/auditoria?limit=25').catch(() => []),
   ]);
 
   return {
@@ -204,7 +204,6 @@ async function adminDashboardLoader() {
     stock,
     movimientosStock,
     movimientosActivo,
-    auditoria,
   };
 }
 
@@ -301,17 +300,12 @@ export const router = createBrowserRouter([
       {
         path: 'admin/dashboard',
         loader: adminDashboardLoader,
-        element: <AdminDashboard />,
+        element: <AdminDashboard key="admin-dashboard" />,
       },
       {
         path: 'admin/trazabilidad',
         loader: adminDashboardLoader,
-        element: <AdminDashboard />,
-      },
-      {
-        path: 'admin/auditoria',
-        loader: adminDashboardLoader,
-        element: <AdminDashboard />,
+        element: <AdminDashboard key="admin-trazabilidad" />,
       },
       {
         path: 'admin/users',
@@ -332,6 +326,11 @@ export const router = createBrowserRouter([
         path: 'admin/entregas',
         loader: requireRole(['admin', 'supervisor', 'bodega']),
         element: <AdminEntregasPage />,
+      },
+      {
+        path: 'admin/devoluciones',
+        loader: requireRole(['admin', 'bodega']),
+        element: <AdminDevolucionesPage />,
       },
       {
         path: 'admin/inventario',
@@ -367,32 +366,37 @@ export const router = createBrowserRouter([
       {
         path: 'supervisor/dashboard',
         loader: supervisorDashboardLoader,
-        element: <SupervisorDashboard />,
+        element: <SupervisorDashboard key="supervisor-dashboard" />,
       },
       {
         path: 'supervisor/trazabilidad',
         loader: supervisorDashboardLoader,
-        element: <SupervisorDashboard />,
+        element: <SupervisorDashboard key="supervisor-trazabilidad" />,
       },
       {
         path: 'bodega/dashboard',
         loader: warehouseDashboardLoader,
-        element: <WarehouseDashboard />,
+        element: <WarehouseDashboard key="bodega-dashboard" />,
       },
       {
         path: 'bodega/operaciones',
         loader: warehouseDashboardLoader,
-        element: <WarehouseDashboard />,
+        element: <WarehouseDashboard key="bodega-operaciones" />,
+      },
+      {
+        path: 'bodega/devoluciones',
+        loader: requireRole(['admin', 'bodega']),
+        element: <AdminDevolucionesPage />,
       },
       {
         path: 'worker/dashboard',
         loader: workerDashboardLoader,
-        element: <WorkerDashboard />,
+        element: <WorkerDashboard key="worker-dashboard" />,
       },
       {
         path: 'worker/firmas',
         loader: workerDashboardLoader,
-        element: <WorkerDashboard />,
+        element: <WorkerDashboard key="worker-firmas" />,
       },
       {
         path: 'notifications',

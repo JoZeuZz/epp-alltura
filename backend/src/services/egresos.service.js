@@ -11,7 +11,7 @@ const buildError = (message, statusCode = 400, code = null) => {
 
 const toQuantity = (value) => {
   const qty = Number(value);
-  if (!Number.isFinite(qty) || qty <= 0) {
+  if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
     throw buildError('La cantidad debe ser mayor que cero', 400, 'INVALID_QUANTITY');
   }
   return qty;
@@ -497,7 +497,7 @@ class EgresosService {
     }
   }
 
-  static async deleteEgreso(id) {
+  static async deleteEgreso(id, userId) {
     const client = await db.pool.connect();
 
     try {
@@ -505,12 +505,14 @@ class EgresosService {
 
       // 1. Verificar que el egreso existe
       const egresoCheck = await client.query(
-        `SELECT id FROM egreso WHERE id = $1`,
+        `SELECT id, creado_por_usuario_id FROM egreso WHERE id = $1`,
         [id]
       );
       if (!egresoCheck.rows.length) {
         throw buildError('Egreso no encontrado', 404, 'EGRESO_NOT_FOUND');
       }
+
+      const actorUserId = userId || egresoCheck.rows[0].creado_por_usuario_id;
 
       // 2. Obtener movimientos de stock asociados a este egreso
       const movimientosResult = await client.query(
@@ -528,7 +530,7 @@ class EgresosService {
 
       const serialDetailsResult = await client.query(
         `
-        SELECT activo_id
+        SELECT activo_id, ubicacion_id
         FROM egreso_detalle
         WHERE egreso_id = $1
           AND activo_id IS NOT NULL
@@ -558,15 +560,35 @@ class EgresosService {
             [mov.cantidad, mov.articulo_id, mov.ubicacion_id]
           );
         }
+
+        await client.query(
+          `
+          INSERT INTO movimiento_stock (
+            articulo_id,
+            lote_id,
+            tipo,
+            ubicacion_origen_id,
+            ubicacion_destino_id,
+            cantidad,
+            responsable_usuario_id,
+            egreso_id,
+            notas
+          )
+          VALUES ($1, $2, 'entrada', NULL, $3, $4, $5, $6, $7)
+          `,
+          [
+            mov.articulo_id,
+            mov.lote_id,
+            mov.ubicacion_id,
+            mov.cantidad,
+            actorUserId,
+            id,
+            `[reversion_egreso:${id}]`,
+          ]
+        );
       }
 
-      // 4. Eliminar movimientos de stock
-      await client.query(
-        `DELETE FROM movimiento_stock WHERE egreso_id = $1`,
-        [id]
-      );
-
-      // 4.1 Revertir activos serializados
+      // 4. Revertir activos serializados
       for (const detalle of serialDetailsResult.rows) {
         await client.query(
           `
@@ -576,12 +598,29 @@ class EgresosService {
           `,
           [detalle.activo_id]
         );
-      }
 
-      await client.query(
-        `DELETE FROM movimiento_activo WHERE egreso_id = $1`,
-        [id]
-      );
+        await client.query(
+          `
+          INSERT INTO movimiento_activo (
+            activo_id,
+            tipo,
+            ubicacion_origen_id,
+            ubicacion_destino_id,
+            responsable_usuario_id,
+            egreso_id,
+            notas
+          )
+          VALUES ($1, 'entrada', NULL, $2, $3, $4, $5)
+          `,
+          [
+            detalle.activo_id,
+            detalle.ubicacion_id,
+            actorUserId,
+            id,
+            `[reversion_egreso:${id}]`,
+          ]
+        );
+      }
 
       // 5. Eliminar egreso (cascade a egreso_detalle)
       await client.query(

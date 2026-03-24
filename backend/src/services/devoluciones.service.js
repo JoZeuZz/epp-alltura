@@ -45,7 +45,7 @@ const hashValue = (value) =>
 
 const toQuantity = (value, fieldName = 'cantidad') => {
   const qty = Number(value);
-  if (!Number.isFinite(qty) || qty <= 0) {
+  if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
     throw buildError(`El campo ${fieldName} debe ser mayor que cero`, 400, 'INVALID_QUANTITY');
   }
   return qty;
@@ -322,6 +322,15 @@ class DevolucionesService {
       }
 
       const devolucion = devolucionResult.rows[0];
+
+      if (devolucion.recibido_por_usuario_id !== actorUserId) {
+        throw buildError(
+          'Solo el usuario que creó la devolución puede firmar la recepción',
+          403,
+          'RETURN_SIGNER_FORBIDDEN'
+        );
+      }
+
       if (!['borrador', 'pendiente_firma'].includes(devolucion.estado)) {
         throw buildError(
           `No se puede firmar una devolución en estado "${devolucion.estado}"`,
@@ -588,6 +597,15 @@ class DevolucionesService {
       }
 
       const devolucion = devolucionResult.rows[0];
+
+      if (devolucion.recibido_por_usuario_id !== userId) {
+        throw buildError(
+          'Solo el usuario que creó la devolución puede confirmar la recepción',
+          403,
+          'RETURN_CONFIRMER_FORBIDDEN'
+        );
+      }
+
       if (devolucion.estado !== 'pendiente_firma') {
         throw buildError(
           `No se puede confirmar una devolución en estado "${devolucion.estado}"`,

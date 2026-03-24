@@ -152,6 +152,7 @@ const AppLayout = () => {
   }`;
   const isAdminInventoryRoute = location.pathname.startsWith('/admin/inventario');
   const isAdminEntregasRoute = location.pathname.startsWith('/admin/entregas');
+  const isAdminDevolucionesRoute = location.pathname.startsWith('/admin/devoluciones');
   const navSectionClass = `px-3 pt-3 pb-1 text-[11px] font-semibold tracking-[0.08em] text-gray-400 uppercase ${
     !isSidebarOpen ? 'lg:hidden' : ''
   }`;
@@ -180,6 +181,18 @@ const AppLayout = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2L19 8m-9 4h4" />
         </svg>
         <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Entregas</span>
+      </NavLink>
+      <NavLink
+        to="/admin/devoluciones"
+        onClick={handleLinkClick}
+        className={({ isActive }) =>
+          isActive || isAdminDevolucionesRoute ? activeLinkClass : linkClass
+        }
+      >
+        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Devoluciones</span>
       </NavLink>
       <NavLink
         to="/admin/inventario/articulos"
@@ -264,6 +277,16 @@ const AppLayout = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
         </svg>
         <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Entregas y Devoluciones</span>
+      </NavLink>
+      <NavLink
+        to="/bodega/devoluciones"
+        onClick={handleLinkClick}
+        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
+      >
+        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Devoluciones</span>
       </NavLink>
     </Fragment>
   );
@@ -520,7 +543,7 @@ const AppLayout = () => {
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
             </div>
           }>
-            <Outlet />
+            <Outlet key={location.pathname} />
           </Suspense>
         </main>
       </div>

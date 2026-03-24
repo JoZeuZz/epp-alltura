@@ -2,8 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import ConfirmationModal from '../../components/ConfirmationModal';
+import Modal from '../../components/Modal';
 import { ResponsiveTable, type TableColumn } from '../../components/layout';
+import { QRCodeSVG } from 'qrcode.react';
+import { useAuth } from '../../hooks/useAuth';
 import { useGet } from '../../hooks';
+import { useDeliverySignatureEvents } from '../../hooks/useDeliverySignatureEvents';
 import {
   getEntregaById,
   createEntrega,
@@ -11,7 +15,9 @@ import {
   recibirTraslado,
   anularEntrega,
   deshacerEntrega,
+  permanentDeleteEntrega,
   firmarEntregaDispositivo,
+  generateEntregaSignatureToken,
   type EntregaRow,
   type EntregaEstado,
   type EntregaTipo,
@@ -74,10 +80,35 @@ const toErrorMessage = (error: unknown): string => {
   return payload?.response?.data?.message ?? 'No se pudo completar la operación.';
 };
 
+type TokenShareState = {
+  entregaId: string;
+  token: string;
+  expiraEn: string;
+  reused?: boolean;
+} | null;
+
+const isTokenStillValid = (expiraEn?: string): boolean => {
+  if (!expiraEn) return false;
+  const timestamp = new Date(expiraEn).getTime();
+  return Number.isFinite(timestamp) && timestamp > Date.now();
+};
+
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 const AdminEntregasPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
+  useDeliverySignatureEvents({
+    onSigned: (event) => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+
+      if (event.metodo === 'qr_link') {
+        toast.success('Firma remota recibida. La entrega fue actualizada.');
+      }
+    },
+  });
 
   // Filtro de estado
   const [filterEstado, setFilterEstado] = useState<EntregaEstado | 'todas'>('todas');
@@ -90,8 +121,11 @@ const AdminEntregasPage: React.FC = () => {
   const [entregaRecibir, setEntregaRecibir] = useState<EntregaRow | null>(null);
   const [entregaAnular, setEntregaAnular] = useState<EntregaRow | null>(null);
   const [entregaDeshacer, setEntregaDeshacer] = useState<EntregaRow | null>(null);
+  const [entregaEliminar, setEntregaEliminar] = useState<EntregaRow | null>(null);
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
   const [motivoDeshacer, setMotivoDeshacer] = useState('');
+  const [tokenShare, setTokenShare] = useState<TokenShareState>(null);
+  const [tokenCache, setTokenCache] = useState<Record<string, TokenShareState>>({});
 
   // Datos
   const filterParams = filterEstado !== 'todas' ? { estado: filterEstado } : undefined;
@@ -160,6 +194,16 @@ const AdminEntregasPage: React.FC = () => {
     onError: (err) => toast.error(toErrorMessage(err)),
   });
 
+  const permanentDeleteMutation = useMutation({
+    mutationFn: (id: string) => permanentDeleteEntrega(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      toast.success('Entrega eliminada.');
+      setEntregaEliminar(null);
+    },
+    onError: (err) => toast.error(toErrorMessage(err)),
+  });
+
   const firmaMutation = useMutation({
     mutationFn: ({
       entregaId,
@@ -177,6 +221,42 @@ const AdminEntregasPage: React.FC = () => {
     },
     onError: (err) => toast.error(toErrorMessage(err)),
   });
+
+  const tokenMutation = useMutation({
+    mutationFn: (entregaId: string) => generateEntregaSignatureToken(entregaId, 30),
+    onSuccess: (result, entregaId) => {
+      const nextShare = {
+        entregaId,
+        token: result.token,
+        expiraEn: result.expira_en,
+        reused: Boolean(result.reused),
+      };
+
+      setTokenShare(nextShare);
+      setTokenCache((prev) => ({
+        ...prev,
+        [entregaId]: nextShare,
+      }));
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      if (result.reused) {
+        toast.success('QR vigente reutilizado.');
+      } else {
+        toast.success('QR generado (expira en 30 minutos).');
+      }
+    },
+    onError: (err) => toast.error(toErrorMessage(err)),
+  });
+
+  const openQrForEntrega = (entregaId: string) => {
+    const cached = tokenCache[entregaId];
+    if (cached && isTokenStillValid(cached.expiraEn)) {
+      setTokenShare({ ...cached, reused: true });
+      toast.success('QR vigente reutilizado.');
+      return;
+    }
+
+    tokenMutation.mutate(entregaId);
+  };
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
@@ -275,6 +355,16 @@ const AdminEntregasPage: React.FC = () => {
               </button>
             )}
 
+            {/* QR — flujo principal de firma remota */}
+            {(estado === 'borrador' || estado === 'pendiente_firma') && (
+              <button
+                onClick={() => openQrForEntrega(row.id)}
+                className="px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
+              >
+                QR
+              </button>
+            )}
+
             {/* Confirmar — solo en pendiente_firma */}
             {estado === 'pendiente_firma' && (
               <button
@@ -308,7 +398,7 @@ const AdminEntregasPage: React.FC = () => {
               </button>
             )}
 
-            {estado !== 'anulada' && estado !== 'revertida_admin' && (
+            {['confirmada', 'en_transito', 'recibido'].includes(estado) && (
               <button
                 onClick={() => {
                   setEntregaDeshacer(row);
@@ -319,11 +409,20 @@ const AdminEntregasPage: React.FC = () => {
                 Deshacer
               </button>
             )}
+
+            {isAdmin && (estado === 'anulada' || estado === 'revertida_admin') && (
+              <button
+                onClick={() => setEntregaEliminar(row)}
+                className="px-2 py-1 text-xs text-red-700 hover:text-red-900 hover:underline"
+              >
+                Eliminar
+              </button>
+            )}
           </div>
         );
       },
     },
-  ], []);
+  ], [isAdmin]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -439,6 +538,73 @@ const AdminEntregasPage: React.FC = () => {
         confirmDisabled={recibirMutation.isPending}
       />
 
+      {/* Modal compartir firma remota */}
+      <Modal
+        isOpen={!!tokenShare}
+        onClose={() => setTokenShare(null)}
+        title="Compartir firma por QR"
+      >
+        {tokenShare && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-dark-blue">Firma remota por QR</h3>
+            <p className="text-sm text-gray-600">
+              Comparte este QR o enlace con el receptor para firmar desde su teléfono.
+            </p>
+
+            <div className="flex flex-col items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <QRCodeSVG
+                value={`${window.location.origin}/firma/${tokenShare.token}`}
+                size={180}
+                bgColor="#ffffff"
+                fgColor="#1E2A4A"
+                level="M"
+              />
+              <p className="text-xs text-gray-500">
+                Entrega: <span className="font-medium">{tokenShare.entregaId.slice(0, 8)}</span>
+              </p>
+              <p className="text-xs text-gray-500">
+                Expira: {new Date(tokenShare.expiraEn).toLocaleString('es-CL')}
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-gray-200 p-3 text-xs break-all bg-white text-gray-700">
+              {`${window.location.origin}/firma/${tokenShare.token}`}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="px-3 py-2 text-xs rounded-md bg-primary-blue text-white hover:bg-blue-700"
+                onClick={() => {
+                  const link = `${window.location.origin}/firma/${tokenShare.token}`;
+                  navigator.clipboard.writeText(link);
+                  toast.success('Enlace copiado al portapapeles.');
+                }}
+              >
+                Copiar enlace
+              </button>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(
+                  `Firma esta entrega en: ${window.location.origin}/firma/${tokenShare.token}`
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-2 text-xs rounded-md bg-green-700 text-white hover:bg-green-800"
+              >
+                Compartir WhatsApp
+              </a>
+              <button
+                type="button"
+                className="px-3 py-2 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
+                onClick={() => setTokenShare(null)}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* Anular entrega */}
       <ConfirmationModal
         isOpen={!!entregaAnular}
@@ -520,6 +686,22 @@ const AdminEntregasPage: React.FC = () => {
           </p>
         </div>
       </ConfirmationModal>
+
+      {/* Eliminar entrega definitiva (solo admin y estado cerrado) */}
+      <ConfirmationModal
+        isOpen={!!entregaEliminar}
+        onClose={() => setEntregaEliminar(null)}
+        onConfirm={() => entregaEliminar && permanentDeleteMutation.mutate(entregaEliminar.id)}
+        title="Eliminar entrega"
+        message={
+          entregaEliminar
+            ? `Vas a eliminar de forma irreversible la entrega de ${entregaEliminar.nombres ?? ''} ${entregaEliminar.apellidos ?? ''}. Esta acción no se puede deshacer.`
+            : ''
+        }
+        confirmText="Eliminar"
+        variant="danger"
+        confirmDisabled={permanentDeleteMutation.isPending}
+      />
     </div>
   );
 };

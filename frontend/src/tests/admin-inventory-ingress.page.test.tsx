@@ -70,7 +70,7 @@ describe('AdminInventoryIngressPage', () => {
         case '/articulos':
           return {
             data: [
-              { id: 'article-qty', nombre: 'Guante', tracking_mode: 'cantidad' },
+              { id: 'article-qty', nombre: 'Guante', tracking_mode: 'lote' },
               { id: 'article-serial', nombre: 'Taladro', tracking_mode: 'serial' },
             ],
             isLoading: false,

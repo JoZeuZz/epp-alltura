@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const db = require('../db');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
+const signatureEvents = require('../lib/signatureEvents');
 
 const buildError = (message, statusCode = 400, code = null) => {
   const error = new Error(message);
@@ -44,6 +45,14 @@ const normalizeAcceptanceText = (generalText, detailText) => {
 };
 
 const buildTokenUrl = (token) => `/firmas/tokens/${token}`;
+
+const toExpiryMinutes = (expiraEn) => {
+  const diffMs = new Date(expiraEn).getTime() - Date.now();
+  if (!Number.isFinite(diffMs)) {
+    return 0;
+  }
+  return Math.max(0, Math.ceil(diffMs / 60000));
+};
 
 const getExpectedSignerWorkerId = (entrega) => {
   if (entrega?.tipo === 'traslado') {
@@ -117,6 +126,15 @@ class FirmasService {
       });
 
       await client.query('COMMIT');
+
+      signatureEvents.publishDeliverySigned({
+        signatureId: firma.id,
+        entregaId: entrega.id,
+        metodo: 'en_dispositivo',
+        firmadoEn: firma.firmado_en,
+        trabajadorId: firma.trabajador_id,
+      });
+
       return {
         ...firma,
         token_consumido: false,
@@ -180,6 +198,58 @@ class FirmasService {
         throw buildError('La entrega ya se encuentra firmada', 409, 'DELIVERY_ALREADY_SIGNED');
       }
 
+      const activeTokenResult = await client.query(
+        `
+        SELECT id, entrega_id, trabajador_id, expira_en, token_publico
+        FROM firma_token
+        WHERE entrega_id = $1
+          AND usado_en IS NULL
+          AND expira_en > NOW()
+        ORDER BY expira_en DESC, id DESC
+        LIMIT 1
+        FOR UPDATE
+        `,
+        [entregaId]
+      );
+
+      const activeToken = activeTokenResult.rows[0] || null;
+      if (activeToken && activeToken.token_publico) {
+        if (entrega.estado === 'borrador') {
+          await client.query(
+            `
+            UPDATE entrega
+            SET estado = 'pendiente_firma'
+            WHERE id = $1
+            `,
+            [entregaId]
+          );
+        }
+
+        await client.query('COMMIT');
+        return {
+          id: activeToken.id,
+          entrega_id: activeToken.entrega_id,
+          trabajador_id: activeToken.trabajador_id,
+          expira_en: activeToken.expira_en,
+          token: activeToken.token_publico,
+          url: buildTokenUrl(activeToken.token_publico),
+          reused: true,
+          time_to_expiry_minutes: toExpiryMinutes(activeToken.expira_en),
+        };
+      }
+
+      // Si existe token activo legacy sin token_publico, se invalida y se regenera.
+      if (activeToken && !activeToken.token_publico) {
+        await client.query(
+          `
+          UPDATE firma_token
+          SET expira_en = NOW() - INTERVAL '1 second'
+          WHERE id = $1
+          `,
+          [activeToken.id]
+        );
+      }
+
       const tokenResult = await client.query(
         `
         INSERT INTO firma_token (
@@ -187,12 +257,20 @@ class FirmasService {
           trabajador_id,
           creado_por_usuario_id,
           token_hash,
+          token_publico,
           expira_en
         )
-        VALUES ($1, $2, $3, $4, NOW() + ($5 || ' minutes')::interval)
+        VALUES ($1, $2, $3, $4, $5, NOW() + ($6 || ' minutes')::interval)
         RETURNING id, entrega_id, trabajador_id, expira_en
         `,
-        [entregaId, expectedSignerWorkerId, creadoPorUsuarioId, tokenHash, String(expiryMinutes)]
+        [
+          entregaId,
+          expectedSignerWorkerId,
+          creadoPorUsuarioId,
+          tokenHash,
+          token,
+          String(expiryMinutes),
+        ]
       );
 
           await writeAuditEvent({
@@ -229,6 +307,8 @@ class FirmasService {
         expira_en: tokenRecord.expira_en,
         token,
         url: buildTokenUrl(token),
+        reused: false,
+        time_to_expiry_minutes: toExpiryMinutes(tokenRecord.expira_en),
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -316,6 +396,14 @@ class FirmasService {
       );
 
       await client.query('COMMIT');
+
+      signatureEvents.publishDeliverySigned({
+        signatureId: firma.id,
+        entregaId: tokenRow.entrega_id,
+        metodo: 'qr_link',
+        firmadoEn: firma.firmado_en,
+        trabajadorId: firma.trabajador_id,
+      });
 
       return {
         ...firma,

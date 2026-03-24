@@ -3,7 +3,7 @@ import type {
   InventoryIngresoCreatePayload,
 } from '../../../services/apiService';
 
-export type TrackingMode = 'serial' | 'lote' | 'cantidad';
+export type TrackingMode = 'serial' | 'lote';
 
 export interface InventoryIngressFormValues {
   articulo_id: string;

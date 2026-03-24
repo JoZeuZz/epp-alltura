@@ -3,7 +3,7 @@
 **Estado:** Actual
 
 ## Objetivo del documento
-Este documento es la **fuente de verdad** para crear nuevas aplicaciones Alltura con el mismo diseño, stack y prácticas de Alltura Reports. Un agente de IA debe seguir estas reglas **sin improvisar**. La meta es que todas las apps se vean, operen y se desplieguen como un solo sistema coherente.
+Este documento es la **fuente de verdad** para crear nuevas aplicaciones Alltura con el mismo diseño, stack y prácticas de Alltura EPP Control. Un agente de IA debe seguir estas reglas **sin improvisar**. La meta es que todas las apps se vean, operen y se desplieguen como un solo sistema coherente.
 
 ---
 
@@ -329,7 +329,7 @@ Registrar entrega, recepción, devolución y trazabilidad de herramientas/EPP as
 
 # 17) Estructura exacta de repo (plantilla base para nuevas apps)
 
-Objetivo: crear un repo base "limpio" (sin residuos de dominio) que conserve **stack + diseño + UX patterns** de Alltura Reports.
+Objetivo: crear un repo base "limpio" (sin residuos de dominio) que conserve **stack + diseño + UX patterns** de Alltura EPP Control.
 
 Regla: el repo nuevo **solo** debe incluir lo necesario para:
 - Auth + refresh (sesiones largas)
