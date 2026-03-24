@@ -37,9 +37,8 @@ const statusBadgeClasses = (status?: string | null): string => {
 };
 
 const trackModeLabel = (value?: string | null): string => {
-  if (value === 'lote') return 'Lote';
-  if (value === 'cantidad') return 'Cantidad';
-  return 'Serial';
+  if (value === 'lote') return 'Por Lote';
+  return 'Por Unidad';
 };
 
 const retornoLabel = (value?: string | null): string => {
@@ -224,7 +223,7 @@ const AdminInventoryArticlesPage: React.FC = () => {
       },
       {
         key: 'tracking_mode',
-        header: 'Tracking',
+        header: 'Seguimiento',
         render: (value) => trackModeLabel(String(value || '')),
       },
       {
@@ -361,10 +360,9 @@ const AdminInventoryArticlesPage: React.FC = () => {
             }))
           }
         >
-          <option value="">Todos los tracking</option>
-          <option value="serial">Serial</option>
-          <option value="lote">Lote</option>
-          <option value="cantidad">Cantidad</option>
+          <option value="">Todos los modos</option>
+          <option value="serial">Por Unidad</option>
+          <option value="lote">Por Lote</option>
         </select>
 
         <select

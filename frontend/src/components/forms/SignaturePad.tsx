@@ -5,6 +5,7 @@ interface SignaturePadProps {
   required?: boolean;
   className?: string;
   disabled?: boolean;
+  showPreview?: boolean;
   onChange?: (dataUrl: string | null, file: File | null) => void;
 }
 
@@ -30,6 +31,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
   required = false,
   className = '',
   disabled = false,
+  showPreview = true,
   onChange,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -180,7 +182,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
 
       {error && <p className="text-xs text-red-600">{error}</p>}
 
-      {previewUrl && (
+      {showPreview && previewUrl && (
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-2">
           <p className="text-xs text-gray-500 mb-1">Vista previa</p>
           <img src={previewUrl} alt="Vista previa de firma" className="w-full max-h-28 object-contain" />

@@ -32,7 +32,7 @@ const devolucionDetalleSchema = Joi.object({
   articulo_id: uuid.allow(null),
   activo_ids: Joi.array().items(uuid).min(1).optional(),
   lote_id: uuid.allow(null),
-  cantidad: Joi.number().positive().required(),
+  cantidad: Joi.number().integer().positive().required(),
   condicion_entrada: Joi.string().valid('ok', 'usado', 'danado', 'perdido').default('ok'),
   disposicion: Joi.string().valid('devuelto', 'perdido', 'baja', 'mantencion').required(),
   notas: Joi.string().trim().max(1000).allow('', null),

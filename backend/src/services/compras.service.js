@@ -11,7 +11,7 @@ const buildError = (message, statusCode = 400, code = null) => {
 
 const toQuantity = (value) => {
   const qty = Number(value);
-  if (!Number.isFinite(qty) || qty <= 0) {
+  if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
     throw buildError('La cantidad debe ser mayor que cero', 400, 'INVALID_QUANTITY');
   }
   return qty;
@@ -504,7 +504,7 @@ class ComprasService {
     );
   }
 
-  static async deleteIngreso(id) {
+  static async deleteIngreso(id, userId) {
     const client = await db.pool.connect();
 
     try {
@@ -512,13 +512,15 @@ class ComprasService {
 
       // 1. Verificar que el ingreso existe
       const compraCheck = await client.query(
-        `SELECT id FROM compra WHERE id = $1`,
+        `SELECT id, creado_por_usuario_id FROM compra WHERE id = $1`,
         [id]
       );
 
       if (!compraCheck.rows.length) {
         throw buildError('Ingreso no encontrado', 404, 'INGRESO_NOT_FOUND');
       }
+
+      const actorUserId = userId || compraCheck.rows[0].creado_por_usuario_id;
 
       // 2. Obtener todos los movimientos de entrada asociados a esta compra
       const movimientosResult = await client.query(
@@ -604,15 +606,35 @@ class ComprasService {
             [mov.cantidad, mov.articulo_id, mov.ubicacion_id]
           );
         }
+
+        await client.query(
+          `
+          INSERT INTO movimiento_stock (
+            articulo_id,
+            lote_id,
+            tipo,
+            ubicacion_origen_id,
+            ubicacion_destino_id,
+            cantidad,
+            responsable_usuario_id,
+            compra_id,
+            notas
+          )
+          VALUES ($1, $2, 'salida', $3, NULL, $4, $5, $6, $7)
+          `,
+          [
+            mov.articulo_id,
+            mov.lote_id,
+            mov.ubicacion_id,
+            mov.cantidad,
+            actorUserId,
+            id,
+            `[reversion_ingreso:${id}]`,
+          ]
+        );
       }
 
-      // 5. Eliminar los movimientos de stock de este ingreso
-      await client.query(
-        `DELETE FROM movimiento_stock WHERE compra_id = $1`,
-        [id]
-      );
-
-      // 6. Eliminar la compra (cascade elimina compra_detalle;
+      // 5. Eliminar la compra (cascade elimina compra_detalle;
       //    lote.compra_detalle_id queda en NULL por ON DELETE SET NULL)
       await client.query(
         `DELETE FROM compra WHERE id = $1`,

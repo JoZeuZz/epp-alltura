@@ -232,7 +232,7 @@ const seedBaseData = async () => {
     )
     VALUES
       ($1, 'herramienta', 'Taladro Industrial', 'herramientas', 'serial', 'retornable', 'alto', false, 'unidad', 'activo'),
-      ($2, 'epp', 'Guante Nitrilo', 'epp', 'cantidad', 'consumible', 'medio', false, 'par', 'activo')
+      ($2, 'epp', 'Guante Nitrilo', 'epp', 'lote', 'consumible', 'medio', false, 'par', 'activo')
     `,
     [IDS.articuloSerialId, IDS.articuloCantidadId]
   );

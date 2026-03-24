@@ -140,7 +140,7 @@ export const updateUser = <T = unknown>({ id, ...payload }: UserUpdatePayload) =
 export const deactivateUser = <T = unknown>(id: string) => del<T>(`/users/${id}`);
 
 export type ArticuloTipo = 'herramienta' | 'epp' | 'consumible';
-export type ArticuloTrackingMode = 'serial' | 'lote' | 'cantidad';
+export type ArticuloTrackingMode = 'serial' | 'lote';
 export type ArticuloRetornoMode = 'retornable' | 'consumible';
 export type ArticuloNivelControl = 'alto' | 'medio' | 'bajo' | 'fuera_scope';
 export type ArticuloEstado = 'activo' | 'inactivo';
@@ -207,6 +207,99 @@ export interface InventoryStockQueryParams {
   offset?: number;
 }
 
+export interface CursorPaginationParams {
+  limit?: number;
+  cursor?: string;
+}
+
+export interface CursorPaginatedResponse<T> {
+  items: T[];
+  hasMore: boolean;
+  nextCursor?: string | null;
+}
+
+export interface InventoryStockSummaryQueryParams extends CursorPaginationParams {
+  search?: string;
+  articulo_id?: string;
+  ubicacion_id?: string;
+}
+
+export interface InventoryStockSummaryRow {
+  articulo_id: string;
+  articulo_nombre: string;
+  tracking_mode?: ArticuloTrackingMode;
+  retorno_mode?: ArticuloRetornoMode;
+  ubicaciones_count: number;
+  disponible_total: number;
+  reservada_total: number;
+  registros_count: number;
+}
+
+export interface InventoryStockDetailQueryParams extends CursorPaginationParams {
+  search?: string;
+  articulo_id?: string;
+  ubicacion_id?: string;
+  lote_id?: string;
+}
+
+export interface InventoryStockDetailRow {
+  id: string;
+  articulo_id: string;
+  articulo_nombre?: string;
+  tracking_mode?: ArticuloTrackingMode;
+  retorno_mode?: ArticuloRetornoMode;
+  ubicacion_id: string;
+  ubicacion_nombre?: string;
+  lote_id?: string | null;
+  codigo_lote?: string | null;
+  fecha_vencimiento?: string | null;
+  cantidad_disponible?: number;
+  cantidad_reservada?: number;
+  ultimo_movimiento_tipo?: string | null;
+  ultimo_movimiento_fecha?: string | null;
+  ultimo_movimiento_responsable?: string | null;
+}
+
+export interface InventoryActivoDetailQueryParams extends CursorPaginationParams {
+  search?: string;
+  articulo_id?: string;
+  ubicacion_id?: string;
+  estado?: string;
+  solo_entregados?: boolean;
+}
+
+export interface InventoryActivoDetailRow {
+  id: string;
+  codigo?: string;
+  nro_serie?: string | null;
+  articulo_id?: string;
+  articulo_nombre?: string;
+  tracking_mode?: ArticuloTrackingMode;
+  retorno_mode?: ArticuloRetornoMode;
+  ubicacion_id?: string | null;
+  ubicacion_nombre?: string | null;
+  estado?: string;
+  fecha_vencimiento?: string | null;
+  custodia_id?: string | null;
+  custodia_estado?: string | null;
+  custodia_desde_en?: string | null;
+  custodio_trabajador_id?: string | null;
+  custodio_nombres?: string | null;
+  custodio_apellidos?: string | null;
+  custodia_ubicacion_id?: string | null;
+  custodia_ubicacion_nombre?: string | null;
+  custodia_entrega_id?: string | null;
+  ultima_entrega_id?: string | null;
+  entrega_confirmada_en?: string | null;
+  ultima_devolucion_id?: string | null;
+  devolucion_confirmada_en?: string | null;
+  dias_en_custodia?: number | null;
+  ultimo_movimiento_tipo?: string | null;
+  ultimo_movimiento_fecha?: string | null;
+  ultimo_movimiento_origen_nombre?: string | null;
+  ultimo_movimiento_destino_nombre?: string | null;
+}
+
 export interface InventoryAvailableAssetQueryParams {
   articulo_id: string;
   ubicacion_id: string;
@@ -246,10 +339,69 @@ export interface ReturnEligibleAssetRow {
   ubicacion_actual_nombre?: string | null;
 }
 
+export type DevolucionEstado = 'borrador' | 'pendiente_firma' | 'confirmada' | 'anulada';
+export type DevolucionDisposicion = 'devuelto' | 'perdido' | 'baja' | 'mantencion';
+export type DevolucionCondicionEntrada = 'ok' | 'usado' | 'danado' | 'perdido';
+
+export interface DevolucionDetalleRow {
+  id: string;
+  devolucion_id: string;
+  custodia_activo_id?: string | null;
+  articulo_id?: string | null;
+  articulo_nombre?: string;
+  activo_id?: string | null;
+  activo_codigo?: string | null;
+  activo_nro_serie?: string | null;
+  tracking_mode?: 'serial' | 'lote';
+  retorno_mode?: 'retornable' | 'consumible';
+  lote_id?: string | null;
+  codigo_lote?: string | null;
+  cantidad: number;
+  condicion_entrada: DevolucionCondicionEntrada;
+  disposicion: DevolucionDisposicion;
+  notas?: string | null;
+}
+
+export interface DevolucionRow {
+  id: string;
+  trabajador_id: string;
+  recibido_por_usuario_id: string;
+  ubicacion_recepcion_id: string;
+  estado: DevolucionEstado;
+  creado_en?: string | null;
+  confirmada_en?: string | null;
+  notas?: string | null;
+  nombres?: string;
+  apellidos?: string;
+  cantidad_detalles?: number;
+  firma_imagen_url?: string | null;
+  firmado_en?: string | null;
+  detalles?: DevolucionDetalleRow[];
+}
+
+export interface DevolucionDetallePayload {
+  custodia_activo_id?: string | null;
+  articulo_id?: string | null;
+  activo_ids?: string[];
+  lote_id?: string | null;
+  cantidad: number;
+  condicion_entrada?: DevolucionCondicionEntrada;
+  disposicion: DevolucionDisposicion;
+  notas?: string | null;
+}
+
+export interface DevolucionCreatePayload {
+  trabajador_id: string;
+  ubicacion_recepcion_id: string;
+  notas?: string | null;
+  detalles: DevolucionDetallePayload[];
+}
+
 export interface InventoryMovementQueryParams {
   articulo_id?: string;
   tipo?: string;
   compra_id?: string;
+  egreso_id?: string;
   entrega_id?: string;
   devolucion_id?: string;
   desde?: string;
@@ -326,11 +478,32 @@ export interface InventoryIngresoCreatePayload {
 export const getInventoryStock = (params?: InventoryStockQueryParams) =>
   get('/inventario/stock', params);
 
+export const getInventoryStockSummary = (params?: InventoryStockSummaryQueryParams) =>
+  get<CursorPaginatedResponse<InventoryStockSummaryRow>>('/inventario/stock-summary', params);
+
+export const getInventoryStockPaged = (params?: InventoryStockDetailQueryParams) =>
+  get<CursorPaginatedResponse<InventoryStockDetailRow>>('/inventario/stock-paged', params);
+
+export const getInventoryActivosPaged = (params?: InventoryActivoDetailQueryParams) =>
+  get<CursorPaginatedResponse<InventoryActivoDetailRow>>('/inventario/activos-paged', params);
+
 export const getInventoryAvailableAssets = (params: InventoryAvailableAssetQueryParams) =>
   get<InventoryAvailableAssetRow[]>('/inventario/activos-disponibles', params);
 
 export const getReturnEligibleAssets = (params: ReturnEligibleAssetQueryParams) =>
   get<ReturnEligibleAssetRow[]>('/devoluciones/activos-elegibles', params);
+
+export const getDevoluciones = (params?: { estado?: DevolucionEstado; trabajador_id?: string }) =>
+  get<DevolucionRow[]>('/devoluciones', params);
+
+export const getDevolucionById = (id: string) =>
+  get<DevolucionRow>(`/devoluciones/${id}`);
+
+export const createDevolucion = (payload: DevolucionCreatePayload) =>
+  post<DevolucionRow>('/devoluciones', payload);
+
+export const confirmDevolucion = (id: string) =>
+  post<DevolucionRow>(`/devoluciones/${id}/confirm`);
 
 export const getInventoryStockMovements = (params?: InventoryMovementQueryParams) =>
   get('/inventario/movimientos-stock', params);
@@ -447,7 +620,7 @@ export interface EntregaDetalleRow {
   entrega_id: string;
   articulo_id: string;
   articulo_nombre?: string;
-  tracking_mode?: 'serial' | 'lote' | 'cantidad';
+  tracking_mode?: 'serial' | 'lote';
   retorno_mode?: 'retornable' | 'consumible';
   activo_id?: string | null;
   activo_codigo?: string | null;
@@ -517,6 +690,25 @@ export const getEntregas = (params?: { estado?: EntregaEstado; trabajador_id?: s
 export const getEntregaById = (id: string) =>
   get<EntregaRow>(`/entregas/${id}`);
 
+export interface EntregaSignatureTokenResponse {
+  id: string;
+  entrega_id: string;
+  trabajador_id: string;
+  expira_en: string;
+  token: string;
+  url: string;
+  reused?: boolean;
+  time_to_expiry_minutes?: number;
+}
+
+export const generateEntregaSignatureToken = (
+  entregaId: string,
+  expiraMinutos = 30
+) =>
+  post<EntregaSignatureTokenResponse>(`/firmas/entregas/${entregaId}/token`, {
+    expira_minutos: expiraMinutos,
+  });
+
 export const createEntrega = (payload: EntregaCreatePayload) =>
   post<EntregaRow>('/entregas', payload);
 
@@ -531,6 +723,11 @@ export const anularEntrega = (id: string, payload: { motivo: string }) =>
 
 export const deshacerEntrega = (id: string, payload: { motivo: string }) =>
   post<EntregaRow>(`/entregas/${id}/deshacer`, payload);
+
+export const permanentDeleteEntrega = (id: string) =>
+  del<{ id: string; estado_anterior: EntregaEstado; eliminado_por_usuario_id: string }>(
+    `/entregas/${id}/permanent`
+  );
 
 export const firmarEntregaDispositivo = (
   entregaId: string,

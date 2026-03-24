@@ -5,6 +5,7 @@ import { ResponsiveTable, type TableColumn } from '../../../components/layout';
 import ConfirmationModal from '../../../components/ConfirmationModal';
 import InventoryEgressModal from '../../../components/forms/InventoryEgressModal';
 import { useGet } from '../../../hooks';
+import { formatQuantityInteger } from '../../../utils/quantity';
 import {
   createInventoryEgreso,
   deleteInventoryEgreso,
@@ -16,7 +17,7 @@ import {
 interface ArticuloOption {
   id: string;
   nombre: string;
-  tracking_mode: 'serial' | 'lote' | 'cantidad';
+  tracking_mode: 'serial' | 'lote';
 }
 
 interface UbicacionOption {
@@ -42,12 +43,6 @@ const formatDateTime = (value?: string | null): string => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return '-';
   return parsed.toLocaleString();
-};
-
-const toNumber = (value: unknown): number => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 0;
-  return parsed;
 };
 
 const toErrorMessage = (error: unknown): string => {
@@ -124,13 +119,13 @@ const AdminInventoryEgressPage: React.FC = () => {
         key: 'cantidad_items',
         header: 'Ítems',
         align: 'right',
-        render: (value) => toNumber(value),
+        render: (value) => formatQuantityInteger(value),
       },
       {
         key: 'cantidad_total',
         header: 'Cantidad total',
         align: 'right',
-        render: (value) => toNumber(value),
+        render: (value) => formatQuantityInteger(value),
       },
       {
         key: 'acciones',

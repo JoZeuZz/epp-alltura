@@ -24,13 +24,13 @@ const validateArticuloClassification = (value, helpers) => {
 
   if (retornoMode === 'retornable' && trackingMode !== 'serial') {
     return helpers.error('any.custom', {
-      message: 'Los artículos retornables deben usar tracking_mode "serial"',
+      message: 'Los artículos retornables deben gestionarse por unidad',
     });
   }
 
   if (retornoMode === 'consumible' && trackingMode === 'serial') {
     return helpers.error('any.custom', {
-      message: 'Los artículos consumibles no pueden usar tracking_mode "serial"',
+      message: 'Los artículos consumibles no pueden gestionarse por unidad',
     });
   }
 
@@ -42,7 +42,7 @@ const validateArticuloClassification = (value, helpers) => {
 
   if ((tipo === 'herramienta' || tipo === 'epp') && retornoMode === 'retornable' && trackingMode !== 'serial') {
     return helpers.error('any.custom', {
-      message: 'Herramientas/EPP retornables deben gestionarse por unidad (tracking_mode "serial")',
+      message: 'Herramientas/EPP retornables deben gestionarse por unidad',
     });
   }
 
@@ -55,7 +55,7 @@ const articuloCreateSchema = Joi.object({
   marca: Joi.string().trim().max(120).allow('', null),
   modelo: Joi.string().trim().max(120).allow('', null),
   categoria: Joi.string().trim().max(120).allow('', null),
-  tracking_mode: Joi.string().valid('serial', 'lote', 'cantidad').required(),
+  tracking_mode: Joi.string().valid('serial', 'lote').required(),
   retorno_mode: Joi.string().valid('retornable', 'consumible').required(),
   nivel_control: Joi.string().valid('alto', 'medio', 'bajo', 'fuera_scope').required(),
   requiere_vencimiento: Joi.boolean().default(false),
@@ -73,7 +73,7 @@ const articuloUpdateSchema = Joi.object({
   marca: Joi.string().trim().max(120).allow('', null),
   modelo: Joi.string().trim().max(120).allow('', null),
   categoria: Joi.string().trim().max(120).allow('', null),
-  tracking_mode: Joi.string().valid('serial', 'lote', 'cantidad'),
+  tracking_mode: Joi.string().valid('serial', 'lote'),
   retorno_mode: Joi.string().valid('retornable', 'consumible'),
   nivel_control: Joi.string().valid('alto', 'medio', 'bajo', 'fuera_scope'),
   requiere_vencimiento: Joi.boolean(),
@@ -92,13 +92,13 @@ const articuloUpdateSchema = Joi.object({
 
     if (retornoMode === 'retornable' && trackingMode && trackingMode !== 'serial') {
       return helpers.error('any.custom', {
-        message: 'Los artículos retornables deben usar tracking_mode "serial"',
+        message: 'Los artículos retornables deben gestionarse por unidad',
       });
     }
 
     if (retornoMode === 'consumible' && trackingMode === 'serial') {
       return helpers.error('any.custom', {
-        message: 'Los artículos consumibles no pueden usar tracking_mode "serial"',
+        message: 'Los artículos consumibles no pueden gestionarse por unidad',
       });
     }
 

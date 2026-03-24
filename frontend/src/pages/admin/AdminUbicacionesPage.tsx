@@ -532,7 +532,7 @@ const AdminUbicacionesPage: React.FC = () => {
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100">
             <p className="text-sm text-neutral-gray">
-              {filtered.length} ubicación{filtered.length !== 1 ? 'es' : ''}
+              {filtered.length} ubicacion{filtered.length !== 1 ? 'es' : ''}
               {filterTipo !== 'todos' || filterEstado !== 'todos' || search
                 ? ` (filtrado de ${ubicaciones.length})`
                 : ''}

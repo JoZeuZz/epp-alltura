@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { ResponsiveTable, type TableColumn } from '../../../components/layout';
 import { useGet } from '../../../hooks';
 import { exportInventoryStockMovementsCsv } from '../../../services/apiService';
+import { formatQuantityInteger } from '../../../utils/quantity';
 
 interface MovementRow {
   id: string;
@@ -15,6 +16,9 @@ interface MovementRow {
   ubicacion_origen_nombre?: string | null;
   ubicacion_destino_nombre?: string | null;
   responsable_email?: string;
+  evento_origen?: string;
+  referencia_origen_id?: string | null;
+  notas?: string | null;
 }
 
 // TODO: Activos serializados — descomentar cuando se requiera gestión serial
@@ -37,10 +41,24 @@ const formatDateTime = (value?: string | null): string => {
   return parsed.toLocaleString();
 };
 
-const toNumber = (value: unknown): number => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 0;
-  return parsed;
+const TIPO_LABELS: Record<string, string> = {
+  entrada: 'Entrada',
+  salida: 'Salida',
+  traslado: 'Traslado',
+  ajuste: 'Ajuste',
+  baja: 'Baja',
+  consumo: 'Consumo',
+  entrega: 'Entrega',
+  devolucion: 'Devolución',
+};
+
+const EVENTO_LABELS: Record<string, string> = {
+  ingreso: 'Ingreso',
+  egreso: 'Egreso',
+  entrega: 'Entrega',
+  deshacer_entrega: 'Deshacer entrega',
+  devolucion: 'Devolución',
+  inventario: 'Inventario',
 };
 
 const AdminInventoryMovementsPage: React.FC = () => {
@@ -83,13 +101,27 @@ const AdminInventoryMovementsPage: React.FC = () => {
         header: 'Fecha',
         render: (value) => formatDateTime(String(value || '')),
       },
-      { key: 'tipo', header: 'Tipo' },
-      { key: 'articulo_nombre', header: 'Artículo' },
+      {
+        key: 'tipo',
+        header: 'Tipo',
+        render: (value) => TIPO_LABELS[String(value || '')] || String(value || '-'),
+      },
+      {
+        key: 'evento_origen',
+        header: 'Evento',
+        hideOnMobile: true,
+        render: (value) => EVENTO_LABELS[String(value || '')] || String(value || '-'),
+      },
+      {
+        key: 'articulo_nombre',
+        header: 'Artículo',
+        render: (value) => String(value || '-'),
+      },
       {
         key: 'cantidad',
         header: 'Cantidad',
         align: 'right',
-        render: (value) => toNumber(value),
+        render: (value) => formatQuantityInteger(value),
       },
       {
         key: 'destino',
@@ -101,11 +133,23 @@ const AdminInventoryMovementsPage: React.FC = () => {
         header: 'Responsable',
         hideOnMobile: true,
       },
+      {
+        key: 'notas',
+        header: 'Detalle',
+        hideOnMobile: true,
+        render: (_value, row) => {
+          if (row.notas) return row.notas;
+          if (row.referencia_origen_id) {
+            return `Ref: ${String(row.referencia_origen_id).slice(0, 8)}...`;
+          }
+          return '-';
+        },
+      },
     ],
     []
   );
 
-  const tipos = ['entrada', 'salida', 'reserva', 'liberacion', 'ajuste', 'devolucion', 'entrega'];
+  const tipos = ['entrada', 'salida', 'traslado', 'ajuste', 'baja', 'consumo', 'entrega', 'devolucion'];
 
   const handleExport = async () => {
     try {
@@ -140,7 +184,7 @@ const AdminInventoryMovementsPage: React.FC = () => {
         >
           <option value="">Todos los tipos</option>
           {tipos.map((t) => (
-            <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+            <option key={t} value={t}>{TIPO_LABELS[t] || t}</option>
           ))}
         </select>
         <input

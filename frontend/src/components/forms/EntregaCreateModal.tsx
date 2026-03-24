@@ -6,6 +6,7 @@ import type {
   CondicionSalida,
 } from '../../services/apiService';
 import AssetUnitSelector from './AssetUnitSelector';
+import { parseQuantityInteger } from '../../utils/quantity';
 
 interface TrabajadorOption {
   id: string;
@@ -25,7 +26,7 @@ interface UbicacionOption {
 interface ArticuloOption {
   id: string;
   nombre: string;
-  tracking_mode: 'serial' | 'lote' | 'cantidad';
+  tracking_mode: 'serial' | 'lote';
   retorno_mode: 'retornable' | 'consumible';
 }
 
@@ -493,11 +494,11 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                     <input
                       type="number"
                       min={1}
-                      step="any"
+                      step={1}
                       value={detalle.cantidad}
                       disabled={needsSerial}
                       onChange={(e) =>
-                        updateDetalle(idx, 'cantidad', Number(e.target.value))
+                        updateDetalle(idx, 'cantidad', parseQuantityInteger(e.target.value, 1))
                       }
                       className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
                     />

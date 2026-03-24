@@ -60,7 +60,7 @@ const loteSchema = Joi.object({
 const ingresoDetalleSchema = Joi.object({
   articulo_id: uuid.required(),
   ubicacion_id: uuid.required(),
-  cantidad: Joi.number().positive().required(),
+  cantidad: Joi.number().integer().positive().required(),
   costo_unitario: Joi.number().min(0).default(0),
   notas: Joi.string().trim().max(1000).allow('', null),
   lote_id: uuid.allow(null),
@@ -197,7 +197,7 @@ const createEgresoSchema = Joi.object({
     Joi.object({
       articulo_id: uuid.required(),
       ubicacion_id: uuid.required(),
-      cantidad: Joi.number().positive().optional(),
+      cantidad: Joi.number().integer().positive().optional(),
       activo_ids: Joi.array().items(uuid).min(1).optional(),
       lote_id: uuid.allow(null),
       notas: Joi.string().trim().max(1000).allow('', null),
@@ -264,6 +264,20 @@ router.get(
 );
 
 router.get(
+  '/stock-summary',
+  authMiddleware,
+  checkRole(['admin', 'supervisor', 'bodega']),
+  InventarioController.getStockSummary
+);
+
+router.get(
+  '/stock-paged',
+  authMiddleware,
+  checkRole(['admin', 'supervisor', 'bodega']),
+  InventarioController.getStockPaged
+);
+
+router.get(
   '/movimientos-stock',
   authMiddleware,
   checkRole(['admin', 'supervisor', 'bodega']),
@@ -289,6 +303,13 @@ router.get(
   authMiddleware,
   checkRole(['admin', 'supervisor', 'bodega']),
   InventarioController.getActivos
+);
+
+router.get(
+  '/activos-paged',
+  authMiddleware,
+  checkRole(['admin', 'supervisor', 'bodega']),
+  InventarioController.getActivosPaged
 );
 
 router.get(

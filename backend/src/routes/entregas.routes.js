@@ -26,7 +26,7 @@ const entregaDetalleSchema = Joi.object({
   articulo_id: uuid.required(),
   activo_ids: Joi.array().items(uuid).min(1).optional(),
   lote_id: uuid.allow(null),
-  cantidad: Joi.number().positive().optional(),
+  cantidad: Joi.number().integer().positive().optional(),
   condicion_salida: Joi.string().valid('ok', 'usado', 'danado').default('ok'),
   notas: Joi.string().trim().max(1000).allow('', null),
 });
@@ -114,6 +114,13 @@ router.post(
   checkRole(['admin']),
   validateBody(deshacerEntregaSchema),
   EntregasController.deshacer
+);
+
+router.delete(
+  '/:id/permanent',
+  authMiddleware,
+  checkRole(['admin']),
+  EntregasController.permanentDelete
 );
 
 module.exports = router;

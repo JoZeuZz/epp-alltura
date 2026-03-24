@@ -19,7 +19,15 @@ ALTER TABLE entrega
 ALTER TABLE entrega
   ADD CONSTRAINT entrega_estado_check
   CHECK (
-    estado IN ('borrador', 'pendiente_firma', 'en_transito', 'recibido', 'confirmada', 'anulada')
+    estado IN (
+      'borrador',
+      'pendiente_firma',
+      'en_transito',
+      'recibido',
+      'confirmada',
+      'anulada',
+      'revertida_admin'
+    )
   );
 
 ALTER TABLE entrega

@@ -81,7 +81,7 @@ describe('AdminInventoryArticlesPage', () => {
               id: 'article-1',
               nombre: 'Guantes dieléctricos',
               tipo: 'epp',
-              tracking_mode: 'cantidad',
+              tracking_mode: 'lote',
               retorno_mode: 'consumible',
               nivel_control: 'alto',
               unidad_medida: 'par',

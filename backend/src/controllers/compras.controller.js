@@ -39,7 +39,7 @@ class ComprasController {
 
   static async deleteIngreso(req, res, next) {
     try {
-      await ComprasService.deleteIngreso(req.params.id);
+      await ComprasService.deleteIngreso(req.params.id, req.user.id);
       return sendSuccess(res, { message: 'Ingreso eliminado correctamente. Stock y movimientos revertidos.' });
     } catch (error) {
       logger.error('Error deleting ingreso:', error);

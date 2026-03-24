@@ -72,6 +72,16 @@ class EntregasController {
       return next(error);
     }
   }
+
+  static async permanentDelete(req, res, next) {
+    try {
+      const data = await EntregasService.permanentDelete(req.params.id, req.user.id);
+      return sendSuccess(res, { message: 'Entrega eliminada definitivamente', data });
+    } catch (error) {
+      logger.error('Error eliminando entrega definitivamente:', error);
+      return next(error);
+    }
+  }
 }
 
 module.exports = EntregasController;

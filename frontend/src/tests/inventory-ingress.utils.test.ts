@@ -37,7 +37,7 @@ describe('inventoryIngress.utils', () => {
     expect(payload.detalles[0].activos).toEqual([{ codigo: 'ACT-001' }, { codigo: 'ACT-002' }]);
   });
 
-  it('lote/cantidad: respeta cantidad y lote', () => {
+  it('lote: respeta cantidad y lote', () => {
     const payload = buildIngresoPayload({
       form: {
         ...baseForm,
@@ -57,7 +57,7 @@ describe('inventoryIngress.utils', () => {
         ...baseForm,
         agregar_documento: false,
       },
-      trackingMode: 'cantidad',
+      trackingMode: 'lote',
     });
 
     expect(payload.documento_compra).toBeUndefined();
@@ -74,7 +74,7 @@ describe('inventoryIngress.utils', () => {
         documento_numero: 'F-100',
         documento_archivo: file,
       },
-      trackingMode: 'cantidad',
+      trackingMode: 'lote',
     });
 
     expect(payload).toBeInstanceOf(FormData);
