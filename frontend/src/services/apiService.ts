@@ -295,6 +295,8 @@ export interface InventoryActivoDetailRow {
   ultima_devolucion_id?: string | null;
   devolucion_confirmada_en?: string | null;
   dias_en_custodia?: number | null;
+  fecha_devolucion_esperada?: string | null;
+  semaforo_devolucion?: 'verde' | 'amarillo' | 'rojo' | null;
   ultimo_movimiento_tipo?: string | null;
   ultimo_movimiento_fecha?: string | null;
   ultimo_movimiento_origen_nombre?: string | null;
@@ -781,6 +783,7 @@ export interface EntregaCreatePayload {
   tipo?: EntregaTipo;
   es_traslado?: boolean;
   nota_destino?: string | null;
+  fecha_devolucion_esperada?: string | null;
   detalles: EntregaDetallePayload[];
 }
 
@@ -922,3 +925,61 @@ export const deleteNotification = (notificationId: number) =>
 
 export const deleteAllReadNotifications = () =>
   del('/notifications/in-app/clear-read');
+
+// ── Perfil Trabajador ──────────────────────────────────────
+export interface TrabajadorCustodiaRow {
+  custodia_id: string;
+  activo_id: string;
+  entrega_id: string;
+  desde_en: string;
+  fecha_devolucion_esperada: string | null;
+  codigo: string;
+  nro_serie: string | null;
+  activo_estado: string;
+  articulo_id: string;
+  articulo_nombre: string;
+  articulo_tipo: string;
+  retorno_mode: string;
+  ubicacion_nombre: string;
+  dias_en_custodia: number;
+  semaforo: 'verde' | 'amarillo' | 'rojo' | 'sin_plazo';
+  dias_restantes: number | null;
+}
+
+export interface TrabajadorConsumibleRow {
+  detalle_id: string;
+  cantidad: number;
+  articulo_id: string;
+  articulo_nombre: string;
+  articulo_tipo: string;
+  unidad_medida: string;
+  codigo_lote: string | null;
+  entrega_id: string;
+  confirmada_en: string;
+}
+
+export interface TrabajadorProfileResponse {
+  id: string;
+  persona_id: string;
+  usuario_id?: string;
+  rut: string;
+  nombres: string;
+  apellidos: string;
+  telefono?: string;
+  email?: string;
+  cargo?: string;
+  fecha_ingreso?: string;
+  estado: string;
+  custodias: TrabajadorCustodiaRow[];
+  consumibles_entregados: TrabajadorConsumibleRow[];
+  stats: {
+    activos_en_custodia: number;
+    total_custodias: number;
+    total_entregas: number;
+    dias_promedio_custodia: number;
+    activos_vencidos_o_proximos: number;
+  };
+}
+
+export const getTrabajadorProfile = (id: string) =>
+  get<TrabajadorProfileResponse>(`/trabajadores/${id}/profile`);

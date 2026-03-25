@@ -52,6 +52,16 @@ class TrabajadoresController {
       return next(error);
     }
   }
+
+  static async getProfile(req, res, next) {
+    try {
+      const data = await TrabajadoresService.getProfile(req.params.id);
+      return sendSuccess(res, { message: 'Perfil del trabajador obtenido correctamente', data });
+    } catch (error) {
+      logger.error('Error getting trabajador profile:', error);
+      return next(error);
+    }
+  }
 }
 
 module.exports = TrabajadoresController;

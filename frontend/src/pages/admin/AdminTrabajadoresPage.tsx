@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import Modal from '../../components/Modal';
 import ConfirmationModal from '../../components/ConfirmationModal';
+import TrabajadorProfileModal from '../../components/forms/TrabajadorProfileModal';
 import { ResponsiveTable, type TableColumn } from '../../components/layout';
 import { useGet } from '../../hooks';
 import { post, put } from '../../services/apiService';
@@ -311,12 +313,24 @@ const QUERY_KEY = 'trabajadores';
 
 const AdminTrabajadoresPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
   const [filterEstado, setFilterEstado] = useState<'todos' | 'activo' | 'inactivo'>('todos');
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Trabajador | null>(null);
   const [confirmAction, setConfirmAction] = useState<ActionState | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [profileId, setProfileId] = useState<string | null>(null);
+
+  // ── Deep-link: ?perfil=<trabajadorId> abre modal automáticamente
+  useEffect(() => {
+    const perfilParam = searchParams.get('perfil');
+    if (perfilParam) {
+      setProfileId(perfilParam);
+      searchParams.delete('perfil');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
   const { data: rawData, isLoading, error } = useGet<Trabajador[]>(
@@ -477,6 +491,12 @@ const AdminTrabajadoresPage: React.FC = () => {
       render: (_v, t) => (
         <div className="flex gap-2 flex-wrap">
           <button
+            onClick={() => setProfileId(t.id)}
+            className="px-3 py-1 text-xs rounded-md bg-gray-50 text-blue-700 hover:bg-blue-50 border border-blue-200 transition-colors min-h-[32px]"
+          >
+            Ver perfil
+          </button>
+          <button
             onClick={() => handleOpenEdit(t)}
             className="px-3 py-1 text-xs rounded-md bg-primary-blue text-white hover:bg-blue-700 transition-colors min-h-[32px]"
           >
@@ -624,6 +644,14 @@ const AdminTrabajadoresPage: React.FC = () => {
         confirmText={confirmAction?.trabajador.estado === 'activo' ? 'Desactivar' : 'Activar'}
         variant={confirmAction?.trabajador.estado === 'activo' ? 'danger' : 'info'}
       />
+
+      {/* Modal perfil trabajador */}
+      {profileId && (
+        <TrabajadorProfileModal
+          trabajadorId={profileId}
+          onClose={() => setProfileId(null)}
+        />
+      )}
     </div>
   );
 };

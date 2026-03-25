@@ -28,6 +28,10 @@ const comprasRoutes = require('./routes/compras.routes');
 const inventarioRoutes = require('./routes/inventario.routes');
 const proveedoresRoutes = require('./routes/proveedores.routes');
 const healthRoutes = require('./routes/health');
+
+// Cron scheduler
+const cron = require('node-cron');
+const CustodyCheckService = require('./services/custodyCheck.service');
 const { initializeDatabase } = require('./db/initialize');
 
 // Swagger/OpenAPI
@@ -236,7 +240,21 @@ const startServer = async () => {
     await redisClient.connect();
     logger.info('✅ Redis conectado exitosamente');
     
-    // 3. Iniciar servidor
+    // 3. Programar cron jobs
+    // Verificación diaria de custodias a las 08:00
+    cron.schedule('0 8 * * *', () => {
+      CustodyCheckService.runDailyCheck();
+    });
+    logger.info('⏰ Cron: verificación diaria de custodias programada (08:00)');
+
+    // Limpieza semanal de notificaciones leídas (domingos 03:00)
+    cron.schedule('0 3 * * 0', () => {
+      const NotificationService = require('./services/notification.service');
+      NotificationService.cleanOldInAppNotifications(30);
+    });
+    logger.info('⏰ Cron: limpieza semanal de notificaciones programada (dom 03:00)');
+
+    // 4. Iniciar servidor
     app.listen(PORT, () => {
       logger.info(`🚀 Servidor corriendo en puerto ${PORT}`);
       logger.info(`📊 Entorno: ${process.env.NODE_ENV || 'development'}`);

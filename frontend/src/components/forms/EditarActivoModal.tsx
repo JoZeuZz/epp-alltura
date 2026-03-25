@@ -29,7 +29,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
   const mutation = useMutation({
     mutationFn: () => {
       const payload: { valor?: number | null; fecha_vencimiento?: string | null } = {};
-      const newValor = valor.trim() === '' ? null : parseFloat(valor);
+      const newValor = valor.trim() === '' ? null : parseInt(valor, 10);
       const newFecha = fechaVencimiento.trim() === '' ? null : fechaVencimiento;
 
       // Solo enviar campos que cambiaron
@@ -62,7 +62,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
             <label className="block text-sm font-medium text-gray-700 mb-1">Valor ($)</label>
             <input
               type="number"
-              step="0.01"
+              step="1"
               min="0"
               value={valor}
               onChange={(e) => setValor(e.target.value)}

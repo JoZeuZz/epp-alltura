@@ -1,5 +1,6 @@
 -- EPP Alltura - Base schema (MER source of truth)
 -- NOTE: this file is idempotent and safe to execute multiple times.
+-- Consolidated from migrations 001-013 on 2026-03-25.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -77,10 +78,23 @@ CREATE TABLE IF NOT EXISTS ubicacion (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nombre VARCHAR(150) NOT NULL,
   tipo VARCHAR(30) NOT NULL CHECK (tipo IN ('bodega', 'planta', 'proyecto', 'taller_mantencion')),
+  ubicacion_subtipo VARCHAR(20) CHECK (ubicacion_subtipo IN ('fija', 'transitoria')),
   cliente VARCHAR(150),
   direccion TEXT,
   estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo')),
-  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  fecha_inicio_operacion TIMESTAMPTZ,
+  fecha_cierre_operacion TIMESTAMPTZ,
+  planta_padre_id UUID REFERENCES ubicacion(id) ON DELETE SET NULL,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT chk_ubicacion_subtipo_bodega CHECK (
+    (tipo = 'bodega' AND ubicacion_subtipo IS NOT NULL)
+    OR (tipo <> 'bodega' AND ubicacion_subtipo IS NULL)
+  ),
+  CONSTRAINT chk_ubicacion_vigencia CHECK (
+    fecha_cierre_operacion IS NULL
+    OR fecha_inicio_operacion IS NULL
+    OR fecha_cierre_operacion >= fecha_inicio_operacion
+  )
 );
 
 CREATE TABLE IF NOT EXISTS proveedor (
@@ -135,8 +149,9 @@ CREATE TABLE IF NOT EXISTS compra_detalle (
   compra_id UUID NOT NULL REFERENCES compra(id) ON DELETE CASCADE,
   articulo_id UUID NOT NULL REFERENCES articulo(id),
   cantidad NUMERIC(14,4) NOT NULL CHECK (cantidad > 0),
-  costo_unitario NUMERIC(14,4) NOT NULL CHECK (costo_unitario >= 0),
-  notas TEXT
+  costo_unitario INTEGER NOT NULL CHECK (costo_unitario >= 0),
+  notas TEXT,
+  CONSTRAINT chk_compra_detalle_cantidad_entera CHECK (cantidad = trunc(cantidad))
 );
 
 -- ============================================================
@@ -160,8 +175,8 @@ CREATE TABLE IF NOT EXISTS activo (
   compra_detalle_id UUID REFERENCES compra_detalle(id) ON DELETE SET NULL,
   nro_serie VARCHAR(120) UNIQUE,
   codigo VARCHAR(120) NOT NULL UNIQUE,
-  valor NUMERIC(14,4),
-  estado VARCHAR(30) NOT NULL DEFAULT 'en_stock' CHECK (estado IN ('en_stock', 'asignado', 'mantencion', 'dado_de_baja', 'perdido')),
+  valor INTEGER,
+  estado VARCHAR(30) NOT NULL DEFAULT 'en_stock' CHECK (estado IN ('en_stock', 'asignado', 'en_traslado', 'mantencion', 'dado_de_baja', 'perdido')),
   ubicacion_actual_id UUID NOT NULL REFERENCES ubicacion(id),
   fecha_compra TIMESTAMPTZ,
   fecha_vencimiento TIMESTAMPTZ,
@@ -175,7 +190,9 @@ CREATE TABLE IF NOT EXISTS stock (
   lote_id UUID REFERENCES lote(id) ON DELETE SET NULL,
   cantidad_disponible NUMERIC(14,4) NOT NULL DEFAULT 0 CHECK (cantidad_disponible >= 0),
   cantidad_reservada NUMERIC(14,4) NOT NULL DEFAULT 0 CHECK (cantidad_reservada >= 0),
-  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT chk_stock_cantidad_disponible_entera CHECK (cantidad_disponible = trunc(cantidad_disponible)),
+  CONSTRAINT chk_stock_cantidad_reservada_entera CHECK (cantidad_reservada = trunc(cantidad_reservada))
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_ubicacion_articulo_lote
@@ -197,10 +214,26 @@ CREATE TABLE IF NOT EXISTS entrega (
   ubicacion_origen_id UUID NOT NULL REFERENCES ubicacion(id),
   ubicacion_destino_id UUID NOT NULL REFERENCES ubicacion(id),
   tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrega', 'traslado')),
-  estado VARCHAR(25) NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'pendiente_firma', 'confirmada', 'anulada')),
+  estado VARCHAR(25) NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'pendiente_firma', 'en_transito', 'recibido', 'confirmada', 'anulada', 'revertida_admin')),
   nota_destino TEXT,
   creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  confirmada_en TIMESTAMPTZ
+  confirmada_en TIMESTAMPTZ,
+  transportista_trabajador_id UUID REFERENCES trabajador(id) ON DELETE SET NULL,
+  receptor_trabajador_id UUID REFERENCES trabajador(id) ON DELETE SET NULL,
+  motivo_anulacion TEXT,
+  recibido_por_usuario_id UUID REFERENCES usuario(id) ON DELETE SET NULL,
+  recibido_en TIMESTAMPTZ,
+  deshecha_por_usuario_id UUID REFERENCES usuario(id) ON DELETE SET NULL,
+  deshecha_en TIMESTAMPTZ,
+  fecha_devolucion_esperada TIMESTAMPTZ,
+  CONSTRAINT chk_entrega_motivo_anulacion CHECK (
+    estado <> 'anulada'
+    OR (motivo_anulacion IS NOT NULL AND length(btrim(motivo_anulacion)) >= 5)
+  ),
+  CONSTRAINT chk_entrega_recepcion_traslado CHECK (
+    estado <> 'recibido'
+    OR (recibido_en IS NOT NULL AND recibido_por_usuario_id IS NOT NULL)
+  )
 );
 
 CREATE TABLE IF NOT EXISTS entrega_detalle (
@@ -212,7 +245,8 @@ CREATE TABLE IF NOT EXISTS entrega_detalle (
   cantidad NUMERIC(14,4) NOT NULL CHECK (cantidad > 0),
   tipo_item_entrega VARCHAR(20) NOT NULL CHECK (tipo_item_entrega IN ('retornable', 'asignacion')),
   condicion_salida VARCHAR(20) NOT NULL CHECK (condicion_salida IN ('ok', 'usado', 'danado')),
-  notas TEXT
+  notas TEXT,
+  CONSTRAINT chk_entrega_detalle_cantidad_entera CHECK (cantidad = trunc(cantidad))
 );
 
 CREATE TABLE IF NOT EXISTS firma_entrega (
@@ -249,6 +283,7 @@ CREATE TABLE IF NOT EXISTS custodia_activo (
   entrega_id UUID NOT NULL REFERENCES entrega(id),
   desde_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   hasta_en TIMESTAMPTZ,
+  fecha_devolucion_esperada TIMESTAMPTZ,
   estado VARCHAR(20) NOT NULL CHECK (estado IN ('activa', 'devuelta', 'perdida', 'baja', 'mantencion'))
 );
 
@@ -261,10 +296,22 @@ CREATE TABLE IF NOT EXISTS devolucion (
   trabajador_id UUID NOT NULL REFERENCES trabajador(id),
   recibido_por_usuario_id UUID NOT NULL REFERENCES usuario(id),
   ubicacion_recepcion_id UUID NOT NULL REFERENCES ubicacion(id),
-  estado VARCHAR(20) NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'confirmada', 'anulada')),
+  estado VARCHAR(20) NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'pendiente_firma', 'confirmada', 'anulada')),
   creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   confirmada_en TIMESTAMPTZ,
-  notas TEXT
+  notas TEXT,
+  motivo_anulacion TEXT,
+  es_reversa_admin BOOLEAN NOT NULL DEFAULT FALSE,
+  entrega_revertida_id UUID REFERENCES entrega(id) ON DELETE SET NULL,
+  motivo_reversa TEXT,
+  CONSTRAINT chk_devolucion_motivo_anulacion CHECK (
+    estado <> 'anulada'
+    OR (motivo_anulacion IS NOT NULL AND length(btrim(motivo_anulacion)) >= 5)
+  ),
+  CONSTRAINT chk_devolucion_motivo_reversa CHECK (
+    es_reversa_admin = FALSE
+    OR (motivo_reversa IS NOT NULL AND length(btrim(motivo_reversa)) >= 5)
+  )
 );
 
 CREATE TABLE IF NOT EXISTS devolucion_detalle (
@@ -277,7 +324,49 @@ CREATE TABLE IF NOT EXISTS devolucion_detalle (
   cantidad NUMERIC(14,4) NOT NULL CHECK (cantidad > 0),
   condicion_entrada VARCHAR(20) NOT NULL CHECK (condicion_entrada IN ('ok', 'usado', 'danado', 'perdido')),
   disposicion VARCHAR(20) NOT NULL CHECK (disposicion IN ('devuelto', 'perdido', 'baja', 'mantencion')),
+  notas TEXT,
+  CONSTRAINT chk_devolucion_detalle_cantidad_entera CHECK (cantidad = trunc(cantidad))
+);
+
+CREATE TABLE IF NOT EXISTS firma_devolucion (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  devolucion_id UUID NOT NULL UNIQUE REFERENCES devolucion(id) ON DELETE CASCADE,
+  receptor_usuario_id UUID NOT NULL REFERENCES usuario(id),
+  metodo VARCHAR(20) NOT NULL CHECK (metodo IN ('en_dispositivo')),
+  texto_aceptacion TEXT NOT NULL,
+  texto_hash VARCHAR(255) NOT NULL,
+  firma_imagen_url TEXT NOT NULL,
+  ip VARCHAR(64),
+  user_agent TEXT,
+  firmado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Circular FK: entrega.devolucion_reversa_id -> devolucion (resolved after both tables exist)
+ALTER TABLE entrega
+  ADD COLUMN IF NOT EXISTS devolucion_reversa_id UUID REFERENCES devolucion(id) ON DELETE SET NULL;
+
+-- ============================================================
+-- EGRESOS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS egreso (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  creado_por_usuario_id UUID NOT NULL REFERENCES usuario(id),
+  tipo_motivo VARCHAR(20) NOT NULL CHECK (tipo_motivo IN ('salida', 'baja', 'consumo', 'ajuste')),
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   notas TEXT
+);
+
+CREATE TABLE IF NOT EXISTS egreso_detalle (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  egreso_id UUID NOT NULL REFERENCES egreso(id) ON DELETE CASCADE,
+  articulo_id UUID NOT NULL REFERENCES articulo(id),
+  ubicacion_id UUID NOT NULL REFERENCES ubicacion(id),
+  lote_id UUID REFERENCES lote(id) ON DELETE SET NULL,
+  cantidad NUMERIC(14,4) NOT NULL CHECK (cantidad > 0),
+  notas TEXT,
+  activo_id UUID REFERENCES activo(id) ON DELETE SET NULL,
+  CONSTRAINT chk_egreso_detalle_cantidad_entera CHECK (cantidad = trunc(cantidad))
 );
 
 -- ============================================================
@@ -297,7 +386,9 @@ CREATE TABLE IF NOT EXISTS movimiento_stock (
   compra_id UUID REFERENCES compra(id) ON DELETE SET NULL,
   entrega_id UUID REFERENCES entrega(id) ON DELETE SET NULL,
   devolucion_id UUID REFERENCES devolucion(id) ON DELETE SET NULL,
-  notas TEXT
+  egreso_id UUID REFERENCES egreso(id) ON DELETE SET NULL,
+  notas TEXT,
+  CONSTRAINT chk_movimiento_stock_cantidad_entera CHECK (cantidad = trunc(cantidad))
 );
 
 CREATE TABLE IF NOT EXISTS movimiento_activo (
@@ -310,6 +401,7 @@ CREATE TABLE IF NOT EXISTS movimiento_activo (
   responsable_usuario_id UUID NOT NULL REFERENCES usuario(id),
   entrega_id UUID REFERENCES entrega(id) ON DELETE SET NULL,
   devolucion_id UUID REFERENCES devolucion(id) ON DELETE SET NULL,
+  egreso_id UUID REFERENCES egreso(id) ON DELETE SET NULL,
   notas TEXT
 );
 
@@ -387,26 +479,35 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 -- INDEXES
 -- ============================================================
 
+-- Core identity
 CREATE INDEX IF NOT EXISTS idx_usuario_persona_id ON usuario(persona_id);
 CREATE INDEX IF NOT EXISTS idx_usuario_email_login ON usuario(email_login);
 CREATE INDEX IF NOT EXISTS idx_usuario_estado ON usuario(estado);
+CREATE INDEX IF NOT EXISTS idx_usuario_creado_por_admin_id ON usuario(creado_por_admin_id) WHERE creado_por_admin_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_trabajador_usuario_id ON trabajador(usuario_id);
 CREATE INDEX IF NOT EXISTS idx_trabajador_estado ON trabajador(estado);
 
+-- Catalogs
 CREATE INDEX IF NOT EXISTS idx_ubicacion_tipo ON ubicacion(tipo);
 CREATE INDEX IF NOT EXISTS idx_ubicacion_estado ON ubicacion(estado);
+CREATE INDEX IF NOT EXISTS idx_ubicacion_subtipo ON ubicacion(ubicacion_subtipo);
+CREATE INDEX IF NOT EXISTS idx_ubicacion_planta_padre_id ON ubicacion(planta_padre_id);
+CREATE INDEX IF NOT EXISTS idx_ubicacion_inicio_operacion ON ubicacion(fecha_inicio_operacion);
+CREATE INDEX IF NOT EXISTS idx_ubicacion_cierre_operacion ON ubicacion(fecha_cierre_operacion);
 
 CREATE INDEX IF NOT EXISTS idx_articulo_tipo ON articulo(tipo);
 CREATE INDEX IF NOT EXISTS idx_articulo_tracking_mode ON articulo(tracking_mode);
 CREATE INDEX IF NOT EXISTS idx_articulo_estado ON articulo(estado);
 
+-- Purchases
 CREATE INDEX IF NOT EXISTS idx_documento_compra_proveedor_id ON documento_compra(proveedor_id);
 CREATE INDEX IF NOT EXISTS idx_compra_documento_compra_id ON compra(documento_compra_id);
 CREATE INDEX IF NOT EXISTS idx_compra_creado_por_usuario_id ON compra(creado_por_usuario_id);
 CREATE INDEX IF NOT EXISTS idx_compra_detalle_compra_id ON compra_detalle(compra_id);
 CREATE INDEX IF NOT EXISTS idx_compra_detalle_articulo_id ON compra_detalle(articulo_id);
 
+-- Inventory
 CREATE INDEX IF NOT EXISTS idx_lote_articulo_id ON lote(articulo_id);
 CREATE INDEX IF NOT EXISTS idx_lote_compra_detalle_id ON lote(compra_detalle_id);
 CREATE INDEX IF NOT EXISTS idx_lote_estado ON lote(estado);
@@ -419,43 +520,67 @@ CREATE INDEX IF NOT EXISTS idx_activo_estado ON activo(estado);
 CREATE INDEX IF NOT EXISTS idx_activo_codigo ON activo(codigo);
 CREATE INDEX IF NOT EXISTS idx_activo_nro_serie ON activo(nro_serie);
 
+-- Delivery / custody
 CREATE INDEX IF NOT EXISTS idx_entrega_trabajador_id ON entrega(trabajador_id);
 CREATE INDEX IF NOT EXISTS idx_entrega_creado_por_usuario_id ON entrega(creado_por_usuario_id);
 CREATE INDEX IF NOT EXISTS idx_entrega_estado ON entrega(estado);
 CREATE INDEX IF NOT EXISTS idx_entrega_tipo ON entrega(tipo);
+CREATE INDEX IF NOT EXISTS idx_entrega_transportista_trabajador_id ON entrega(transportista_trabajador_id);
+CREATE INDEX IF NOT EXISTS idx_entrega_receptor_trabajador_id ON entrega(receptor_trabajador_id);
+CREATE INDEX IF NOT EXISTS idx_entrega_estado_motivo_anulacion ON entrega(estado, creado_en DESC) WHERE estado = 'anulada';
+CREATE INDEX IF NOT EXISTS idx_entrega_estado_recibido ON entrega(estado, recibido_en DESC) WHERE estado = 'recibido';
+CREATE INDEX IF NOT EXISTS idx_entrega_estado_revertida ON entrega(estado, deshecha_en DESC) WHERE estado = 'revertida_admin';
 CREATE INDEX IF NOT EXISTS idx_entrega_detalle_entrega_id ON entrega_detalle(entrega_id);
 CREATE INDEX IF NOT EXISTS idx_entrega_detalle_articulo_id ON entrega_detalle(articulo_id);
 CREATE INDEX IF NOT EXISTS idx_entrega_detalle_activo_id ON entrega_detalle(activo_id);
 CREATE INDEX IF NOT EXISTS idx_entrega_detalle_lote_id ON entrega_detalle(lote_id);
+CREATE INDEX IF NOT EXISTS idx_entrega_detalle_tipo_item_entrega ON entrega_detalle(tipo_item_entrega);
 
 CREATE INDEX IF NOT EXISTS idx_firma_token_entrega_id ON firma_token(entrega_id);
 CREATE INDEX IF NOT EXISTS idx_firma_token_trabajador_id ON firma_token(trabajador_id);
 CREATE INDEX IF NOT EXISTS idx_firma_token_expira_en ON firma_token(expira_en);
 CREATE INDEX IF NOT EXISTS idx_firma_token_usado_en ON firma_token(usado_en);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_firma_token_token_publico ON firma_token(token_publico) WHERE token_publico IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_custodia_activo_activo_id ON custodia_activo(activo_id);
 CREATE INDEX IF NOT EXISTS idx_custodia_activo_trabajador_id ON custodia_activo(trabajador_id);
 CREATE INDEX IF NOT EXISTS idx_custodia_activo_estado ON custodia_activo(estado);
 CREATE INDEX IF NOT EXISTS idx_custodia_activo_entrega_id ON custodia_activo(entrega_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_custodia_activo_activa_por_activo ON custodia_activo(activo_id) WHERE estado = 'activa';
+CREATE INDEX IF NOT EXISTS idx_custodia_activo_activo_estado ON custodia_activo(activo_id, estado, desde_en DESC);
 
+-- Returns
 CREATE INDEX IF NOT EXISTS idx_devolucion_trabajador_id ON devolucion(trabajador_id);
 CREATE INDEX IF NOT EXISTS idx_devolucion_recibido_por_usuario_id ON devolucion(recibido_por_usuario_id);
 CREATE INDEX IF NOT EXISTS idx_devolucion_estado ON devolucion(estado);
+CREATE INDEX IF NOT EXISTS idx_devolucion_estado_motivo_anulacion ON devolucion(estado, creado_en DESC) WHERE estado = 'anulada';
+CREATE INDEX IF NOT EXISTS idx_devolucion_entrega_revertida_id ON devolucion(entrega_revertida_id) WHERE entrega_revertida_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_devolucion_detalle_devolucion_id ON devolucion_detalle(devolucion_id);
 CREATE INDEX IF NOT EXISTS idx_devolucion_detalle_custodia_activo_id ON devolucion_detalle(custodia_activo_id);
 CREATE INDEX IF NOT EXISTS idx_devolucion_detalle_activo_id ON devolucion_detalle(activo_id);
 
+-- Egresos
+CREATE INDEX IF NOT EXISTS idx_egreso_creado_por ON egreso(creado_por_usuario_id);
+CREATE INDEX IF NOT EXISTS idx_egreso_tipo ON egreso(tipo_motivo);
+CREATE INDEX IF NOT EXISTS idx_egreso_creado_en ON egreso(creado_en DESC);
+CREATE INDEX IF NOT EXISTS idx_egreso_detalle_egreso_id ON egreso_detalle(egreso_id);
+CREATE INDEX IF NOT EXISTS idx_egreso_detalle_articulo_id ON egreso_detalle(articulo_id);
+CREATE INDEX IF NOT EXISTS idx_egreso_detalle_activo_id ON egreso_detalle(activo_id) WHERE activo_id IS NOT NULL;
+
+-- Movements
 CREATE INDEX IF NOT EXISTS idx_movimiento_stock_articulo_id ON movimiento_stock(articulo_id);
 CREATE INDEX IF NOT EXISTS idx_movimiento_stock_lote_id ON movimiento_stock(lote_id);
 CREATE INDEX IF NOT EXISTS idx_movimiento_stock_fecha ON movimiento_stock(fecha_movimiento DESC);
 CREATE INDEX IF NOT EXISTS idx_movimiento_stock_tipo ON movimiento_stock(tipo);
 CREATE INDEX IF NOT EXISTS idx_movimiento_stock_responsable ON movimiento_stock(responsable_usuario_id);
-
+CREATE INDEX IF NOT EXISTS idx_movimiento_stock_egreso_id ON movimiento_stock(egreso_id);
 CREATE INDEX IF NOT EXISTS idx_movimiento_activo_activo_id ON movimiento_activo(activo_id);
 CREATE INDEX IF NOT EXISTS idx_movimiento_activo_fecha ON movimiento_activo(fecha_movimiento DESC);
 CREATE INDEX IF NOT EXISTS idx_movimiento_activo_tipo ON movimiento_activo(tipo);
 CREATE INDEX IF NOT EXISTS idx_movimiento_activo_responsable ON movimiento_activo(responsable_usuario_id);
+CREATE INDEX IF NOT EXISTS idx_movimiento_activo_egreso_id ON movimiento_activo(egreso_id) WHERE egreso_id IS NOT NULL;
 
+-- Quality / documents / audit
 CREATE INDEX IF NOT EXISTS idx_inspeccion_activo_activo_id ON inspeccion_activo(activo_id);
 CREATE INDEX IF NOT EXISTS idx_inspeccion_activo_fecha ON inspeccion_activo(fecha_inspeccion DESC);
 CREATE INDEX IF NOT EXISTS idx_inspeccion_activo_responsable ON inspeccion_activo(responsable_usuario_id);
@@ -468,6 +593,7 @@ CREATE INDEX IF NOT EXISTS idx_auditoria_entidad ON auditoria(entidad_tipo, enti
 CREATE INDEX IF NOT EXISTS idx_auditoria_usuario ON auditoria(usuario_id);
 CREATE INDEX IF NOT EXISTS idx_auditoria_creado_en ON auditoria(creado_en DESC);
 
+-- Notifications
 CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications(user_id, is_read);
 CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);

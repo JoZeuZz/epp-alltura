@@ -44,7 +44,7 @@ const INITIAL_FORM_STATE: InventoryIngressFormValues = {
   cantidad: 1,
   costo_unitario: 0,
   codigo_lote: '',
-  seriales: '',
+  activos: [{ codigo: '' }],
   agregar_documento: false,
   proveedor_id: '',
   documento_tipo: 'factura',
@@ -118,8 +118,14 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
       }
 
       if (trackingMode === 'serial') {
-        if (!form.seriales.trim()) {
-          setError('Debes ingresar seriales para artículos serializados.');
+        const filledActivos = form.activos.filter((a) => a.codigo.trim());
+        if (!filledActivos.length) {
+          setError('Debes ingresar al menos un código unitario.');
+          return false;
+        }
+        const duplicates = filledActivos.map((a) => a.codigo.trim().toLowerCase());
+        if (new Set(duplicates).size !== duplicates.length) {
+          setError('Hay códigos duplicados. Cada activo debe tener un código único.');
           return false;
         }
       } else if (Number(form.cantidad) <= 0) {
@@ -275,17 +281,50 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
             </div>
 
             {trackingMode === 'serial' ? (
-              <div>
-                <label className="label-base text-gray-700">Seriales (1 por línea) *</label>
-                <textarea
-                  className="w-full border rounded-md p-2 min-h-[150px]"
-                  placeholder="ACT-001\nACT-002"
-                  value={form.seriales}
-                  onChange={(event) => setField('seriales', event.target.value)}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  La cantidad final se deriva automáticamente del total de seriales.
-                </p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="label-base text-gray-700">Código unitario *</label>
+                  <span className="text-xs font-medium text-blue-600 bg-blue-50 rounded-full px-2 py-0.5">
+                    {form.activos.filter((a) => a.codigo.trim()).length} unidad{form.activos.filter((a) => a.codigo.trim()).length !== 1 ? 'es' : ''}
+                  </span>
+                </div>
+                <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
+                  {form.activos.map((activo, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 w-6 text-right shrink-0">{index + 1}.</span>
+                      <input
+                        className="flex-1 border rounded-md p-2 text-sm"
+                        placeholder={`Ej: TAL-00${index + 1}`}
+                        value={activo.codigo}
+                        onChange={(e) => {
+                          const updated = [...form.activos];
+                          updated[index] = { codigo: e.target.value };
+                          setField('activos', updated);
+                        }}
+                      />
+                      {form.activos.length > 1 && (
+                        <button
+                          type="button"
+                          className="text-red-400 hover:text-red-600 text-lg px-1 shrink-0"
+                          title="Quitar unidad"
+                          onClick={() => {
+                            const updated = form.activos.filter((_, i) => i !== index);
+                            setField('activos', updated);
+                          }}
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                  onClick={() => setField('activos', [...form.activos, { codigo: '' }])}
+                >
+                  <span className="text-lg leading-none">+</span> Agregar unidad
+                </button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -302,7 +341,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="label-base text-gray-700">Código lote (opcional)</label>
+                  <label className="label-base text-gray-700">Código (opcional)</label>
                   <input
                     className="w-full border rounded-md p-2"
                     value={form.codigo_lote}
@@ -314,11 +353,11 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
             )}
 
             <div>
-              <label className="label-base text-gray-700">Costo unitario (opcional)</label>
+              <label className="label-base text-gray-700">Costo unitario CLP (opcional)</label>
               <input
                 type="number"
                 min={0}
-                step={0.0001}
+                step={1}
                 className="w-full md:w-1/2 border rounded-md p-2"
                 value={form.costo_unitario}
                 onChange={(event) => setField('costo_unitario', Number(event.target.value))}
