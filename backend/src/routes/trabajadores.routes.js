@@ -53,6 +53,7 @@ const trabajadorUpdateSchema = Joi.object({
 }).min(1);
 
 router.get('/', authMiddleware, TrabajadoresController.list);
+router.get('/:id/profile', authMiddleware, TrabajadoresController.getProfile);
 router.get('/:id', authMiddleware, TrabajadoresController.getById);
 router.post(
   '/',

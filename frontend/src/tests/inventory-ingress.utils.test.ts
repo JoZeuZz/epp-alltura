@@ -12,7 +12,7 @@ const baseForm = {
   cantidad: 3,
   costo_unitario: 12000,
   codigo_lote: '',
-  seriales: '',
+  activos: [{ codigo: '' }],
   agregar_documento: false,
   proveedor_id: '',
   documento_tipo: 'factura' as const,
@@ -27,7 +27,7 @@ describe('inventoryIngress.utils', () => {
       form: {
         ...baseForm,
         cantidad: 999,
-        seriales: 'ACT-001\n ACT-002 \n',
+        activos: [{ codigo: 'ACT-001' }, { codigo: 'ACT-002' }],
       },
       trackingMode: 'serial',
     });

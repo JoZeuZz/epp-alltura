@@ -175,7 +175,7 @@ const WarehouseDashboard: React.FC = () => {
     cantidad: 1,
     costo_unitario: 0,
     codigo_lote: '',
-    seriales: '',
+    activos: [{ codigo: '' }] as Array<{ codigo: string }>,
   });
 
   const [proveedores, setProveedores] = useState<any[]>(loader.proveedores || []);
@@ -552,10 +552,7 @@ const WarehouseDashboard: React.FC = () => {
     e.preventDefault();
 
     try {
-      const serialLines = purchaseForm.seriales
-        .split('\n')
-        .map((item) => item.trim())
-        .filter(Boolean);
+      const validActivos = purchaseForm.activos.filter((a) => a.codigo.trim());
 
       const trackingMode = selectedPurchaseArticle?.tracking_mode;
       const detail: any = {
@@ -566,8 +563,8 @@ const WarehouseDashboard: React.FC = () => {
       };
 
       if (trackingMode === 'serial') {
-        detail.activos = serialLines.map((code) => ({ codigo: code }));
-        detail.cantidad = serialLines.length;
+        detail.activos = validActivos.map((a) => ({ codigo: a.codigo.trim() }));
+        detail.cantidad = validActivos.length;
       }
 
       if (trackingMode === 'lote' || purchaseForm.codigo_lote) {
@@ -592,7 +589,7 @@ const WarehouseDashboard: React.FC = () => {
         ...prev,
         numero: '',
         notas: '',
-        seriales: '',
+        activos: [{ codigo: '' }],
         codigo_lote: '',
       }));
     } catch (error: any) {
@@ -1208,8 +1205,8 @@ const WarehouseDashboard: React.FC = () => {
               className="border rounded-md p-2"
               type="number"
               min={0}
-              step={0.0001}
-              placeholder="Costo unitario"
+              step={1}
+              placeholder="Costo unitario CLP"
               value={purchaseForm.costo_unitario}
               onChange={(e) =>
                 setPurchaseForm((prev) => ({ ...prev, costo_unitario: Number(e.target.value) }))
@@ -1224,12 +1221,43 @@ const WarehouseDashboard: React.FC = () => {
           </div>
 
           {selectedPurchaseArticle?.tracking_mode === 'serial' && (
-            <textarea
-              className="border rounded-md p-2 w-full"
-              placeholder="Serializados: una línea por código de activo"
-              value={purchaseForm.seriales}
-              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, seriales: e.target.value }))}
-            />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Código unitario *</label>
+              {purchaseForm.activos.map((activo, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 w-5 text-right">{index + 1}.</span>
+                  <input
+                    className="flex-1 border rounded-md p-2 text-sm"
+                    placeholder={`Ej: TAL-00${index + 1}`}
+                    value={activo.codigo}
+                    onChange={(e) => {
+                      const updated = [...purchaseForm.activos];
+                      updated[index] = { codigo: e.target.value };
+                      setPurchaseForm((prev) => ({ ...prev, activos: updated }));
+                    }}
+                  />
+                  {purchaseForm.activos.length > 1 && (
+                    <button
+                      type="button"
+                      className="text-red-400 hover:text-red-600 text-lg px-1"
+                      onClick={() => {
+                        const updated = purchaseForm.activos.filter((_, i) => i !== index);
+                        setPurchaseForm((prev) => ({ ...prev, activos: updated }));
+                      }}
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                type="button"
+                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                onClick={() => setPurchaseForm((prev) => ({ ...prev, activos: [...prev.activos, { codigo: '' }] }))}
+              >
+                + Agregar unidad
+              </button>
+            </div>
           )}
 
           <textarea

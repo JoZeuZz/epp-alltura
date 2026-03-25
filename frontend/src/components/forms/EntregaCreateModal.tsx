@@ -80,6 +80,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   const [ubicacionOrigenId, setUbicacionOrigenId] = useState('');
   const [ubicacionDestinoId, setUbicacionDestinoId] = useState('');
   const [notaDestino, setNotaDestino] = useState('');
+  const [fechaDevolucion, setFechaDevolucion] = useState('');
   const [detalles, setDetalles] = useState<EntregaDetallePayload[]>([{ ...EMPTY_DETALLE }]);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,6 +97,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       setUbicacionOrigenId('');
       setUbicacionDestinoId('');
       setNotaDestino('');
+      setFechaDevolucion('');
       setDetalles([{ ...EMPTY_DETALLE }]);
       setError(null);
       setTrabajadorSearch('');
@@ -245,6 +247,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       ubicacion_destino_id: ubicacionDestinoId,
       es_traslado: isTraslado,
       nota_destino: notaDestino || null,
+      fecha_devolucion_esperada: fechaDevolucion || null,
       detalles: detalles.map((d) => ({
         articulo_id: d.articulo_id,
         activo_ids: d.activo_ids?.length ? d.activo_ids : undefined,
@@ -437,6 +440,25 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
             />
           </div>
+
+          {/* Fecha devolución esperada */}
+          {!isTraslado && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Fecha devolución esperada
+              </label>
+              <input
+                type="date"
+                value={fechaDevolucion}
+                onChange={(e) => setFechaDevolucion(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Opcional. Se usará para el semáforo de devolución de activos retornables.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

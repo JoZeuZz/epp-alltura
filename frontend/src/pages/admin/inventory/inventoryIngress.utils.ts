@@ -5,6 +5,10 @@ import type {
 
 export type TrackingMode = 'serial' | 'lote';
 
+export interface IngressActivoEntry {
+  codigo: string;
+}
+
 export interface InventoryIngressFormValues {
   articulo_id: string;
   ubicacion_id: string;
@@ -13,7 +17,7 @@ export interface InventoryIngressFormValues {
   cantidad: number;
   costo_unitario: number;
   codigo_lote: string;
-  seriales: string;
+  activos: IngressActivoEntry[];
   agregar_documento: boolean;
   proveedor_id: string;
   documento_tipo: 'factura' | 'boleta' | 'guia';
@@ -33,12 +37,6 @@ const toNumber = (value: number | string, fallback = 0): number => {
   return parsed;
 };
 
-export const splitSerialLines = (rawSerials: string): string[] =>
-  rawSerials
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
-
 const buildIngresoDetail = (
   form: InventoryIngressFormValues,
   trackingMode?: TrackingMode
@@ -51,13 +49,13 @@ const buildIngresoDetail = (
   };
 
   if (trackingMode === 'serial') {
-    const serialLines = splitSerialLines(form.seriales);
-    if (!serialLines.length) {
-      throw new Error('Debes ingresar al menos un serial para artículos serializados.');
+    const validActivos = form.activos.filter((a) => a.codigo.trim());
+    if (!validActivos.length) {
+      throw new Error('Debes ingresar al menos un código unitario para artículos serializados.');
     }
 
-    base.activos = serialLines.map((codigo) => ({ codigo }));
-    base.cantidad = serialLines.length;
+    base.activos = validActivos.map((a) => ({ codigo: a.codigo.trim() }));
+    base.cantidad = validActivos.length;
   } else {
     if (base.cantidad <= 0) {
       throw new Error('La cantidad debe ser mayor que cero.');

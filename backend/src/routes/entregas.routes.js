@@ -40,6 +40,7 @@ const createEntregaSchema = Joi.object({
   tipo: Joi.string().valid('entrega', 'prestamo', 'traslado').optional(),
   es_traslado: Joi.boolean().optional(),
   nota_destino: Joi.string().trim().max(1000).allow('', null),
+  fecha_devolucion_esperada: Joi.date().iso().allow(null),
   detalles: Joi.array().items(entregaDetalleSchema).min(1).required(),
 })
   .or('tipo', 'es_traslado')

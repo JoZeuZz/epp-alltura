@@ -700,6 +700,19 @@ class InventarioService {
           WHEN ca.desde_en IS NULL THEN NULL
           ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - ca.desde_en)) / 86400))::int
         END AS dias_en_custodia,
+        ca.fecha_devolucion_esperada,
+        CASE
+          WHEN ca.id IS NULL OR ca.fecha_devolucion_esperada IS NULL THEN NULL
+          WHEN EXTRACT(EPOCH FROM (NOW() - ca.desde_en))
+             / NULLIF(EXTRACT(EPOCH FROM (ca.fecha_devolucion_esperada - ca.desde_en)), 0) >= 0.9 THEN 'rojo'
+          WHEN EXTRACT(EPOCH FROM (NOW() - ca.desde_en))
+             / NULLIF(EXTRACT(EPOCH FROM (ca.fecha_devolucion_esperada - ca.desde_en)), 0) >= 0.7 THEN 'amarillo'
+          ELSE 'verde'
+        END AS semaforo_devolucion,
+        CASE
+          WHEN ca.id IS NULL OR ca.fecha_devolucion_esperada IS NULL THEN NULL
+          ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (ca.fecha_devolucion_esperada - NOW())) / 86400))::int
+        END AS dias_restantes_devolucion,
         um.tipo AS ultimo_movimiento_tipo,
         um.fecha_movimiento AS ultimo_movimiento_fecha,
         um.ubicacion_origen_nombre AS ultimo_movimiento_origen_nombre,
@@ -966,13 +979,14 @@ class InventarioService {
     const compraResult = await db.query(
       `
       SELECT
-        c.id AS compra_id, c.fecha_compra, c.proveedor_id,
-        prov.razon_social AS proveedor_nombre,
-        cd.precio_unitario, cd.cantidad AS compra_cantidad
+        c.id AS compra_id, dc.fecha AS fecha_compra, dc.proveedor_id,
+        prov.nombre AS proveedor_nombre,
+        cd.costo_unitario AS precio_unitario, cd.cantidad AS compra_cantidad
       FROM activo ac
       INNER JOIN compra_detalle cd ON cd.id = ac.compra_detalle_id
       INNER JOIN compra c ON c.id = cd.compra_id
-      LEFT JOIN proveedor prov ON prov.id = c.proveedor_id
+      LEFT JOIN documento_compra dc ON dc.id = c.documento_compra_id
+      LEFT JOIN proveedor prov ON prov.id = dc.proveedor_id
       WHERE ac.id = $1
       `,
       [activoId]

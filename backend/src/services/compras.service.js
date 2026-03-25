@@ -22,7 +22,7 @@ const toCost = (value) => {
   if (!Number.isFinite(cost) || cost < 0) {
     throw buildError('El costo unitario debe ser mayor o igual a cero', 400, 'INVALID_COST');
   }
-  return cost;
+  return Math.round(cost);
 };
 
 class ComprasService {

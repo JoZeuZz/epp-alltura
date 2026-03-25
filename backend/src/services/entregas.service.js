@@ -456,9 +456,10 @@ class EntregasService {
           ubicacion_destino_id,
           tipo,
           estado,
-          nota_destino
+          nota_destino,
+          fecha_devolucion_esperada
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'borrador', $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'borrador', $8, $9)
         RETURNING id
         `,
         [
@@ -470,6 +471,7 @@ class EntregasService {
           payload.ubicacion_destino_id,
           tipo,
           payload.nota_destino || null,
+          payload.fecha_devolucion_esperada || null,
         ]
       );
 
@@ -674,15 +676,17 @@ class EntregasService {
                 trabajador_id,
                 ubicacion_destino_id,
                 entrega_id,
-                estado
+                estado,
+                fecha_devolucion_esperada
               )
-              VALUES ($1, $2, $3, $4, 'activa')
+              VALUES ($1, $2, $3, $4, 'activa', $5)
               `,
               [
                 detalle.activo_id,
                 entrega.trabajador_id,
                 entrega.ubicacion_destino_id,
                 entrega.id,
+                entrega.fecha_devolucion_esperada || null,
               ]
             );
           }

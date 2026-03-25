@@ -205,6 +205,118 @@ class TrabajadoresService {
     await TrabajadorModel.update(id, { estado: 'inactivo' });
     return { id, estado: 'inactivo' };
   }
+
+  static async getProfile(id) {
+    // 1. Datos base del trabajador
+    const trabajador = await this.getById(id);
+
+    // 2. Custodias activas con semáforo de devolución
+    const { rows: custodias } = await db.query(
+      `
+      SELECT
+        ca.id AS custodia_id,
+        ca.activo_id,
+        ca.entrega_id,
+        ca.desde_en,
+        ca.fecha_devolucion_esperada,
+        a.codigo,
+        a.nro_serie,
+        a.estado AS activo_estado,
+        ar.id AS articulo_id,
+        ar.nombre AS articulo_nombre,
+        ar.tipo AS articulo_tipo,
+        ar.retorno_mode,
+        u.nombre AS ubicacion_nombre,
+        GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - ca.desde_en)) / 86400))::int AS dias_en_custodia,
+        CASE
+          WHEN ca.fecha_devolucion_esperada IS NULL THEN 'sin_plazo'
+          ELSE (
+            SELECT CASE
+              WHEN pct >= 0.9 THEN 'rojo'
+              WHEN pct >= 0.7 THEN 'amarillo'
+              ELSE 'verde'
+            END
+            FROM (
+              SELECT EXTRACT(EPOCH FROM (NOW() - ca.desde_en))
+                   / NULLIF(EXTRACT(EPOCH FROM (ca.fecha_devolucion_esperada - ca.desde_en)), 0) AS pct
+            ) sub
+          )
+        END AS semaforo,
+        CASE
+          WHEN ca.fecha_devolucion_esperada IS NULL THEN NULL
+          ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (ca.fecha_devolucion_esperada - NOW())) / 86400))::int
+        END AS dias_restantes
+      FROM custodia_activo ca
+      INNER JOIN activo a ON a.id = ca.activo_id
+      INNER JOIN articulo ar ON ar.id = a.articulo_id
+      LEFT JOIN ubicacion u ON u.id = ca.ubicacion_destino_id
+      WHERE ca.trabajador_id = $1 AND ca.estado = 'activa'
+      ORDER BY
+        CASE
+          WHEN ca.fecha_devolucion_esperada IS NULL THEN 1 ELSE 0
+        END,
+        ca.fecha_devolucion_esperada ASC,
+        ca.desde_en ASC
+      `,
+      [id]
+    );
+
+    // 3. Historial de consumibles entregados
+    const { rows: consumibles } = await db.query(
+      `
+      SELECT
+        ed.id AS detalle_id,
+        ed.cantidad,
+        ar.id AS articulo_id,
+        ar.nombre AS articulo_nombre,
+        ar.tipo AS articulo_tipo,
+        ar.unidad_medida,
+        l.codigo_lote,
+        e.id AS entrega_id,
+        e.confirmada_en
+      FROM entrega_detalle ed
+      INNER JOIN entrega e ON e.id = ed.entrega_id
+      INNER JOIN articulo ar ON ar.id = ed.articulo_id
+      LEFT JOIN lote l ON l.id = ed.lote_id
+      WHERE e.trabajador_id = $1
+        AND e.estado = 'confirmada'
+        AND ed.activo_id IS NULL
+      ORDER BY e.confirmada_en DESC
+      `,
+      [id]
+    );
+
+    // 4. Estadísticas
+    const { rows: statsRows } = await db.query(
+      `
+      SELECT
+        (SELECT COUNT(*)::int FROM custodia_activo WHERE trabajador_id = $1 AND estado = 'activa') AS activos_en_custodia,
+        (SELECT COUNT(*)::int FROM custodia_activo WHERE trabajador_id = $1) AS total_custodias,
+        (SELECT COUNT(DISTINCT e.id)::int
+         FROM entrega e
+         WHERE e.trabajador_id = $1 AND e.estado = 'confirmada') AS total_entregas,
+        (SELECT COALESCE(AVG(
+          EXTRACT(DAY FROM COALESCE(ca2.hasta_en, NOW()) - ca2.desde_en)
+        )::int, 0)
+         FROM custodia_activo ca2 WHERE ca2.trabajador_id = $1) AS dias_promedio_custodia,
+        (SELECT COUNT(*)::int
+         FROM custodia_activo ca3
+         WHERE ca3.trabajador_id = $1 AND ca3.estado = 'activa'
+           AND ca3.fecha_devolucion_esperada IS NOT NULL
+           AND EXTRACT(EPOCH FROM (NOW() - ca3.desde_en))
+             / NULLIF(EXTRACT(EPOCH FROM (ca3.fecha_devolucion_esperada - ca3.desde_en)), 0) >= 0.9
+        ) AS activos_vencidos_o_proximos
+      `,
+      [id]
+    );
+
+    return {
+      ...trabajador,
+      custodias,
+      consumibles_entregados: consumibles,
+      stats: statsRows[0],
+    };
+  }
 }
 
 module.exports = TrabajadoresService;

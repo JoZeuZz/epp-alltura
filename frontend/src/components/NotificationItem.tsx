@@ -17,6 +17,8 @@ const notificationIcons: Record<string, string> = {
   scaffold_modification_added: '➕',
   project_assigned: '📋',
   note_urgent: '⚠️',
+  custodia_vencida: '🔴',
+  custodia_proxima_vencer: '🟡',
   system: 'ℹ️',
 };
 
@@ -27,12 +29,15 @@ const notificationColors: Record<string, string> = {
   scaffold_modification_added: 'bg-cyan-50 border-cyan-200',
   project_assigned: 'bg-indigo-50 border-indigo-200',
   note_urgent: 'bg-red-50 border-red-200',
+  custodia_vencida: 'bg-red-50 border-red-200',
+  custodia_proxima_vencer: 'bg-yellow-50 border-yellow-200',
   system: 'bg-gray-50 border-gray-200',
 };
 
 const EPP_ALLOWED_PATHS = new Set([
   '/admin/dashboard',
   '/admin/trazabilidad',
+  '/admin/trabajadores',
   '/supervisor/dashboard',
   '/supervisor/trazabilidad',
   '/bodega/dashboard',

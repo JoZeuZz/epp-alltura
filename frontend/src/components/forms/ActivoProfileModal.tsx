@@ -7,6 +7,7 @@ import {
   type ActivoTimelineEntry,
   type ActivoCustodiaEntry,
 } from '../../services/apiService';
+import { formatCLP } from '../../utils/currency';
 
 const ESTADO_LABELS: Record<string, string> = {
   en_stock: 'En stock',
@@ -187,7 +188,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onCambiarEstad
                   <span>Proveedor: {profile.compra.proveedor_nombre}</span>
                 )}
                 {profile.compra.precio_unitario != null && (
-                  <span>Valor unitario: ${profile.compra.precio_unitario.toLocaleString('es-CL')}</span>
+                  <span>Valor unitario: {formatCLP(profile.compra.precio_unitario)}</span>
                 )}
               </div>
             </section>
