@@ -148,11 +148,28 @@ class EntregasService {
         e.*,
         p.nombres,
         p.apellidos,
-        COUNT(d.id)::int AS cantidad_items
+        COUNT(d.id)::int AS cantidad_items,
+        /* estado_devolucion computado desde custodia_activo */
+        CASE
+          WHEN e.estado NOT IN ('confirmada','recibido') THEN NULL
+          WHEN retornables.total IS NULL OR retornables.total = 0 THEN NULL
+          WHEN retornables.cerradas = retornables.total THEN 'devuelta_completa'
+          WHEN retornables.cerradas > 0 THEN 'parcialmente_devuelta'
+          ELSE 'pendiente_devolucion'
+        END AS estado_devolucion,
+        retornables.total   AS retornables_total,
+        retornables.cerradas AS retornables_cerradas
       FROM entrega e
       INNER JOIN trabajador t ON t.id = e.trabajador_id
       INNER JOIN persona p ON p.id = t.persona_id
       LEFT JOIN entrega_detalle d ON d.entrega_id = e.id
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE ca.estado <> 'activa')::int AS cerradas
+        FROM custodia_activo ca
+        WHERE ca.entrega_id = e.id
+      ) retornables ON true
     `;
 
     if (conditions.length > 0) {
@@ -160,7 +177,7 @@ class EntregasService {
     }
 
     query += `
-      GROUP BY e.id, p.id
+      GROUP BY e.id, p.id, retornables.total, retornables.cerradas
       ORDER BY e.creado_en DESC
     `;
 
@@ -177,11 +194,27 @@ class EntregasService {
         p.nombres,
         p.apellidos,
         f.firma_imagen_url,
-        f.firmado_en
+        f.firmado_en,
+        CASE
+          WHEN e.estado NOT IN ('confirmada','recibido') THEN NULL
+          WHEN retornables.total IS NULL OR retornables.total = 0 THEN NULL
+          WHEN retornables.cerradas = retornables.total THEN 'devuelta_completa'
+          WHEN retornables.cerradas > 0 THEN 'parcialmente_devuelta'
+          ELSE 'pendiente_devolucion'
+        END AS estado_devolucion,
+        retornables.total   AS retornables_total,
+        retornables.cerradas AS retornables_cerradas
       FROM entrega e
       INNER JOIN trabajador t ON t.id = e.trabajador_id
       INNER JOIN persona p ON p.id = t.persona_id
       LEFT JOIN firma_entrega f ON f.entrega_id = e.id
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE ca.estado <> 'activa')::int AS cerradas
+        FROM custodia_activo ca
+        WHERE ca.entrega_id = e.id
+      ) retornables ON true
       WHERE e.id = $1
       `,
       [id]
@@ -199,11 +232,22 @@ class EntregasService {
         a.tracking_mode,
         a.retorno_mode,
         ac.codigo AS activo_codigo,
-        l.codigo_lote
+        l.codigo_lote,
+        /* estado de devolución por ítem */
+        ca.estado   AS custodia_estado,
+        ca.hasta_en AS custodia_cerrada_en,
+        CASE
+          WHEN ca.id IS NULL THEN NULL
+          WHEN ca.estado = 'activa' THEN false
+          ELSE true
+        END AS devuelto,
+        ca.estado AS devolucion_disposicion
       FROM entrega_detalle d
       INNER JOIN articulo a ON a.id = d.articulo_id
       LEFT JOIN activo ac ON ac.id = d.activo_id
       LEFT JOIN lote l ON l.id = d.lote_id
+      LEFT JOIN custodia_activo ca ON ca.activo_id = d.activo_id
+                                  AND ca.entrega_id = $1
       WHERE d.entrega_id = $1
       ORDER BY d.id
       `,

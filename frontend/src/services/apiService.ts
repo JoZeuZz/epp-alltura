@@ -279,6 +279,7 @@ export interface InventoryActivoDetailRow {
   ubicacion_id?: string | null;
   ubicacion_nombre?: string | null;
   estado?: string;
+  valor?: number | null;
   fecha_vencimiento?: string | null;
   custodia_id?: string | null;
   custodia_estado?: string | null;
@@ -360,6 +361,9 @@ export interface DevolucionDetalleRow {
   condicion_entrada: DevolucionCondicionEntrada;
   disposicion: DevolucionDisposicion;
   notas?: string | null;
+  /* trazabilidad cruzada: entrega de origen por ítem */
+  entrega_origen_id?: string | null;
+  entrega_origen_fecha?: string | null;
 }
 
 export interface DevolucionRow {
@@ -377,6 +381,9 @@ export interface DevolucionRow {
   firma_imagen_url?: string | null;
   firmado_en?: string | null;
   detalles?: DevolucionDetalleRow[];
+  /* trazabilidad cruzada: entrega de origen (primera) */
+  entrega_origen_id?: string | null;
+  entrega_origen_fecha?: string | null;
 }
 
 export interface DevolucionDetallePayload {
@@ -486,6 +493,94 @@ export const getInventoryStockPaged = (params?: InventoryStockDetailQueryParams)
 
 export const getInventoryActivosPaged = (params?: InventoryActivoDetailQueryParams) =>
   get<CursorPaginatedResponse<InventoryActivoDetailRow>>('/inventario/activos-paged', params);
+
+// ---- Perfil completo de activo ----
+
+export interface ActivoTimelineEntry {
+  id: string;
+  tipo: string;
+  fecha_movimiento: string;
+  notas?: string | null;
+  ubicacion_origen_nombre?: string | null;
+  ubicacion_destino_nombre?: string | null;
+  entrega_id?: string | null;
+  devolucion_id?: string | null;
+  responsable_email?: string | null;
+}
+
+export interface ActivoCustodiaEntry {
+  id: string;
+  trabajador_id: string;
+  entrega_id?: string | null;
+  ubicacion_destino_id?: string | null;
+  desde_en: string;
+  hasta_en?: string | null;
+  estado: string;
+  custodio_nombres: string;
+  custodio_apellidos: string;
+  custodia_ubicacion_nombre?: string | null;
+  dias_en_custodia?: number | null;
+}
+
+export interface ActivoProfileResponse {
+  id: string;
+  codigo: string;
+  nro_serie?: string | null;
+  estado: string;
+  ubicacion_actual_id?: string | null;
+  ubicacion_nombre?: string | null;
+  fecha_compra?: string | null;
+  fecha_vencimiento?: string | null;
+  valor?: number | null;
+  creado_en: string;
+  articulo_id: string;
+  articulo_nombre: string;
+  tracking_mode: string;
+  retorno_mode: string;
+  custodia_activa?: ActivoCustodiaEntry | null;
+  compra?: {
+    compra_id: string;
+    fecha_compra: string;
+    proveedor_nombre?: string | null;
+    precio_unitario?: number | null;
+  } | null;
+  timeline: ActivoTimelineEntry[];
+  custodias: ActivoCustodiaEntry[];
+  estadisticas: {
+    total_entregas: number;
+    total_devoluciones: number;
+    dias_total_custodia: number;
+  };
+}
+
+export const getActivoProfile = (id: string) =>
+  get<ActivoProfileResponse>(`/inventario/activos/${id}/perfil`);
+
+// ── Gestión de activos ─────────────────────────────────────
+export interface CambiarEstadoActivoPayload {
+  nuevo_estado: string;
+  motivo: string;
+  ubicacion_destino_id?: string;
+}
+
+export interface ReubicarActivoPayload {
+  ubicacion_destino_id: string;
+  motivo?: string;
+}
+
+export interface EditarActivoPayload {
+  valor?: number | null;
+  fecha_vencimiento?: string | null;
+}
+
+export const cambiarEstadoActivo = (id: string, payload: CambiarEstadoActivoPayload) =>
+  patch<{ id: string; estado: string; ubicacion_actual_id: string }>(`/inventario/activos/${id}/estado`, payload);
+
+export const reubicarActivo = (id: string, payload: ReubicarActivoPayload) =>
+  patch<{ id: string; ubicacion_actual_id: string }>(`/inventario/activos/${id}/reubicar`, payload);
+
+export const editarActivo = (id: string, payload: EditarActivoPayload) =>
+  patch<{ id: string; valor: number | null; fecha_vencimiento: string | null }>(`/inventario/activos/${id}`, payload);
 
 export const getInventoryAvailableAssets = (params: InventoryAvailableAssetQueryParams) =>
   get<InventoryAvailableAssetRow[]>('/inventario/activos-disponibles', params);
@@ -630,7 +725,14 @@ export interface EntregaDetalleRow {
   cantidad: number;
   condicion_salida: CondicionSalida;
   notas?: string | null;
+  /* trazabilidad cruzada: estado devolución por ítem */
+  custodia_estado?: string | null;
+  custodia_cerrada_en?: string | null;
+  devuelto?: boolean | null;
+  devolucion_disposicion?: string | null;
 }
+
+export type EntregaEstadoDevolucion = 'devuelta_completa' | 'parcialmente_devuelta' | 'pendiente_devolucion';
 
 export interface EntregaRow {
   id: string;
@@ -655,6 +757,10 @@ export interface EntregaRow {
   firma_imagen_url?: string | null;
   firmado_en?: string | null;
   detalles?: EntregaDetalleRow[];
+  /* trazabilidad cruzada: estado de devolución computado */
+  estado_devolucion?: EntregaEstadoDevolucion | null;
+  retornables_total?: number | null;
+  retornables_cerradas?: number | null;
 }
 
 export interface EntregaDetallePayload {

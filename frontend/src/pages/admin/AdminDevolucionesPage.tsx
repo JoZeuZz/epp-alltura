@@ -287,6 +287,23 @@ const AdminDevolucionesPage: React.FC = () => {
       render: (_v, row) => ubicacionesById.get(row.ubicacion_recepcion_id) || '—',
     },
     {
+      key: 'entrega_origen_id',
+      header: 'Entrega origen',
+      render: (_v, row) => {
+        if (!row.entrega_origen_id) return '—';
+        const fecha = row.entrega_origen_fecha
+          ? new Date(row.entrega_origen_fecha).toLocaleDateString('es-CL', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+          })
+          : '';
+        return (
+          <span className="text-xs text-blue-600" title={`Entrega ${row.entrega_origen_id}`}>
+            {fecha || 'Ver entrega'}
+          </span>
+        );
+      },
+    },
+    {
       key: 'cantidad_detalles',
       header: 'Ítems',
       render: (_v, row) => row.cantidad_detalles ?? row.detalles?.length ?? 0,

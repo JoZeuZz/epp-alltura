@@ -333,4 +333,58 @@ router.get(
   InventarioController.getLotes
 );
 
+router.get(
+  '/activos/:id/perfil',
+  authMiddleware,
+  checkRole(['admin', 'supervisor', 'bodega']),
+  InventarioController.getActivoProfile
+);
+
+// ── Gestión de activos (admin) ─────────────────────────────
+const cambiarEstadoActivoSchema = Joi.object({
+  nuevo_estado: Joi.string()
+    .valid('en_stock', 'asignado', 'en_traslado', 'mantencion', 'dado_de_baja', 'perdido')
+    .required(),
+  motivo: Joi.string().trim().min(3).max(500).required(),
+  ubicacion_destino_id: uuid.when('nuevo_estado', {
+    is: 'en_stock',
+    then: Joi.required(),
+    otherwise: Joi.optional().allow(null),
+  }),
+});
+
+const reubicarActivoSchema = Joi.object({
+  ubicacion_destino_id: uuid.required(),
+  motivo: Joi.string().trim().max(500).allow('', null),
+});
+
+const editarActivoSchema = Joi.object({
+  valor: Joi.number().precision(4).min(0).allow(null),
+  fecha_vencimiento: Joi.date().iso().allow(null),
+}).min(1);
+
+router.patch(
+  '/activos/:id/estado',
+  authMiddleware,
+  checkRole(['admin']),
+  validateBody(cambiarEstadoActivoSchema),
+  InventarioController.cambiarEstadoActivo
+);
+
+router.patch(
+  '/activos/:id/reubicar',
+  authMiddleware,
+  checkRole(['admin']),
+  validateBody(reubicarActivoSchema),
+  InventarioController.reubicarActivo
+);
+
+router.patch(
+  '/activos/:id',
+  authMiddleware,
+  checkRole(['admin']),
+  validateBody(editarActivoSchema),
+  InventarioController.editarActivo
+);
+
 module.exports = router;

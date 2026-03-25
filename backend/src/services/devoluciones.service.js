@@ -210,11 +210,24 @@ class DevolucionesService {
         d.*,
         p.nombres,
         p.apellidos,
-        COUNT(dd.id)::int AS cantidad_detalles
+        COUNT(dd.id)::int AS cantidad_detalles,
+        /* entregas de origen (ids distintos via custodia) */
+        entrega_agg.entrega_origen_id,
+        entrega_agg.entrega_origen_fecha
       FROM devolucion d
       INNER JOIN trabajador t ON t.id = d.trabajador_id
       INNER JOIN persona p ON p.id = t.persona_id
       LEFT JOIN devolucion_detalle dd ON dd.devolucion_id = d.id
+      LEFT JOIN LATERAL (
+        SELECT
+          (array_agg(DISTINCT ca.entrega_id))[1]::text AS entrega_origen_id,
+          MIN(ent.confirmada_en) AS entrega_origen_fecha
+        FROM devolucion_detalle dd2
+        INNER JOIN custodia_activo ca ON ca.id = dd2.custodia_activo_id
+        LEFT JOIN entrega ent ON ent.id = ca.entrega_id
+        WHERE dd2.devolucion_id = d.id
+          AND ca.entrega_id IS NOT NULL
+      ) entrega_agg ON true
     `;
 
     if (conditions.length > 0) {
@@ -222,7 +235,7 @@ class DevolucionesService {
     }
 
     query += `
-      GROUP BY d.id, p.id
+      GROUP BY d.id, p.id, entrega_agg.entrega_origen_id, entrega_agg.entrega_origen_fecha
       ORDER BY d.creado_en DESC
     `;
 
@@ -268,12 +281,16 @@ class DevolucionesService {
         ac.codigo AS activo_codigo,
         ac.nro_serie AS activo_nro_serie,
         l.codigo_lote,
-        c.estado AS custodia_estado
+        c.estado AS custodia_estado,
+        /* entrega de origen por ítem */
+        c.entrega_id AS entrega_origen_id,
+        ent.confirmada_en AS entrega_origen_fecha
       FROM devolucion_detalle dd
       LEFT JOIN articulo a ON a.id = dd.articulo_id
       LEFT JOIN activo ac ON ac.id = dd.activo_id
       LEFT JOIN lote l ON l.id = dd.lote_id
       LEFT JOIN custodia_activo c ON c.id = dd.custodia_activo_id
+      LEFT JOIN entrega ent ON ent.id = c.entrega_id
       WHERE dd.devolucion_id = $1
       ORDER BY dd.id
       `,

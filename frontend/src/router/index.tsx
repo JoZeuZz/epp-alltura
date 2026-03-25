@@ -25,6 +25,9 @@ const AdminInventoryIngressPage = lazy(
 const AdminInventoryEgressPage = lazy(
   () => import('../pages/admin/inventory/AdminInventoryEgressPage')
 );
+const AdminInventoryActivosPage = lazy(
+  () => import('../pages/admin/inventory/AdminInventoryActivosPage')
+);
 const UsersPage = lazy(() => import('../pages/admin/UsersPage'));
 const SupervisorDashboard = lazy(() => import('../pages/supervisor/SupervisorDashboard'));
 const WarehouseDashboard = lazy(() => import('../pages/bodega/WarehouseDashboard'));
@@ -360,6 +363,10 @@ export const router = createBrowserRouter([
           {
             path: 'egresos',
             element: <AdminInventoryEgressPage />,
+          },
+          {
+            path: 'activos',
+            element: <AdminInventoryActivosPage />,
           },
         ],
       },
