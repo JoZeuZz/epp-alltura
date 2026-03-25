@@ -228,6 +228,46 @@ class InventarioController {
       return next(error);
     }
   }
+
+  static async getActivoProfile(req, res, next) {
+    try {
+      const data = await InventarioService.getActivoProfile(req.params.id);
+      return sendSuccess(res, { message: 'Perfil del activo obtenido correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching activo profile:', error);
+      return next(error);
+    }
+  }
+
+  static async cambiarEstadoActivo(req, res, next) {
+    try {
+      const data = await InventarioService.cambiarEstadoActivo(req.params.id, req.body, req.user.id);
+      return sendSuccess(res, { message: 'Estado del activo actualizado correctamente', data });
+    } catch (error) {
+      logger.error('Error changing activo state:', error);
+      return next(error);
+    }
+  }
+
+  static async reubicarActivo(req, res, next) {
+    try {
+      const data = await InventarioService.reubicarActivo(req.params.id, req.body, req.user.id);
+      return sendSuccess(res, { message: 'Activo reubicado correctamente', data });
+    } catch (error) {
+      logger.error('Error relocating activo:', error);
+      return next(error);
+    }
+  }
+
+  static async editarActivo(req, res, next) {
+    try {
+      const data = await InventarioService.editarActivo(req.params.id, req.body);
+      return sendSuccess(res, { message: 'Activo actualizado correctamente', data });
+    } catch (error) {
+      logger.error('Error updating activo:', error);
+      return next(error);
+    }
+  }
 }
 
 module.exports = InventarioController;

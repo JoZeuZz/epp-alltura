@@ -22,6 +22,7 @@ import {
   type EntregaEstado,
   type EntregaTipo,
   type EntregaCreatePayload,
+  type EntregaEstadoDevolucion,
 } from '../../services/apiService';
 import EntregaCreateModal from '../../components/forms/EntregaCreateModal';
 import EntregaFirmaModal from '../../components/forms/EntregaFirmaModal';
@@ -61,6 +62,18 @@ const TIPO_CLASSES: Record<EntregaTipo, string> = {
   entrega: 'bg-blue-100 text-blue-700',
   prestamo: 'bg-blue-100 text-blue-700',
   traslado: 'bg-orange-100 text-orange-700',
+};
+
+const DEVOLUCION_LABELS: Record<string, string> = {
+  devuelta_completa: 'Devuelta',
+  parcialmente_devuelta: 'Parcial',
+  pendiente_devolucion: 'Pendiente dev.',
+};
+
+const DEVOLUCION_CLASSES: Record<string, string> = {
+  devuelta_completa: 'bg-emerald-100 text-emerald-700',
+  parcialmente_devuelta: 'bg-amber-100 text-amber-700',
+  pendiente_devolucion: 'bg-orange-100 text-orange-700',
 };
 
 const FILTER_TABS: { label: string; value: EntregaEstado | 'todas' }[] = [
@@ -313,12 +326,22 @@ const AdminEntregasPage: React.FC = () => {
       header: 'Estado',
       render: (_v, row) => {
         const estado = row.estado as EntregaEstado;
+        const estadoDev = row.estado_devolucion as EntregaEstadoDevolucion | null | undefined;
         return (
-          <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ESTADO_CLASSES[estado] ?? 'bg-gray-100 text-gray-700'}`}
-          >
-            {ESTADO_LABELS[estado] ?? estado}
-          </span>
+          <div className="flex flex-col gap-1 items-start">
+            <span
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ESTADO_CLASSES[estado] ?? 'bg-gray-100 text-gray-700'}`}
+            >
+              {ESTADO_LABELS[estado] ?? estado}
+            </span>
+            {estadoDev && (
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${DEVOLUCION_CLASSES[estadoDev] ?? 'bg-gray-100 text-gray-600'}`}
+              >
+                {DEVOLUCION_LABELS[estadoDev] ?? estadoDev}
+              </span>
+            )}
+          </div>
         );
       },
     },
