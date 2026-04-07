@@ -110,7 +110,7 @@ const WarehouseDashboard: React.FC = () => {
           next[index] = { ...next[index], ...updatedEntrega };
           return next;
         });
-      } catch (_error) {
+      } catch {
         setEntregas((prev) =>
           prev.map((item) =>
             item.id === event.entrega_id ? { ...item, firmado_en: event.firmado_en } : item
@@ -612,6 +612,7 @@ const WarehouseDashboard: React.FC = () => {
         <form className="space-y-3" onSubmit={handleCreateDelivery}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <select
+              data-testid="delivery-worker-select"
               className="border rounded-md p-2"
               value={isTraslado ? deliveryForm.transportista_trabajador_id : deliveryForm.trabajador_id}
               onChange={(e) =>
@@ -663,6 +664,7 @@ const WarehouseDashboard: React.FC = () => {
               Es traslado entre bodegas
             </label>
             <select
+              data-testid="delivery-origin-select"
               className="border rounded-md p-2"
               value={deliveryForm.ubicacion_origen_id}
               onChange={(e) => setDeliveryForm((prev) => ({ ...prev, ubicacion_origen_id: e.target.value }))}
@@ -676,6 +678,7 @@ const WarehouseDashboard: React.FC = () => {
               ))}
             </select>
             <select
+              data-testid="delivery-destination-select"
               className="border rounded-md p-2"
               value={deliveryForm.ubicacion_destino_id}
               onChange={(e) => setDeliveryForm((prev) => ({ ...prev, ubicacion_destino_id: e.target.value }))}
@@ -700,6 +703,7 @@ const WarehouseDashboard: React.FC = () => {
             <div key={`detail-${index}`} className="border rounded-md p-3 bg-gray-50">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                 <select
+                  data-testid={`delivery-article-select-${index}`}
                   className="border rounded-md p-2"
                   value={detail.articulo_id}
                   onChange={(e) => {
@@ -746,6 +750,7 @@ const WarehouseDashboard: React.FC = () => {
                   disabled={getArticuloById(detail.articulo_id)?.tracking_mode !== 'lote'}
                 />
                 <input
+                  data-testid={`delivery-quantity-input-${index}`}
                   className="border rounded-md p-2"
                   type="number"
                   min={1}
@@ -787,7 +792,11 @@ const WarehouseDashboard: React.FC = () => {
             >
               Agregar Ítem
             </button>
-            <button type="submit" className="px-3 py-2 rounded-md bg-primary-blue text-white">
+            <button
+              data-testid="delivery-create-submit"
+              type="submit"
+              className="px-3 py-2 rounded-md bg-primary-blue text-white"
+            >
               Crear Entrega Borrador
             </button>
           </div>

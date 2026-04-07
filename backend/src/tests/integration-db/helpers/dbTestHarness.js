@@ -13,6 +13,8 @@ const TRANSACTIONAL_TABLES = [
   'custodia_activo',
   'firma_entrega',
   'firma_token',
+  'entrega_template_item',
+  'entrega_template',
   'entrega_detalle',
   'entrega',
   'stock',

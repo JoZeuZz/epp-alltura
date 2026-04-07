@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import Modal from '../Modal';
 import type { EntregaRow } from '../../services/apiService';
 
@@ -26,6 +26,9 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
   isSubmitting,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const signatureCanvasId = useId();
+  const signatureHelpId = useId();
+  const signatureErrorId = useId();
   const isDrawing = useRef(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
   const [hasFirma, setHasFirma] = useState(false);
@@ -189,9 +192,9 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
       {/* Canvas firma */}
       <div className="mb-2">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-sm font-medium text-gray-700">
+          <label htmlFor={signatureCanvasId} className="text-sm font-medium text-gray-700">
             {`Firma del ${signerLabel}`} <span className="text-red-500">*</span>
-          </span>
+          </label>
           <button
             type="button"
             onClick={clearCanvas}
@@ -202,6 +205,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
         </div>
         <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden bg-white relative">
           <canvas
+            id={signatureCanvasId}
             ref={canvasRef}
             width={600}
             height={200}
@@ -214,6 +218,9 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
             onTouchStart={startDraw}
             onTouchMove={draw}
             onTouchEnd={endDraw}
+            aria-required="true"
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? `${signatureHelpId} ${signatureErrorId}` : signatureHelpId}
           />
           {!hasFirma && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -221,14 +228,18 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
             </div>
           )}
         </div>
-        <p className="mt-1 text-xs text-gray-500">
+        <p id={signatureHelpId} className="mt-1 text-xs text-gray-500">
           Use el dedo o el ratón para firmar en el área de arriba.
         </p>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div
+          id={signatureErrorId}
+          className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"
+          role="alert"
+        >
           {error}
         </div>
       )}

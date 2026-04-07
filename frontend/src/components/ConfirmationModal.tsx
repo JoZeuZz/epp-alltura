@@ -1,5 +1,5 @@
 import Modal from './Modal';
-import { ReactNode } from 'react';
+import { ReactNode, useId } from 'react';
 import WarningIcon from './icons/WarningIcon';
 import InfoIcon from './icons/InfoIcon';
 
@@ -13,6 +13,7 @@ interface ConfirmationModalProps {
   cancelText?: string;
   variant?: 'danger' | 'warning' | 'info';
   confirmDisabled?: boolean;
+  confirmDisabledReason?: string;
   children?: ReactNode;
 }
 
@@ -26,8 +27,11 @@ export default function ConfirmationModal({
   cancelText = 'Cancelar',
   variant = 'danger',
   confirmDisabled = false,
+  confirmDisabledReason,
   children,
 }: ConfirmationModalProps) {
+  const confirmDisabledReasonId = useId();
+
   const getVariantStyles = () => {
     switch (variant) {
       case 'danger':
@@ -124,6 +128,10 @@ export default function ConfirmationModal({
             type="button"
             className={`inline-flex justify-center items-center rounded-xl border-2 border-transparent ${styles.buttonBg} px-6 py-3 label-base text-white shadow-lg ${styles.glowColor} focus:outline-none focus:ring-4 focus:ring-offset-2 transition-all duration-200 min-h-touch disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none`}
             disabled={confirmDisabled}
+            aria-disabled={confirmDisabled}
+            aria-describedby={
+              confirmDisabled && confirmDisabledReason ? confirmDisabledReasonId : undefined
+            }
             onClick={() => {
               onConfirm();
               onClose();
@@ -133,6 +141,12 @@ export default function ConfirmationModal({
             {confirmText}
           </button>
         </div>
+
+        {confirmDisabled && confirmDisabledReason && (
+          <p id={confirmDisabledReasonId} className="mt-3 text-xs text-gray-500" aria-live="polite">
+            {confirmDisabledReason}
+          </p>
+        )}
       </div>
     </Modal>
   );

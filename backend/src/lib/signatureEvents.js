@@ -8,7 +8,7 @@ const safeWrite = (res, chunk) => {
   try {
     res.write(chunk);
     return true;
-  } catch (_error) {
+  } catch {
     return false;
   }
 };

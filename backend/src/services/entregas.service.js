@@ -1,6 +1,9 @@
 const db = require('../db');
+const crypto = require('crypto');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
-const { resolveImageUrl } = require('../lib/googleCloud');
+const { buildEntregaActaPdfBuffer } = require('../lib/actaPdf');
+const { logger } = require('../lib/logger');
+const { uploadDocument, deleteFileByUrl, resolveImageUrl } = require('../lib/googleCloud');
 
 const buildError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -37,6 +40,17 @@ const resolveDetalleTipoEntrega = (article) => {
   if (!article) return 'asignacion';
   return article.retorno_mode === 'retornable' ? 'retornable' : 'asignacion';
 };
+
+const normalizeOptionalText = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+
+  const normalized = String(value).trim();
+  return normalized.length > 0 ? normalized : null;
+};
+
+const computeSha256 = (buffer) =>
+  crypto.createHash('sha256').update(buffer).digest('hex');
 
 class EntregasService {
   static normalizeCreateDetails(rawDetalles) {
@@ -122,6 +136,637 @@ class EntregasService {
     if (worker.estado !== 'activo' || worker.persona_estado !== 'activo') {
       throw buildError('El trabajador debe estar activo para recibir movimientos', 400);
     }
+  }
+
+  static async validateTemplateItemsAgainstArticles(client, rawItems) {
+    if (!Array.isArray(rawItems) || rawItems.length === 0) {
+      throw buildError('La plantilla debe contener al menos un ítem', 400);
+    }
+
+    const articleIds = Array.from(new Set(rawItems.map((item) => item.articulo_id).filter(Boolean)));
+    const articleResult = await client.query(
+      `
+      SELECT id, nombre, tracking_mode, retorno_mode, estado
+      FROM articulo
+      WHERE id = ANY($1::uuid[])
+      `,
+      [articleIds]
+    );
+
+    const articleMap = new Map(articleResult.rows.map((row) => [row.id, row]));
+    const seenArticles = new Set();
+    const normalizedItems = [];
+
+    for (const item of rawItems) {
+      const article = articleMap.get(item.articulo_id);
+      if (!article) {
+        throw buildError(`Artículo ${item.articulo_id} no encontrado`, 400);
+      }
+
+      if (article.estado !== 'activo') {
+        throw buildError(`El artículo ${article.nombre} debe estar activo`, 400);
+      }
+
+      if (seenArticles.has(item.articulo_id)) {
+        throw buildError(`La plantilla repite el artículo ${article.nombre}`, 400);
+      }
+      seenArticles.add(item.articulo_id);
+
+      const qty = Number(item.cantidad);
+      if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
+        throw buildError(`Cantidad inválida para artículo ${article.nombre}`, 400);
+      }
+
+      const requiresSerial =
+        typeof item.requiere_serial === 'boolean'
+          ? item.requiere_serial
+          : article.tracking_mode === 'serial';
+
+      if (article.tracking_mode === 'serial' && !requiresSerial) {
+        throw buildError(`El artículo ${article.nombre} es serial y requiere_serial debe ser true`, 400);
+      }
+
+      if (article.tracking_mode !== 'serial' && requiresSerial) {
+        throw buildError(`El artículo ${article.nombre} no es serial y requiere_serial debe ser false`, 400);
+      }
+
+      normalizedItems.push({
+        articulo_id: item.articulo_id,
+        cantidad: qty,
+        requiere_serial: requiresSerial,
+        notas_default: normalizeOptionalText(item.notas_default) || null,
+      });
+    }
+
+    return normalizedItems;
+  }
+
+  static async listTemplates(filters = {}) {
+    const values = [];
+    const conditions = [];
+
+    if (filters.estado) {
+      values.push(filters.estado);
+      conditions.push(`t.estado = $${values.length}`);
+    }
+
+    if (filters.search) {
+      values.push(`%${String(filters.search).trim().toLowerCase()}%`);
+      conditions.push(`LOWER(t.nombre) LIKE $${values.length}`);
+    }
+
+    let query = `
+      SELECT
+        t.id,
+        t.nombre,
+        t.descripcion,
+        t.estado,
+        t.scope_cargo,
+        t.scope_proyecto,
+        t.creado_por_usuario_id,
+        t.creado_en,
+        t.actualizado_en,
+        creator.email_login AS creado_por_email,
+        COALESCE(item_stats.cantidad_items, 0)::int AS cantidad_items
+      FROM entrega_template t
+      LEFT JOIN usuario creator ON creator.id = t.creado_por_usuario_id
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS cantidad_items
+        FROM entrega_template_item i
+        WHERE i.template_id = t.id
+      ) item_stats ON true
+    `;
+
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(' AND ')}`;
+    }
+
+    query += ' ORDER BY t.creado_en DESC';
+
+    const { rows } = await db.query(query, values);
+    return rows;
+  }
+
+  static async getTemplateById(templateId, options = {}) {
+    const includeInactive = options.includeInactive !== false;
+
+    const templateResult = await db.query(
+      `
+      SELECT
+        t.id,
+        t.nombre,
+        t.descripcion,
+        t.estado,
+        t.scope_cargo,
+        t.scope_proyecto,
+        t.creado_por_usuario_id,
+        t.creado_en,
+        t.actualizado_en,
+        creator.email_login AS creado_por_email
+      FROM entrega_template t
+      LEFT JOIN usuario creator ON creator.id = t.creado_por_usuario_id
+      WHERE t.id = $1
+        AND ($2::boolean OR t.estado = 'activo')
+      LIMIT 1
+      `,
+      [templateId, includeInactive]
+    );
+
+    if (!templateResult.rows.length) {
+      throw buildError('Plantilla de entrega no encontrada', 404);
+    }
+
+    const itemsResult = await db.query(
+      `
+      SELECT
+        i.id,
+        i.template_id,
+        i.articulo_id,
+        i.cantidad,
+        i.requiere_serial,
+        i.notas_default,
+        i.orden,
+        a.nombre AS articulo_nombre,
+        a.tracking_mode,
+        a.retorno_mode
+      FROM entrega_template_item i
+      INNER JOIN articulo a ON a.id = i.articulo_id
+      WHERE i.template_id = $1
+      ORDER BY i.orden ASC, i.creado_en ASC, i.id ASC
+      `,
+      [templateId]
+    );
+
+    return {
+      ...templateResult.rows[0],
+      items: itemsResult.rows,
+    };
+  }
+
+  static async createTemplate(payload, userId) {
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const normalizedItems = await this.validateTemplateItemsAgainstArticles(client, payload.items);
+
+      const templateResult = await client.query(
+        `
+        INSERT INTO entrega_template (
+          nombre,
+          descripcion,
+          estado,
+          scope_cargo,
+          scope_proyecto,
+          creado_por_usuario_id
+        )
+        VALUES ($1, $2, COALESCE($3, 'activo'), $4, $5, $6)
+        RETURNING id
+        `,
+        [
+          String(payload.nombre || '').trim(),
+          normalizeOptionalText(payload.descripcion) || null,
+          payload.estado || 'activo',
+          normalizeOptionalText(payload.scope_cargo) || null,
+          normalizeOptionalText(payload.scope_proyecto) || null,
+          userId,
+        ]
+      );
+
+      const templateId = templateResult.rows[0].id;
+
+      for (let index = 0; index < normalizedItems.length; index += 1) {
+        const item = normalizedItems[index];
+        await client.query(
+          `
+          INSERT INTO entrega_template_item (
+            template_id,
+            articulo_id,
+            cantidad,
+            requiere_serial,
+            notas_default,
+            orden
+          )
+          VALUES ($1, $2, $3, $4, $5, $6)
+          `,
+          [
+            templateId,
+            item.articulo_id,
+            item.cantidad,
+            item.requiere_serial,
+            item.notas_default || null,
+            index,
+          ]
+        );
+      }
+
+      await writeAuditEvent({
+        client,
+        entidadTipo: 'entrega_template',
+        entidadId: templateId,
+        accion: 'crear',
+        usuarioId: userId,
+        diff: {
+          nombre: payload.nombre,
+          estado: payload.estado || 'activo',
+          items_count: normalizedItems.length,
+        },
+      });
+
+      await client.query('COMMIT');
+      return this.getTemplateById(templateId);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async updateTemplate(templateId, payload, userId) {
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const existingResult = await client.query(
+        `
+        SELECT id, nombre, estado
+        FROM entrega_template
+        WHERE id = $1
+        FOR UPDATE
+        `,
+        [templateId]
+      );
+
+      if (!existingResult.rows.length) {
+        throw buildError('Plantilla de entrega no encontrada', 404);
+      }
+
+      const updates = [];
+      const values = [templateId];
+
+      if (Object.prototype.hasOwnProperty.call(payload, 'nombre')) {
+        values.push(String(payload.nombre || '').trim());
+        updates.push(`nombre = $${values.length}`);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(payload, 'descripcion')) {
+        values.push(normalizeOptionalText(payload.descripcion));
+        updates.push(`descripcion = $${values.length}`);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(payload, 'estado')) {
+        values.push(payload.estado);
+        updates.push(`estado = $${values.length}`);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(payload, 'scope_cargo')) {
+        values.push(normalizeOptionalText(payload.scope_cargo));
+        updates.push(`scope_cargo = $${values.length}`);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(payload, 'scope_proyecto')) {
+        values.push(normalizeOptionalText(payload.scope_proyecto));
+        updates.push(`scope_proyecto = $${values.length}`);
+      }
+
+      if (updates.length > 0) {
+        await client.query(
+          `
+          UPDATE entrega_template
+          SET ${updates.join(', ')}
+          WHERE id = $1
+          `,
+          values
+        );
+      }
+
+      let normalizedItems = null;
+      if (Array.isArray(payload.items)) {
+        normalizedItems = await this.validateTemplateItemsAgainstArticles(client, payload.items);
+
+        await client.query(
+          `
+          DELETE FROM entrega_template_item
+          WHERE template_id = $1
+          `,
+          [templateId]
+        );
+
+        for (let index = 0; index < normalizedItems.length; index += 1) {
+          const item = normalizedItems[index];
+          await client.query(
+            `
+            INSERT INTO entrega_template_item (
+              template_id,
+              articulo_id,
+              cantidad,
+              requiere_serial,
+              notas_default,
+              orden
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+            `,
+            [
+              templateId,
+              item.articulo_id,
+              item.cantidad,
+              item.requiere_serial,
+              item.notas_default || null,
+              index,
+            ]
+          );
+        }
+      }
+
+      await writeAuditEvent({
+        client,
+        entidadTipo: 'entrega_template',
+        entidadId: templateId,
+        accion: 'actualizar',
+        usuarioId: userId,
+        diff: {
+          campos_actualizados: updates.length,
+          items_actualizados: Array.isArray(payload.items),
+          items_count: normalizedItems ? normalizedItems.length : undefined,
+        },
+      });
+
+      await client.query('COMMIT');
+      return this.getTemplateById(templateId);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async deactivateTemplate(templateId, userId) {
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const templateResult = await client.query(
+        `
+        SELECT id, estado
+        FROM entrega_template
+        WHERE id = $1
+        FOR UPDATE
+        `,
+        [templateId]
+      );
+
+      if (!templateResult.rows.length) {
+        throw buildError('Plantilla de entrega no encontrada', 404);
+      }
+
+      await client.query(
+        `
+        UPDATE entrega_template
+        SET estado = 'inactivo'
+        WHERE id = $1
+        `,
+        [templateId]
+      );
+
+      await writeAuditEvent({
+        client,
+        entidadTipo: 'entrega_template',
+        entidadId: templateId,
+        accion: 'actualizar',
+        usuarioId: userId,
+        diff: {
+          estado_nuevo: 'inactivo',
+        },
+      });
+
+      await client.query('COMMIT');
+      return this.getTemplateById(templateId, { includeInactive: true });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async previewTemplate(templateId, filters = {}) {
+    const template = await this.getTemplateById(templateId, { includeInactive: true });
+    const ubicacionOrigenId = filters.ubicacion_origen_id || null;
+
+    if (!ubicacionOrigenId) {
+      return template;
+    }
+
+    const enrichedItems = [];
+    for (const item of template.items) {
+      if (item.requiere_serial) {
+        const availableAssetsResult = await db.query(
+          `
+          SELECT COUNT(*)::int AS disponibles
+          FROM activo
+          WHERE articulo_id = $1
+            AND estado = 'en_stock'
+            AND ubicacion_actual_id = $2
+          `,
+          [item.articulo_id, ubicacionOrigenId]
+        );
+
+        enrichedItems.push({
+          ...item,
+          disponibilidad_origen: availableAssetsResult.rows[0]?.disponibles || 0,
+        });
+        continue;
+      }
+
+      const stockResult = await db.query(
+        `
+        SELECT COALESCE(SUM(cantidad_disponible), 0)::int AS disponibles
+        FROM stock
+        WHERE articulo_id = $1
+          AND ubicacion_id = $2
+        `,
+        [item.articulo_id, ubicacionOrigenId]
+      );
+
+      enrichedItems.push({
+        ...item,
+        disponibilidad_origen: stockResult.rows[0]?.disponibles || 0,
+      });
+    }
+
+    return {
+      ...template,
+      items: enrichedItems,
+      ubicacion_origen_id: ubicacionOrigenId,
+    };
+  }
+
+  static resolveTemplateDetails(templateItems, rawOverrides = [], options = {}) {
+    const requireSerialAssignments = options.requireSerialAssignments !== false;
+
+    const overrides = Array.isArray(rawOverrides) ? rawOverrides : [];
+    const overrideByArticle = new Map();
+
+    for (const override of overrides) {
+      const articleId = override.articulo_id;
+      if (!articleId) {
+        throw buildError('Cada override debe incluir articulo_id', 400);
+      }
+
+      if (overrideByArticle.has(articleId)) {
+        throw buildError(`Override duplicado para artículo ${articleId}`, 400);
+      }
+
+      overrideByArticle.set(articleId, override);
+    }
+
+    const templateArticleIds = new Set(templateItems.map((item) => item.articulo_id));
+    for (const articleId of overrideByArticle.keys()) {
+      if (!templateArticleIds.has(articleId)) {
+        throw buildError(
+          `El override del artículo ${articleId} no pertenece a la plantilla seleccionada`,
+          400
+        );
+      }
+    }
+
+    const details = [];
+    for (const item of templateItems) {
+      const override = overrideByArticle.get(item.articulo_id) || {};
+      const qty = Number(override.cantidad ?? item.cantidad);
+
+      if (!Number.isFinite(qty) || qty <= 0 || !Number.isInteger(qty)) {
+        throw buildError(`Cantidad inválida para artículo ${item.articulo_nombre || item.articulo_id}`, 400);
+      }
+
+      const notas =
+        normalizeOptionalText(
+          Object.prototype.hasOwnProperty.call(override, 'notas')
+            ? override.notas
+            : item.notas_default
+        ) || null;
+
+      const condicionSalida = override.condicion_salida || 'ok';
+
+      if (item.requiere_serial) {
+        const activoIds = Array.isArray(override.activo_ids)
+          ? override.activo_ids.filter(Boolean)
+          : [];
+
+        if (requireSerialAssignments && activoIds.length === 0) {
+          throw buildError(
+            `El artículo ${item.articulo_nombre || item.articulo_id} requiere activo_ids para crear la entrega`,
+            400
+          );
+        }
+
+        if (new Set(activoIds).size !== activoIds.length) {
+          throw buildError(
+            `El artículo ${item.articulo_nombre || item.articulo_id} tiene activo_ids duplicados`,
+            400
+          );
+        }
+
+        if (activoIds.length > 0) {
+          details.push({
+            articulo_id: item.articulo_id,
+            activo_ids: activoIds,
+            condicion_salida: condicionSalida,
+            notas,
+          });
+        }
+
+        continue;
+      }
+
+      details.push({
+        articulo_id: item.articulo_id,
+        lote_id: override.lote_id || null,
+        cantidad: qty,
+        condicion_salida: condicionSalida,
+        notas,
+      });
+    }
+
+    return details;
+  }
+
+  static async createFromTemplate(templateId, payload, userId) {
+    const template = await this.getTemplateById(templateId, { includeInactive: false });
+
+    const detalles = this.resolveTemplateDetails(template.items, payload.detalles_overrides || [], {
+      requireSerialAssignments: true,
+    });
+
+    const createPayload = {
+      trabajador_id: payload.trabajador_id,
+      ubicacion_origen_id: payload.ubicacion_origen_id,
+      ubicacion_destino_id: payload.ubicacion_destino_id,
+      tipo: payload.tipo,
+      es_traslado: payload.es_traslado,
+      nota_destino: payload.nota_destino || null,
+      fecha_devolucion_esperada: payload.fecha_devolucion_esperada || null,
+      detalles,
+    };
+
+    if (!createPayload.tipo && typeof createPayload.es_traslado !== 'boolean') {
+      createPayload.tipo = 'entrega';
+    }
+
+    return this.create(createPayload, userId);
+  }
+
+  static async createBatchFromTemplate(templateId, payload, userId) {
+    const template = await this.getTemplateById(templateId, { includeInactive: false });
+
+    if (template.items.some((item) => item.requiere_serial)) {
+      throw buildError(
+        'La creación masiva desde plantilla no admite artículos serializados en este MVP',
+        400
+      );
+    }
+
+    const workerIds = Array.from(new Set((payload.trabajador_ids || []).filter(Boolean)));
+    if (workerIds.length === 0) {
+      throw buildError('Debe seleccionar al menos un trabajador para creación masiva', 400);
+    }
+
+    const detalles = this.resolveTemplateDetails(template.items, payload.detalles_overrides || [], {
+      requireSerialAssignments: false,
+    });
+
+    const entregas = [];
+    for (const trabajadorId of workerIds) {
+      const createPayload = {
+        trabajador_id: trabajadorId,
+        ubicacion_origen_id: payload.ubicacion_origen_id,
+        ubicacion_destino_id: payload.ubicacion_destino_id,
+        tipo: payload.tipo,
+        es_traslado: payload.es_traslado,
+        nota_destino: payload.nota_destino || null,
+        fecha_devolucion_esperada: payload.fecha_devolucion_esperada || null,
+        detalles: detalles.map((item) => ({ ...item })),
+      };
+
+      if (!createPayload.tipo && typeof createPayload.es_traslado !== 'boolean') {
+        createPayload.tipo = 'entrega';
+      }
+
+      const created = await this.create(createPayload, userId);
+      entregas.push({
+        id: created.id,
+        trabajador_id: created.trabajador_id,
+        estado: created.estado,
+      });
+    }
+
+    return {
+      template_id: templateId,
+      total_creadas: entregas.length,
+      entregas,
+    };
   }
 
   static async list(filters = {}) {
@@ -264,6 +909,211 @@ class EntregasService {
       firma_imagen_url: firmaImagenUrl,
       detalles: detalleResult.rows,
     };
+  }
+
+  static async findExistingActaDocument(queryExecutor, entregaId, lock = false) {
+    const lockClause = lock ? 'FOR UPDATE OF d' : '';
+    const result = await queryExecutor.query(
+      `
+      SELECT
+        d.id AS documento_id,
+        d.tipo,
+        d.archivo_url,
+        d.archivo_hash,
+        d.creado_en,
+        d.creado_por_usuario_id
+      FROM documento d
+      INNER JOIN documento_referencia dr ON dr.documento_id = d.id
+      WHERE dr.entidad_tipo = 'entrega'
+        AND dr.entidad_id = $1
+        AND d.tipo = 'acta_entrega'
+      ORDER BY d.creado_en DESC, d.id DESC
+      LIMIT 1
+      ${lockClause}
+      `,
+      [entregaId]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  static async getActaEntregaData(client, entregaId) {
+    const entregaResult = await client.query(
+      `
+      SELECT
+        e.id,
+        e.tipo,
+        e.estado,
+        e.creado_en,
+        e.confirmada_en,
+        e.recibido_en,
+        e.nota_destino,
+        e.fecha_devolucion_esperada,
+        e.ubicacion_origen_id,
+        e.ubicacion_destino_id,
+        p.rut,
+        p.nombres,
+        p.apellidos,
+        origen.nombre AS ubicacion_origen_nombre,
+        destino.nombre AS ubicacion_destino_nombre,
+        f.metodo AS firma_metodo,
+        f.firma_imagen_url,
+        f.firmado_en
+      FROM entrega e
+      INNER JOIN trabajador t ON t.id = e.trabajador_id
+      INNER JOIN persona p ON p.id = t.persona_id
+      LEFT JOIN ubicacion origen ON origen.id = e.ubicacion_origen_id
+      LEFT JOIN ubicacion destino ON destino.id = e.ubicacion_destino_id
+      LEFT JOIN firma_entrega f ON f.entrega_id = e.id
+      WHERE e.id = $1
+      FOR UPDATE OF e
+      `,
+      [entregaId]
+    );
+
+    if (!entregaResult.rows.length) {
+      throw buildError('Entrega not found', 404);
+    }
+
+    const detailsResult = await client.query(
+      `
+      SELECT
+        d.id,
+        d.articulo_id,
+        d.activo_id,
+        d.lote_id,
+        d.cantidad,
+        d.condicion_salida,
+        d.notas,
+        a.nombre AS articulo_nombre,
+        ac.codigo AS activo_codigo,
+        l.codigo_lote
+      FROM entrega_detalle d
+      INNER JOIN articulo a ON a.id = d.articulo_id
+      LEFT JOIN activo ac ON ac.id = d.activo_id
+      LEFT JOIN lote l ON l.id = d.lote_id
+      WHERE d.entrega_id = $1
+      ORDER BY d.id ASC
+      `,
+      [entregaId]
+    );
+
+    return {
+      entrega: entregaResult.rows[0],
+      detalles: detailsResult.rows,
+    };
+  }
+
+  static async getActa(id, userId) {
+    const existing = await this.findExistingActaDocument(db, id);
+    if (existing) {
+      return {
+        ...existing,
+        entidad_tipo: 'entrega',
+        entidad_id: id,
+        archivo_url_resuelto: await resolveImageUrl(existing.archivo_url),
+        generated: false,
+      };
+    }
+
+    const client = await db.pool.connect();
+    let uploadedDocumentUrl = null;
+
+    try {
+      await client.query('BEGIN');
+
+      const existingLocked = await this.findExistingActaDocument(client, id, true);
+      if (existingLocked) {
+        await client.query('COMMIT');
+        return {
+          ...existingLocked,
+          entidad_tipo: 'entrega',
+          entidad_id: id,
+          archivo_url_resuelto: await resolveImageUrl(existingLocked.archivo_url),
+          generated: false,
+        };
+      }
+
+      const actaData = await this.getActaEntregaData(client, id);
+      const pdfBuffer = await buildEntregaActaPdfBuffer(actaData);
+      const archivoHash = computeSha256(pdfBuffer);
+
+      uploadedDocumentUrl = await uploadDocument({
+        buffer: pdfBuffer,
+        originalname: `acta-entrega-${id}.pdf`,
+        mimetype: 'application/pdf',
+        size: pdfBuffer.length,
+      });
+
+      const documentResult = await client.query(
+        `
+        INSERT INTO documento (
+          tipo,
+          archivo_url,
+          archivo_hash,
+          creado_por_usuario_id
+        )
+        VALUES ('acta_entrega', $1, $2, $3)
+        RETURNING id AS documento_id, tipo, archivo_url, archivo_hash, creado_en, creado_por_usuario_id
+        `,
+        [uploadedDocumentUrl, archivoHash, userId]
+      );
+
+      const documentRecord = documentResult.rows[0];
+
+      await client.query(
+        `
+        INSERT INTO documento_referencia (
+          documento_id,
+          entidad_tipo,
+          entidad_id
+        )
+        VALUES ($1, 'entrega', $2)
+        `,
+        [documentRecord.documento_id, id]
+      );
+
+      await writeAuditEvent({
+        client,
+        entidadTipo: 'documento',
+        entidadId: documentRecord.documento_id,
+        accion: 'crear',
+        usuarioId: userId,
+        diff: {
+          tipo: 'acta_entrega',
+          entidad_tipo: 'entrega',
+          entidad_id: id,
+          archivo_hash: archivoHash,
+        },
+      });
+
+      await client.query('COMMIT');
+
+      return {
+        ...documentRecord,
+        entidad_tipo: 'entrega',
+        entidad_id: id,
+        archivo_url_resuelto: await resolveImageUrl(documentRecord.archivo_url),
+        generated: true,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+
+      if (uploadedDocumentUrl) {
+        try {
+          await deleteFileByUrl(uploadedDocumentUrl);
+        } catch (cleanupError) {
+          logger.warn('No se pudo limpiar acta de entrega tras error', {
+            message: cleanupError.message,
+            uploadedDocumentUrl,
+          });
+        }
+      }
+
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   static async getLocationsByIds(client, locationIds) {

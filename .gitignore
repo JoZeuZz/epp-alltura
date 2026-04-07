@@ -6,3 +6,5 @@ service-account.json
 logs/
 docs/
 uploads/*
+digest.txt
+backups/

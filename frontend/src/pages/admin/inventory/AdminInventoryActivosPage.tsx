@@ -156,9 +156,9 @@ const AdminInventoryActivosPage: React.FC = () => {
         const s = row.semaforo_devolucion;
         if (!s) return '—';
         const cfg = {
-          verde:    { icon: '🟢', label: 'En plazo',     cls: 'bg-green-50 text-green-700 border-green-200' },
-          amarillo: { icon: '🟡', label: 'Por vencer',   cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-          rojo:     { icon: '🔴', label: 'Vencido/Urgente', cls: 'bg-red-50 text-red-700 border-red-200' },
+          verde:    { icon: '', label: 'En plazo',     cls: 'bg-green-50 text-green-700 border-green-200' },
+          amarillo: { icon: '', label: 'Por vencer',   cls: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
+          rojo:     { icon: '', label: 'Vencido/Urgente', cls: 'bg-red-50 text-red-700 border-red-200' },
         }[s];
         return (
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.cls}`}>

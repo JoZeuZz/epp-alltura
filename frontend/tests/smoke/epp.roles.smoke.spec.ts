@@ -9,19 +9,21 @@ const envelope = (data: unknown) => ({
   errors: [],
 });
 
+const buildUser = (role: Role) => ({
+  id:
+    role === 'admin'
+      ? 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1'
+      : role === 'bodega'
+        ? 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
+        : 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
+  email: `${role}@test.local`,
+  first_name: role,
+  last_name: 'smoke',
+  role,
+});
+
 const buildToken = (role: Role) => {
-  const user = {
-    id:
-      role === 'admin'
-        ? 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1'
-        : role === 'bodega'
-          ? 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
-          : 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
-    email: `${role}@test.local`,
-    first_name: role,
-    last_name: 'smoke',
-    role,
-  };
+  const user = buildUser(role);
 
   const payload = {
     user,
@@ -47,6 +49,24 @@ const setupApiMocks = async (page: Page) => {
 
     if (path === '/api/notifications/in-app') {
       return json(envelope({ data: [], total: 0, pagination: { limit: 20, offset: 0 } }));
+    }
+
+    if (path === '/api/auth/login' && method === 'POST') {
+      const payload = request.postDataJSON() as { email?: string };
+      const email = String(payload?.email || '').toLowerCase();
+      const role: Role = email.includes('admin')
+        ? 'admin'
+        : email.includes('worker') || email.includes('trabajador')
+          ? 'worker'
+          : 'bodega';
+
+      return json(
+        envelope({
+          accessToken: buildToken(role),
+          refreshToken: 'refresh-token-smoke',
+          user: buildUser(role),
+        })
+      );
     }
 
     if (path === '/api/notifications/in-app/unread-count') {
@@ -111,6 +131,10 @@ const setupApiMocks = async (page: Page) => {
       );
     }
 
+    if (path.startsWith('/api/inventario/activos-disponibles')) {
+      return json(envelope([]));
+    }
+
     if (path.startsWith('/api/inventario/auditoria')) {
       return json(
         envelope([
@@ -149,17 +173,15 @@ const setupApiMocks = async (page: Page) => {
 
     if (path === '/api/entregas') {
       if (method === 'GET') {
-        return json(
-          envelope([
-            {
-              id: 'entrega-1',
-              estado: 'pendiente_firma',
-            },
-          ])
-        );
+        return json(envelope([]));
       }
 
-      return json(envelope({ id: 'entrega-2', estado: 'borrador' }));
+      return json(
+        envelope({
+          id: 'abcd1234-1234-4234-8234-1234567890ab',
+          estado: 'borrador',
+        })
+      );
     }
 
     if (path === '/api/devoluciones') {
@@ -225,6 +247,17 @@ const setupRoleSession = async (page: Page, role: Role) => {
   await page.addInitScript((value) => {
     localStorage.setItem('accessToken', value);
     localStorage.setItem('refreshToken', 'refresh-token-smoke');
+
+    const tourKeys = [
+      'tour:admin:v2',
+      'tour:supervisor:v2',
+      'tour:bodega:v2',
+      'tour:worker:v2',
+    ];
+
+    for (const key of tourKeys) {
+      localStorage.setItem(key, 'skipped');
+    }
   }, token);
 
   await setupApiMocks(page);
@@ -245,7 +278,7 @@ test('bodega dashboard smoke', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: /Módulo Bodega EPP\/Herramientas/i })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Crear Entrega Borrador' })).toBeVisible();
-  await expect(page.getByText('Firma manuscrita de recepción')).toBeVisible();
+  await expect(page.getByText(/^Firma manuscrita de recepción\s*\*$/)).toBeVisible();
 });
 
 test('trabajador dashboard smoke', async ({ page }) => {
@@ -255,4 +288,28 @@ test('trabajador dashboard smoke', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /Portal Trabajador EPP/i })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Firmar Recepción' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Firmar con Token' })).toBeVisible();
+});
+
+test('bodega login and create delivery draft smoke', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('tour:bodega:v2', 'skipped');
+  });
+
+  await setupApiMocks(page);
+
+  await page.goto('/login');
+  await page.fill('#email', 'bodega@test.local');
+  await page.fill('#password', 'Dev12345!');
+  await page.getByRole('button', { name: 'Login' }).click();
+
+  await expect(page).toHaveURL(/\/bodega\/dashboard/);
+  await expect(page.getByRole('heading', { name: /Módulo Bodega EPP\/Herramientas/i })).toBeVisible();
+
+  await page.getByTestId('delivery-worker-select').selectOption('trabajador-1');
+  await page.getByTestId('delivery-origin-select').selectOption('ubicacion-1');
+  await page.getByTestId('delivery-destination-select').selectOption('ubicacion-2');
+  await page.getByTestId('delivery-article-select-0').selectOption('articulo-2');
+  await page.getByTestId('delivery-create-submit').click();
+
+  await expect(page.getByRole('cell', { name: 'abcd1234' })).toBeVisible();
 });

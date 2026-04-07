@@ -45,9 +45,9 @@ REDIS_URL=redis://localhost:56379
 JWT_SECRET=replace_me
 JWT_REFRESH_SECRET=replace_me_too
 
-CLIENT_URL=http://localhost:5173
-SERVICE_URL_FRONTEND=http://localhost:5173
-SERVICE_FQDN_FRONTEND=localhost:5173
+CLIENT_URL=http://localhost:3000
+SERVICE_URL_FRONTEND=http://localhost:3000
+SERVICE_FQDN_FRONTEND=localhost:3000
 ```
 
 ### 3) Levantar infraestructura local (desde raíz del repo)

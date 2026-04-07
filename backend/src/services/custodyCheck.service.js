@@ -1,4 +1,4 @@
-const pool = require('../db/pool');
+const db = require('../db');
 const NotificationService = require('./notification.service');
 const { logger } = require('../lib/logger');
 
@@ -12,7 +12,7 @@ class CustodyCheckService {
    * Obtiene IDs de usuarios admin y supervisor activos.
    */
   static async getAdminSupervisorIds() {
-    const { rows } = await pool.query(`
+    const { rows } = await db.query(`
       SELECT DISTINCT u.id
       FROM usuario u
       JOIN usuario_rol ur ON ur.usuario_id = u.id
@@ -28,7 +28,7 @@ class CustodyCheckService {
    * Solo retorna amarillo y rojo (verde no genera notificación).
    */
   static async getCustodiasAlerta() {
-    const { rows } = await pool.query(`
+    const { rows } = await db.query(`
       SELECT
         ca.id            AS custodia_id,
         ca.activo_id,

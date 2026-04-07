@@ -1,7 +1,7 @@
 const db = require('../db');
 const PersonaModel = require('../models/persona');
 const TrabajadorModel = require('../models/trabajador');
-const { normalizeRut } = require('../lib/validation');
+const { normalizeRut } = require('../lib/rut');
 
 class TrabajadoresService {
   static async list(filters = {}) {

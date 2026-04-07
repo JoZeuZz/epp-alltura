@@ -18,7 +18,7 @@ const bcrypt = require('bcrypt');
 const db = require('../db');
 const { validatePasswordStrength, PASSWORD_CONFIG } = require('../middleware/passwordPolicy');
 const { toDbRole } = require('../lib/roleUtils');
-const { validateRutChileno, normalizeRut: normalizeRutLib } = require('../lib/validation');
+const { validateRutChileno, normalizeRut: normalizeRutLib } = require('../lib/rut');
 
 const ALLOWED_ROLES = new Set(['admin', 'supervisor', 'bodega']);
 

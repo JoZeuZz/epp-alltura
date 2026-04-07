@@ -6,6 +6,7 @@ const entregasRoutes = require('../../../routes/entregas.routes');
 const firmasRoutes = require('../../../routes/firmas.routes');
 const devolucionesRoutes = require('../../../routes/devoluciones.routes');
 const inventarioRoutes = require('../../../routes/inventario.routes');
+const documentosRoutes = require('../../../routes/documentos.routes');
 
 const buildTestApp = () => {
   const app = express();
@@ -17,6 +18,7 @@ const buildTestApp = () => {
   app.use('/api/firmas', firmasRoutes);
   app.use('/api/devoluciones', devolucionesRoutes);
   app.use('/api/inventario', inventarioRoutes);
+  app.use('/api/documentos', documentosRoutes);
 
   app.use(errorHandler);
 

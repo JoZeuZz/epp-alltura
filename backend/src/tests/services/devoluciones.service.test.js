@@ -29,7 +29,7 @@ describe('DevolucionesService', () => {
   });
 
   describe('confirm', () => {
-    it('rejects confirmation when return is not in borrador state', async () => {
+    it('rejects confirmation when return is not in pendiente_firma state', async () => {
       const mockClient = {
         query: jest
           .fn()
@@ -38,6 +38,7 @@ describe('DevolucionesService', () => {
             rows: [
               {
                 id: 'devolucion-1',
+                recibido_por_usuario_id: 'user-1',
                 estado: 'confirmada',
               },
             ],

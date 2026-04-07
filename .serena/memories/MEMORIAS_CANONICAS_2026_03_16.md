@@ -22,7 +22,7 @@
 - `EPP_HERRAMIENTAS_MVP_ESTADO_ACTUAL`: snapshot funcional operativo.
 - `DEPLOY_COOLIFY`: referencia corta; la guía completa queda en `DEPLOYMENT_COOLIFY_CLOUDFLARE`.
 
-## Corte de consolidación 2026-03-23
+## Corte de consolidación 2026-03-30
 - Se consolidaron memorias canónicas nuevas visibles en `.serena/memories` sin sobrescribir snapshots históricos.
 - Este índice pasa a ser el punto de entrada principal para consultas de arquitectura, contratos, reglas y operación.
 

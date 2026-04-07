@@ -7,7 +7,7 @@ Este proyecto es la interfaz de usuario para la aplicación de reportabilidad de
 - React 19.1.1
 - TypeScript
 - Tailwind CSS 3.4.4
-- Vite 6
+- Vite 7
 - React Router v7
 - @tanstack/react-query
 
@@ -142,7 +142,7 @@ En el directorio del proyecto, puedes ejecutar:
 ### `npm run dev`
 
 Ejecuta la aplicación en modo de desarrollo con Vite.\
-Abre http://localhost:5173 (o el puerto que indique Vite) para verla en tu navegador.
+Abre http://localhost:3000 (o el puerto que indique Vite) para verla en tu navegador.
 
 La página se recargará si haces cambios.\
 También verás cualquier error de lint en la consola.
