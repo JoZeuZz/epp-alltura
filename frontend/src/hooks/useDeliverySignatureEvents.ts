@@ -52,7 +52,7 @@ export const useDeliverySignatureEvents = ({
         }
 
         onSigned?.(payload);
-      } catch (_error) {
+      } catch {
         // Ignore malformed event payloads to keep the stream alive.
       }
     };

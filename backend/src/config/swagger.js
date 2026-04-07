@@ -404,6 +404,61 @@ const swaggerSpec = {
         },
       },
     },
+    '/api/firmas/events/deliveries': {
+      get: {
+        tags: ['Firmas'],
+        summary: 'Escuchar eventos SSE de firmas de entrega',
+        description:
+          'Stream autenticado vía header Authorization Bearer o query access_token. Publica el evento delivery-signed.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Stream SSE abierto correctamente',
+            content: {
+              'text/event-stream': {
+                schema: {
+                  type: 'string',
+                  example: 'event: delivery-signed\\ndata: {"signature_id":"..."}\\n\\n',
+                },
+              },
+            },
+          },
+          401: {
+            description: 'No autenticado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiError' },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/api/firmas/pendientes/me': {
+      get: {
+        tags: ['Firmas'],
+        summary: 'Obtener entregas pendientes de firma del usuario autenticado',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Entregas pendientes obtenidas',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiSuccess' },
+              },
+            },
+          },
+          401: {
+            description: 'No autenticado',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ApiError' },
+              },
+            },
+          },
+        },
+      },
+    },
     '/api/firmas/entregas/{entregaId}/firmar-dispositivo': {
       post: {
         tags: ['Firmas'],

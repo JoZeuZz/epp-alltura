@@ -63,7 +63,7 @@ Monorepo con tres bloques principales:
 
 - Ingreso/compra: recepción de stock y/o activos.
 - Entrega: asignación de artículos a trabajador/ubicación.
-- Firma: token público o firma autenticada en dispositivo.
+- Firma: token público o firma autenticada en dispositivo (ruta pública SPA `/firma/:token`, consumo API en `/api/firmas/tokens/:token`).
 - Devolución: retorno de activos y cierre/actualización de custodia.
 - Egreso: salida operativa o baja.
 - Trazabilidad: movimientos de stock/activo y auditoría.
@@ -102,7 +102,7 @@ npm run dev
 Servicios:
 
 - Backend: http://localhost:5000
-- Frontend: http://localhost:5173
+- Frontend: http://localhost:3000
 
 ### 4) Login de desarrollo (seed)
 
@@ -135,9 +135,9 @@ REDIS_URL=redis://localhost:56379
 JWT_SECRET=replace_me
 JWT_REFRESH_SECRET=replace_me_too
 
-CLIENT_URL=http://localhost:5173
-SERVICE_URL_FRONTEND=http://localhost:5173
-SERVICE_FQDN_FRONTEND=localhost:5173
+CLIENT_URL=http://localhost:3000
+SERVICE_URL_FRONTEND=http://localhost:3000
+SERVICE_FQDN_FRONTEND=localhost:3000
 ```
 
 Notas:
@@ -179,6 +179,42 @@ npm run test:smoke:real
 - Frontend: Vitest (unitarias) + Playwright (smoke).
 - CI principal: lint + test + build frontend.
 - Integración DB: flujo separado (manual), recomendado antes de merge en cambios de dominio/SQL.
+
+## Smoke Checklist Mínimo (P0.1) - Operación Bodega y Firma
+
+Alcance de UI (sin pantallas nuevas):
+
+- `AdminEntregasPage`
+- `AdminDevolucionesPage`
+
+Precondición de baseline local:
+
+```bash
+npm run install:all
+docker compose -f docker-compose.dev.yml up -d
+npm run dev
+```
+
+Flujo smoke mínimo:
+
+1. Login como `admin` o `bodega` y abrir entregas/devoluciones. Endpoints: `GET /api/entregas`, `GET /api/devoluciones`.
+2. En `AdminEntregasPage`, crear entrega en borrador con al menos un ítem. Endpoint: `POST /api/entregas`.
+3. Firmar la entrega (al menos una vía). Endpoints: `POST /api/firmas/entregas/:entregaId/firmar-dispositivo`, `POST /api/firmas/entregas/:entregaId/token`, `POST /api/firmas/tokens/:token/firmar`, `GET /api/firmas/tokens/:token`.
+4. Confirmar entrega desde `AdminEntregasPage`. Endpoint: `POST /api/entregas/:id/confirm`.
+5. En `AdminDevolucionesPage`, crear devolución con trabajador + recepción y detalle válido. Endpoints: `GET /api/devoluciones/activos-elegibles`, `POST /api/devoluciones`.
+6. Firmar y confirmar devolución desde la misma página. Endpoints: `POST /api/devoluciones/:id/firmar-dispositivo`, `POST /api/devoluciones/:id/confirm`.
+7. Validar trazabilidad básica por operación completada. Endpoints: `GET /api/entregas/:id`, `GET /api/devoluciones/:id`. Criterio: entrega en `confirmada`, devolución en `confirmada`, y detalle consistente (firma y disposiciones).
+
+Troubleshooting rápido:
+
+```bash
+docker compose -f docker-compose.dev.yml ps
+docker compose -f docker-compose.dev.yml logs -f postgres_db
+docker compose -f docker-compose.dev.yml logs -f redis
+docker compose -f docker-compose.dev.yml down -v && docker compose -f docker-compose.dev.yml up -d
+curl -fsS http://localhost:5000/health/ready
+ss -ltnp | rg '3000|5000|55432|56379'
+```
 
 ## Deploy
 

@@ -5,14 +5,20 @@ import { ResponsiveTable, type TableColumn } from '../../components/layout';
 import Modal from '../../components/Modal';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import SignaturePad from '../../components/forms/SignaturePad';
-import ReturnAssetSelector from '../../components/forms/ReturnAssetSelector';
+import ReturnAssetSelector, { type ReturnAssetSelection } from '../../components/forms/ReturnAssetSelector';
 import { formatQuantityInteger, parseQuantityInteger } from '../../utils/quantity';
 import { useAuth, useGet } from '../../hooks';
+import {
+  filterEligibleCustodias,
+  findDuplicateReturnAssetId,
+  resolveCustodiaActivoId,
+} from './adminDevolucionesGuided.utils';
 import {
   createDevolucion,
   getDevolucionById,
   confirmDevolucion,
   firmarDevolucionDispositivo,
+  type ReturnEligibleAssetRow,
   type DevolucionRow,
   type DevolucionEstado,
   type DevolucionCreatePayload,
@@ -49,6 +55,7 @@ const FILTER_TABS: { label: string; value: DevolucionEstado | 'todas' }[] = [
 interface ReturnDetailDraft {
   articulo_id: string;
   activo_ids: string[];
+  custodia_activo_id: string;
   cantidad: number;
   condicion_entrada: DevolucionCondicionEntrada;
   disposicion: DevolucionDisposicion;
@@ -58,11 +65,19 @@ interface ReturnDetailDraft {
 const emptyReturnDetail = (): ReturnDetailDraft => ({
   articulo_id: '',
   activo_ids: [],
+  custodia_activo_id: '',
   cantidad: 1,
   condicion_entrada: 'ok',
   disposicion: 'devuelto',
   notas: '',
 });
+
+const isEmptyReturnDetail = (detail: ReturnDetailDraft): boolean =>
+  !detail.articulo_id &&
+  detail.activo_ids.length === 0 &&
+  !detail.custodia_activo_id &&
+  Number(detail.cantidad) === 1 &&
+  !String(detail.notas || '').trim();
 
 const toErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
@@ -79,6 +94,7 @@ const AdminDevolucionesPage: React.FC = () => {
   const [devolucionDetalle, setDevolucionDetalle] = useState<DevolucionRow | null>(null);
   const [devolucionFirma, setDevolucionFirma] = useState<DevolucionRow | null>(null);
   const [devolucionConfirmar, setDevolucionConfirmar] = useState<DevolucionRow | null>(null);
+  const [guidedSearch, setGuidedSearch] = useState('');
 
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [signaturePadKey, setSignaturePadKey] = useState(0);
@@ -99,6 +115,23 @@ const AdminDevolucionesPage: React.FC = () => {
   const { data: trabajadores = [] } = useGet<any[]>([QUERY_KEY, 'trabajadores'], '/trabajadores');
   const { data: ubicaciones = [] } = useGet<any[]>([QUERY_KEY, 'ubicaciones'], '/ubicaciones');
   const { data: articulos = [] } = useGet<any[]>([QUERY_KEY, 'articulos'], '/articulos');
+  const {
+    data: eligibleAssets = [],
+    isLoading: eligibleAssetsLoading,
+    error: eligibleAssetsError,
+  } = useGet<ReturnEligibleAssetRow[]>(
+    [QUERY_KEY, 'activos-elegibles', form.trabajador_id],
+    '/devoluciones/activos-elegibles',
+    form.trabajador_id
+      ? {
+        trabajador_id: form.trabajador_id,
+        limit: 100,
+      }
+      : undefined,
+    {
+      enabled: showCreate && Boolean(form.trabajador_id),
+    }
+  );
 
   const returnableArticles = useMemo(
     () => articulos.filter((item) => item.retorno_mode === 'retornable'),
@@ -127,12 +160,33 @@ const AdminDevolucionesPage: React.FC = () => {
     );
   }, [devoluciones]);
 
+  const eligibleAssetByActivoId = useMemo(
+    () => new Map(eligibleAssets.map((asset) => [asset.activo_id, asset])),
+    [eligibleAssets]
+  );
+
+  const selectedAssetIds = useMemo(
+    () => new Set(form.detalles.flatMap((detail) => detail.activo_ids.filter(Boolean))),
+    [form.detalles]
+  );
+
+  const guidedTotalEligibleCount = useMemo(
+    () => eligibleAssets.filter((asset) => !selectedAssetIds.has(asset.activo_id)).length,
+    [eligibleAssets, selectedAssetIds]
+  );
+
+  const guidedEligibleAssets = useMemo(
+    () => filterEligibleCustodias(eligibleAssets, selectedAssetIds, guidedSearch),
+    [eligibleAssets, selectedAssetIds, guidedSearch]
+  );
+
   const createMutation = useMutation({
     mutationFn: (payload: DevolucionCreatePayload) => createDevolucion(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       toast.success('Devolución creada en borrador.');
       setShowCreate(false);
+      setGuidedSearch('');
       setForm({
         trabajador_id: '',
         ubicacion_recepcion_id: '',
@@ -176,10 +230,65 @@ const AdminDevolucionesPage: React.FC = () => {
 
       if (key === 'articulo_id') {
         next[index].activo_ids = [];
+        next[index].custodia_activo_id = '';
         next[index].cantidad = 1;
       }
 
+      if (key === 'activo_ids') {
+        const serialIds = Array.isArray(value) ? value.filter(Boolean) : [];
+        const selectedAssetId = serialIds[0];
+        next[index].custodia_activo_id = selectedAssetId
+          ? eligibleAssetByActivoId.get(selectedAssetId)?.custodia_activo_id || ''
+          : '';
+      }
+
       return { ...prev, detalles: next };
+    });
+  };
+
+  const setReturnSelection = (index: number, nextSelection: ReturnAssetSelection[]) => {
+    setForm((prev) => {
+      const next = [...prev.detalles];
+      const selectedAsset = nextSelection[0];
+      next[index] = {
+        ...next[index],
+        custodia_activo_id: selectedAsset?.custodia_activo_id || '',
+      };
+      return { ...prev, detalles: next };
+    });
+  };
+
+  const appendGuidedAssetDetail = (asset: ReturnEligibleAssetRow) => {
+    setForm((prev) => {
+      const alreadySelected = prev.detalles.some((detail) => detail.activo_ids.includes(asset.activo_id));
+      if (alreadySelected) {
+        return prev;
+      }
+
+      const nextDetail: ReturnDetailDraft = {
+        articulo_id: asset.articulo_id,
+        activo_ids: [asset.activo_id],
+        custodia_activo_id: asset.custodia_activo_id,
+        cantidad: 1,
+        condicion_entrada: 'ok',
+        disposicion: 'devuelto',
+        notas: '',
+      };
+
+      const emptyIndex = prev.detalles.findIndex(isEmptyReturnDetail);
+      if (emptyIndex >= 0) {
+        const nextDetalles = [...prev.detalles];
+        nextDetalles[emptyIndex] = nextDetail;
+        return {
+          ...prev,
+          detalles: nextDetalles,
+        };
+      }
+
+      return {
+        ...prev,
+        detalles: [...prev.detalles, nextDetail],
+      };
     });
   };
 
@@ -191,7 +300,12 @@ const AdminDevolucionesPage: React.FC = () => {
       return;
     }
 
-    const selectedReturnAssetIds = new Set<string>();
+    const duplicatedAssetId = findDuplicateReturnAssetId(form.detalles);
+    if (duplicatedAssetId) {
+      const duplicatedCode = eligibleAssetByActivoId.get(duplicatedAssetId)?.codigo || duplicatedAssetId;
+      toast.error(`Este activo ya está incluido en otro ítem (${duplicatedCode}).`);
+      return;
+    }
 
     for (const detail of form.detalles) {
       const article = returnableArticles.find((item) => item.id === detail.articulo_id);
@@ -203,16 +317,14 @@ const AdminDevolucionesPage: React.FC = () => {
       const serialIds = Array.isArray(detail.activo_ids) ? detail.activo_ids.filter(Boolean) : [];
       if (article.tracking_mode === 'serial') {
         if (serialIds.length === 0) {
-          toast.error(`El artículo ${article.nombre} requiere seleccionar un activo.`);
+          toast.error(`Selecciona un activo con custodia activa para ${article.nombre}.`);
           return;
         }
 
-        for (const serialId of serialIds) {
-          if (selectedReturnAssetIds.has(serialId)) {
-            toast.error('No puedes repetir el mismo activo en más de un ítem.');
-            return;
-          }
-          selectedReturnAssetIds.add(serialId);
+        const custodiaId = resolveCustodiaActivoId(detail, eligibleAssetByActivoId);
+        if (!custodiaId) {
+          toast.error(`No se encontró una custodia activa para ${article.nombre}. Re-selecciona el activo.`);
+          return;
         }
       } else if (Number(detail.cantidad) <= 0) {
         toast.error(`El artículo ${article.nombre} requiere cantidad mayor que cero.`);
@@ -225,6 +337,7 @@ const AdminDevolucionesPage: React.FC = () => {
       ubicacion_recepcion_id: form.ubicacion_recepcion_id,
       notas: form.notas || null,
       detalles: form.detalles.map((detail) => ({
+        custodia_activo_id: resolveCustodiaActivoId(detail, eligibleAssetByActivoId),
         articulo_id: detail.articulo_id || null,
         activo_ids: detail.activo_ids.length ? detail.activo_ids : undefined,
         cantidad: detail.activo_ids.length ? 1 : Number(detail.cantidad),
@@ -325,9 +438,14 @@ const AdminDevolucionesPage: React.FC = () => {
       header: 'Acciones',
       render: (_v, row) => {
         const estado = row.estado as DevolucionEstado;
+        const trabajadorNombre =
+          row.nombres && row.apellidos
+            ? `${row.nombres} ${row.apellidos}`
+            : 'trabajador seleccionado';
         return (
           <div className="flex gap-1 flex-wrap">
             <button
+              type="button"
               onClick={async () => {
                 try {
                   const full = await getDevolucionById(row.id);
@@ -338,16 +456,19 @@ const AdminDevolucionesPage: React.FC = () => {
                 }
               }}
               className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+              aria-label={`Ver detalle de devolución para ${trabajadorNombre}`}
             >
               Ver
             </button>
 
             {estado === 'borrador' && (
               <button
+                type="button"
                 onClick={() => {
                   setDevolucionFirma(row);
                 }}
                 className="px-2 py-1 text-xs text-purple-600 hover:text-purple-800 hover:underline"
+                aria-label={`Firmar recepción de devolución para ${trabajadorNombre}`}
               >
                 Firmar recepción
               </button>
@@ -355,8 +476,10 @@ const AdminDevolucionesPage: React.FC = () => {
 
             {estado === 'pendiente_firma' && (
               <button
+                type="button"
                 onClick={() => setDevolucionConfirmar(row)}
                 className="px-2 py-1 text-xs text-green-600 hover:text-green-800 hover:underline"
+                aria-label={`Confirmar devolución de ${trabajadorNombre}`}
               >
                 Confirmar
               </button>
@@ -412,11 +535,14 @@ const AdminDevolucionesPage: React.FC = () => {
         <p>1) Crear devolución 2) Firmar recepción (mismo operador) 3) Confirmar devolución.</p>
       </div>
 
-      <div className="flex gap-1 flex-wrap mb-5">
+      <div className="flex gap-1 flex-wrap mb-5" role="tablist" aria-label="Filtrar devoluciones por estado">
         {FILTER_TABS.map((tab) => (
           <button
+            type="button"
             key={tab.value}
             onClick={() => setFilterEstado(tab.value)}
+            role="tab"
+            aria-selected={filterEstado === tab.value}
             className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
               filterEstado === tab.value
                 ? 'bg-primary-blue text-white font-medium'
@@ -450,10 +576,26 @@ const AdminDevolucionesPage: React.FC = () => {
           </p>
           <form onSubmit={handleCreate} className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label htmlFor="devolucion-trabajador" className="block text-xs font-medium text-gray-600">
+                  Trabajador <span className="text-red-500">*</span>
+                </label>
               <select
+                id="devolucion-trabajador"
                 className="border rounded-md p-2"
                 value={form.trabajador_id}
-                onChange={(e) => setForm((prev) => ({ ...prev, trabajador_id: e.target.value }))}
+                onChange={(e) => {
+                  const nextWorkerId = e.target.value;
+                  setGuidedSearch('');
+                  setForm((prev) => ({
+                    ...prev,
+                    trabajador_id: nextWorkerId,
+                    detalles:
+                      prev.trabajador_id && prev.trabajador_id !== nextWorkerId
+                        ? [emptyReturnDetail()]
+                        : prev.detalles,
+                  }));
+                }}
                 required
               >
                 <option value="">Selecciona trabajador</option>
@@ -463,8 +605,14 @@ const AdminDevolucionesPage: React.FC = () => {
                   </option>
                 ))}
               </select>
+              </div>
 
+              <div className="space-y-1">
+                <label htmlFor="devolucion-ubicacion" className="block text-xs font-medium text-gray-600">
+                  Ubicación recepción <span className="text-red-500">*</span>
+                </label>
               <select
+                id="devolucion-ubicacion"
                 className="border rounded-md p-2"
                 value={form.ubicacion_recepcion_id}
                 onChange={(e) => setForm((prev) => ({ ...prev, ubicacion_recepcion_id: e.target.value }))}
@@ -477,14 +625,95 @@ const AdminDevolucionesPage: React.FC = () => {
                   </option>
                 ))}
               </select>
+              </div>
             </div>
 
+            <label htmlFor="devolucion-notas" className="block text-xs font-medium text-gray-600">
+              Notas generales
+            </label>
             <textarea
+              id="devolucion-notas"
               className="border rounded-md p-2 w-full"
               placeholder="Notas generales"
               value={form.notas}
               onChange={(e) => setForm((prev) => ({ ...prev, notas: e.target.value }))}
             />
+
+            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium text-blue-900">Custodias activas elegibles</p>
+                  <p className="text-xs text-blue-700">
+                    Agrega activos en custodia activa con un clic y se autocompleta el detalle.
+                  </p>
+                </div>
+                <span className="text-xs text-blue-700">
+                  {form.trabajador_id
+                    ? `${guidedEligibleAssets.length} visibles / ${guidedTotalEligibleCount} activas`
+                    : 'Selecciona trabajador'}
+                </span>
+              </div>
+
+              <input
+                id="devolucion-guided-search"
+                type="text"
+                value={guidedSearch}
+                onChange={(e) => setGuidedSearch(e.target.value)}
+                disabled={!form.trabajador_id}
+                placeholder="Buscar por código o serie"
+                className="w-full border border-blue-200 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                aria-label="Buscar custodias activas por código o serie"
+              />
+
+              {!form.trabajador_id ? (
+                <p className="text-xs text-blue-700">Selecciona trabajador para cargar custodias activas.</p>
+              ) : null}
+
+              {form.trabajador_id && eligibleAssetsLoading ? (
+                <p className="text-xs text-blue-700">Cargando custodias activas elegibles...</p>
+              ) : null}
+
+              {form.trabajador_id && eligibleAssetsError ? (
+                <p className="text-xs text-red-600">{toErrorMessage(eligibleAssetsError)}</p>
+              ) : null}
+
+              {form.trabajador_id && !eligibleAssetsLoading && !eligibleAssetsError && guidedTotalEligibleCount === 0 ? (
+                <p className="text-xs text-blue-700">No hay custodias activas elegibles para este trabajador.</p>
+              ) : null}
+
+              {form.trabajador_id && !eligibleAssetsLoading && !eligibleAssetsError && guidedTotalEligibleCount > 0 && guidedEligibleAssets.length === 0 ? (
+                <p className="text-xs text-blue-700">No hay coincidencias para la búsqueda actual.</p>
+              ) : null}
+
+              {form.trabajador_id && !eligibleAssetsLoading && !eligibleAssetsError && guidedEligibleAssets.length > 0 ? (
+                <div className="max-h-48 overflow-y-auto rounded-md border border-blue-100 divide-y divide-blue-100 bg-white">
+                  {guidedEligibleAssets.map((asset) => (
+                    <div key={asset.activo_id} className="flex items-center justify-between gap-3 px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">
+                          {asset.codigo} · {asset.articulo_nombre || 'Sin artículo'}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {asset.nro_serie ? `Serie: ${asset.nro_serie}` : 'Sin serie'}
+                          {asset.ubicacion_actual_nombre ? ` · ${asset.ubicacion_actual_nombre}` : ''}
+                        </p>
+                        <p className="text-[11px] text-gray-400 truncate">Custodia: {asset.custodia_activo_id.slice(0, 8)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="px-2 py-1 text-xs rounded bg-white border border-blue-200 text-blue-700 hover:bg-blue-100"
+                        onClick={() => appendGuidedAssetDetail(asset)}
+                        aria-label={`Agregar activo ${asset.codigo} al borrador de devolución`}
+                      >
+                        Agregar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <p className="text-xs text-blue-700">Activos ya agregados al borrador: {selectedAssetIds.size}.</p>
+            </div>
 
             {form.detalles.map((detail, index) => {
               const article = returnableArticles.find((item) => item.id === detail.articulo_id);
@@ -497,6 +726,7 @@ const AdminDevolucionesPage: React.FC = () => {
                       className="border rounded-md p-2"
                       value={detail.articulo_id}
                       onChange={(e) => setReturnDetail(index, 'articulo_id', e.target.value)}
+                      aria-label={`Artículo retornable del ítem ${index + 1}`}
                       required
                     >
                       <option value="">Artículo retornable</option>
@@ -510,6 +740,7 @@ const AdminDevolucionesPage: React.FC = () => {
                     <ReturnAssetSelector
                       value={detail.activo_ids}
                       onChange={(next) => setReturnDetail(index, 'activo_ids', next)}
+                      onChangeSelection={(nextSelection) => setReturnSelection(index, nextSelection)}
                       trabajadorId={form.trabajador_id || undefined}
                       articuloId={detail.articulo_id || undefined}
                       excludedIds={form.detalles.flatMap((row, rowIndex) =>
@@ -521,6 +752,14 @@ const AdminDevolucionesPage: React.FC = () => {
                     />
                   </div>
 
+                  {isSerial ? (
+                    <p className="text-xs text-gray-500">
+                      {detail.custodia_activo_id
+                        ? `Custodia activa vinculada: ${detail.custodia_activo_id.slice(0, 8)}`
+                        : 'Selecciona un activo para vincular su custodia activa.'}
+                    </p>
+                  ) : null}
+
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                     <input
                       type="number"
@@ -531,11 +770,13 @@ const AdminDevolucionesPage: React.FC = () => {
                       value={detail.cantidad}
                       disabled={isSerial}
                       onChange={(e) => setReturnDetail(index, 'cantidad', parseQuantityInteger(e.target.value, 1))}
+                      aria-label={`Cantidad del ítem ${index + 1}`}
                     />
                     <select
                       className="border rounded-md p-2"
                       value={detail.condicion_entrada}
                       onChange={(e) => setReturnDetail(index, 'condicion_entrada', e.target.value)}
+                      aria-label={`Condición de entrada del ítem ${index + 1}`}
                     >
                       <option value="ok">Condición: Ok</option>
                       <option value="usado">Condición: Usado</option>
@@ -546,6 +787,7 @@ const AdminDevolucionesPage: React.FC = () => {
                       className="border rounded-md p-2"
                       value={detail.disposicion}
                       onChange={(e) => setReturnDetail(index, 'disposicion', e.target.value)}
+                      aria-label={`Disposición del ítem ${index + 1}`}
                     >
                       <option value="devuelto">Disposición: Devuelto</option>
                       <option value="mantencion">Disposición: Mantención</option>
@@ -557,6 +799,7 @@ const AdminDevolucionesPage: React.FC = () => {
                       placeholder="Notas detalle"
                       value={detail.notas}
                       onChange={(e) => setReturnDetail(index, 'notas', e.target.value)}
+                      aria-label={`Notas del ítem ${index + 1}`}
                     />
                   </div>
 
@@ -574,6 +817,7 @@ const AdminDevolucionesPage: React.FC = () => {
                           detalles: [...prev.detalles, emptyReturnDetail()],
                         }))
                       }
+                      aria-label="Agregar nuevo ítem de devolución"
                     >
                       + Agregar ítem
                     </button>
@@ -588,6 +832,7 @@ const AdminDevolucionesPage: React.FC = () => {
                             detalles: prev.detalles.filter((_, rowIndex) => rowIndex !== index),
                           }))
                         }
+                        aria-label={`Quitar ítem ${index + 1} de devolución`}
                       >
                         Quitar
                       </button>

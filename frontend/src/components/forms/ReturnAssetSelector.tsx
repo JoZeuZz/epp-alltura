@@ -1,12 +1,24 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   getReturnEligibleAssets,
   type ReturnEligibleAssetRow,
 } from '../../services/apiService';
+import BarcodeScannerModal from './BarcodeScannerModal';
+import { findAssetByScannedCode, parseScannedCode } from '../../utils/barcode';
+
+export interface ReturnAssetSelection {
+  activo_id: string;
+  custodia_activo_id: string;
+  codigo: string;
+  nro_serie?: string | null;
+  articulo_id: string;
+  articulo_nombre?: string;
+}
 
 interface ReturnAssetSelectorProps {
   value: string[];
   onChange: (next: string[]) => void;
+  onChangeSelection?: (next: ReturnAssetSelection[]) => void;
   trabajadorId?: string;
   articuloId?: string;
   excludedIds?: string[];
@@ -19,6 +31,7 @@ interface ReturnAssetSelectorProps {
 const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
   value,
   onChange,
+  onChangeSelection,
   trabajadorId,
   articuloId,
   excludedIds = [],
@@ -27,10 +40,14 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
   disabled = false,
   limit = 25,
 }) => {
+  const searchInputId = useId();
+  const selectionStatusId = useId();
   const [search, setSearch] = useState('');
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [assets, setAssets] = useState<ReturnEligibleAssetRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const previousTrabajadorIdRef = useRef<string | undefined>(trabajadorId);
 
   const selectedId = useMemo(() => (Array.isArray(value) ? value.find(Boolean) ?? null : null), [value]);
   const excludedIdsSet = useMemo(() => new Set((excludedIds || []).filter(Boolean)), [excludedIds]);
@@ -38,6 +55,35 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
     () => assets.filter((item) => item.activo_id === selectedId || !excludedIdsSet.has(item.activo_id)),
     [assets, excludedIdsSet, selectedId]
   );
+
+  const clearSelection = () => {
+    onChange([]);
+    onChangeSelection?.([]);
+  };
+
+  const toSelection = (item: ReturnEligibleAssetRow): ReturnAssetSelection => ({
+    activo_id: item.activo_id,
+    custodia_activo_id: item.custodia_activo_id,
+    codigo: item.codigo,
+    nro_serie: item.nro_serie ?? null,
+    articulo_id: item.articulo_id,
+    articulo_nombre: item.articulo_nombre,
+  });
+
+  const applyScannedCode = (rawCode: string) => {
+    const parsedCode = parseScannedCode(rawCode);
+    if (!parsedCode) return;
+
+    setSearch(parsedCode);
+
+    const matchedAsset = findAssetByScannedCode(visibleAssets, parsedCode);
+    if (!matchedAsset) {
+      return;
+    }
+
+    onChange([matchedAsset.activo_id]);
+    onChangeSelection?.([toSelection(matchedAsset)]);
+  };
 
   useEffect(() => {
     if (disabled || !trabajadorId) {
@@ -70,7 +116,7 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
           (error as { response?: { data?: { message?: string } }; message?: string })?.response?.data
             ?.message ||
           (error as { message?: string })?.message ||
-          'No se pudo cargar activos elegibles para devolución.';
+          'No se pudieron cargar custodias activas elegibles para devolución.';
 
         setLoadError(message);
         setAssets([]);
@@ -88,52 +134,77 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
   }, [trabajadorId, articuloId, search, disabled, limit]);
 
   useEffect(() => {
+    const previousTrabajadorId = previousTrabajadorIdRef.current;
+    const changedWorker = previousTrabajadorId !== undefined && previousTrabajadorId !== trabajadorId;
+    if (changedWorker && selectedId) {
+      onChange([]);
+      onChangeSelection?.([]);
+    }
+    previousTrabajadorIdRef.current = trabajadorId;
+  }, [trabajadorId, selectedId, onChange, onChangeSelection]);
+
+  useEffect(() => {
     if (!selectedId) return;
     if (visibleAssets.length === 0) return;
 
     const stillAvailable = visibleAssets.some((item) => item.activo_id === selectedId);
     if (!stillAvailable) {
       onChange([]);
+      onChangeSelection?.([]);
     }
-  }, [visibleAssets, selectedId, onChange]);
+  }, [visibleAssets, selectedId, onChange, onChangeSelection]);
 
   useEffect(() => {
     if (!selectedId) return;
     if (!excludedIdsSet.has(selectedId)) return;
     onChange([]);
-  }, [excludedIdsSet, onChange, selectedId]);
+    onChangeSelection?.([]);
+  }, [excludedIdsSet, onChange, onChangeSelection, selectedId]);
 
   const canSelect = !disabled && Boolean(trabajadorId) && !isLoading && !loadError;
 
   return (
     <div className="space-y-2">
-      <label className="block text-xs font-medium text-gray-600 mb-1">
+      <label htmlFor={searchInputId} className="block text-xs font-medium text-gray-600 mb-1">
         {label} {required ? <span className="text-red-500">*</span> : null}
       </label>
 
-      <input
-        type="text"
-        value={search}
-        disabled={!trabajadorId || disabled}
-        onChange={(event) => setSearch(event.target.value)}
-        placeholder="Buscar por codigo interno"
-        className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
-      />
+      <div className="flex gap-2">
+        <input
+          id={searchInputId}
+          type="text"
+          value={search}
+          disabled={!trabajadorId || disabled}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Buscar por código interno o serie"
+          className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
+          aria-describedby={selectionStatusId}
+        />
+        <button
+          type="button"
+          onClick={() => setIsScannerOpen(true)}
+          disabled={!trabajadorId || disabled}
+          className="px-3 py-1.5 text-sm rounded-md border border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+          aria-label="Escanear código"
+        >
+          Escanear
+        </button>
+      </div>
 
       {!trabajadorId ? (
-        <p className="text-xs text-gray-500">Selecciona trabajador para cargar activos elegibles.</p>
+          <p className="text-xs text-gray-500">Selecciona trabajador para cargar custodias activas.</p>
       ) : null}
 
       {isLoading ? <p className="text-xs text-gray-500">Cargando activos elegibles...</p> : null}
 
       {loadError ? (
         <p className="text-xs text-red-600">
-          {loadError} Esta operacion requiere selector visual de activos.
+            {loadError} Reintenta para cargar las custodias activas elegibles.
         </p>
       ) : null}
 
       {canSelect && visibleAssets.length === 0 ? (
-        <p className="text-xs text-gray-500">No hay activos elegibles para devolución.</p>
+          <p className="text-xs text-gray-500">No hay custodias activas elegibles para devolución.</p>
       ) : null}
 
       {canSelect && visibleAssets.length > 0 ? (
@@ -145,7 +216,19 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
               <button
                 type="button"
                 key={item.activo_id}
-                onClick={() => onChange(isSelected ? [] : [item.activo_id])}
+                  onClick={() => {
+                      if (excludedIdsSet.has(item.activo_id) && !isSelected) {
+                        return;
+                      }
+
+                    if (isSelected) {
+                      clearSelection();
+                      return;
+                    }
+
+                    onChange([item.activo_id]);
+                    onChangeSelection?.([toSelection(item)]);
+                  }}
                 className={`w-full text-left px-3 py-2 text-sm transition-colors ${
                   isSelected ? 'bg-blue-50 text-primary-blue' : 'hover:bg-gray-50 text-gray-700'
                 }`}
@@ -155,16 +238,25 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
                   {isSelected ? <span className="text-xs font-semibold">Seleccionado</span> : null}
                 </div>
                 <p className="text-xs text-gray-500">
-                  {item.articulo_nombre || 'Sin articulo'}
+                    {item.articulo_nombre || 'Sin artículo'}
                   {item.nro_serie ? ` · Serie: ${item.nro_serie}` : ''}
                 </p>
+                  <p className="text-[11px] text-gray-400">Custodia: {item.custodia_activo_id.slice(0, 8)}</p>
               </button>
             );
           })}
         </div>
       ) : null}
 
-      <p className="text-xs text-gray-500">{selectedId ? '1 unidad seleccionada.' : 'Sin unidad seleccionada.'}</p>
+      <p id={selectionStatusId} className="text-xs text-gray-500">
+        {selectedId ? '1 unidad seleccionada.' : 'Sin unidad seleccionada.'}
+      </p>
+
+      <BarcodeScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onDetected={applyScannedCode}
+      />
     </div>
   );
 };

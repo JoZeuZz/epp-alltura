@@ -16,6 +16,151 @@
 const helmet = require('helmet');
 const { logger } = require('../lib/logger');
 
+const CSP_REPORT_ENDPOINT = '/csp-violation-report';
+const CSP_REPORTING_GROUP = 'csp-endpoint';
+const CSP_COUNTER_RETENTION_DAYS = 14;
+const cspViolationsByDay = new Map();
+
+const truncateValue = (value, maxLength = 512) => {
+  if (typeof value !== 'string') return value;
+  return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
+};
+
+const normalizeOrigin = (value) => {
+  if (!value) return null;
+
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+
+  const withProtocol =
+    trimmed.startsWith('http://') || trimmed.startsWith('https://')
+      ? trimmed
+      : `https://${trimmed}`;
+
+  try {
+    return new URL(withProtocol).origin;
+  } catch {
+    return null;
+  }
+};
+
+const collectCSPConnectOrigins = (env = 'production') => {
+  const backendOrigin = normalizeOrigin(process.env.BACKEND_URL);
+  const origins = [];
+
+  if (backendOrigin) {
+    origins.push(backendOrigin, `${backendOrigin}/api`);
+  }
+
+  if (env === 'development') {
+    origins.push(
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173'
+    );
+  }
+
+  return Array.from(new Set(origins.filter(Boolean)));
+};
+
+const pruneCSPCounters = (todayIso) => {
+  for (const key of cspViolationsByDay.keys()) {
+    const ageMs = Date.parse(todayIso) - Date.parse(key);
+    if (Number.isNaN(ageMs)) {
+      cspViolationsByDay.delete(key);
+      continue;
+    }
+
+    const ageDays = ageMs / (24 * 60 * 60 * 1000);
+    if (ageDays > CSP_COUNTER_RETENTION_DAYS) {
+      cspViolationsByDay.delete(key);
+    }
+  }
+};
+
+const incrementCSPCounters = ({ requestId, reportCount = 1, todayIso }) => {
+  const dayEntry = cspViolationsByDay.get(todayIso) || {
+    total: 0,
+    byRequestId: {},
+  };
+
+  dayEntry.total += Math.max(1, reportCount);
+
+  if (requestId) {
+    dayEntry.byRequestId[requestId] = (dayEntry.byRequestId[requestId] || 0) + Math.max(1, reportCount);
+  }
+
+  cspViolationsByDay.set(todayIso, dayEntry);
+  pruneCSPCounters(todayIso);
+
+  return {
+    totalForDay: dayEntry.total,
+    totalForRequestId: requestId ? dayEntry.byRequestId[requestId] || 0 : 0,
+  };
+};
+
+const normalizeLegacyReport = (payload = {}) => ({
+  documentUri: truncateValue(payload['document-uri']),
+  blockedUri: truncateValue(payload['blocked-uri']),
+  effectiveDirective: truncateValue(payload['effective-directive']),
+  violatedDirective: truncateValue(payload['violated-directive']),
+  disposition: truncateValue(payload.disposition),
+  sourceFile: truncateValue(payload['source-file']),
+  lineNumber: payload['line-number'] || null,
+  columnNumber: payload['column-number'] || null,
+  statusCode: payload['status-code'] || null,
+  referrer: truncateValue(payload.referrer),
+  scriptSample: truncateValue(payload['script-sample'], 140),
+});
+
+const normalizeCSPReports = (rawBody) => {
+  if (!rawBody || typeof rawBody !== 'object') {
+    return [];
+  }
+
+  if (Array.isArray(rawBody)) {
+    return rawBody
+      .map((item) => {
+        const body = item?.body && typeof item.body === 'object' ? item.body : null;
+        if (!body) return null;
+
+        return {
+          age: item.age || null,
+          type: truncateValue(item.type),
+          url: truncateValue(item.url),
+          userAgent: truncateValue(item.user_agent),
+          ...normalizeLegacyReport(body),
+        };
+      })
+      .filter(Boolean);
+  }
+
+  if (rawBody['csp-report'] && typeof rawBody['csp-report'] === 'object') {
+    return [normalizeLegacyReport(rawBody['csp-report'])];
+  }
+
+  return [normalizeLegacyReport(rawBody)];
+};
+
+const getCSPViolationStats = () => {
+  const days = Array.from(cspViolationsByDay.entries())
+    .sort(([dayA], [dayB]) => dayA.localeCompare(dayB))
+    .map(([day, entry]) => ({
+      day,
+      total: entry.total,
+      uniqueRequestIds: Object.keys(entry.byRequestId || {}).length,
+    }));
+
+  const total = days.reduce((acc, day) => acc + day.total, 0);
+
+  return {
+    total,
+    days,
+    retentionDays: CSP_COUNTER_RETENTION_DAYS,
+  };
+};
+
 /**
  * Configuración de Content Security Policy
  * Política estricta con nonces para scripts inline cuando sea necesario
@@ -33,13 +178,16 @@ const { logger } = require('../lib/logger');
  */
 const getCSPDirectives = (env = 'production') => {
   const isDevelopment = env === 'development';
+  const connectOrigins = collectCSPConnectOrigins(env);
   
   const directives = {
     defaultSrc: ["'none'"], // Deny all por defecto
     scriptSrc: ["'self'"],
-    styleSrc: ["'self'", "'unsafe-inline'"], // unsafe-inline necesario para algunos frameworks
+    // Nota: se mantiene unsafe-inline por compatibilidad actual (Swagger UI y estilos inyectados).
+    styleSrc: ["'self'", "'unsafe-inline'"],
     imgSrc: ["'self'", 'data:', 'https:'],
-    connectSrc: ["'self'"],
+    // CSP permite restringir por origen; 'self' cubre rutas internas como /api.
+    connectSrc: ["'self'", ...connectOrigins],
     fontSrc: ["'self'"],
     objectSrc: ["'none'"],
     mediaSrc: ["'self'"],
@@ -50,6 +198,8 @@ const getCSPDirectives = (env = 'production') => {
     manifestSrc: ["'self'"],
     workerSrc: ["'self'"],
     childSrc: ["'none'"],
+    reportUri: [CSP_REPORT_ENDPOINT],
+    reportTo: [CSP_REPORTING_GROUP],
   };
 
   // En desarrollo, permitir herramientas como React DevTools, HMR de Vite
@@ -183,6 +333,20 @@ const additionalSecurityHeaders = (req, res, next) => {
   // Previene que Flash/PDF carguen políticas cross-domain
   res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
 
+  // Reporting API para CSP report-to.
+  res.setHeader('Reporting-Endpoints', `${CSP_REPORTING_GROUP}="${CSP_REPORT_ENDPOINT}"`);
+
+  // Compatibilidad con implementaciones que aún usan Report-To.
+  res.setHeader(
+    'Report-To',
+    JSON.stringify({
+      group: CSP_REPORTING_GROUP,
+      max_age: 10886400,
+      endpoints: [{ url: CSP_REPORT_ENDPOINT }],
+      include_subdomains: false,
+    })
+  );
+
   // Clear-Site-Data on logout
   // Se implementará en la ruta de logout específica
   
@@ -194,17 +358,31 @@ const additionalSecurityHeaders = (req, res, next) => {
  * Registra intentos de ejecución de código no permitido
  */
 const logCSPViolations = (req, res, next) => {
-  if (req.path === '/csp-violation-report' && req.method === 'POST') {
-    logger.warn('CSP Violation Report', {
-      violation: req.body,
-      ip: req.ip,
-      userAgent: req.get('user-agent'),
-    });
-    
-    // Responder sin contenido
-    return res.status(204).end();
+  if (req.method !== 'POST') {
+    return next();
   }
-  next();
+
+  const reports = normalizeCSPReports(req.body);
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const counters = incrementCSPCounters({
+    requestId: req.requestId,
+    reportCount: reports.length,
+    todayIso,
+  });
+
+  logger.warn('CSP Violation Report', {
+    type: 'security',
+    endpoint: CSP_REPORT_ENDPOINT,
+    reportCount: reports.length,
+    cspViolationsToday: counters.totalForDay,
+    cspViolationsForRequestId: counters.totalForRequestId,
+    requestId: req.requestId,
+    ip: req.ip,
+    userAgent: req.get('user-agent'),
+    reports,
+  });
+
+  return res.status(204).end();
 };
 
 /**
@@ -327,10 +505,13 @@ const createSecurityMiddleware = (config = {}) => {
 };
 
 module.exports = {
+  CSP_REPORT_ENDPOINT,
+  CSP_REPORTING_GROUP,
   createSecurityMiddleware,
   configureHelmet,
   configureCORS,
   configureHPP,
   additionalSecurityHeaders,
   logCSPViolations,
+  getCSPViolationStats,
 };

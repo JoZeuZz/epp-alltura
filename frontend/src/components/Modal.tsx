@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef } from 'react';
+import { ReactNode, useEffect, useId, useRef } from 'react';
 import FocusTrap from 'focus-trap-react';
 
 interface ModalProps {
@@ -11,8 +11,10 @@ interface ModalProps {
 
 export default function Modal({ isOpen, onClose, children, title, description }: ModalProps) {
   const previousActiveElement = useRef<HTMLElement | null>(null);
-  const titleId = useRef(`modal-title-${Math.random().toString(36).substr(2, 9)}`);
-  const descId = useRef(`modal-desc-${Math.random().toString(36).substr(2, 9)}`);
+  const dialogContainerRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const titleId = useId();
+  const descId = useId();
   const onCloseRef = useRef(onClose);
 
   useEffect(() => {
@@ -20,26 +22,26 @@ export default function Modal({ isOpen, onClose, children, title, description }:
   }, [onClose]);
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    previousActiveElement.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault();
         onCloseRef.current();
       }
     };
 
-    if (isOpen) {
-      // Guardar el elemento activo antes de abrir el modal
-      previousActiveElement.current = document.activeElement as HTMLElement;
-      window.addEventListener('keydown', handleEsc);
-      // Prevenir scroll del body
-      document.body.style.overflow = 'hidden';
-    }
+    window.addEventListener('keydown', handleEsc);
+    document.body.style.overflow = 'hidden';
 
     return () => {
       window.removeEventListener('keydown', handleEsc);
       document.body.style.overflow = '';
-      
-      // Restaurar foco al cerrar
-      if (!isOpen && previousActiveElement.current) {
+
+      if (previousActiveElement.current && typeof previousActiveElement.current.focus === 'function') {
         previousActiveElement.current.focus();
       }
     };
@@ -48,14 +50,26 @@ export default function Modal({ isOpen, onClose, children, title, description }:
   if (!isOpen) return null;
 
   return (
-    <FocusTrap>
+    <FocusTrap
+      focusTrapOptions={{
+        initialFocus: () => closeButtonRef.current ?? dialogContainerRef.current ?? document.body,
+        fallbackFocus: () => dialogContainerRef.current ?? document.body,
+        clickOutsideDeactivates: false,
+        escapeDeactivates: false,
+        returnFocusOnDeactivate: false,
+      }}
+    >
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4"
-        onClick={onClose}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            onClose();
+          }
+        }}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={title ? titleId.current : undefined}
-        aria-describedby={description ? descId.current : undefined}
+        aria-labelledby={title ? titleId : undefined}
+        aria-describedby={description ? descId : undefined}
         style={{
           animation: 'fadeIn 0.2s ease-out',
         }}
@@ -91,14 +105,18 @@ export default function Modal({ isOpen, onClose, children, title, description }:
         `}</style>
         
         <div
+          ref={dialogContainerRef}
           className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] sm:max-h-[85vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
+          role="document"
+          tabIndex={-1}
           style={{
             animation: 'modalSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
           }}
         >
           <div className="flex justify-end mb-2">
-            <button 
+            <button
+              ref={closeButtonRef}
               onClick={onClose} 
               className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg p-1.5 text-2xl leading-none transition-all duration-200 active:scale-95"
               aria-label="Cerrar modal"
@@ -107,8 +125,8 @@ export default function Modal({ isOpen, onClose, children, title, description }:
             </button>
           </div>
           <div>
-            {title && <h2 id={titleId.current} className="sr-only">{title}</h2>}
-            {description && <p id={descId.current} className="sr-only">{description}</p>}
+            {title && <h2 id={titleId} className="sr-only">{title}</h2>}
+            {description && <p id={descId} className="sr-only">{description}</p>}
             {children}
           </div>
         </div>

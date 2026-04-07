@@ -23,12 +23,114 @@ class EntregasController {
     }
   }
 
+  static async getActa(req, res, next) {
+    try {
+      const data = await EntregasService.getActa(req.params.id, req.user.id);
+      return sendSuccess(res, { message: 'Acta de entrega obtenida correctamente', data });
+    } catch (error) {
+      logger.error('Error getting entrega acta:', error);
+      return next(error);
+    }
+  }
+
   static async create(req, res, next) {
     try {
       const data = await EntregasService.create(req.body, req.user.id);
       return sendSuccess(res, { status: 201, message: 'Entrega creada correctamente', data });
     } catch (error) {
       logger.error('Error creating entrega:', error);
+      return next(error);
+    }
+  }
+
+  static async listTemplates(req, res, next) {
+    try {
+      const data = await EntregasService.listTemplates(req.query || {});
+      return sendSuccess(res, { message: 'Plantillas de entrega obtenidas correctamente', data });
+    } catch (error) {
+      logger.error('Error listing entrega templates:', error);
+      return next(error);
+    }
+  }
+
+  static async getTemplateById(req, res, next) {
+    try {
+      const data = await EntregasService.getTemplateById(req.params.templateId);
+      return sendSuccess(res, { message: 'Plantilla de entrega obtenida correctamente', data });
+    } catch (error) {
+      logger.error('Error getting entrega template by id:', error);
+      return next(error);
+    }
+  }
+
+  static async createTemplate(req, res, next) {
+    try {
+      const data = await EntregasService.createTemplate(req.body, req.user.id);
+      return sendSuccess(res, {
+        status: 201,
+        message: 'Plantilla de entrega creada correctamente',
+        data,
+      });
+    } catch (error) {
+      logger.error('Error creating entrega template:', error);
+      return next(error);
+    }
+  }
+
+  static async updateTemplate(req, res, next) {
+    try {
+      const data = await EntregasService.updateTemplate(req.params.templateId, req.body, req.user.id);
+      return sendSuccess(res, { message: 'Plantilla de entrega actualizada correctamente', data });
+    } catch (error) {
+      logger.error('Error updating entrega template:', error);
+      return next(error);
+    }
+  }
+
+  static async deactivateTemplate(req, res, next) {
+    try {
+      const data = await EntregasService.deactivateTemplate(req.params.templateId, req.user.id);
+      return sendSuccess(res, { message: 'Plantilla de entrega desactivada correctamente', data });
+    } catch (error) {
+      logger.error('Error deactivating entrega template:', error);
+      return next(error);
+    }
+  }
+
+  static async previewTemplate(req, res, next) {
+    try {
+      const data = await EntregasService.previewTemplate(req.params.templateId, req.query || {});
+      return sendSuccess(res, { message: 'Preview de plantilla generado correctamente', data });
+    } catch (error) {
+      logger.error('Error previewing entrega template:', error);
+      return next(error);
+    }
+  }
+
+  static async createFromTemplate(req, res, next) {
+    try {
+      const data = await EntregasService.createFromTemplate(req.params.templateId, req.body, req.user.id);
+      return sendSuccess(res, {
+        status: 201,
+        message: 'Entrega creada desde plantilla correctamente',
+        data,
+      });
+    } catch (error) {
+      logger.error('Error creating entrega from template:', error);
+      return next(error);
+    }
+  }
+
+  static async createBatchFromTemplate(req, res, next) {
+    try {
+      const data = await EntregasService.createBatchFromTemplate(req.params.templateId, req.body, req.user.id);
+      return sendSuccess(res, {
+        status: 201,
+        message: 'Entregas en borrador creadas desde plantilla correctamente',
+        data,
+      });
+    } catch (error) {
+      logger.error('Error creating batch entregas from template:', error);
       return next(error);
     }
   }

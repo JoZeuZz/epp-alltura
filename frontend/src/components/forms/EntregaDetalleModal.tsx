@@ -1,6 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Modal from '../Modal';
-import type { EntregaRow, EntregaEstado, EntregaTipo, CondicionSalida } from '../../services/apiService';
+import {
+  getEntregaActa,
+  type EntregaRow,
+  type EntregaEstado,
+  type EntregaTipo,
+  type CondicionSalida,
+} from '../../services/apiService';
 import { formatQuantityInteger } from '../../utils/quantity';
 
 interface EntregaDetalleModalProps {
@@ -63,6 +69,9 @@ const EntregaDetalleModal: React.FC<EntregaDetalleModalProps> = ({
   onClose,
   entrega,
 }) => {
+  const [isDownloadingActa, setIsDownloadingActa] = useState(false);
+  const [actaError, setActaError] = useState<string | null>(null);
+
   if (!entrega) return null;
 
   const estado = entrega.estado as EntregaEstado;
@@ -71,6 +80,36 @@ const EntregaDetalleModal: React.FC<EntregaDetalleModalProps> = ({
     entrega.nombres && entrega.apellidos
       ? `${entrega.nombres} ${entrega.apellidos}`
       : '—';
+
+  const handleDownloadActa = async () => {
+    if (!entrega.id || isDownloadingActa) {
+      return;
+    }
+
+    setActaError(null);
+    setIsDownloadingActa(true);
+
+    try {
+      const acta = await getEntregaActa(entrega.id);
+      const targetUrl = acta.archivo_url_resuelto || acta.archivo_url;
+
+      if (!targetUrl) {
+        throw new Error('No se recibió una URL válida para descargar el acta.');
+      }
+
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    } catch (error: unknown) {
+      const message =
+        (error as { response?: { data?: { message?: string } }; message?: string })?.response?.data
+          ?.message ||
+        (error as { message?: string })?.message ||
+        'No fue posible descargar el acta de entrega.';
+
+      setActaError(message);
+    } finally {
+      setIsDownloadingActa(false);
+    }
+  };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Detalle de entrega">
@@ -193,7 +232,19 @@ const EntregaDetalleModal: React.FC<EntregaDetalleModalProps> = ({
       )}
 
       {/* Botón cerrar */}
-      <div className="mt-5">
+      {actaError && (
+        <p className="mt-4 text-sm text-red-600">{actaError}</p>
+      )}
+
+      <div className="mt-5 flex flex-col sm:flex-row gap-2">
+        <button
+          type="button"
+          onClick={handleDownloadActa}
+          disabled={isDownloadingActa}
+          className="w-full py-2 px-4 bg-primary-blue text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60 transition-colors"
+        >
+          {isDownloadingActa ? 'Generando acta...' : 'Descargar acta'}
+        </button>
         <button
           type="button"
           onClick={onClose}

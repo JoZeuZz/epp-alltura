@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 interface SignaturePadProps {
   label?: string;
@@ -35,6 +35,9 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
   onChange,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasId = useId();
+  const helpId = useId();
+  const errorId = useId();
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -152,10 +155,10 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
   return (
     <div className={`space-y-2 ${className}`}>
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-gray-700">
+        <label htmlFor={canvasId} className="text-sm font-medium text-gray-700">
           {label}
           {required && <span className="text-red-500"> *</span>}
-        </p>
+        </label>
         <button
           type="button"
           className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
@@ -168,6 +171,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
 
       <div className="rounded-lg border border-gray-300 bg-white overflow-hidden">
         <canvas
+          id={canvasId}
           ref={canvasRef}
           width={CANVAS_WIDTH}
           height={CANVAS_HEIGHT}
@@ -176,11 +180,23 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
           onPointerMove={draw}
           onPointerUp={endDrawing}
           onPointerLeave={endDrawing}
+          tabIndex={disabled ? -1 : 0}
           aria-label="Área de firma"
+          aria-required={required}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${helpId} ${errorId}` : helpId}
         />
       </div>
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      <p id={helpId} className="text-xs text-gray-500">
+        Usa el dedo o el ratón para dibujar la firma en el área indicada.
+      </p>
+
+      {error && (
+        <p id={errorId} className="text-xs text-red-600" role="alert">
+          {error}
+        </p>
+      )}
 
       {showPreview && previewUrl && (
         <div className="rounded-lg border border-gray-200 bg-gray-50 p-2">

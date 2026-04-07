@@ -17,8 +17,8 @@ const notificationIcons: Record<string, string> = {
   scaffold_modification_added: '➕',
   project_assigned: '📋',
   note_urgent: '⚠️',
-  custodia_vencida: '🔴',
-  custodia_proxima_vencer: '🟡',
+  custodia_vencida: '',
+  custodia_proxima_vencer: '',
   system: 'ℹ️',
 };
 

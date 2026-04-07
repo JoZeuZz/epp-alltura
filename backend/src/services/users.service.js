@@ -7,6 +7,7 @@ const UsuarioModel = require('../models/usuario');
 const RolModel = require('../models/rol');
 const { uploadFile } = require('../lib/googleCloud');
 const { logger } = require('../lib/logger');
+const { normalizeRut: normalizeRutBase } = require('../lib/rut');
 const { PASSWORD_CONFIG } = require('../middleware/passwordPolicy');
 const { TOKEN_CONFIG } = require('../middleware/auth');
 const { toDbRole, toExternalRole, normalizeDbRoles, buildCompatibleRoles } = require('../lib/roleUtils');
@@ -33,9 +34,9 @@ const buildTemporaryRut = () => {
 };
 
 const normalizeRut = (rut) => {
-  const value = String(rut || '').trim().toUpperCase();
+  const value = String(rut || '').trim();
   if (value) {
-    return value;
+    return normalizeRutBase(value);
   }
   return buildTemporaryRut();
 };

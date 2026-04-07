@@ -835,4 +835,103 @@ maybeDescribe('EPP flow integration with real DB', () => {
     const serialVisible = activosEnStockResponse.body.data.some((row) => row.id === serialAssetId);
     expect(serialVisible).toBe(true);
   });
+
+  it('exposes active custodias for worker and removes them after confirmed return', async () => {
+    const compra = await createPurchase(app, ['SER-CUST-01']);
+    const serialDetail = compra.detalles.find((item) => item.articulo_id === IDS.articuloSerialId);
+    const serialAssetId = serialDetail.activos[0].id;
+
+    const entrega = await createDeliveryWithItems(app, [serialAssetId], 0);
+    await signDeliveryInDevice(app, entrega.id, 'trabajador');
+
+    const confirmEntregaResponse = await request(app)
+      .post(`/api/entregas/${entrega.id}/confirm`)
+      .set('x-test-actor', 'bodega')
+      .send();
+
+    expect(confirmEntregaResponse.status).toBe(200);
+
+    const custodiasBeforeResponse = await request(app)
+      .get('/api/devoluciones/mis-custodias/activos')
+      .set('x-test-actor', 'trabajador');
+
+    expect(custodiasBeforeResponse.status).toBe(200);
+    expect(custodiasBeforeResponse.body.data.trabajador_id).toBe(IDS.trabajadorId);
+    expect(Array.isArray(custodiasBeforeResponse.body.data.custodias)).toBe(true);
+    const hasCustodyBefore = custodiasBeforeResponse.body.data.custodias.some(
+      (row) => row.activo_id === serialAssetId
+    );
+    expect(hasCustodyBefore).toBe(true);
+
+    const devolucionDraftResponse = await request(app)
+      .post('/api/devoluciones')
+      .set('x-test-actor', 'bodega')
+      .send({
+        trabajador_id: IDS.trabajadorId,
+        ubicacion_recepcion_id: IDS.ubicacionRecepcionId,
+        detalles: [
+          {
+            activo_ids: [serialAssetId],
+            cantidad: 1,
+            condicion_entrada: 'ok',
+            disposicion: 'devuelto',
+          },
+        ],
+      });
+
+    expect(devolucionDraftResponse.status).toBe(201);
+
+    const devolucionId = devolucionDraftResponse.body.data.id;
+    await signReturnInDevice(app, devolucionId, 'bodega');
+
+    const confirmDevolucionResponse = await request(app)
+      .post(`/api/devoluciones/${devolucionId}/confirm`)
+      .set('x-test-actor', 'bodega')
+      .send();
+
+    expect(confirmDevolucionResponse.status).toBe(200);
+
+    const custodiasAfterResponse = await request(app)
+      .get('/api/devoluciones/mis-custodias/activos')
+      .set('x-test-actor', 'trabajador');
+
+    expect(custodiasAfterResponse.status).toBe(200);
+    expect(custodiasAfterResponse.body.data.trabajador_id).toBe(IDS.trabajadorId);
+    const hasCustodyAfter = custodiasAfterResponse.body.data.custodias.some(
+      (row) => row.activo_id === serialAssetId
+    );
+    expect(hasCustodyAfter).toBe(false);
+  });
+
+  it('rejects draft devolucion when detalle uses consumable article', async () => {
+    const response = await request(app)
+      .post('/api/devoluciones')
+      .set('x-test-actor', 'bodega')
+      .send({
+        trabajador_id: IDS.trabajadorId,
+        ubicacion_recepcion_id: IDS.ubicacionRecepcionId,
+        detalles: [
+          {
+            articulo_id: IDS.articuloCantidadId,
+            cantidad: 1,
+            condicion_entrada: 'ok',
+            disposicion: 'devuelto',
+          },
+        ],
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toMatch(/consumible/i);
+  });
+
+  it('requires trabajador_id when listing eligible assets for return', async () => {
+    const response = await request(app)
+      .get('/api/devoluciones/activos-elegibles')
+      .set('x-test-actor', 'bodega');
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toMatch(/trabajador_id/i);
+  });
 });

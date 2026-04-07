@@ -7,7 +7,7 @@ const { requestLogger, logger } = require('./lib/logger');
 const redisClient = require('./lib/redis');
 
 // Importar middlewares de seguridad
-const { createSecurityMiddleware } = require('./middleware/security');
+const { createSecurityMiddleware, CSP_REPORT_ENDPOINT } = require('./middleware/security');
 const { sanitizeStrict } = require('./middleware/sanitization');
 const errorHandler = require('./middleware/errorHandler');
 const requestId = require('./middleware/requestId');
@@ -27,6 +27,7 @@ const firmasRoutes = require('./routes/firmas.routes');
 const comprasRoutes = require('./routes/compras.routes');
 const inventarioRoutes = require('./routes/inventario.routes');
 const proveedoresRoutes = require('./routes/proveedores.routes');
+const documentosRoutes = require('./routes/documentos.routes');
 const healthRoutes = require('./routes/health');
 
 // Cron scheduler
@@ -89,11 +90,19 @@ app.use(securityMiddleware.hpp);
 // 4. Headers adicionales de seguridad
 app.use(securityMiddleware.additionalHeaders);
 
-// 5. Logger de violaciones CSP
-app.use(securityMiddleware.cspLogger);
-
-// 6. Request ID (para trazabilidad)
+// 5. Request ID (para trazabilidad)
 app.use(requestId);
+
+// 6. Endpoint de reportes CSP (legacy report-uri + Reporting API report-to)
+app.post(
+  CSP_REPORT_ENDPOINT,
+  express.json({
+    limit: '100kb',
+    strict: false,
+    type: ['application/csp-report', 'application/reports+json', 'application/json'],
+  }),
+  securityMiddleware.cspLogger
+);
 
 // 7. Compresión de respuestas
 app.use(compression());
@@ -158,6 +167,7 @@ app.use('/api/firmas', firmasRoutes);
 app.use('/api/compras', comprasRoutes);
 app.use('/api/inventario', inventarioRoutes);
 app.use('/api/proveedores', proveedoresRoutes);
+app.use('/api/documentos', documentosRoutes);
 app.use('/health', healthRoutes);
 
 // Endpoint para métricas del cliente (performance monitoring)

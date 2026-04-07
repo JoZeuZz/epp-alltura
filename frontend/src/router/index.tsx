@@ -5,6 +5,7 @@ import LoginPage from '../pages/LoginPage';
 import ErrorPage from '../components/ErrorPage';
 import type { User } from '../types/api';
 import { clearStoredTokens, refreshAccessToken } from '../services/authRefresh';
+import { isHttpAuthError, loaderHttpClient } from '../services/httpClient';
 
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
 const AdminInventoryLayout = lazy(
@@ -42,12 +43,7 @@ const AdminUbicacionesPage = lazy(() => import('../pages/admin/AdminUbicacionesP
 const AdminEntregasPage = lazy(() => import('../pages/admin/AdminEntregasPage'));
 const AdminDevolucionesPage = lazy(() => import('../pages/admin/AdminDevolucionesPage'));
 
-const API_URL = '/api';
 type RouteRole = 'admin' | 'supervisor' | 'bodega' | 'worker';
-
-function getAuthToken() {
-  return localStorage.getItem('accessToken');
-}
 
 function normalizeRole(role?: string | null): RouteRole | '' {
   if (!role) return '';
@@ -61,50 +57,16 @@ function normalizeRole(role?: string | null): RouteRole | '' {
   return '';
 }
 
-function unwrapResponsePayload<T>(payload: unknown): T {
-  if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) {
-    return (payload as { data: T }).data;
-  }
 
-  return payload as T;
-}
-
-async function fetchAPI<T>(endpoint: string, options: RequestInit = {}, allowRetry = true): Promise<T> {
-  const token = getAuthToken();
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-
-  if (!response.ok) {
-    if (response.status === 401 && allowRetry) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        return fetchAPI<T>(endpoint, options, false);
-      }
-      clearStoredTokens();
+async function loaderGetWithFallback<T>(endpoint: string, fallback: T): Promise<T> {
+  try {
+    return await loaderHttpClient.get<T>(endpoint);
+  } catch (error) {
+    if (isHttpAuthError(error)) {
       throw redirect('/login');
     }
-
-    let message = 'Error del servidor';
-    try {
-      const payload = await response.json();
-      if (payload?.message) {
-        message = payload.message;
-      }
-    } catch {
-      // Ignore parse errors.
-    }
-
-    throw new Error(message);
+    return fallback;
   }
-
-  const payload = await response.json();
-  return unwrapResponsePayload<T>(payload);
 }
 
 async function getUserFromToken(): Promise<Pick<User, 'id' | 'email' | 'role' | 'first_name' | 'last_name'> | null> {
@@ -195,10 +157,10 @@ async function adminDashboardLoader() {
   const { user } = (await requireRole(['admin'])()) as { user: User };
 
   const [summary, stock, movimientosStock, movimientosActivo] = await Promise.all([
-    fetchAPI('/dashboard/summary').catch(() => null),
-    fetchAPI('/inventario/stock').catch(() => []),
-    fetchAPI('/inventario/movimientos-stock?limit=25').catch(() => []),
-    fetchAPI('/inventario/movimientos-activo?limit=25').catch(() => []),
+    loaderGetWithFallback('/dashboard/summary', null),
+    loaderGetWithFallback('/inventario/stock', []),
+    loaderGetWithFallback('/inventario/movimientos-stock?limit=25', []),
+    loaderGetWithFallback('/inventario/movimientos-activo?limit=25', []),
   ]);
 
   return {
@@ -214,10 +176,10 @@ async function supervisorDashboardLoader() {
   const { user } = (await requireRole(['supervisor', 'admin'])()) as { user: User };
 
   const [summary, entregas, devoluciones, movimientosActivo] = await Promise.all([
-    fetchAPI('/dashboard/summary').catch(() => null),
-    fetchAPI('/entregas').catch(() => []),
-    fetchAPI('/devoluciones').catch(() => []),
-    fetchAPI('/inventario/movimientos-activo?limit=20').catch(() => []),
+    loaderGetWithFallback('/dashboard/summary', null),
+    loaderGetWithFallback('/entregas', []),
+    loaderGetWithFallback('/devoluciones', []),
+    loaderGetWithFallback('/inventario/movimientos-activo?limit=20', []),
   ]);
 
   return {
@@ -233,13 +195,13 @@ async function warehouseDashboardLoader() {
   const { user } = (await requireRole(['bodega', 'admin', 'supervisor'])()) as { user: User };
 
   const [trabajadores, ubicaciones, articulos, entregas, devoluciones, stock, proveedores] = await Promise.all([
-    fetchAPI('/trabajadores').catch(() => []),
-    fetchAPI('/ubicaciones').catch(() => []),
-    fetchAPI('/articulos').catch(() => []),
-    fetchAPI('/entregas').catch(() => []),
-    fetchAPI('/devoluciones').catch(() => []),
-    fetchAPI('/inventario/stock').catch(() => []),
-    fetchAPI('/proveedores').catch(() => []),
+    loaderGetWithFallback('/trabajadores', []),
+    loaderGetWithFallback('/ubicaciones', []),
+    loaderGetWithFallback('/articulos', []),
+    loaderGetWithFallback('/entregas', []),
+    loaderGetWithFallback('/devoluciones', []),
+    loaderGetWithFallback('/inventario/stock', []),
+    loaderGetWithFallback('/proveedores', []),
   ]);
 
   return {
@@ -262,8 +224,8 @@ async function workerDashboardLoader() {
   const { user } = (await requireRole(['worker'])()) as { user: User };
 
   const [pendientesFirma, custodiasActivas] = await Promise.all([
-    fetchAPI('/firmas/pendientes/me').catch(() => ({ entregas: [] })),
-    fetchAPI('/devoluciones/mis-custodias/activos').catch(() => ({ custodias: [] })),
+    loaderGetWithFallback('/firmas/pendientes/me', { entregas: [] }),
+    loaderGetWithFallback('/devoluciones/mis-custodias/activos', { custodias: [] }),
   ]);
 
   return {

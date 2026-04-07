@@ -11,6 +11,7 @@ import { useDeliverySignatureEvents } from '../../hooks/useDeliverySignatureEven
 import {
   getEntregaById,
   createEntrega,
+  createEntregasBatchFromTemplate,
   confirmEntrega,
   recibirTraslado,
   anularEntrega,
@@ -22,6 +23,8 @@ import {
   type EntregaEstado,
   type EntregaTipo,
   type EntregaCreatePayload,
+  type EntregaCreateBatchFromTemplatePayload,
+  type EntregaTemplate,
   type EntregaEstadoDevolucion,
 } from '../../services/apiService';
 import EntregaCreateModal from '../../components/forms/EntregaCreateModal';
@@ -152,6 +155,11 @@ const AdminEntregasPage: React.FC = () => {
   const { data: ubicaciones = [] } = useGet<unknown[]>([QUERY_KEY, 'ubicaciones'], '/ubicaciones');
   const { data: articulos = [] } = useGet<unknown[]>([QUERY_KEY, 'articulos'], '/articulos');
   const { data: lotes = [] } = useGet<unknown[]>([QUERY_KEY, 'lotes'], '/inventario/lotes');
+  const { data: entregaTemplates = [] } = useGet<EntregaTemplate[]>(
+    [QUERY_KEY, 'templates'],
+    '/entregas/templates',
+    { estado: 'activo' }
+  );
 
   // ─── Mutations ────────────────────────────────────────────────────────────
 
@@ -160,6 +168,22 @@ const AdminEntregasPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       toast.success('Entrega creada correctamente.');
+      setShowCreate(false);
+    },
+    onError: (err) => toast.error(toErrorMessage(err)),
+  });
+
+  const createBatchTemplateMutation = useMutation({
+    mutationFn: ({
+      templateId,
+      request,
+    }: {
+      templateId: string;
+      request: EntregaCreateBatchFromTemplatePayload;
+    }) => createEntregasBatchFromTemplate(templateId, request),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
+      toast.success(`Se crearon ${result.total_creadas} borradores desde plantilla.`);
       setShowCreate(false);
     },
     onError: (err) => toast.error(toErrorMessage(err)),
@@ -277,6 +301,13 @@ const AdminEntregasPage: React.FC = () => {
     await createMutation.mutateAsync(payload);
   };
 
+  const handleCreateTemplateBatch = async (payload: {
+    templateId: string;
+    request: EntregaCreateBatchFromTemplatePayload;
+  }) => {
+    await createBatchTemplateMutation.mutateAsync(payload);
+  };
+
   const handleFirmar = async (entregaId: string, firmaBase64: string, textoAceptacion: string) => {
     await firmaMutation.mutateAsync({ entregaId, firmaBase64, textoAceptacion });
   };
@@ -350,10 +381,15 @@ const AdminEntregasPage: React.FC = () => {
       header: 'Acciones',
       render: (_v, row) => {
         const estado = row.estado as EntregaEstado;
+        const trabajadorNombre =
+          row.nombres && row.apellidos
+            ? `${row.nombres} ${row.apellidos}`
+            : 'trabajador seleccionado';
         return (
           <div className="flex gap-1 flex-wrap">
             {/* Ver detalle — siempre visible */}
             <button
+              type="button"
               onClick={async () => {
                 try {
                   const fullDetail = await getEntregaById(row.id);
@@ -364,6 +400,7 @@ const AdminEntregasPage: React.FC = () => {
                 }
               }}
               className="px-2 py-1 text-xs text-blue-600 hover:text-blue-800 hover:underline"
+              aria-label={`Ver detalle de entrega para ${trabajadorNombre}`}
             >
               Ver
             </button>
@@ -371,8 +408,10 @@ const AdminEntregasPage: React.FC = () => {
             {/* Firma — solo en borrador */}
             {estado === 'borrador' && (
               <button
+                type="button"
                 onClick={() => setEntregaFirma(row)}
                 className="px-2 py-1 text-xs text-purple-600 hover:text-purple-800 hover:underline"
+                aria-label={`Firmar entrega para ${trabajadorNombre}`}
               >
                 Firmar
               </button>
@@ -381,8 +420,10 @@ const AdminEntregasPage: React.FC = () => {
             {/* QR — flujo principal de firma remota */}
             {(estado === 'borrador' || estado === 'pendiente_firma') && (
               <button
+                type="button"
                 onClick={() => openQrForEntrega(row.id)}
                 className="px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 hover:underline"
+                aria-label={`Generar QR de firma para ${trabajadorNombre}`}
               >
                 QR
               </button>
@@ -391,8 +432,10 @@ const AdminEntregasPage: React.FC = () => {
             {/* Confirmar — solo en pendiente_firma */}
             {estado === 'pendiente_firma' && (
               <button
+                type="button"
                 onClick={() => setEntregaConfirmar(row)}
                 className="px-2 py-1 text-xs text-green-600 hover:text-green-800 hover:underline"
+                aria-label={`Confirmar entrega de ${trabajadorNombre}`}
               >
                 Confirmar
               </button>
@@ -401,8 +444,10 @@ const AdminEntregasPage: React.FC = () => {
             {/* Recibir traslado — solo en en_transito */}
             {estado === 'en_transito' && row.tipo === 'traslado' && (
               <button
+                type="button"
                 onClick={() => setEntregaRecibir(row)}
                 className="px-2 py-1 text-xs text-teal-600 hover:text-teal-800 hover:underline"
+                aria-label={`Confirmar recepción de traslado para ${trabajadorNombre}`}
               >
                 Recibir
               </button>
@@ -411,11 +456,13 @@ const AdminEntregasPage: React.FC = () => {
             {/* Anular — en borrador o pendiente_firma */}
             {(estado === 'borrador' || estado === 'pendiente_firma') && (
               <button
+                type="button"
                 onClick={() => {
                   setEntregaAnular(row);
                   setMotivoAnulacion('');
                 }}
                 className="px-2 py-1 text-xs text-red-500 hover:text-red-700 hover:underline"
+                aria-label={`Anular entrega de ${trabajadorNombre}`}
               >
                 Anular
               </button>
@@ -423,11 +470,13 @@ const AdminEntregasPage: React.FC = () => {
 
             {['confirmada', 'en_transito', 'recibido'].includes(estado) && (
               <button
+                type="button"
                 onClick={() => {
                   setEntregaDeshacer(row);
                   setMotivoDeshacer('');
                 }}
                 className="px-2 py-1 text-xs text-orange-600 hover:text-orange-800 hover:underline"
+                aria-label={`Deshacer entrega de ${trabajadorNombre}`}
               >
                 Deshacer
               </button>
@@ -435,8 +484,10 @@ const AdminEntregasPage: React.FC = () => {
 
             {isAdmin && (estado === 'anulada' || estado === 'revertida_admin') && (
               <button
+                type="button"
                 onClick={() => setEntregaEliminar(row)}
                 className="px-2 py-1 text-xs text-red-700 hover:text-red-900 hover:underline"
+                aria-label={`Eliminar entrega de ${trabajadorNombre}`}
               >
                 Eliminar
               </button>
@@ -446,6 +497,11 @@ const AdminEntregasPage: React.FC = () => {
       },
     },
   ], [isAdmin]);
+
+  const motivoAnulacionInvalido =
+    motivoAnulacion.trim().length > 0 && motivoAnulacion.trim().length < 5;
+  const motivoDeshacerInvalido =
+    motivoDeshacer.trim().length > 0 && motivoDeshacer.trim().length < 5;
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -471,11 +527,14 @@ const AdminEntregasPage: React.FC = () => {
       </div>
 
       {/* Filtros por estado */}
-      <div className="flex gap-1 flex-wrap mb-5">
+      <div className="flex gap-1 flex-wrap mb-5" role="tablist" aria-label="Filtrar entregas por estado">
         {FILTER_TABS.map((tab) => (
           <button
+            type="button"
             key={tab.value}
             onClick={() => setFilterEstado(tab.value)}
+            role="tab"
+            aria-selected={filterEstado === tab.value}
             className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
               filterEstado === tab.value
                 ? 'bg-primary-blue text-white font-medium'
@@ -507,11 +566,13 @@ const AdminEntregasPage: React.FC = () => {
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
         onSubmit={handleCreate}
-        isSubmitting={createMutation.isPending}
+        onSubmitTemplateBatch={handleCreateTemplateBatch}
+        isSubmitting={createMutation.isPending || createBatchTemplateMutation.isPending}
         trabajadores={trabajadores as any}
         ubicaciones={ubicaciones as any}
         articulos={articulos as any}
         lotes={lotes as any}
+        templates={entregaTemplates}
       />
 
       {/* Modal firma */}
@@ -651,19 +712,27 @@ const AdminEntregasPage: React.FC = () => {
         confirmText="Anular"
         variant="danger"
         confirmDisabled={motivoAnulacion.trim().length < 5 || anularMutation.isPending}
+        confirmDisabledReason={
+          motivoAnulacion.trim().length < 5
+            ? 'Ingresa un motivo de al menos 5 caracteres para habilitar la anulación.'
+            : undefined
+        }
       >
         <div className="mt-4">
-          <label className="block text-xs font-medium text-gray-600 mb-1">
+          <label htmlFor="motivo-anulacion" className="block text-xs font-medium text-gray-600 mb-1">
             Motivo de anulación <span className="text-red-500">*</span>
           </label>
           <textarea
+            id="motivo-anulacion"
             rows={3}
             value={motivoAnulacion}
             onChange={(e) => setMotivoAnulacion(e.target.value)}
             placeholder="Indica el motivo (mínimo 5 caracteres)..."
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+            aria-describedby="motivo-anulacion-help"
+            aria-invalid={motivoAnulacionInvalido}
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p id="motivo-anulacion-help" className="mt-1 text-xs text-gray-500">
             Debe quedar evidencia del motivo para auditoría.
           </p>
         </div>
@@ -692,19 +761,27 @@ const AdminEntregasPage: React.FC = () => {
         confirmText="Deshacer"
         variant="warning"
         confirmDisabled={motivoDeshacer.trim().length < 5 || deshacerMutation.isPending}
+        confirmDisabledReason={
+          motivoDeshacer.trim().length < 5
+            ? 'Ingresa un motivo de al menos 5 caracteres para habilitar la reversa.'
+            : undefined
+        }
       >
         <div className="mt-4">
-          <label className="block text-xs font-medium text-gray-600 mb-1">
+          <label htmlFor="motivo-deshacer" className="block text-xs font-medium text-gray-600 mb-1">
             Motivo de reversa <span className="text-red-500">*</span>
           </label>
           <textarea
+            id="motivo-deshacer"
             rows={3}
             value={motivoDeshacer}
             onChange={(e) => setMotivoDeshacer(e.target.value)}
             placeholder="Indica el motivo (mínimo 5 caracteres)..."
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+            aria-describedby="motivo-deshacer-help"
+            aria-invalid={motivoDeshacerInvalido}
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p id="motivo-deshacer-help" className="mt-1 text-xs text-gray-500">
             Esta acción queda registrada en auditoría.
           </p>
         </div>

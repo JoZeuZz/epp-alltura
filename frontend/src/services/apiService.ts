@@ -1,68 +1,19 @@
-import axios from 'axios';
-import { refreshAccessToken, clearStoredTokens } from './authRefresh';
+import { defaultHttpClient, type ApiEnvelope } from './httpClient';
 
-export const apiService = axios.create({
-  baseURL: '/api',
-});
+const httpClient = defaultHttpClient;
 
-type ApiEnvelope<T> = {
-  success: boolean;
-  message?: string;
-  data: T;
-  errors?: unknown[];
-};
-
-apiService.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-apiService.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    if (error.response?.status === 401) {
-      const originalRequest = error.config as (typeof error.config & { _retry?: boolean });
-      const requestUrl = typeof originalRequest?.url === 'string' ? originalRequest.url : '';
-
-      const isAuthRefresh = requestUrl.includes('/auth/refresh');
-      const isAuthLogin = requestUrl.includes('/auth/login');
-
-      if (!isAuthRefresh && !isAuthLogin && originalRequest && !originalRequest._retry) {
-        originalRequest._retry = true;
-        const newToken = await refreshAccessToken();
-
-        if (newToken) {
-          originalRequest.headers = {
-            ...(originalRequest.headers || {}),
-            Authorization: `Bearer ${newToken}`,
-          };
-          return apiService(originalRequest);
-        }
-      }
-
-      clearStoredTokens();
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
-    }
-
-    return Promise.reject(error);
-  }
-);
+export const apiService = httpClient.instance;
 
 export const get = <T = unknown>(url: string, params?: unknown) =>
-  apiService.get<T | ApiEnvelope<T>>(url, { params }).then((res) => unwrapData<T>(res.data));
+  httpClient.get<T>(url, params);
 export const post = <T = unknown>(url: string, data?: unknown) =>
-  apiService.post<T | ApiEnvelope<T>>(url, data).then((res) => unwrapData<T>(res.data));
+  httpClient.post<T>(url, data);
 export const put = <T = unknown>(url: string, data?: unknown) =>
-  apiService.put<T | ApiEnvelope<T>>(url, data).then((res) => unwrapData<T>(res.data));
+  httpClient.put<T>(url, data);
 export const patch = <T = unknown>(url: string, data?: unknown) =>
-  apiService.patch<T | ApiEnvelope<T>>(url, data).then((res) => unwrapData<T>(res.data));
+  httpClient.patch<T>(url, data);
 export const del = <T = unknown>(url: string) =>
-  apiService.delete<T | ApiEnvelope<T>>(url).then((res) => unwrapData<T>(res.data));
+  httpClient.del<T>(url);
 
 type UploadMethod = 'post' | 'put' | 'patch';
 
@@ -787,6 +738,104 @@ export interface EntregaCreatePayload {
   detalles: EntregaDetallePayload[];
 }
 
+export type EntregaTemplateEstado = 'activo' | 'inactivo';
+
+export interface EntregaTemplateItem {
+  id?: string;
+  template_id?: string;
+  articulo_id: string;
+  articulo_nombre?: string;
+  tracking_mode?: 'serial' | 'lote';
+  retorno_mode?: 'retornable' | 'consumible';
+  cantidad: number;
+  requiere_serial: boolean;
+  notas_default?: string | null;
+  orden?: number;
+  disponibilidad_origen?: number;
+}
+
+export interface EntregaTemplate {
+  id: string;
+  nombre: string;
+  descripcion?: string | null;
+  estado: EntregaTemplateEstado;
+  scope_cargo?: string | null;
+  scope_proyecto?: string | null;
+  creado_por_usuario_id: string;
+  creado_por_email?: string | null;
+  creado_en?: string;
+  actualizado_en?: string;
+  cantidad_items?: number;
+  items?: EntregaTemplateItem[];
+  ubicacion_origen_id?: string;
+}
+
+export interface EntregaTemplateItemPayload {
+  articulo_id: string;
+  cantidad: number;
+  requiere_serial?: boolean;
+  notas_default?: string | null;
+}
+
+export interface EntregaTemplateCreatePayload {
+  nombre: string;
+  descripcion?: string | null;
+  estado?: EntregaTemplateEstado;
+  scope_cargo?: string | null;
+  scope_proyecto?: string | null;
+  items: EntregaTemplateItemPayload[];
+}
+
+export interface EntregaTemplateUpdatePayload {
+  nombre?: string;
+  descripcion?: string | null;
+  estado?: EntregaTemplateEstado;
+  scope_cargo?: string | null;
+  scope_proyecto?: string | null;
+  items?: EntregaTemplateItemPayload[];
+}
+
+export interface EntregaTemplateDetailOverridePayload {
+  articulo_id: string;
+  cantidad?: number;
+  activo_ids?: string[];
+  lote_id?: string | null;
+  condicion_salida?: CondicionSalida;
+  notas?: string | null;
+}
+
+export interface EntregaCreateFromTemplatePayload {
+  trabajador_id: string;
+  ubicacion_origen_id: string;
+  ubicacion_destino_id: string;
+  tipo?: EntregaTipo;
+  es_traslado?: boolean;
+  nota_destino?: string | null;
+  fecha_devolucion_esperada?: string | null;
+  detalles_overrides?: EntregaTemplateDetailOverridePayload[];
+}
+
+export interface EntregaCreateBatchFromTemplatePayload {
+  trabajador_ids: string[];
+  ubicacion_origen_id: string;
+  ubicacion_destino_id: string;
+  tipo?: Exclude<EntregaTipo, 'traslado'>;
+  es_traslado?: false;
+  nota_destino?: string | null;
+  fecha_devolucion_esperada?: string | null;
+  detalles_overrides?: EntregaTemplateDetailOverridePayload[];
+}
+
+export interface EntregaCreateBatchFromTemplateResponse {
+  template_id: string;
+  total_creadas: number;
+  entregas: Array<{
+    id: string;
+    trabajador_id: string;
+    estado: EntregaEstado;
+  }>;
+}
+
 export interface FirmaDispositivoPayload {
   texto_aceptacion: string;
   firma_imagen_url?: string;
@@ -810,6 +859,19 @@ export interface EntregaSignatureTokenResponse {
   time_to_expiry_minutes?: number;
 }
 
+export interface EntregaActaResponse {
+  documento_id: string;
+  tipo: 'acta_entrega';
+  entidad_tipo: 'entrega';
+  entidad_id: string;
+  archivo_url: string;
+  archivo_url_resuelto?: string;
+  archivo_hash?: string | null;
+  creado_en?: string;
+  creado_por_usuario_id?: string;
+  generated?: boolean;
+}
+
 export const generateEntregaSignatureToken = (
   entregaId: string,
   expiraMinutos = 30
@@ -820,6 +882,45 @@ export const generateEntregaSignatureToken = (
 
 export const createEntrega = (payload: EntregaCreatePayload) =>
   post<EntregaRow>('/entregas', payload);
+
+export const getEntregaActa = (id: string) =>
+  get<EntregaActaResponse>(`/entregas/${id}/acta`);
+
+export const getEntregaTemplates = (params?: {
+  estado?: EntregaTemplateEstado;
+  search?: string;
+}) => get<EntregaTemplate[]>('/entregas/templates', params);
+
+export const getEntregaTemplateById = (templateId: string) =>
+  get<EntregaTemplate>(`/entregas/templates/${templateId}`);
+
+export const createEntregaTemplate = (payload: EntregaTemplateCreatePayload) =>
+  post<EntregaTemplate>('/entregas/templates', payload);
+
+export const updateEntregaTemplate = (templateId: string, payload: EntregaTemplateUpdatePayload) =>
+  put<EntregaTemplate>(`/entregas/templates/${templateId}`, payload);
+
+export const deactivateEntregaTemplate = (templateId: string) =>
+  del<EntregaTemplate>(`/entregas/templates/${templateId}`);
+
+export const previewEntregaTemplate = (
+  templateId: string,
+  params?: { ubicacion_origen_id?: string }
+) => get<EntregaTemplate>(`/entregas/templates/${templateId}/preview`, params);
+
+export const createEntregaFromTemplate = (
+  templateId: string,
+  payload: EntregaCreateFromTemplatePayload
+) => post<EntregaRow>(`/entregas/templates/${templateId}/create-draft`, payload);
+
+export const createEntregasBatchFromTemplate = (
+  templateId: string,
+  payload: EntregaCreateBatchFromTemplatePayload
+) =>
+  post<EntregaCreateBatchFromTemplateResponse>(
+    `/entregas/templates/${templateId}/create-draft-batch`,
+    payload
+  );
 
 export const confirmEntrega = (id: string) =>
   post<EntregaRow>(`/entregas/${id}/confirm`);
