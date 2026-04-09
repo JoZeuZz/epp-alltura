@@ -1,0 +1,49 @@
+name: Integration DB
+
+on:
+  workflow_dispatch:
+
+jobs:
+  integration-db:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: epp_test
+          POSTGRES_PASSWORD: epp_test
+          POSTGRES_DB: epp_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U epp_test -d epp_test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Run backend integration-db tests
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_USER: epp_test
+          DB_PASSWORD: epp_test
+          DB_NAME: epp_test_db
+          JWT_SECRET: ci_jwt_secret_123456789012345678901234567890
+          JWT_REFRESH_SECRET: ci_refresh_secret_123456789012345678901234
+        run: npm run test:integration-db --prefix backend

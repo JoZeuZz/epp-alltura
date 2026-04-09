@@ -1,0 +1,215 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  detect-db-changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      db_changes: ${{ steps.filter.outputs.db_changes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect DB-related changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            db_changes:
+              - 'db/init/**'
+              - 'backend/src/db/**'
+              - 'backend/src/services/**'
+
+  db-smoke:
+    needs: detect-db-changes
+    if: ${{ github.ref_name == 'main' || (github.event_name == 'pull_request' && needs.detect-db-changes.outputs.db_changes == 'true') }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: epp_test
+          POSTGRES_PASSWORD: epp_test
+          POSTGRES_DB: epp_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U epp_test -d epp_test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USER: epp_test
+      DB_PASSWORD: epp_test
+      DB_NAME: epp_test_db
+      JWT_SECRET: ci_jwt_secret_123456789012345678901234567890
+      JWT_REFRESH_SECRET: ci_refresh_secret_123456789012345678901234
+      RUN_INTEGRATION_DB_TESTS: 'true'
+      DB_TEST_RESET_ALLOWED: 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Initialize DB schema from db/init
+        run: node src/db/setup.js
+        working-directory: backend
+
+      - name: Run minimal integration-db smoke tests
+        run: npx jest src/tests/integration-db/entrega.templates.db.test.js --runInBand --testTimeout=120000
+        working-directory: backend
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Run strict lint + legacy guard
+        run: npm run lint:ci
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Run backend tests
+        run: npm test --prefix backend
+
+      - name: Run frontend tests
+        run: npm test --prefix frontend
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Build frontend
+        run: npm run build --prefix frontend
+
+  integration-db-gated:
+    needs: detect-db-changes
+    if: ${{ needs.detect-db-changes.outputs.db_changes == 'true' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: epp_test
+          POSTGRES_PASSWORD: epp_test
+          POSTGRES_DB: epp_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U epp_test -d epp_test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Run backend integration-db tests
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_USER: epp_test
+          DB_PASSWORD: epp_test
+          DB_NAME: epp_test_db
+          JWT_SECRET: ci_jwt_secret_123456789012345678901234567890
+          JWT_REFRESH_SECRET: ci_refresh_secret_123456789012345678901234
+        run: npm run test:integration-db --prefix backend
+
+  frontend-smoke-gated:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Install Playwright browsers
+        run: npm exec --prefix frontend playwright install --with-deps chromium
+
+      - name: Run frontend smoke tests
+        run: npm run test:smoke --prefix frontend -- --project=desktop-chromium

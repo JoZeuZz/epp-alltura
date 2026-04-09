@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./frontend" }
+    // Si tu backend también usa TypeScript, puedes agregar su referencia aquí:
+    // { "path": "./backend" }
+  ]
+}
