@@ -24,7 +24,7 @@ type UseNotificationsParams = {
   refreshOnVisibilityReturn?: boolean;
 };
 
-const DEFAULT_REFRESH_INTERVAL = 60000;
+const DEFAULT_REFRESH_INTERVAL = 30000;
 
 /**
  * Hook para gestionar notificaciones in-app
@@ -115,6 +115,10 @@ export const useNotifications = (params?: UseNotificationsParams) => {
   }, [autoRefreshMode, fetchNotifications, fetchUnreadCount]);
 
   useEffect(() => {
+    if (!autoRefresh) {
+      return;
+    }
+
     const handleVisibilityChange = () => {
       setIsDocumentVisible(!document.hidden);
     };
@@ -123,7 +127,7 @@ export const useNotifications = (params?: UseNotificationsParams) => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [autoRefresh]);
 
   useEffect(() => {
     if (autoRefreshMode === 'unread-only') {
