@@ -1,0 +1,37 @@
+{
+  "name": "reportabilidad-monorepo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start:backend": "cd backend && node -r dotenv/config src/index.js",
+    "start:backend:dev": "cd backend && npm run dev",
+    "start:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run start:backend:dev\" \"npm run start:frontend\"",
+    "db:up": "docker-compose up -d",
+    "db:logs": "docker-compose logs -f postgres_db",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "lint:backend": "npm run lint --prefix backend",
+    "lint:frontend": "npm run lint --prefix frontend",
+    "lint": "npm-run-all lint:backend lint:frontend",
+    "check:backend-validation": "node scripts/check-backend-validation-usage.js",
+    "check:legacy": "node scripts/check-legacy.js",
+    "lint:ci": "npm-run-all lint check:backend-validation check:legacy",
+    "test": "npm-run-all test:backend test:frontend",
+    "test:backend": "npm test --prefix backend",
+    "test:frontend": "npm test --prefix frontend",
+    "test:integration-db": "npm run test:integration-db --prefix backend",
+    "test:smoke:real": "npm run test:smoke:real --prefix frontend"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "browser-image-compression": "^2.0.2",
+    "concurrently": "^9.2.1"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5"
+  }
+}

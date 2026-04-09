@@ -1,0 +1,273 @@
+const InventarioService = require('../services/inventario.service');
+const { logger } = require('../lib/logger');
+const { sendSuccess } = require('../lib/apiResponse');
+const { uploadDocument, deleteFileByUrl } = require('../lib/googleCloud');
+
+class InventarioController {
+  static async listIngresos(req, res, next) {
+    try {
+      const data = await InventarioService.getIngresos(req.query || {});
+      return sendSuccess(res, {
+        message: 'Ingresos de inventario obtenidos correctamente',
+        data,
+      });
+    } catch (error) {
+      logger.error('Error listing inventory ingresos:', error);
+      return next(error);
+    }
+  }
+
+  static async createIngreso(req, res, next) {
+    let uploadedDocumentUrl = null;
+
+    try {
+      const payload = {
+        ...(req.body || {}),
+      };
+
+      if (payload.fecha_ingreso && !payload.fecha_compra) {
+        payload.fecha_compra = payload.fecha_ingreso;
+      }
+      delete payload.fecha_ingreso;
+
+      if (req.file) {
+        uploadedDocumentUrl = await uploadDocument(req.file);
+        payload.documento_compra = {
+          ...(payload.documento_compra || {}),
+          archivo_url: uploadedDocumentUrl,
+        };
+      }
+
+      const data = await InventarioService.createIngreso(payload, req.user.id);
+      return sendSuccess(res, {
+        status: 201,
+        message: 'Ingreso de inventario registrado correctamente',
+        data,
+      });
+    } catch (error) {
+      if (uploadedDocumentUrl) {
+        try {
+          await deleteFileByUrl(uploadedDocumentUrl);
+        } catch (cleanupError) {
+          logger.warn('No se pudo limpiar documento de ingreso tras error', {
+            message: cleanupError.message,
+            uploadedDocumentUrl,
+          });
+        }
+      }
+      logger.error('Error creating inventory ingreso:', error);
+      return next(error);
+    }
+  }
+
+  static async getStock(req, res, next) {
+    try {
+      const data = await InventarioService.getStock(req.query || {});
+      return sendSuccess(res, { message: 'Stock obtenido correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching stock:', error);
+      return next(error);
+    }
+  }
+
+  static async getStockSummary(req, res, next) {
+    try {
+      const data = await InventarioService.getStockSummary(req.query || {});
+      return sendSuccess(res, { message: 'Resumen de stock obtenido correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching stock summary:', error);
+      return next(error);
+    }
+  }
+
+  static async getStockPaged(req, res, next) {
+    try {
+      const data = await InventarioService.getStockPaged(req.query || {});
+      return sendSuccess(res, { message: 'Detalle de stock obtenido correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching paged stock detail:', error);
+      return next(error);
+    }
+  }
+
+  static async getStockMovements(req, res, next) {
+    try {
+      const data = await InventarioService.getStockMovements(req.query || {});
+      return sendSuccess(res, { message: 'Movimientos de stock obtenidos correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching stock movements:', error);
+      return next(error);
+    }
+  }
+
+  static async exportStockMovementsCsv(req, res, next) {
+    try {
+      const csvContent = await InventarioService.exportStockMovementsCsv(req.query || {});
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      const filename = `movimientos-stock-${timestamp}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.status(200).send(`\uFEFF${csvContent}`);
+    } catch (error) {
+      logger.error('Error exporting stock movements CSV:', error);
+      return next(error);
+    }
+  }
+
+  static async getAssetMovements(req, res, next) {
+    try {
+      const data = await InventarioService.getAssetMovements(req.query || {});
+      return sendSuccess(res, { message: 'Movimientos de activos obtenidos correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching asset movements:', error);
+      return next(error);
+    }
+  }
+
+  static async getActivos(req, res, next) {
+    try {
+      const data = await InventarioService.getActivos(req.query || {});
+      return sendSuccess(res, { message: 'Activos obtenidos correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching activos:', error);
+      return next(error);
+    }
+  }
+
+  static async getActivosPaged(req, res, next) {
+    try {
+      const data = await InventarioService.getActivosPaged(req.query || {});
+      return sendSuccess(res, { message: 'Activos paginados obtenidos correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching paged activos:', error);
+      return next(error);
+    }
+  }
+
+  static async getActivosDisponibles(req, res, next) {
+    try {
+      const data = await InventarioService.getActivosDisponibles(req.query || {});
+      return sendSuccess(res, { message: 'Activos disponibles obtenidos correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching available activos:', error);
+      return next(error);
+    }
+  }
+
+  static async getAuditoria(req, res, next) {
+    try {
+      const data = await InventarioService.getAuditoria(req.query || {});
+      return sendSuccess(res, { message: 'Auditoría obtenida correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching auditoria:', error);
+      return next(error);
+    }
+  }
+
+  static async deleteIngreso(req, res, next) {
+    try {
+      await InventarioService.deleteIngreso(req.params.id, req.user.id);
+      return sendSuccess(res, { message: 'Ingreso eliminado correctamente. Stock y movimientos revertidos.' });
+    } catch (error) {
+      logger.error('Error deleting ingreso:', error);
+      return next(error);
+    }
+  }
+
+  static async listEgresos(req, res, next) {
+    try {
+      const data = await InventarioService.getEgresos(req.query || {});
+      return sendSuccess(res, { message: 'Egresos de inventario obtenidos correctamente', data });
+    } catch (error) {
+      logger.error('Error listing egresos:', error);
+      return next(error);
+    }
+  }
+
+  static async getEgresoById(req, res, next) {
+    try {
+      const data = await InventarioService.getEgresoById(req.params.id);
+      return sendSuccess(res, { message: 'Egreso obtenido correctamente', data });
+    } catch (error) {
+      logger.error('Error getting egreso by id:', error);
+      return next(error);
+    }
+  }
+
+  static async createEgreso(req, res, next) {
+    try {
+      const data = await InventarioService.createEgreso(req.body, req.user.id);
+      return sendSuccess(res, {
+        status: 201,
+        message: 'Egreso de inventario registrado correctamente',
+        data,
+      });
+    } catch (error) {
+      logger.error('Error creating egreso:', error);
+      return next(error);
+    }
+  }
+
+  static async deleteEgreso(req, res, next) {
+    try {
+      await InventarioService.deleteEgreso(req.params.id, req.user.id);
+      return sendSuccess(res, { message: 'Egreso eliminado correctamente. Stock revertido.' });
+    } catch (error) {
+      logger.error('Error deleting egreso:', error);
+      return next(error);
+    }
+  }
+
+  static async getLotes(req, res, next) {
+    try {
+      const data = await InventarioService.getLotes(req.query || {});
+      return sendSuccess(res, { message: 'Lotes obtenidos correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching lotes:', error);
+      return next(error);
+    }
+  }
+
+  static async getActivoProfile(req, res, next) {
+    try {
+      const data = await InventarioService.getActivoProfile(req.params.id);
+      return sendSuccess(res, { message: 'Perfil del activo obtenido correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching activo profile:', error);
+      return next(error);
+    }
+  }
+
+  static async cambiarEstadoActivo(req, res, next) {
+    try {
+      const data = await InventarioService.cambiarEstadoActivo(req.params.id, req.body, req.user.id);
+      return sendSuccess(res, { message: 'Estado del activo actualizado correctamente', data });
+    } catch (error) {
+      logger.error('Error changing activo state:', error);
+      return next(error);
+    }
+  }
+
+  static async reubicarActivo(req, res, next) {
+    try {
+      const data = await InventarioService.reubicarActivo(req.params.id, req.body, req.user.id);
+      return sendSuccess(res, { message: 'Activo reubicado correctamente', data });
+    } catch (error) {
+      logger.error('Error relocating activo:', error);
+      return next(error);
+    }
+  }
+
+  static async editarActivo(req, res, next) {
+    try {
+      const data = await InventarioService.editarActivo(req.params.id, req.body);
+      return sendSuccess(res, { message: 'Activo actualizado correctamente', data });
+    } catch (error) {
+      logger.error('Error updating activo:', error);
+      return next(error);
+    }
+  }
+}
+
+module.exports = InventarioController;

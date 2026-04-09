@@ -1,0 +1,66 @@
+# -------------------------------------------------------------------
+# Infraestructura de desarrollo local — solo PostgreSQL + Redis
+# Levanta únicamente las bases de datos con puertos expuestos al host
+# para que `npm run dev` en backend y frontend pueda conectarse.
+#
+# Uso:
+#   docker compose -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.dev.yml down -v   # limpia todo
+#
+# El backend y frontend se arrancan directamente con npm run dev,
+# leyendo backend/.env (DB_HOST=localhost, DB_PORT=55432, etc.)
+# -------------------------------------------------------------------
+
+services:
+  postgres_db:
+    # Usa el mismo Dockerfile de producción para garantizar que
+    # db/init/*.sql (001-init.sql, 002-egresos.sql, etc.) se ejecuten
+    # en orden al crear la base de datos por primera vez.
+    build:
+      context: ./db
+      dockerfile: postgres/Dockerfile
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      # Coincide con DB_PORT=55432 en backend/.env
+      - "55432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} -h 127.0.0.1 -p 5432 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
+    ports:
+      # Coincide con REDIS_URL=redis://localhost:56379 en backend/.env
+      - "56379:6379"
+    volumes:
+      - redis_dev_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:

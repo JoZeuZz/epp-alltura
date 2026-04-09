@@ -1,0 +1,3 @@
+Objetivo: baseline reproducible y CI en verde sin features nuevas.
+Alcance: 1) indexar archivos clave de operación/CI/tests, 2) auditar flujo local install+compose+dev y variables mínimas, 3) aplicar gate de CI para integración DB según cambios en db/init o backend/src/db, 4) agregar smoke checklist mínimo y troubleshooting docker, 5) cerrar con resultado en memoria Serena.
+Restricciones: cambio mínimo en CI para no aumentar tiempos de forma innecesaria; priorizar documentación y estabilidad.

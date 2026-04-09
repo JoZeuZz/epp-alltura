@@ -1,0 +1,137 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   SISTEMA TIPOGRÁFICO RESPONSIVE
+   ============================================ */
+@layer components {
+  /* Headings - Títulos principales */
+  .heading-hero {
+    @apply text-3xl md:text-4xl lg:text-5xl font-bold leading-tight text-dark-blue;
+  }
+  
+  .heading-1 {
+    @apply text-2xl md:text-3xl lg:text-4xl font-bold leading-tight;
+  }
+  
+  .heading-2 {
+    @apply text-xl md:text-2xl lg:text-3xl font-semibold leading-snug;
+  }
+  
+  .heading-3 {
+    @apply text-lg md:text-xl lg:text-2xl font-semibold leading-snug;
+  }
+  
+  .heading-4 {
+    @apply text-base md:text-lg lg:text-xl font-semibold leading-normal;
+  }
+
+  /* Body Text - Texto de cuerpo */
+  .body-large {
+    @apply text-base md:text-lg leading-relaxed;
+  }
+  
+  .body-base {
+    @apply text-sm md:text-base leading-relaxed;
+  }
+  
+  .body-small {
+    @apply text-xs md:text-sm leading-normal;
+  }
+
+  /* Labels - Etiquetas y texto de UI */
+  .label-large {
+    @apply text-sm md:text-base font-medium;
+  }
+  
+  .label-base {
+    @apply text-xs md:text-sm font-medium;
+  }
+  
+  .label-small {
+    @apply text-xs font-medium;
+  }
+
+  /* Stats - Números y métricas */
+  .stat-large {
+    @apply text-3xl md:text-4xl lg:text-5xl font-bold;
+  }
+  
+  .stat-base {
+    @apply text-2xl md:text-3xl lg:text-4xl font-bold;
+  }
+  
+  .stat-small {
+    @apply text-xl md:text-2xl lg:text-3xl font-bold;
+  }
+}
+
+/* ============================================
+   UTILIDADES RESPONSIVE PERSONALIZADAS
+   ============================================ */
+@layer utilities {
+  /* Scrollbar personalizado para tablas */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-gray-100 rounded;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-gray-400 rounded hover:bg-gray-500;
+  }
+
+  /* Sombras para indicar scroll */
+  .shadow-scroll-indicator {
+    position: relative;
+  }
+  
+  .shadow-scroll-indicator::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 2rem;
+    background: linear-gradient(to left, rgba(255, 255, 255, 0.9), transparent);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  
+  .shadow-scroll-indicator.has-scroll::after {
+    opacity: 1;
+  }
+
+  /* Touch targets mínimos para accesibilidad móvil */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Safe area para dispositivos con notch */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+}

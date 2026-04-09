@@ -1,0 +1,53 @@
+# ==========================================
+# DEPENDENCIAS Y LOCKS (Puro ruido de tokens)
+# ==========================================
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ==========================================
+# VARIABLES DE ENTORNO Y SECRETOS
+# ==========================================
+# Ignorar todos los .env reales por seguridad
+.env
+.env.*
+# Excepciones: Permitir los ejemplos para que el LLM entienda la estructura
+!.env.example
+!.env.db.example
+
+# ==========================================
+# CARPETAS DE IDE Y HERRAMIENTAS LOCALES
+# ==========================================
+.vscode/
+.serena/
+.github/
+
+# ==========================================
+# BUILDS Y COMPILADOS (Frontend y Backend)
+# ==========================================
+dist/
+build/
+out/
+.vite/
+coverage/
+
+# ==========================================
+# ARCHIVOS MULTIMEDIA Y BINARIOS
+# ==========================================
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.svg
+*.pdf
+*.mp4
+
+# ==========================================
+# LOGS Y DATOS LOCALES DE BD
+# ==========================================
+*.log
+# Nota: Si tu carpeta 'db/' tiene dumps de datos o el volumen de Docker, 
+# ignóralo aquí. Si solo tiene migraciones o esquemas, bórrala de esta lista.
+db/data/
