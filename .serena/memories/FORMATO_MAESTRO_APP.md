@@ -324,10 +324,12 @@ Registrar entrega, recepción, devolución y trazabilidad de herramientas/EPP as
 - `REACT_ROUTER_V7_ACTIONS`
 - `REACT_ROUTER_V7_MIGRATION`
 - `REACT_HOOK_FORM_PATTERNS`
+- `BASELINE_OPERATIVO_TEMPLATE_2026_04_09`
 
 ---
 
 # 17) Estructura exacta de repo (plantilla base para nuevas apps)
+
 
 Objetivo: crear un repo base "limpio" (sin residuos de dominio) que conserve **stack + diseño + UX patterns** de Alltura EPP Control.
 
@@ -392,6 +394,7 @@ alltura-app-template/
       DEPLOY_COOLIFY.md
       DEPLOYMENT_COOLIFY_CLOUDFLARE.md
       ACCESSIBILITY_IMPLEMENTATION_PHASE1.md
+      BASELINE_OPERATIVO_TEMPLATE_2026_04_09.md
 
   backend/
     Dockerfile

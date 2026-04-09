@@ -179,4 +179,65 @@ describe('useNotifications polling behavior', () => {
     expect(getUnreadNotificationsCountMock).toHaveBeenCalledTimes(2);
     unmount();
   });
+
+  it('no inicia polling periódico cuando autoRefresh está desactivado', async () => {
+    const { unmount } = renderHook(() =>
+      useNotifications({
+        autoRefresh: false,
+        refreshInterval: 1000,
+        autoRefreshMode: 'unread-only',
+      })
+    );
+
+    await act(async () => {
+      await flushAsyncEffects();
+    });
+
+    expect(getUnreadNotificationsCountMock).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    await act(async () => {
+      await flushAsyncEffects();
+    });
+
+    expect(getUnreadNotificationsCountMock).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('limpia el intervalo de polling al desmontar para evitar fugas', async () => {
+    const { unmount } = renderHook(() =>
+      useNotifications({
+        autoRefresh: true,
+        refreshInterval: 1000,
+        autoRefreshMode: 'unread-only',
+      })
+    );
+
+    await act(async () => {
+      await flushAsyncEffects();
+    });
+
+    expect(getUnreadNotificationsCountMock).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    await act(async () => {
+      await flushAsyncEffects();
+    });
+
+    expect(getUnreadNotificationsCountMock).toHaveBeenCalledTimes(2);
+
+    unmount();
+
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+
+    expect(getUnreadNotificationsCountMock).toHaveBeenCalledTimes(2);
+  });
 });

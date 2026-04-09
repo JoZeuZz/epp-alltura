@@ -3,6 +3,7 @@ import NotificationItem from '../components/NotificationItem';
 import { useState } from 'react';
 
 const ITEMS_PER_PAGE = 10;
+const NOTIFICATIONS_REFRESH_INTERVAL_MS = 30000;
 
 export default function NotificationsPage() {
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
@@ -21,7 +22,7 @@ export default function NotificationsPage() {
   } = useNotifications({
     unreadOnly: filter === 'unread',
     autoRefresh: true,
-    refreshInterval: 60000,
+    refreshInterval: NOTIFICATIONS_REFRESH_INTERVAL_MS,
     pauseWhenHidden: true,
     autoRefreshMode: 'full',
     limit: ITEMS_PER_PAGE,
