@@ -32,7 +32,8 @@ const waitForDatabase = async (retries = 20, delay = 2000) => {
 const loadSchemaSql = () => {
   const initDir = path.resolve(__dirname, '../../../db/init');
   if (!fs.existsSync(initDir)) {
-    throw new Error(`DB init directory not found: ${initDir}`);
+    logger.warn(`DB init directory not found, skipping schema initialization: ${initDir}`);
+    return [];
   }
 
   const sqlFiles = fs
@@ -41,7 +42,8 @@ const loadSchemaSql = () => {
     .sort();
 
   if (!sqlFiles.length) {
-    throw new Error(`No SQL files found in: ${initDir}`);
+    logger.warn(`No SQL files found in ${initDir}. Skipping schema initialization.`);
+    return [];
   }
 
   return sqlFiles.map((file) => {
@@ -52,11 +54,15 @@ const loadSchemaSql = () => {
 
 const initializeDatabase = async () => {
   await waitForDatabase();
+
+  const schemaFiles = loadSchemaSql();
+  if (!schemaFiles.length) {
+    return;
+  }
+
   const client = await pool.connect();
 
   try {
-    const schemaFiles = loadSchemaSql();
-
     await client.query('BEGIN');
     for (const { file, sql } of schemaFiles) {
       await client.query(sql);
