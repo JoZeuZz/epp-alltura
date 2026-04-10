@@ -52,18 +52,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes('node_modules')) return undefined;
-          if (
-            id.includes('/react/') ||
-            id.includes('/react-dom/') ||
-            id.includes('/react-router-dom/')
-          ) {
-            return 'vendor-react';
-          }
-          if (id.includes('/@tanstack/')) return 'vendor-query';
-          if (id.includes('/lucide-react/')) return 'vendor-icons';
-          if (id.includes('/date-fns/')) return 'vendor-date';
-          return 'vendor';
+          // Keep all third-party deps in one chunk to avoid circular chunk deps
+          // that can initialize React imports out of order in production.
+          if (id.includes('node_modules')) return 'vendor';
+          return undefined;
         },
       },
     },
