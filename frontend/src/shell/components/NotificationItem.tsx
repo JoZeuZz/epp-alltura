@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale';
 import type { InAppNotification } from '../../types/clientNotes';
 import { useNavigate } from 'react-router-dom';
 import { getNotificationItemPresentation } from '../../config/notificationItemCompat';
+import { frontendLogger } from '../services/frontendLogger';
 
 export interface NotificationItemProps {
   notification: InAppNotification;
@@ -28,7 +29,7 @@ export default function NotificationItem({
       try {
         await onMarkAsRead(notification.id);
       } catch (error) {
-        console.error('Error marking notification as read:', error);
+        frontendLogger.error('Error marking notification as read', error);
       }
     }
 
@@ -40,7 +41,7 @@ export default function NotificationItem({
     try {
       await onDelete(notification.id);
     } catch (error) {
-      console.error('Error deleting notification:', error);
+      frontendLogger.error('Error deleting notification', error);
     }
   };
 

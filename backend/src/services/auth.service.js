@@ -10,6 +10,15 @@ const redisClient = require('../lib/redis');
 const { PASSWORD_CONFIG } = require('../middleware/passwordPolicy');
 const { toDbRole, toExternalRole, normalizeDbRoles, buildCompatibleRoles } = require('../lib/roleUtils');
 
+const AUTH_LOGIN_LOCK_MAX_ATTEMPTS = Number.parseInt(
+  process.env.AUTH_LOGIN_LOCK_MAX_ATTEMPTS || '',
+  10
+);
+const AUTH_LOGIN_LOCK_THRESHOLD =
+  Number.isFinite(AUTH_LOGIN_LOCK_MAX_ATTEMPTS) && AUTH_LOGIN_LOCK_MAX_ATTEMPTS > 0
+    ? AUTH_LOGIN_LOCK_MAX_ATTEMPTS
+    : 5;
+
 /**
  * AuthService
  * Capa de Servicio - Lógica de Negocio Pura
@@ -180,7 +189,7 @@ class AuthService {
     // Verificar rate limiting por email (protección contra brute force)
     const normalizedEmail = (email || '').trim().toLowerCase();
     const failedAttempts = await redisClient.getFailedLoginCount(normalizedEmail);
-    if (failedAttempts >= 5) {
+    if (failedAttempts >= AUTH_LOGIN_LOCK_THRESHOLD) {
       logger.warn(`⚠️  Cuenta bloqueada temporalmente por múltiples intentos fallidos: ${email}`);
       const error = new Error(
         'Cuenta bloqueada temporalmente por múltiples intentos fallidos. Intenta de nuevo en 15 minutos.'
@@ -480,7 +489,7 @@ class AuthService {
   static async isAccountLocked(email) {
     const normalizedEmail = (email || '').trim().toLowerCase();
     const failedAttempts = await redisClient.getFailedLoginCount(normalizedEmail);
-    return failedAttempts >= 5;
+    return failedAttempts >= AUTH_LOGIN_LOCK_THRESHOLD;
   }
 }
 

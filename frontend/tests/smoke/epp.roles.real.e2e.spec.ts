@@ -67,5 +67,8 @@ test.describe('EPP real smoke by role', () => {
 
     await expect(page.getByRole('heading', { name: 'Crear Devolución' })).toBeVisible();
     await expect(page.getByText('Seleccionar activo').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Nueva devolución' }).click();
+    await expect(page.getByRole('heading', { name: 'Nueva devolución' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Crear devolución' })).toBeVisible();
   });
 });

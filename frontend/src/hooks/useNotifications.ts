@@ -8,6 +8,7 @@ import {
   deleteAllReadNotifications,
   getNotificationStats,
 } from '../services/apiService';
+import { frontendLogger } from '../shell/services/frontendLogger';
 import type {
   InAppNotification,
   NotificationStats,
@@ -78,7 +79,7 @@ export const useNotifications = (params?: UseNotificationsParams) => {
       const errorMessage =
         err instanceof Error ? err.message : 'Error al cargar notificaciones';
       setError(errorMessage);
-      console.error('Error fetching notifications:', err);
+      frontendLogger.error('Error fetching notifications', err);
     } finally {
       setLoading(false);
     }
@@ -100,7 +101,7 @@ export const useNotifications = (params?: UseNotificationsParams) => {
 
       setUnreadCount(count);
     } catch (err: unknown) {
-      console.error('Error fetching unread count:', err);
+      frontendLogger.error('Error fetching unread count', err);
     }
   }, []);
 
@@ -267,7 +268,7 @@ export const useNotificationStats = () => {
       const errorMessage =
         err instanceof Error ? err.message : 'Error al cargar estadísticas';
       setError(errorMessage);
-      console.error('Error fetching notification stats:', err);
+      frontendLogger.error('Error fetching notification stats', err);
     } finally {
       setLoading(false);
     }

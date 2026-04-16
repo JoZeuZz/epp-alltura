@@ -57,15 +57,41 @@ function normalizeRole(role?: string | null): RouteRole | '' {
   return '';
 }
 
+const buildLoaderError = (endpoint: string, error: unknown) => {
+  const axiosLike = error as {
+    response?: {
+      status?: number;
+      data?: { message?: string; requestId?: string };
+      headers?: Record<string, string | undefined>;
+    };
+  };
 
-async function loaderGetWithFallback<T>(endpoint: string, fallback: T): Promise<T> {
+  const status = axiosLike.response?.status;
+  const responseMessage = axiosLike.response?.data?.message;
+  const requestId =
+    axiosLike.response?.data?.requestId ||
+    axiosLike.response?.headers?.['x-request-id'] ||
+    axiosLike.response?.headers?.['X-Request-Id'];
+
+  const message = responseMessage || `No se pudo cargar ${endpoint}`;
+  const withRequestId = requestId ? `${message} (requestId: ${requestId})` : message;
+  const loaderError = new Error(withRequestId) as Error & { status?: number };
+  if (status) {
+    loaderError.status = status;
+  }
+
+  return loaderError;
+};
+
+
+async function loaderGetOrThrow<T>(endpoint: string): Promise<T> {
   try {
     return await loaderHttpClient.get<T>(endpoint);
   } catch (error) {
     if (isHttpAuthError(error)) {
       throw redirect('/login');
     }
-    return fallback;
+    throw buildLoaderError(endpoint, error);
   }
 }
 
@@ -157,10 +183,10 @@ async function adminDashboardLoader() {
   const { user } = (await requireRole(['admin'])()) as { user: User };
 
   const [summary, stock, movimientosStock, movimientosActivo] = await Promise.all([
-    loaderGetWithFallback('/dashboard/summary', null),
-    loaderGetWithFallback('/inventario/stock', []),
-    loaderGetWithFallback('/inventario/movimientos-stock?limit=25', []),
-    loaderGetWithFallback('/inventario/movimientos-activo?limit=25', []),
+    loaderGetOrThrow('/dashboard/summary'),
+    loaderGetOrThrow('/inventario/stock'),
+    loaderGetOrThrow('/inventario/movimientos-stock?limit=25'),
+    loaderGetOrThrow('/inventario/movimientos-activo?limit=25'),
   ]);
 
   return {
@@ -176,10 +202,10 @@ async function supervisorDashboardLoader() {
   const { user } = (await requireRole(['supervisor', 'admin'])()) as { user: User };
 
   const [summary, entregas, devoluciones, movimientosActivo] = await Promise.all([
-    loaderGetWithFallback('/dashboard/summary', null),
-    loaderGetWithFallback('/entregas', []),
-    loaderGetWithFallback('/devoluciones', []),
-    loaderGetWithFallback('/inventario/movimientos-activo?limit=20', []),
+    loaderGetOrThrow('/dashboard/summary'),
+    loaderGetOrThrow('/entregas'),
+    loaderGetOrThrow('/devoluciones'),
+    loaderGetOrThrow('/inventario/movimientos-activo?limit=20'),
   ]);
 
   return {
@@ -195,13 +221,13 @@ async function warehouseDashboardLoader() {
   const { user } = (await requireRole(['bodega', 'admin', 'supervisor'])()) as { user: User };
 
   const [trabajadores, ubicaciones, articulos, entregas, devoluciones, stock, proveedores] = await Promise.all([
-    loaderGetWithFallback('/trabajadores', []),
-    loaderGetWithFallback('/ubicaciones', []),
-    loaderGetWithFallback('/articulos', []),
-    loaderGetWithFallback('/entregas', []),
-    loaderGetWithFallback('/devoluciones', []),
-    loaderGetWithFallback('/inventario/stock', []),
-    loaderGetWithFallback('/proveedores', []),
+    loaderGetOrThrow('/trabajadores'),
+    loaderGetOrThrow('/ubicaciones'),
+    loaderGetOrThrow('/articulos'),
+    loaderGetOrThrow('/entregas'),
+    loaderGetOrThrow('/devoluciones'),
+    loaderGetOrThrow('/inventario/stock'),
+    loaderGetOrThrow('/proveedores'),
   ]);
 
   return {
@@ -224,8 +250,8 @@ async function workerDashboardLoader() {
   const { user } = (await requireRole(['worker'])()) as { user: User };
 
   const [pendientesFirma, custodiasActivas] = await Promise.all([
-    loaderGetWithFallback('/firmas/pendientes/me', { entregas: [] }),
-    loaderGetWithFallback('/devoluciones/mis-custodias/activos', { custodias: [] }),
+    loaderGetOrThrow('/firmas/pendientes/me'),
+    loaderGetOrThrow('/devoluciones/mis-custodias/activos'),
   ]);
 
   return {
@@ -294,7 +320,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'admin/devoluciones',
-        loader: requireRole(['admin', 'bodega']),
+        loader: requireRole(['admin', 'supervisor', 'bodega']),
         element: <AdminDevolucionesPage />,
       },
       {
@@ -354,7 +380,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'bodega/devoluciones',
-        loader: requireRole(['admin', 'bodega']),
+        loader: requireRole(['admin', 'supervisor', 'bodega']),
         element: <AdminDevolucionesPage />,
       },
       {

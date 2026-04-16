@@ -3,6 +3,7 @@ import FocusTrap from 'focus-trap-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useBreakpoints } from '../../hooks';
 import { useNotifications } from '../../hooks/useNotifications';
+import { frontendLogger } from '../services/frontendLogger';
 import NotificationItem from './NotificationItem';
 
 export interface NotificationBellProps {
@@ -109,7 +110,7 @@ export default function NotificationBell({
     try {
       await markAllAsRead();
     } catch (error) {
-      console.error('Error marking all as read:', error);
+      frontendLogger.error('Error marking all as read', error);
     }
   };
 
@@ -119,7 +120,7 @@ export default function NotificationBell({
 
     if (shouldOpen) {
       fetchNotifications().catch((error: unknown) => {
-        console.error('Error refreshing notifications:', error);
+        frontendLogger.error('Error refreshing notifications', error);
       });
     }
   };

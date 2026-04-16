@@ -23,11 +23,31 @@ const router = express.Router();
 // RATE LIMITING (Protección contra Brute Force)
 // ============================================
 
-// Limitar intentos de login: 30 intentos cada 15 minutos en producción
-// (aumentado de 5 para evitar falsos positivos con flujo normal de uso)
+const AUTH_LOGIN_RATE_LIMIT_WINDOW_MS = Number.parseInt(
+  process.env.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS || '',
+  10
+);
+const AUTH_LOGIN_RATE_LIMIT_MAX = Number.parseInt(
+  process.env.AUTH_LOGIN_RATE_LIMIT_MAX || '',
+  10
+);
+const AUTH_LOGIN_LOCK_MAX_ATTEMPTS = Number.parseInt(
+  process.env.AUTH_LOGIN_LOCK_MAX_ATTEMPTS || '',
+  10
+);
+
+// Limitar intentos de login (alineado con AuthService).
 const authLimiter = rateLimit({
-  windowMs: process.env.NODE_ENV === 'production' ? 15 * 60 * 1000 : 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 30 : 100,
+  windowMs:
+    Number.isFinite(AUTH_LOGIN_RATE_LIMIT_WINDOW_MS) && AUTH_LOGIN_RATE_LIMIT_WINDOW_MS > 0
+      ? AUTH_LOGIN_RATE_LIMIT_WINDOW_MS
+      : 15 * 60 * 1000,
+  max:
+    Number.isFinite(AUTH_LOGIN_RATE_LIMIT_MAX) && AUTH_LOGIN_RATE_LIMIT_MAX > 0
+      ? AUTH_LOGIN_RATE_LIMIT_MAX
+      : process.env.NODE_ENV === 'production'
+        ? 30
+        : 100,
   message: 'Demasiados intentos de inicio de sesión desde esta IP, intenta de nuevo en 15 minutos.',
   standardHeaders: true,
   legacyHeaders: false,
@@ -116,7 +136,8 @@ router.post(
  * POST /api/auth/login
  * Iniciar sesión
  * - Requiere: email + password
- * - Rate limit: 5 intentos/15min (producción)
+ * - Rate limit IP: 30 intentos/15min (producción, configurable)
+ * - Lockout por email: 5 intentos fallidos/15min (configurable)
  * - Retorna: usuario + tokens
  */
 router.post('/login', authLimiter, validateBody(loginSchema), AuthController.login);

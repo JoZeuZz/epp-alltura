@@ -134,16 +134,23 @@ REDIS_URL=redis://localhost:56379
 
 JWT_SECRET=replace_me
 JWT_REFRESH_SECRET=replace_me_too
+AUTH_LOGIN_LOCK_MAX_ATTEMPTS=5
+AUTH_LOGIN_RATE_LIMIT_WINDOW_MS=900000
+AUTH_LOGIN_RATE_LIMIT_MAX=30
+AUTH_EVENTS_STREAM_TOKEN_TTL_SECONDS=1800
 
 CLIENT_URL=http://localhost:3000
 SERVICE_URL_FRONTEND=http://localhost:3000
 SERVICE_FQDN_FRONTEND=localhost:3000
+TRUST_PROXY_HOPS=3
 ```
 
 Notas:
 
 - Ajusta credenciales DB/Redis a tu entorno.
 - VAPID_* y configuración GCS son opcionales según despliegue.
+- `AUTH_EVENTS_STREAM_TOKEN_TTL_SECONDS` controla el TTL del token efímero usado por SSE de firmas.
+- `TRUST_PROXY_HOPS` define los saltos de proxy para Express (`trust proxy`).
 
 ## Scripts Disponibles
 
@@ -233,6 +240,7 @@ Controles activos de seguridad en backend:
 - Helmet, CORS, HPP, sanitización estricta y validación Joi.
 - JWT access + refresh.
 - Rate limiting en autenticación.
+- Lockout por email configurable (`AUTH_LOGIN_LOCK_MAX_ATTEMPTS`) y stream token efímero para SSE de firmas.
 - Trazabilidad por requestId y logging estructurado.
 
 ## Documentación Relacionada
@@ -247,7 +255,6 @@ Controles activos de seguridad en backend:
 ## Riesgos y Deuda Técnica Vigente
 
 - Doble cliente HTTP en frontend (fetchAPI en loaders y apiService con axios interceptors).
-- trust proxy hardcodeado en backend, sensible a topología real de proxies.
 - Drift potencial entre Swagger y contratos efectivos.
 - Integration DB no bloquea PR por defecto.
 
