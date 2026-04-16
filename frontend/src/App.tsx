@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
@@ -9,6 +9,34 @@ import { router } from './router';
 // Servicios
 import { notificationService } from './services/notificationService';
 import { performanceService } from './services/performanceService';
+
+const extractBuildIdFromScripts = (): string => {
+  if (typeof document === 'undefined') return '';
+
+  const scripts = document.querySelectorAll<HTMLScriptElement>('script[src]');
+  for (const script of scripts) {
+    const src = script.getAttribute('src') || '';
+    const match = src.match(/\/assets\/index-([A-Za-z0-9_-]+)\.js$/);
+    if (match?.[1]) return match[1];
+  }
+
+  return '';
+};
+
+const BuildStamp: React.FC = () => {
+  const buildId = useMemo(() => extractBuildIdFromScripts(), []);
+
+  if (!buildId) return null;
+
+  return (
+    <div
+      className="pointer-events-none fixed bottom-2 right-2 z-[70] rounded-md bg-dark-blue/90 px-2 py-1 font-mono text-[11px] font-semibold tracking-wide text-white shadow-md"
+      data-testid="build-stamp"
+    >
+      build {buildId.slice(0, 8)}
+    </div>
+  );
+};
 
 const AppContent: React.FC = () => {
   useEffect(() => {
@@ -57,6 +85,7 @@ function App() {
           />
           <AppContent />
           <RouterProvider router={router} />
+          <BuildStamp />
         </TourProvider>
       </NotificationProvider>
     </AuthProvider>
