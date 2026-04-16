@@ -11,8 +11,8 @@ class NotificationService {
         return false;
       }
 
-      // Registrar service worker
-      this.swRegistration = await navigator.serviceWorker.register('/sw.js');
+      // Registrar service worker dedicado a push (sin cache de assets)
+      this.swRegistration = await navigator.serviceWorker.register('/sw-notifications.js');
       console.log('Service Worker registrado:', this.swRegistration);
       
       return true;
