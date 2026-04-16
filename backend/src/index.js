@@ -42,10 +42,14 @@ const swaggerSpec = require('./config/swagger');
 const app = express();
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
+const TRUST_PROXY_HOPS = Number.parseInt(process.env.TRUST_PROXY_HOPS || '', 10);
 
 // Trust proxy - número de saltos de proxy (Cloudflare -> Traefik -> nginx -> backend)
 // Usar número específico en lugar de 'true' para satisfacer express-rate-limit
-app.set('trust proxy', 3);
+app.set(
+  'trust proxy',
+  Number.isFinite(TRUST_PROXY_HOPS) && TRUST_PROXY_HOPS >= 0 ? TRUST_PROXY_HOPS : 3
+);
 
 const buildOriginVariants = (value) => {
   if (!value) return [];

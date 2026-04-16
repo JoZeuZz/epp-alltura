@@ -69,17 +69,17 @@ class NotificationController {
         offset: parsePositiveInt(req.query.offset, 0),
       };
 
-      const notifications = await NotificationService.getInAppNotifications(userId, options);
+      const result = await NotificationService.getInAppNotifications(userId, options);
 
       return sendSuccess(res, {
         message: 'Notificaciones obtenidas correctamente',
         data: {
-          data: notifications,
+          data: result.data,
           pagination: {
             limit: options.limit,
             offset: options.offset,
           },
-          total: notifications.length,
+          total: result.total,
         },
       });
     } catch (error) {

@@ -3,6 +3,7 @@ const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
 const { uploadFile, deleteFileByUrl } = require('../lib/googleCloud');
 const signatureEvents = require('../lib/signatureEvents');
+const jwt = require('jsonwebtoken');
 
 const buildRequestMeta = (req) => ({
   ip: req.ip || req.connection?.remoteAddress || null,
@@ -42,6 +43,47 @@ const cleanupUploadedSignature = async (uploadedSignatureUrl) => {
 };
 
 class FirmasController {
+  static async generateDeliveryStreamToken(req, res, next) {
+    try {
+      const expiresInSeconds = Number.parseInt(
+        process.env.AUTH_EVENTS_STREAM_TOKEN_TTL_SECONDS || '',
+        10
+      );
+      const ttl = Number.isFinite(expiresInSeconds) && expiresInSeconds > 0
+        ? expiresInSeconds
+        : 30 * 60;
+
+      const token = jwt.sign(
+        {
+          type: 'delivery_events_stream',
+          user: {
+            id: req.user.id,
+            role: req.user.role,
+            roles: req.user.roles || [],
+          },
+        },
+        process.env.JWT_SECRET,
+        {
+          expiresIn: ttl,
+          issuer: 'alltura-api',
+          audience: 'alltura-client',
+        }
+      );
+
+      return sendSuccess(res, {
+        status: 201,
+        message: 'Token de stream generado correctamente',
+        data: {
+          token,
+          expiresInSeconds: ttl,
+        },
+      });
+    } catch (error) {
+      logger.error('Error generating delivery stream token:', error);
+      return next(error);
+    }
+  }
+
   static async streamDeliverySignatureEvents(req, res, _next) {
     const clientId = signatureEvents.addClient({
       res,

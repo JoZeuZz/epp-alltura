@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { getStoredAccessToken } from '../services/authRefresh';
 
 export interface DeliverySignedEvent {
   signature_id: string;
@@ -24,13 +25,46 @@ export const useDeliverySignatureEvents = ({
       return;
     }
 
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) {
-      return;
-    }
+    let source: EventSource | null = null;
+    let cancelled = false;
 
-    const url = `/api/firmas/events/deliveries?access_token=${encodeURIComponent(accessToken)}`;
-    const source = new EventSource(url);
+    const connect = async () => {
+      const accessToken = getStoredAccessToken();
+      if (!accessToken) {
+        return;
+      }
+
+      const tokenResponse = await fetch('/api/firmas/events/deliveries/token', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!tokenResponse.ok) {
+        return;
+      }
+
+      const payload = (await tokenResponse.json()) as {
+        data?: {
+          token?: string;
+        };
+      };
+
+      const streamToken = payload?.data?.token;
+      if (!streamToken || cancelled) {
+        return;
+      }
+
+      source = new EventSource(
+        `/api/firmas/events/deliveries?stream_token=${encodeURIComponent(streamToken)}`
+      );
+
+      source.addEventListener('delivery-signed', handler as EventListener);
+      source.addEventListener('auth-required', () => {
+        source?.close();
+      });
+    };
 
     const handler = (rawEvent: MessageEvent<string>) => {
       try {
@@ -57,11 +91,12 @@ export const useDeliverySignatureEvents = ({
       }
     };
 
-    source.addEventListener('delivery-signed', handler as EventListener);
+    void connect();
 
     return () => {
-      source.removeEventListener('delivery-signed', handler as EventListener);
-      source.close();
+      cancelled = true;
+      source?.removeEventListener('delivery-signed', handler as EventListener);
+      source?.close();
     };
   }, [enabled, onSigned]);
 };

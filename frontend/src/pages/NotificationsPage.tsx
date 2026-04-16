@@ -1,6 +1,7 @@
 import { useNotifications } from '../hooks/useNotifications';
 import NotificationItem from '../components/NotificationItem';
 import { useState } from 'react';
+import { frontendLogger } from '../shell/services/frontendLogger';
 
 const ITEMS_PER_PAGE = 10;
 const NOTIFICATIONS_REFRESH_INTERVAL_MS = 30000;
@@ -36,7 +37,7 @@ export default function NotificationsPage() {
     try {
       await markAllAsRead();
     } catch (error) {
-      console.error('Error:', error);
+      frontendLogger.error('Error marking all notifications as read', error);
     }
   };
 
@@ -53,7 +54,7 @@ export default function NotificationsPage() {
     try {
       await clearAllRead();
     } catch (error) {
-      console.error('Error:', error);
+      frontendLogger.error('Error clearing read notifications', error);
     }
   };
 

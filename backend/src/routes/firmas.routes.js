@@ -1,5 +1,6 @@
 const express = require('express');
 const Joi = require('joi');
+const jwt = require('jsonwebtoken');
 const FirmasController = require('../controllers/firmas.controller');
 const { authMiddleware } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roles');
@@ -118,12 +119,42 @@ const ensureSignatureInput = (req, _res, next) => {
   );
 };
 
-const authFromHeaderOrQuery = (req, res, next) => {
-  if (!req.headers.authorization && req.query?.access_token) {
-    req.headers.authorization = `Bearer ${req.query.access_token}`;
+const authFromStreamToken = (req, res, next) => {
+  const token = req.query?.stream_token;
+  if (!token || typeof token !== 'string') {
+    return res.status(401).json({
+      success: false,
+      message: 'Token de stream requerido',
+      data: null,
+      errors: ['STREAM_TOKEN_REQUIRED'],
+    });
   }
 
-  return authMiddleware(req, res, next);
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
+      issuer: 'alltura-api',
+      audience: 'alltura-client',
+    });
+
+    if (decoded.type !== 'delivery_events_stream' || !decoded.user?.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Token de stream inválido',
+        data: null,
+        errors: ['STREAM_TOKEN_INVALID'],
+      });
+    }
+
+    req.user = decoded.user;
+    return next();
+  } catch {
+    return res.status(401).json({
+      success: false,
+      message: 'Token de stream expirado o inválido',
+      data: null,
+      errors: ['STREAM_TOKEN_INVALID'],
+    });
+  }
 };
 
 const optionalSignatureUpload = (req, res, next) => {
@@ -135,9 +166,15 @@ const optionalSignatureUpload = (req, res, next) => {
 };
 
 router.get('/tokens/:token', FirmasController.getTokenInfo);
+router.post(
+  '/events/deliveries/token',
+  authMiddleware,
+  checkRole(['admin', 'supervisor', 'bodega', 'trabajador', 'worker', 'client']),
+  FirmasController.generateDeliveryStreamToken
+);
 router.get(
   '/events/deliveries',
-  authFromHeaderOrQuery,
+  authFromStreamToken,
   checkRole(['admin', 'supervisor', 'bodega', 'trabajador', 'worker', 'client']),
   FirmasController.streamDeliverySignatureEvents
 );

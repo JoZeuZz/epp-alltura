@@ -12,6 +12,33 @@ export type ApiEnvelope<T> = {
   errors?: unknown[];
 };
 
+export function extractErrorMetadata(error: unknown): { requestId?: string; message?: string } {
+  if (!error || typeof error !== 'object') {
+    return {};
+  }
+
+  const axiosLike = error as {
+    response?: {
+      data?: {
+        requestId?: string;
+        message?: string;
+      };
+      headers?: Record<string, string | undefined>;
+    };
+    message?: string;
+  };
+
+  const dataRequestId = axiosLike.response?.data?.requestId;
+  const headerRequestId =
+    axiosLike.response?.headers?.['x-request-id'] ||
+    axiosLike.response?.headers?.['X-Request-Id'];
+
+  return {
+    requestId: dataRequestId || headerRequestId,
+    message: axiosLike.response?.data?.message || axiosLike.message,
+  };
+}
+
 export type AuthFailureMode = 'redirect' | 'throw';
 
 export type HttpRequestConfig = AxiosRequestConfig & {

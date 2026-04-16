@@ -109,12 +109,18 @@ class NotificationModel {
       FROM notifications
       WHERE user_id = $1
     `;
+    let totalQuery = `
+      SELECT COUNT(*)::int AS total
+      FROM notifications
+      WHERE user_id = $1
+    `;
 
     const values = [userId];
     let paramIndex = 2;
 
     if (options.unreadOnly) {
       query += ' AND is_read = false';
+      totalQuery += ' AND is_read = false';
     }
 
     query += ' ORDER BY created_at DESC';
@@ -129,8 +135,15 @@ class NotificationModel {
       values.push(options.offset);
     }
 
-    const result = await db.query(query, values);
-    return NotificationModel.mapRows(result.rows);
+    const [result, totalResult] = await Promise.all([
+      db.query(query, values),
+      db.query(totalQuery, [userId]),
+    ]);
+
+    return {
+      data: NotificationModel.mapRows(result.rows),
+      total: totalResult.rows[0]?.total || 0,
+    };
   }
 
   static async getById(id) {
