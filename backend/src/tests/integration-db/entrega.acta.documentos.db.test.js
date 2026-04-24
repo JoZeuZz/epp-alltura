@@ -139,6 +139,7 @@ const IDS = {
   ubicacionOrigenId: '11111111-1111-4111-8111-111111111111',
   ubicacionDestinoId: '22222222-2222-4222-8222-222222222222',
   articuloCantidadId: '66666666-6666-4666-8666-666666666666',
+  activoSerialId: '77777777-7777-4777-8777-777777777777',
 };
 
 const findRoleId = async (roleName) => {
@@ -215,13 +216,21 @@ const seedBaseData = async () => {
   await db.query(
     `
     INSERT INTO articulo (
-      id, tipo, nombre, categoria, tracking_mode, retorno_mode,
-      nivel_control, requiere_vencimiento, unidad_medida, estado
+      id, tipo, grupo_principal, nombre, categoria, subclasificacion,
+      tracking_mode, retorno_mode, nivel_control, requiere_vencimiento, unidad_medida, estado
     )
     VALUES
-      ($1, 'epp', 'Guante Nitrilo', 'epp', 'lote', 'consumible', 'medio', false, 'par', 'activo')
+      ($1, 'equipo', 'equipo', 'Arnés Dieléctrico', 'epp', 'epp', 'serial', 'retornable', 'alto', true, 'unidad', 'activo')
     `,
     [IDS.articuloCantidadId]
+  );
+
+  await db.query(
+    `
+    INSERT INTO activo (id, articulo_id, nro_serie, codigo, estado, ubicacion_actual_id)
+    VALUES ($1, $2, 'SER-ACTA-0001', 'ACT-ACTA-0001', 'en_stock', $3)
+    `,
+    [IDS.activoSerialId, IDS.articuloCantidadId, IDS.ubicacionOrigenId]
   );
 };
 
@@ -237,7 +246,7 @@ const createDeliveryDraft = async (app) => {
       detalles: [
         {
           articulo_id: IDS.articuloCantidadId,
-          cantidad: 2,
+          activo_ids: [IDS.activoSerialId],
           condicion_salida: 'ok',
         },
       ],

@@ -36,19 +36,29 @@ const statusBadgeClasses = (status?: string | null): string => {
   return status === 'inactivo' ? 'bg-gray-100 text-gray-700' : 'bg-green-100 text-green-700';
 };
 
-const trackModeLabel = (value?: string | null): string => {
-  if (value === 'lote') return 'Por Lote';
-  return 'Por Unidad';
-};
-
-const retornoLabel = (value?: string | null): string => {
-  return value === 'consumible' ? 'Consumible' : 'Retornable';
-};
-
-const tipoLabel = (value?: string | null): string => {
-  if (value === 'epp') return 'EPP';
-  if (value === 'consumible') return 'Consumible';
+const grupoLabel = (value?: string | null): string => {
+  if (value === 'equipo' || value === 'epp') return 'Equipo';
   return 'Herramienta';
+};
+
+const subclasificacionLabel = (value?: string | null): string => {
+  if (!value) return '-';
+  if (value === 'epp' || value === 'proteccion_altura' || value === 'proteccion_manos') return 'Protección personal';
+  if (value === 'medicion_ensayos') return 'Medición y ensayos';
+  if (value === 'manual' || value === 'herramientas') return 'Manual';
+  if (value === 'electrica_cable' || value === 'herramientas_electricas') return 'Eléctrica cable';
+  if (value === 'inalambrica_bateria') return 'Inalámbrica batería';
+  return value;
+};
+
+const especialidadLabel = (value: string): string => {
+  if (value === 'oocc') return 'OOCC';
+  if (value === 'ooee') return 'OOEE';
+  if (value === 'andamios') return 'Andamios';
+  if (value === 'trabajos_verticales' || value === 'trabajos_verticales_lineas_de_vida') {
+    return 'Trabajos verticales y líneas de vida';
+  }
+  return value;
 };
 
 type ArticleActionType = 'deactivate' | 'activate' | 'permanent';
@@ -65,15 +75,17 @@ const AdminInventoryArticlesPage: React.FC = () => {
   const [pendingAction, setPendingAction] = useState<ArticleActionState | null>(null);
   const [filters, setFilters] = useState<{
     search: string;
-    tipo: '' | ArticuloQueryParams['tipo'];
-    tracking_mode: '' | ArticuloQueryParams['tracking_mode'];
+    grupo_principal: '' | ArticuloQueryParams['grupo_principal'];
+    subclasificacion: '' | NonNullable<ArticuloQueryParams['subclasificacion']>;
+    especialidad: '' | NonNullable<ArticuloQueryParams['especialidad']>;
     estado: '' | ArticuloQueryParams['estado'];
     limit: number;
     offset: number;
   }>({
     search: '',
-    tipo: '',
-    tracking_mode: '',
+    grupo_principal: '',
+    subclasificacion: '',
+    especialidad: '',
     estado: '',
     limit: 25,
     offset: 0,
@@ -82,8 +94,9 @@ const AdminInventoryArticlesPage: React.FC = () => {
   const queryParams = useMemo(
     () => ({
       search: filters.search || undefined,
-      tipo: filters.tipo || undefined,
-      tracking_mode: filters.tracking_mode || undefined,
+      grupo_principal: filters.grupo_principal || undefined,
+      subclasificacion: filters.subclasificacion || undefined,
+      especialidad: filters.especialidad || undefined,
       estado: filters.estado || undefined,
       limit: filters.limit,
       offset: filters.offset,
@@ -211,25 +224,31 @@ const AdminInventoryArticlesPage: React.FC = () => {
           <div className="flex flex-col">
             <span className="font-semibold text-gray-900">{row.nombre}</span>
             <span className="text-xs text-gray-500">
-              {[row.marca, row.modelo, row.categoria].filter(Boolean).join(' · ') || '-'}
+              {[row.marca, row.modelo, row.subclasificacion]
+                .filter(Boolean)
+                .join(' · ') || '-'}
             </span>
           </div>
         ),
       },
       {
-        key: 'tipo',
-        header: 'Tipo',
-        render: (value) => tipoLabel(String(value || '')),
+        key: 'grupo_principal',
+        header: 'Grupo',
+        render: (value) => grupoLabel(String(value || '')),
       },
       {
-        key: 'tracking_mode',
-        header: 'Seguimiento',
-        render: (value) => trackModeLabel(String(value || '')),
+        key: 'subclasificacion',
+        header: 'Subclasificación',
+        render: (value) => subclasificacionLabel(String(value || '')),
       },
       {
-        key: 'retorno_mode',
-        header: 'Retorno',
-        render: (value) => retornoLabel(String(value || '')),
+        key: 'especialidades',
+        header: 'Especialidades',
+        render: (value) => {
+          const list = Array.isArray(value) ? value : [];
+          if (!list.length) return '-';
+          return list.map((item) => especialidadLabel(String(item))).join(', ');
+        },
       },
       {
         key: 'unidad_medida',
@@ -306,9 +325,9 @@ const AdminInventoryArticlesPage: React.FC = () => {
     <section className="bg-white rounded-lg shadow-md p-5 space-y-4" data-tour="admin-inventory-articles-table">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-dark-blue">Catálogo de Artículos</h2>
+          <h2 className="text-lg font-semibold text-dark-blue">Catálogo de Equipos y Herramientas</h2>
           <p className="text-sm text-gray-500">
-            Administra los artículos disponibles para ingresos, stock y operación EPP.
+            Administra equipos y herramientas disponibles para ingresos y operación.
           </p>
         </div>
         <button
@@ -322,7 +341,7 @@ const AdminInventoryArticlesPage: React.FC = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
         <input
           className="border rounded-md p-2 md:col-span-2"
           placeholder="Buscar por nombre, marca o modelo"
@@ -334,35 +353,55 @@ const AdminInventoryArticlesPage: React.FC = () => {
 
         <select
           className="border rounded-md p-2"
-          value={filters.tipo}
+          value={filters.grupo_principal}
           onChange={(event) =>
             setFilters((prev) => ({
               ...prev,
-              tipo: event.target.value as typeof prev.tipo,
+              grupo_principal: event.target.value as typeof prev.grupo_principal,
               offset: 0,
             }))
           }
         >
-          <option value="">Todos los tipos</option>
+          <option value="">Todos los grupos</option>
+          <option value="equipo">Equipo</option>
           <option value="herramienta">Herramienta</option>
-          <option value="epp">EPP</option>
-          <option value="consumible">Consumible</option>
         </select>
 
         <select
           className="border rounded-md p-2"
-          value={filters.tracking_mode}
+          value={filters.subclasificacion}
           onChange={(event) =>
             setFilters((prev) => ({
               ...prev,
-              tracking_mode: event.target.value as typeof prev.tracking_mode,
+              subclasificacion: event.target.value as typeof prev.subclasificacion,
               offset: 0,
             }))
           }
         >
-          <option value="">Todos los modos</option>
-          <option value="serial">Por Unidad</option>
-          <option value="lote">Por Lote</option>
+          <option value="">Todas las subclasificaciones</option>
+          <option value="epp">Protección personal</option>
+          <option value="medicion_ensayos">Medición y ensayos</option>
+          <option value="manual">Manual</option>
+          <option value="electrica_cable">Eléctrica cable</option>
+          <option value="inalambrica_bateria">Inalámbrica batería</option>
+        </select>
+
+        <select
+          className="border rounded-md p-2"
+          value={filters.especialidad}
+          onChange={(event) =>
+            setFilters((prev) => ({
+              ...prev,
+              especialidad: event.target.value as typeof prev.especialidad,
+              offset: 0,
+            }))
+          }
+        >
+          <option value="">Todas las especialidades</option>
+          <option value="oocc">OOCC</option>
+          <option value="ooee">OOEE</option>
+          <option value="andamios">Andamios</option>
+          <option value="trabajos_verticales_lineas_de_vida">Trabajos verticales y líneas de vida</option>
         </select>
 
         <select

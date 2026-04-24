@@ -19,14 +19,12 @@ const toQuantity = (value) => {
 
 const ACTIVO_STATE_BY_EGRESO = {
   salida: 'perdido',
-  consumo: 'perdido',
   ajuste: 'perdido',
   baja: 'dado_de_baja',
 };
 
 const MOV_ACTIVO_TYPE_BY_EGRESO = {
   salida: 'salida',
-  consumo: 'ajuste',
   ajuste: 'ajuste',
   baja: 'baja',
 };
@@ -48,6 +46,14 @@ class EgresosService {
       const activoIds = Array.isArray(rawDetalle.activo_ids)
         ? rawDetalle.activo_ids.filter(Boolean)
         : [];
+
+      if (rawDetalle.lote_id) {
+        throw buildError(
+          'No debe enviar lote_id en el nuevo contrato de egresos',
+          400,
+          'LOT_NOT_ALLOWED'
+        );
+      }
 
       if (activoIds.length > 0) {
         for (const activoId of activoIds) {
@@ -77,7 +83,7 @@ class EgresosService {
         articulo_id: rawDetalle.articulo_id,
         ubicacion_id: rawDetalle.ubicacion_id,
         activo_id: null,
-        lote_id: rawDetalle.lote_id || null,
+        lote_id: null,
         cantidad: rawDetalle.cantidad,
         notas: rawDetalle.notas,
       });
@@ -159,17 +165,13 @@ class EgresosService {
       SELECT
         ed.*,
         a.nombre AS articulo_nombre,
-        a.tracking_mode,
         ub.nombre AS ubicacion_nombre,
         ac.codigo AS activo_codigo,
-        ac.nro_serie AS activo_nro_serie,
-        l.codigo_lote,
-        l.fecha_vencimiento AS lote_fecha_vencimiento
+        ac.nro_serie AS activo_nro_serie
       FROM egreso_detalle ed
       INNER JOIN articulo a ON a.id = ed.articulo_id
       INNER JOIN ubicacion ub ON ub.id = ed.ubicacion_id
       LEFT JOIN activo ac ON ac.id = ed.activo_id
-      LEFT JOIN lote l ON l.id = ed.lote_id
       WHERE ed.egreso_id = $1
       ORDER BY ed.id
       `,
@@ -229,7 +231,7 @@ class EgresosService {
 
         // 3. Validar artículo
         const articuloResult = await client.query(
-          `SELECT id, nombre, tracking_mode, retorno_mode FROM articulo WHERE id = $1`,
+          `SELECT id, nombre, tracking_mode FROM articulo WHERE id = $1`,
           [detalle.articulo_id]
         );
         if (!articuloResult.rows.length) {
@@ -241,7 +243,6 @@ class EgresosService {
         }
 
         const articulo = articuloResult.rows[0];
-        const loteId = detalle.lote_id || null;
 
         if (detalle.activo_id) {
           if (articulo.tracking_mode !== 'serial') {
@@ -380,28 +381,15 @@ class EgresosService {
         }
 
         // 4. Bloquear y verificar stock disponible
-        let stockResult;
-        if (loteId) {
-          stockResult = await client.query(
-            `
-            SELECT id, cantidad_disponible
-            FROM stock
-            WHERE articulo_id = $1 AND lote_id = $2 AND ubicacion_id = $3
-            FOR UPDATE
-            `,
-            [detalle.articulo_id, loteId, detalle.ubicacion_id]
-          );
-        } else {
-          stockResult = await client.query(
-            `
-            SELECT id, cantidad_disponible
-            FROM stock
-            WHERE articulo_id = $1 AND lote_id IS NULL AND ubicacion_id = $2
-            FOR UPDATE
-            `,
-            [detalle.articulo_id, detalle.ubicacion_id]
-          );
-        }
+        const stockResult = await client.query(
+          `
+          SELECT id, cantidad_disponible
+          FROM stock
+          WHERE articulo_id = $1 AND lote_id IS NULL AND ubicacion_id = $2
+          FOR UPDATE
+          `,
+          [detalle.articulo_id, detalle.ubicacion_id]
+        );
 
         if (!stockResult.rows.length) {
           throw buildError(
@@ -421,25 +409,14 @@ class EgresosService {
         }
 
         // 5. Descontar stock
-        if (loteId) {
-          await client.query(
-            `
-            UPDATE stock
-            SET cantidad_disponible = cantidad_disponible - $1, actualizado_en = NOW()
-            WHERE articulo_id = $2 AND lote_id = $3 AND ubicacion_id = $4
-            `,
-            [qty, detalle.articulo_id, loteId, detalle.ubicacion_id]
-          );
-        } else {
-          await client.query(
-            `
-            UPDATE stock
-            SET cantidad_disponible = cantidad_disponible - $1, actualizado_en = NOW()
-            WHERE articulo_id = $2 AND lote_id IS NULL AND ubicacion_id = $3
-            `,
-            [qty, detalle.articulo_id, detalle.ubicacion_id]
-          );
-        }
+        await client.query(
+          `
+          UPDATE stock
+          SET cantidad_disponible = cantidad_disponible - $1, actualizado_en = NOW()
+          WHERE articulo_id = $2 AND lote_id IS NULL AND ubicacion_id = $3
+          `,
+          [qty, detalle.articulo_id, detalle.ubicacion_id]
+        );
 
         // 6. Registrar detalle del egreso
         await client.query(
@@ -455,7 +432,7 @@ class EgresosService {
           )
           VALUES ($1, $2, $3, NULL, $4, $5, $6)
           `,
-          [egresoId, detalle.articulo_id, detalle.ubicacion_id, loteId, qty, detalle.notas || null]
+          [egresoId, detalle.articulo_id, detalle.ubicacion_id, null, qty, detalle.notas || null]
         );
 
         // 7. Registrar movimiento de stock
@@ -476,7 +453,7 @@ class EgresosService {
           `,
           [
             detalle.articulo_id,
-            loteId,
+            null,
             payload.tipo_motivo,
             detalle.ubicacion_id,
             qty,

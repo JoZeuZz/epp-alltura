@@ -39,8 +39,6 @@ const toEstadoLabel = (estado?: string) => {
       return 'Perdido';
     case 'dado_de_baja':
       return 'Baja';
-    case 'en_traslado':
-      return 'En traslado';
     default:
       return estado || '—';
   }
@@ -58,8 +56,6 @@ const estadoBadgeClass = (estado?: string) => {
     case 'perdido':
     case 'dado_de_baja':
       return 'bg-red-100 text-red-700';
-    case 'en_traslado':
-      return 'bg-indigo-100 text-indigo-700';
     default:
       return 'bg-gray-100 text-gray-700';
   }
@@ -124,16 +120,11 @@ const InventoryArticleDetailModal: React.FC<InventoryArticleDetailModalProps> = 
   onLoadMoreStock,
   onLoadMoreAssets,
 }) => {
-  const isSerial = article?.tracking_mode === 'serial';
+  const isSerial = assetRows.length > 0;
 
-  const loteColumns = useMemo<TableColumn<InventoryStockDetailRow>[]>(
+  const stockColumns = useMemo<TableColumn<InventoryStockDetailRow>[]>(
     () => [
       { key: 'ubicacion_nombre', header: 'Ubicación' },
-      {
-        key: 'codigo_lote',
-        header: 'Lote',
-        render: (value) => String(value || 'Sin lote'),
-      },
       {
         key: 'cantidad_disponible',
         header: 'Disponible',
@@ -145,12 +136,6 @@ const InventoryArticleDetailModal: React.FC<InventoryArticleDetailModalProps> = 
         header: 'Reservada',
         align: 'right',
         render: (value) => formatQuantityInteger(value),
-      },
-      {
-        key: 'fecha_vencimiento',
-        header: 'Vence',
-        hideOnMobile: true,
-        render: (value) => formatDateTime(String(value || '')),
       },
       {
         key: 'ultimo_movimiento_tipo',
@@ -224,7 +209,7 @@ const InventoryArticleDetailModal: React.FC<InventoryArticleDetailModalProps> = 
         <div>
           <h3 className="text-xl font-semibold text-dark-blue">{article.articulo_nombre}</h3>
           <p className="text-sm text-gray-600 mt-1">
-            Modo: <span className="font-medium">{isSerial ? 'Por Unidad' : 'Por Lote'}</span>
+            Modo: <span className="font-medium">{isSerial ? 'Por unidad serial' : 'Por cantidad'}</span>
           </p>
           <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
             <p className="text-gray-600">
@@ -270,14 +255,14 @@ const InventoryArticleDetailModal: React.FC<InventoryArticleDetailModalProps> = 
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-gray-600">
-              Detalle por lote y ubicación. Para consumibles no aplica "quién lo tiene".
+              Detalle por ubicación para artículos no serializados.
             </p>
             <ResponsiveTable
-              caption="Detalle por lote"
-              columns={loteColumns}
+              caption="Detalle de stock"
+              columns={stockColumns}
               data={stockRows}
               loading={isStockLoading && stockRows.length === 0}
-              emptyMessage="Sin filas de stock por lote para este artículo y filtros aplicados."
+              emptyMessage="Sin filas de stock para este artículo y filtros aplicados."
             />
             {stockHasMore && (
               <div className="flex justify-center">
@@ -287,12 +272,12 @@ const InventoryArticleDetailModal: React.FC<InventoryArticleDetailModalProps> = 
                   disabled={isLoadingMoreStock}
                   className="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
                 >
-                  {isLoadingMoreStock ? 'Cargando...' : 'Cargar más lotes'}
+                  {isLoadingMoreStock ? 'Cargando...' : 'Cargar más stock'}
                 </button>
               </div>
             )}
             {Boolean(stockError) && (
-              <p className="text-sm text-red-600">No se pudo cargar el detalle de lotes. Reintenta en unos segundos.</p>
+              <p className="text-sm text-red-600">No se pudo cargar el detalle de stock. Reintenta en unos segundos.</p>
             )}
           </div>
         )}

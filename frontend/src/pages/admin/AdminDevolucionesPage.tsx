@@ -28,7 +28,7 @@ import {
 
 const QUERY_KEY = 'operacion-devoluciones';
 const ACCEPTANCE_TEXT_DEVOLUCION =
-  'Declaro haber recepcionado los artículos devueltos y validado su condición de entrada según el registro de devolución.';
+  'Confirmo que recibí estos equipos y herramientas y que la condición registrada corresponde a lo recibido.';
 
 const ESTADO_LABELS: Record<DevolucionEstado, string> = {
   borrador: 'Borrador',
@@ -47,7 +47,7 @@ const ESTADO_CLASSES: Record<DevolucionEstado, string> = {
 const FILTER_TABS: { label: string; value: DevolucionEstado | 'todas' }[] = [
   { label: 'Todas', value: 'todas' },
   { label: 'Borrador', value: 'borrador' },
-  { label: 'Pendiente firma', value: 'pendiente_firma' },
+  { label: 'Pendiente confirmación', value: 'pendiente_firma' },
   { label: 'Confirmadas', value: 'confirmada' },
   { label: 'Anuladas', value: 'anulada' },
 ];
@@ -133,8 +133,11 @@ const AdminDevolucionesPage: React.FC = () => {
     }
   );
 
+  const isSerialArticle = (item: { subclasificacion?: string | null }) =>
+    String(item?.subclasificacion || '').toLowerCase() !== 'epp';
+
   const returnableArticles = useMemo(
-    () => articulos.filter((item) => item.retorno_mode === 'retornable'),
+    () => articulos.filter((item) => isSerialArticle(item)),
     [articulos]
   );
 
@@ -315,15 +318,15 @@ const AdminDevolucionesPage: React.FC = () => {
       }
 
       const serialIds = Array.isArray(detail.activo_ids) ? detail.activo_ids.filter(Boolean) : [];
-      if (article.tracking_mode === 'serial') {
+      if (isSerialArticle(article)) {
         if (serialIds.length === 0) {
-          toast.error(`Selecciona un activo con custodia activa para ${article.nombre}.`);
+          toast.error(`Selecciona un equipo o herramienta asignado para ${article.nombre}.`);
           return;
         }
 
         const custodiaId = resolveCustodiaActivoId(detail, eligibleAssetByActivoId);
         if (!custodiaId) {
-          toast.error(`No se encontró una custodia activa para ${article.nombre}. Re-selecciona el activo.`);
+          toast.error(`No se encontró un registro activo para ${article.nombre}. Vuelve a seleccionar el activo.`);
           return;
         }
       } else if (Number(detail.cantidad) <= 0) {
@@ -468,9 +471,9 @@ const AdminDevolucionesPage: React.FC = () => {
                   setDevolucionFirma(row);
                 }}
                 className="px-2 py-1 text-xs text-purple-600 hover:text-purple-800 hover:underline"
-                aria-label={`Firmar recepción de devolución para ${trabajadorNombre}`}
+                aria-label={`Registrar firma de devolución para ${trabajadorNombre}`}
               >
-                Firmar recepción
+                Registrar firma
               </button>
             )}
 
@@ -496,7 +499,7 @@ const AdminDevolucionesPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Devoluciones</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Gestión de devoluciones de activos retornables por trabajador.
+            Gestión de devoluciones de equipos y herramientas asignados.
           </p>
         </div>
         <button
@@ -528,11 +531,6 @@ const AdminDevolucionesPage: React.FC = () => {
           <p className="text-xs text-gray-500">Anulada</p>
           <p className="text-lg font-semibold text-red-700">{statusCounters.anulada}</p>
         </div>
-      </div>
-
-      <div className="rounded-lg border border-blue-100 bg-blue-50 p-3 mb-5 text-sm text-blue-800">
-        <p className="font-medium">Flujo recomendado</p>
-        <p>1) Crear devolución 2) Firmar recepción (mismo operador) 3) Confirmar devolución.</p>
       </div>
 
       <div className="flex gap-1 flex-wrap mb-5" role="tablist" aria-label="Filtrar devoluciones por estado">
@@ -572,7 +570,7 @@ const AdminDevolucionesPage: React.FC = () => {
         <div className="space-y-4">
           <h3 className="text-lg font-semibold text-dark-blue">Nueva devolución</h3>
           <p className="text-sm text-gray-600">
-            Operador actual: <span className="font-medium">{user?.first_name || ''} {user?.last_name || ''}</span>. La firma y confirmación deben ser realizadas por este mismo usuario.
+            Operador actual: <span className="font-medium">{user?.first_name || ''} {user?.last_name || ''}</span>. Este mismo usuario debe registrar firma y confirmación.
           </p>
           <form onSubmit={handleCreate} className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -642,14 +640,14 @@ const AdminDevolucionesPage: React.FC = () => {
             <div className="rounded-md border border-blue-200 bg-blue-50 p-3 space-y-2">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm font-medium text-blue-900">Custodias activas elegibles</p>
+                  <p className="text-sm font-medium text-blue-900">Equipos y herramientas disponibles para devolver</p>
                   <p className="text-xs text-blue-700">
-                    Agrega activos en custodia activa con un clic y se autocompleta el detalle.
+                    Agrega activos asignados con un clic y completa el detalle automáticamente.
                   </p>
                 </div>
                 <span className="text-xs text-blue-700">
                   {form.trabajador_id
-                    ? `${guidedEligibleAssets.length} visibles / ${guidedTotalEligibleCount} activas`
+                    ? `${guidedEligibleAssets.length} visibles / ${guidedTotalEligibleCount} disponibles`
                     : 'Selecciona trabajador'}
                 </span>
               </div>
@@ -662,15 +660,15 @@ const AdminDevolucionesPage: React.FC = () => {
                 disabled={!form.trabajador_id}
                 placeholder="Buscar por código o serie"
                 className="w-full border border-blue-200 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
-                aria-label="Buscar custodias activas por código o serie"
+                aria-label="Buscar equipos o herramientas por código o serie"
               />
 
               {!form.trabajador_id ? (
-                <p className="text-xs text-blue-700">Selecciona trabajador para cargar custodias activas.</p>
+                <p className="text-xs text-blue-700">Selecciona trabajador para cargar equipos y herramientas asignados.</p>
               ) : null}
 
               {form.trabajador_id && eligibleAssetsLoading ? (
-                <p className="text-xs text-blue-700">Cargando custodias activas elegibles...</p>
+                <p className="text-xs text-blue-700">Cargando equipos y herramientas disponibles...</p>
               ) : null}
 
               {form.trabajador_id && eligibleAssetsError ? (
@@ -678,7 +676,7 @@ const AdminDevolucionesPage: React.FC = () => {
               ) : null}
 
               {form.trabajador_id && !eligibleAssetsLoading && !eligibleAssetsError && guidedTotalEligibleCount === 0 ? (
-                <p className="text-xs text-blue-700">No hay custodias activas elegibles para este trabajador.</p>
+                <p className="text-xs text-blue-700">No hay equipos o herramientas disponibles para este trabajador.</p>
               ) : null}
 
               {form.trabajador_id && !eligibleAssetsLoading && !eligibleAssetsError && guidedTotalEligibleCount > 0 && guidedEligibleAssets.length === 0 ? (
@@ -697,7 +695,7 @@ const AdminDevolucionesPage: React.FC = () => {
                           {asset.nro_serie ? `Serie: ${asset.nro_serie}` : 'Sin serie'}
                           {asset.ubicacion_actual_nombre ? ` · ${asset.ubicacion_actual_nombre}` : ''}
                         </p>
-                        <p className="text-[11px] text-gray-400 truncate">Custodia: {asset.custodia_activo_id.slice(0, 8)}</p>
+                        <p className="text-[11px] text-gray-400 truncate">Registro: {asset.custodia_activo_id.slice(0, 8)}</p>
                       </div>
                       <button
                         type="button"
@@ -717,7 +715,7 @@ const AdminDevolucionesPage: React.FC = () => {
 
             {form.detalles.map((detail, index) => {
               const article = returnableArticles.find((item) => item.id === detail.articulo_id);
-              const isSerial = article?.tracking_mode === 'serial';
+              const isSerial = article ? isSerialArticle(article) : false;
 
               return (
                 <div key={`return-detail-${index}`} className="border rounded-md p-3 bg-gray-50 space-y-2">
@@ -726,10 +724,10 @@ const AdminDevolucionesPage: React.FC = () => {
                       className="border rounded-md p-2"
                       value={detail.articulo_id}
                       onChange={(e) => setReturnDetail(index, 'articulo_id', e.target.value)}
-                      aria-label={`Artículo retornable del ítem ${index + 1}`}
+                      aria-label={`Equipo o herramienta del ítem ${index + 1}`}
                       required
                     >
-                      <option value="">Artículo retornable</option>
+                      <option value="">Equipo o herramienta</option>
                       {returnableArticles.map((item) => (
                         <option key={item.id} value={item.id}>
                           {item.nombre}
@@ -755,8 +753,8 @@ const AdminDevolucionesPage: React.FC = () => {
                   {isSerial ? (
                     <p className="text-xs text-gray-500">
                       {detail.custodia_activo_id
-                        ? `Custodia activa vinculada: ${detail.custodia_activo_id.slice(0, 8)}`
-                        : 'Selecciona un activo para vincular su custodia activa.'}
+                        ? `Registro activo vinculado: ${detail.custodia_activo_id.slice(0, 8)}`
+                        : 'Selecciona un activo para vincular su registro activo.'}
                     </p>
                   ) : null}
 
@@ -865,9 +863,9 @@ const AdminDevolucionesPage: React.FC = () => {
       <Modal isOpen={!!devolucionFirma} onClose={() => setDevolucionFirma(null)} title="Firmar devolución">
         {devolucionFirma && (
           <form onSubmit={handleSign} className="space-y-4">
-            <h3 className="text-lg font-semibold text-dark-blue">Firma de recepción de devolución</h3>
+            <h3 className="text-lg font-semibold text-dark-blue">Registrar firma de devolución</h3>
             <p className="text-sm text-gray-600">
-              Esta firma corresponde al receptor logueado y habilita la confirmación final.
+              Esta firma del operador deja la devolución lista para confirmación final.
             </p>
             <div className="w-full rounded-lg border border-amber-200 bg-amber-50 p-3">
               <p className="text-amber-700 text-xs font-semibold mb-1">Al firmar confirmas lo siguiente:</p>
@@ -893,7 +891,7 @@ const AdminDevolucionesPage: React.FC = () => {
                 disabled={signMutation.isPending || !signatureFile}
                 className="px-4 py-2 rounded-md bg-primary-blue text-white disabled:opacity-50"
               >
-                {signMutation.isPending ? 'Registrando...' : 'Firmar devolución'}
+                {signMutation.isPending ? 'Registrando...' : 'Registrar firma'}
               </button>
             </div>
           </form>
@@ -937,7 +935,7 @@ const AdminDevolucionesPage: React.FC = () => {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-gray-600">
                   <tr>
-                    <th className="text-left px-3 py-2">Artículo/Activo</th>
+                    <th className="text-left px-3 py-2">Equipo/Herramienta</th>
                     <th className="text-left px-3 py-2">Cantidad</th>
                     <th className="text-left px-3 py-2">Condición</th>
                     <th className="text-left px-3 py-2">Disposición</th>

@@ -219,16 +219,6 @@ class InventarioController {
     }
   }
 
-  static async getLotes(req, res, next) {
-    try {
-      const data = await InventarioService.getLotes(req.query || {});
-      return sendSuccess(res, { message: 'Lotes obtenidos correctamente', data });
-    } catch (error) {
-      logger.error('Error fetching lotes:', error);
-      return next(error);
-    }
-  }
-
   static async getActivoProfile(req, res, next) {
     try {
       const data = await InventarioService.getActivoProfile(req.params.id);

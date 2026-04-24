@@ -41,20 +41,12 @@ const serialAssetSchema = Joi.object({
   fecha_vencimiento: Joi.date().iso().allow(null),
 });
 
-const loteSchema = Joi.object({
-  codigo_lote: Joi.string().trim().max(100).allow('', null),
-  fecha_fabricacion: Joi.date().iso().allow(null),
-  fecha_vencimiento: Joi.date().iso().allow(null),
-});
-
 const compraDetalleSchema = Joi.object({
   articulo_id: uuid.required(),
   ubicacion_id: uuid.required(),
   cantidad: Joi.number().integer().positive().required(),
   costo_unitario: Joi.number().integer().min(0).required(),
   notas: Joi.string().trim().max(1000).allow('', null),
-  lote_id: uuid.allow(null),
-  lote: loteSchema,
   activos: Joi.array().items(serialAssetSchema),
 });
 

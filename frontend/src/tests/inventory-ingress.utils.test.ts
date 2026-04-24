@@ -11,7 +11,6 @@ const baseForm = {
   notas: 'Ingreso inicial',
   cantidad: 3,
   costo_unitario: 12000,
-  codigo_lote: '',
   activos: [{ codigo: '' }],
   agregar_documento: false,
   proveedor_id: '',
@@ -37,18 +36,16 @@ describe('inventoryIngress.utils', () => {
     expect(payload.detalles[0].activos).toEqual([{ codigo: 'ACT-001' }, { codigo: 'ACT-002' }]);
   });
 
-  it('lote: respeta cantidad y lote', () => {
+  it('cantidad: respeta cantidad para artículos no seriales', () => {
     const payload = buildIngresoPayload({
       form: {
         ...baseForm,
         cantidad: 5,
-        codigo_lote: 'LOT-2026-01',
       },
       trackingMode: 'lote',
     });
 
     expect(payload.detalles[0].cantidad).toBe(5);
-    expect(payload.detalles[0].lote).toEqual({ codigo_lote: 'LOT-2026-01' });
   });
 
   it('permite ingreso manual sin documento', () => {

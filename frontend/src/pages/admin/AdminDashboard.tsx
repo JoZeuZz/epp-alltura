@@ -72,10 +72,10 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="space-y-6" data-tour="admin-dashboard-root">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Panel Administrativo EPP</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Panel de Equipos y Herramientas</h1>
         <p className="text-neutral-gray mt-1">
-          {section === 'dashboard' && 'KPIs operativos de inventario, entregas, devoluciones y firmas.'}
-          {section === 'trazabilidad' && 'Trazabilidad completa de movimientos de stock y activos.'}
+          {section === 'dashboard' && 'Vista operativa de inventario, entregas, devoluciones y firmas.'}
+          {section === 'trazabilidad' && 'Revisa los movimientos recientes de stock y activos.'}
         </p>
       </div>
 
@@ -121,13 +121,12 @@ const AdminDashboard: React.FC = () => {
       {section === 'dashboard' && (
         <DataTable
           title="Stock Actual (Muestra)"
-          columns={['Artículo', 'Ubicación', 'Disponible', 'Reservada', 'Lote']}
+          columns={['Artículo', 'Ubicación', 'Disponible', 'Reservada']}
           rows={(data.stock || []).slice(0, 12).map((item) => [
             item.articulo_nombre || '-',
             item.ubicacion_nombre || '-',
             Number(item.cantidad_disponible || 0),
             Number(item.cantidad_reservada || 0),
-            item.codigo_lote || '-',
           ])}
         />
       )}

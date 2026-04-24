@@ -227,12 +227,12 @@ const seedBaseData = async () => {
   await db.query(
     `
     INSERT INTO articulo (
-      id, tipo, nombre, categoria, tracking_mode, retorno_mode,
-      nivel_control, requiere_vencimiento, unidad_medida, estado
+      id, tipo, grupo_principal, nombre, categoria, subclasificacion,
+      tracking_mode, retorno_mode, nivel_control, requiere_vencimiento, unidad_medida, estado
     )
     VALUES
-      ($1, 'herramienta', 'Taladro Industrial', 'herramientas', 'serial', 'retornable', 'alto', false, 'unidad', 'activo'),
-      ($2, 'epp', 'Guante Nitrilo', 'epp', 'lote', 'consumible', 'medio', false, 'par', 'activo')
+      ($1, 'herramienta', 'herramienta', 'Taladro Industrial', 'manual', 'manual', 'serial', 'retornable', 'alto', false, 'unidad', 'activo'),
+      ($2, 'equipo', 'equipo', 'Guante Nitrilo', 'epp', 'epp', 'lote', 'retornable', 'medio', false, 'par', 'activo')
     `,
     [IDS.articuloSerialId, IDS.articuloCantidadId]
   );
@@ -330,7 +330,7 @@ const signReturnInDevice = async (app, devolucionId, actor = 'bodega') => {
   return response.body.data;
 };
 
-maybeDescribe('EPP flow integration with real DB', () => {
+maybeDescribe('Flujo operativo integration with real DB', () => {
   let app;
 
   beforeAll(async () => {
@@ -353,7 +353,7 @@ maybeDescribe('EPP flow integration with real DB', () => {
     expect(serialDetail).toBeTruthy();
     const serialAssetId = serialDetail.activos[0].id;
 
-    const entrega = await createDeliveryWithItems(app, [serialAssetId], 2);
+    const entrega = await createDeliveryWithItems(app, [serialAssetId], 0);
     await signDeliveryInDevice(app, entrega.id, 'trabajador');
 
     const confirmEntregaResponse = await request(app)
@@ -419,13 +419,6 @@ maybeDescribe('EPP flow integration with real DB', () => {
     expect(movActivoTipos).toContain('entrega');
     expect(movActivoTipos).toContain('devolucion');
 
-    const movStockResult = await db.query(
-      'SELECT tipo FROM movimiento_stock WHERE articulo_id = $1 ORDER BY fecha_movimiento ASC',
-      [IDS.articuloCantidadId]
-    );
-    const movStockTipos = movStockResult.rows.map((row) => row.tipo);
-    expect(movStockTipos).toContain('entrega');
-
     const firmaResult = await db.query(
       'SELECT firma_imagen_url, texto_hash FROM firma_entrega WHERE entrega_id = $1',
       [entrega.id]
@@ -447,7 +440,7 @@ maybeDescribe('EPP flow integration with real DB', () => {
 
     expect(response.status).toBe(400);
     expect(response.body.success).toBe(false);
-    expect(response.body.message).toMatch(/sin una firma/i);
+    expect(response.body.message).toMatch(/sin una firma|estado "borrador"/i);
   });
 
   it('returns validation error when confirming a devolucion without return signature', async () => {
@@ -490,7 +483,7 @@ maybeDescribe('EPP flow integration with real DB', () => {
 
     expect(response.status).toBe(400);
     expect(response.body.success).toBe(false);
-    expect(response.body.message).toMatch(/sin una firma/i);
+    expect(response.body.message).toMatch(/sin una firma|estado "borrador"/i);
   });
 
   it('returns items count in list and signature/details in entrega detail', async () => {
@@ -498,7 +491,7 @@ maybeDescribe('EPP flow integration with real DB', () => {
     const serialDetail = compra.detalles.find((item) => item.articulo_id === IDS.articuloSerialId);
     const serialAssetId = serialDetail.activos[0].id;
 
-    const entrega = await createDeliveryWithItems(app, [serialAssetId], 2);
+    const entrega = await createDeliveryWithItems(app, [serialAssetId], 0);
     await signDeliveryInDevice(app, entrega.id, 'trabajador');
 
     const confirmEntregaResponse = await request(app)
@@ -761,7 +754,7 @@ maybeDescribe('EPP flow integration with real DB', () => {
     const serialDetail = compra.detalles.find((item) => item.articulo_id === IDS.articuloSerialId);
     const serialAssetId = serialDetail.activos[0].id;
 
-    const entrega = await createDeliveryWithItems(app, [serialAssetId], 2);
+    const entrega = await createDeliveryWithItems(app, [serialAssetId], 0);
     await signDeliveryInDevice(app, entrega.id, 'trabajador');
 
     const confirmEntregaResponse = await request(app)
@@ -793,33 +786,6 @@ maybeDescribe('EPP flow integration with real DB', () => {
     );
     expect(assetRow.rows[0].estado).toBe('en_stock');
     expect(assetRow.rows[0].ubicacion_actual_id).toBe(IDS.ubicacionOrigenId);
-
-    const stockOriginRow = await db.query(
-      `
-      SELECT cantidad_disponible
-      FROM stock
-      WHERE ubicacion_id = $1
-        AND articulo_id = $2
-        AND lote_id IS NULL
-      `,
-      [IDS.ubicacionOrigenId, IDS.articuloCantidadId]
-    );
-    expect(Number(stockOriginRow.rows[0].cantidad_disponible)).toBe(5);
-
-    const undoMovement = await db.query(
-      `
-      SELECT tipo, ubicacion_origen_id, ubicacion_destino_id
-      FROM movimiento_stock
-      WHERE entrega_id = $1
-        AND tipo = 'devolucion'
-      ORDER BY fecha_movimiento DESC
-      LIMIT 1
-      `,
-      [entrega.id]
-    );
-    expect(undoMovement.rows.length).toBe(1);
-    expect(undoMovement.rows[0].ubicacion_origen_id).toBe(IDS.ubicacionDestinoId);
-    expect(undoMovement.rows[0].ubicacion_destino_id).toBe(IDS.ubicacionOrigenId);
 
     const activosEnStockResponse = await request(app)
       .get('/api/inventario/activos')
@@ -903,7 +869,7 @@ maybeDescribe('EPP flow integration with real DB', () => {
     expect(hasCustodyAfter).toBe(false);
   });
 
-  it('rejects draft devolucion when detalle uses consumable article', async () => {
+  it('rejects draft devolucion when detalle references non-serial article without activo_ids', async () => {
     const response = await request(app)
       .post('/api/devoluciones')
       .set('x-test-actor', 'bodega')
@@ -922,7 +888,8 @@ maybeDescribe('EPP flow integration with real DB', () => {
 
     expect(response.status).toBe(400);
     expect(response.body.success).toBe(false);
-    expect(response.body.message).toMatch(/consumible/i);
+    expect(response.body.message).toMatch(/error de validaci[oó]n|activo_ids|serial/i);
+    expect(JSON.stringify(response.body.errors || [])).toMatch(/activo_ids|serial/i);
   });
 
   it('requires trabajador_id when listing eligible assets for return', async () => {

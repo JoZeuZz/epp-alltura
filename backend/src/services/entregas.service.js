@@ -19,27 +19,9 @@ const appendAdminUndoNote = (note, motivo) => {
 
 const ROUTE_RULES = {
   entrega: { origen: 'bodega', destino: 'planta' },
-  prestamo: { origen: 'bodega', destino: 'planta' },
-  traslado: { origen: 'bodega', destino: 'bodega' },
 };
 
-const resolveEntregaTipo = (payload = {}) => {
-  if (typeof payload.es_traslado === 'boolean') {
-    return payload.es_traslado ? 'traslado' : 'entrega';
-  }
-
-  if (payload.tipo === 'traslado') {
-    return 'traslado';
-  }
-
-  // Compatibilidad: todo tipo no-traslado (incluido "prestamo") se unifica como entrega.
-  return 'entrega';
-};
-
-const resolveDetalleTipoEntrega = (article) => {
-  if (!article) return 'asignacion';
-  return article.retorno_mode === 'retornable' ? 'retornable' : 'asignacion';
-};
+const resolveEntregaTipo = () => 'entrega';
 
 const normalizeOptionalText = (value) => {
   if (value === undefined) return undefined;
@@ -58,6 +40,10 @@ class EntregasService {
     const seenAssetIds = new Set();
 
     for (const rawDetalle of rawDetalles) {
+      if (rawDetalle.lote_id) {
+        throw buildError('No debe enviar lote_id en el nuevo contrato de entregas', 400);
+      }
+
       if (rawDetalle.activo_id) {
         throw buildError(
           'Payload legacy no soportado: use activo_ids para artículos serializados',
@@ -106,7 +92,7 @@ class EntregasService {
       normalized.push({
         articulo_id: rawDetalle.articulo_id,
         activo_id: null,
-        lote_id: rawDetalle.lote_id || null,
+        lote_id: null,
         cantidad: rawDetalle.cantidad,
         condicion_salida: rawDetalle.condicion_salida,
         notas: rawDetalle.notas,
@@ -146,7 +132,7 @@ class EntregasService {
     const articleIds = Array.from(new Set(rawItems.map((item) => item.articulo_id).filter(Boolean)));
     const articleResult = await client.query(
       `
-      SELECT id, nombre, tracking_mode, retorno_mode, estado
+      SELECT id, nombre, tracking_mode, estado
       FROM articulo
       WHERE id = ANY($1::uuid[])
       `,
@@ -183,11 +169,11 @@ class EntregasService {
           : article.tracking_mode === 'serial';
 
       if (article.tracking_mode === 'serial' && !requiresSerial) {
-        throw buildError(`El artículo ${article.nombre} es serial y requiere_serial debe ser true`, 400);
+        throw buildError(`El artículo ${article.nombre} es de control serial y requiere_serial debe ser true`, 400);
       }
 
       if (article.tracking_mode !== 'serial' && requiresSerial) {
-        throw buildError(`El artículo ${article.nombre} no es serial y requiere_serial debe ser false`, 400);
+        throw buildError(`El artículo ${article.nombre} se controla por cantidad y requiere_serial debe ser false`, 400);
       }
 
       normalizedItems.push({
@@ -286,9 +272,7 @@ class EntregasService {
         i.requiere_serial,
         i.notas_default,
         i.orden,
-        a.nombre AS articulo_nombre,
-        a.tracking_mode,
-        a.retorno_mode
+        a.nombre AS articulo_nombre
       FROM entrega_template_item i
       INNER JOIN articulo a ON a.id = i.articulo_id
       WHERE i.template_id = $1
@@ -683,7 +667,6 @@ class EntregasService {
 
       details.push({
         articulo_id: item.articulo_id,
-        lote_id: override.lote_id || null,
         cantidad: qty,
         condicion_salida: condicionSalida,
         notas,
@@ -705,14 +688,17 @@ class EntregasService {
       ubicacion_origen_id: payload.ubicacion_origen_id,
       ubicacion_destino_id: payload.ubicacion_destino_id,
       tipo: payload.tipo,
-      es_traslado: payload.es_traslado,
       nota_destino: payload.nota_destino || null,
       fecha_devolucion_esperada: payload.fecha_devolucion_esperada || null,
       detalles,
     };
 
-    if (!createPayload.tipo && typeof createPayload.es_traslado !== 'boolean') {
+    if (!createPayload.tipo) {
       createPayload.tipo = 'entrega';
+    }
+
+    if (createPayload.tipo !== 'entrega') {
+      throw buildError('Solo se permite tipo "entrega" en el flujo actual', 400);
     }
 
     return this.create(createPayload, userId);
@@ -744,14 +730,17 @@ class EntregasService {
         ubicacion_origen_id: payload.ubicacion_origen_id,
         ubicacion_destino_id: payload.ubicacion_destino_id,
         tipo: payload.tipo,
-        es_traslado: payload.es_traslado,
         nota_destino: payload.nota_destino || null,
         fecha_devolucion_esperada: payload.fecha_devolucion_esperada || null,
         detalles: detalles.map((item) => ({ ...item })),
       };
 
-      if (!createPayload.tipo && typeof createPayload.es_traslado !== 'boolean') {
+      if (!createPayload.tipo) {
         createPayload.tipo = 'entrega';
+      }
+
+      if (createPayload.tipo !== 'entrega') {
+        throw buildError('Solo se permite tipo "entrega" en el flujo actual', 400);
       }
 
       const created = await this.create(createPayload, userId);
@@ -796,7 +785,7 @@ class EntregasService {
         COUNT(d.id)::int AS cantidad_items,
         /* estado_devolucion computado desde custodia_activo */
         CASE
-          WHEN e.estado NOT IN ('confirmada','recibido') THEN NULL
+          WHEN e.estado <> 'confirmada' THEN NULL
           WHEN retornables.total IS NULL OR retornables.total = 0 THEN NULL
           WHEN retornables.cerradas = retornables.total THEN 'devuelta_completa'
           WHEN retornables.cerradas > 0 THEN 'parcialmente_devuelta'
@@ -841,7 +830,7 @@ class EntregasService {
         f.firma_imagen_url,
         f.firmado_en,
         CASE
-          WHEN e.estado NOT IN ('confirmada','recibido') THEN NULL
+          WHEN e.estado <> 'confirmada' THEN NULL
           WHEN retornables.total IS NULL OR retornables.total = 0 THEN NULL
           WHEN retornables.cerradas = retornables.total THEN 'devuelta_completa'
           WHEN retornables.cerradas > 0 THEN 'parcialmente_devuelta'
@@ -874,10 +863,7 @@ class EntregasService {
       SELECT
         d.*,
         a.nombre AS articulo_nombre,
-        a.tracking_mode,
-        a.retorno_mode,
         ac.codigo AS activo_codigo,
-        l.codigo_lote,
         /* estado de devolución por ítem */
         ca.estado   AS custodia_estado,
         ca.hasta_en AS custodia_cerrada_en,
@@ -890,7 +876,6 @@ class EntregasService {
       FROM entrega_detalle d
       INNER JOIN articulo a ON a.id = d.articulo_id
       LEFT JOIN activo ac ON ac.id = d.activo_id
-      LEFT JOIN lote l ON l.id = d.lote_id
       LEFT JOIN custodia_activo ca ON ca.activo_id = d.activo_id
                                   AND ca.entrega_id = $1
       WHERE d.entrega_id = $1
@@ -946,7 +931,6 @@ class EntregasService {
         e.estado,
         e.creado_en,
         e.confirmada_en,
-        e.recibido_en,
         e.nota_destino,
         e.fecha_devolucion_esperada,
         e.ubicacion_origen_id,
@@ -981,17 +965,14 @@ class EntregasService {
         d.id,
         d.articulo_id,
         d.activo_id,
-        d.lote_id,
         d.cantidad,
         d.condicion_salida,
         d.notas,
         a.nombre AS articulo_nombre,
-        ac.codigo AS activo_codigo,
-        l.codigo_lote
+        ac.codigo AS activo_codigo
       FROM entrega_detalle d
       INNER JOIN articulo a ON a.id = d.articulo_id
       LEFT JOIN activo ac ON ac.id = d.activo_id
-      LEFT JOIN lote l ON l.id = d.lote_id
       WHERE d.entrega_id = $1
       ORDER BY d.id ASC
       `,
@@ -1177,7 +1158,7 @@ class EntregasService {
 
     const articleResult = await client.query(
       `
-      SELECT id, nombre, tracking_mode, retorno_mode
+      SELECT id, nombre, tracking_mode
       FROM articulo
       WHERE id = ANY($1::uuid[])
       `,
@@ -1211,19 +1192,9 @@ class EntregasService {
         throw buildError(`Cantidad inválida para artículo ${detalle.articulo_id}`, 400);
       }
 
-      if (article.retorno_mode === 'consumible' && detalle.activo_id) {
-        throw buildError(
-          `El artículo ${article.nombre} es consumible y no puede entregarse por activo_id`,
-          400
-        );
-      }
-
       if (article.tracking_mode === 'serial') {
         if (!detalle.activo_id) {
-          throw buildError(
-            `El artículo ${article.nombre} requiere activo_id por ser tracking_mode "serial"`,
-            400
-          );
+          throw buildError(`El artículo ${article.nombre} requiere activo_id por control serial`, 400);
         }
 
         if (quantity !== 1) {
@@ -1232,23 +1203,9 @@ class EntregasService {
             400
           );
         }
-      } else if (detalle.activo_id) {
-        throw buildError(
-          `El artículo ${article.nombre} no usa tracking serial y no admite activo_id`,
-          400
-        );
-      }
 
-      if (article.retorno_mode === 'retornable' && article.tracking_mode !== 'serial') {
-        throw buildError(
-          `Configuración inconsistente del artículo ${article.nombre}: retornable debe ser serial`,
-          400
-        );
-      }
+        detalle.tipo_item_entrega = 'retornable';
 
-      detalle.tipo_item_entrega = resolveDetalleTipoEntrega(article);
-
-      if (detalle.activo_id) {
         const active = activeMap.get(detalle.activo_id);
         if (!active) {
           throw buildError(`Activo ${detalle.activo_id} no encontrado`, 400);
@@ -1260,6 +1217,14 @@ class EntregasService {
             400
           );
         }
+      } else {
+        if (detalle.activo_id) {
+          throw buildError(
+            `El artículo ${article.nombre} no admite activo_id porque se controla por cantidad`,
+            400
+          );
+        }
+        detalle.tipo_item_entrega = 'asignacion';
       }
     }
   }
@@ -1285,14 +1250,6 @@ class EntregasService {
       await this.validateMovementRoute(client, movementPayload);
       await this.validateWorkerActive(client, payload.trabajador_id);
 
-      if (payload.transportista_trabajador_id) {
-        await this.validateWorkerActive(client, payload.transportista_trabajador_id);
-      }
-
-      if (payload.receptor_trabajador_id) {
-        await this.validateWorkerActive(client, payload.receptor_trabajador_id);
-      }
-
       await this.validateDetailRules(client, detalles);
 
       const entregaResult = await client.query(
@@ -1300,8 +1257,6 @@ class EntregasService {
         INSERT INTO entrega (
           creado_por_usuario_id,
           trabajador_id,
-          transportista_trabajador_id,
-          receptor_trabajador_id,
           ubicacion_origen_id,
           ubicacion_destino_id,
           tipo,
@@ -1309,14 +1264,12 @@ class EntregasService {
           nota_destino,
           fecha_devolucion_esperada
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'borrador', $8, $9)
+        VALUES ($1, $2, $3, $4, $5, 'borrador', $6, $7)
         RETURNING id
         `,
         [
           userId,
           payload.trabajador_id,
-          payload.transportista_trabajador_id || payload.trabajador_id,
-          payload.receptor_trabajador_id || null,
           payload.ubicacion_origen_id,
           payload.ubicacion_destino_id,
           tipo,
@@ -1339,7 +1292,7 @@ class EntregasService {
             entregaId,
             detalle.articulo_id,
             detalle.activo_id || null,
-            detalle.lote_id || null,
+            null,
             detalle.cantidad,
             detalle.tipo_item_entrega || 'asignacion',
             detalle.condicion_salida || 'ok',
@@ -1357,8 +1310,6 @@ class EntregasService {
         diff: {
           tipo,
           trabajador_id: payload.trabajador_id,
-          transportista_trabajador_id: payload.transportista_trabajador_id || null,
-          receptor_trabajador_id: payload.receptor_trabajador_id || null,
           ubicacion_origen_id: payload.ubicacion_origen_id,
           ubicacion_destino_id: payload.ubicacion_destino_id,
           detalles_count: detalles.length,
@@ -1434,8 +1385,6 @@ class EntregasService {
       await this.validateMovementRoute(client, entrega);
       await this.validateDetailRules(client, detalles);
 
-      const movementType = entrega.tipo === 'traslado' ? 'traslado' : 'entrega';
-
       for (const detalle of detalles) {
         if (detalle.activo_id) {
           const activoResult = await client.query(
@@ -1461,10 +1410,8 @@ class EntregasService {
             throw buildError(`Activo ${detalle.activo_id} no está en la ubicación de origen`, 400);
           }
 
-          const newAssetState = entrega.tipo === 'traslado' ? 'en_traslado' : 'asignado';
-          const newAssetLocation = entrega.tipo === 'traslado'
-            ? entrega.ubicacion_origen_id
-            : entrega.ubicacion_destino_id;
+          const newAssetState = 'asignado';
+          const newAssetLocation = entrega.ubicacion_destino_id;
 
           await client.query(
             `
@@ -1490,7 +1437,7 @@ class EntregasService {
             `,
             [
               detalle.activo_id,
-              movementType,
+              'entrega',
               entrega.ubicacion_origen_id,
               entrega.ubicacion_destino_id,
               userId,
@@ -1499,7 +1446,7 @@ class EntregasService {
             ]
           );
 
-          if (entrega.tipo !== 'traslado' && detalle.tipo_item_entrega === 'retornable') {
+          if (detalle.tipo_item_entrega === 'retornable') {
             const activeCustodyResult = await client.query(
               `
               SELECT id
@@ -1547,10 +1494,10 @@ class EntregasService {
             FROM stock
             WHERE ubicacion_id = $1
               AND articulo_id = $2
-              AND lote_id IS NOT DISTINCT FROM $3
+              AND lote_id IS NULL
             FOR UPDATE
             `,
-            [entrega.ubicacion_origen_id, detalle.articulo_id, detalle.lote_id]
+            [entrega.ubicacion_origen_id, detalle.articulo_id]
           );
 
           if (!originStockResult.rows.length) {
@@ -1579,35 +1526,19 @@ class EntregasService {
             [qty, originStock.id]
           );
 
-          if (detalle.lote_id) {
-            await client.query(
-              `
-              INSERT INTO stock (
-                ubicacion_id, articulo_id, lote_id, cantidad_disponible, cantidad_reservada
-              )
-              VALUES ($1, $2, $3, $4, 0)
-              ON CONFLICT (ubicacion_id, articulo_id, lote_id) WHERE lote_id IS NOT NULL
-              DO UPDATE SET
-                cantidad_disponible = stock.cantidad_disponible + EXCLUDED.cantidad_disponible,
-                actualizado_en = NOW()
-              `,
-              [entrega.ubicacion_destino_id, detalle.articulo_id, detalle.lote_id, qty]
-            );
-          } else {
-            await client.query(
-              `
-              INSERT INTO stock (
-                ubicacion_id, articulo_id, lote_id, cantidad_disponible, cantidad_reservada
-              )
-              VALUES ($1, $2, NULL, $3, 0)
-              ON CONFLICT (ubicacion_id, articulo_id) WHERE lote_id IS NULL
-              DO UPDATE SET
-                cantidad_disponible = stock.cantidad_disponible + EXCLUDED.cantidad_disponible,
-                actualizado_en = NOW()
-              `,
-              [entrega.ubicacion_destino_id, detalle.articulo_id, qty]
-            );
-          }
+          await client.query(
+            `
+            INSERT INTO stock (
+              ubicacion_id, articulo_id, lote_id, cantidad_disponible, cantidad_reservada
+            )
+            VALUES ($1, $2, NULL, $3, 0)
+            ON CONFLICT (ubicacion_id, articulo_id) WHERE lote_id IS NULL
+            DO UPDATE SET
+              cantidad_disponible = stock.cantidad_disponible + EXCLUDED.cantidad_disponible,
+              actualizado_en = NOW()
+            `,
+            [entrega.ubicacion_destino_id, detalle.articulo_id, qty]
+          );
 
           await client.query(
             `
@@ -1626,8 +1557,8 @@ class EntregasService {
             `,
             [
               detalle.articulo_id,
-              detalle.lote_id || null,
-              movementType,
+              null,
+              'entrega',
               entrega.ubicacion_origen_id,
               entrega.ubicacion_destino_id,
               qty,
@@ -1639,7 +1570,7 @@ class EntregasService {
         }
       }
 
-      const nextEstado = entrega.tipo === 'traslado' ? 'en_transito' : 'confirmada';
+      const nextEstado = 'confirmada';
 
       await client.query(
         `
@@ -1648,7 +1579,7 @@ class EntregasService {
             confirmada_en = CASE WHEN $3 THEN NOW() ELSE confirmada_en END
         WHERE id = $1
         `,
-        [id, nextEstado, nextEstado === 'confirmada']
+        [id, nextEstado, true]
       );
 
       await writeAuditEvent({
@@ -1736,122 +1667,6 @@ class EntregasService {
     }
   }
 
-  static async recibirTraslado(id, userId, payload = {}) {
-    const client = await db.pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      const entregaResult = await client.query(
-        `
-        SELECT *
-        FROM entrega
-        WHERE id = $1
-        FOR UPDATE
-        `,
-        [id]
-      );
-
-      if (!entregaResult.rows.length) {
-        throw buildError('Entrega no encontrada', 404);
-      }
-
-      const entrega = entregaResult.rows[0];
-      if (entrega.tipo !== 'traslado') {
-        throw buildError('Solo se puede recibir formalmente un movimiento de tipo traslado', 400);
-      }
-
-      if (entrega.estado !== 'en_transito') {
-        throw buildError(
-          `No se puede recibir un traslado en estado "${entrega.estado}"`,
-          400
-        );
-      }
-
-      await this.validateMovementRoute(client, entrega);
-
-      if (payload.receptor_trabajador_id) {
-        await this.validateWorkerActive(client, payload.receptor_trabajador_id);
-      }
-
-      const detalleResult = await client.query(
-        `
-        SELECT *
-        FROM entrega_detalle
-        WHERE entrega_id = $1
-        ORDER BY id
-        FOR UPDATE
-        `,
-        [id]
-      );
-
-      const detalles = detalleResult.rows;
-      for (const detalle of detalles) {
-        if (!detalle.activo_id) {
-          continue;
-        }
-
-        const activoResult = await client.query(
-          `
-          SELECT *
-          FROM activo
-          WHERE id = $1
-          FOR UPDATE
-          `,
-          [detalle.activo_id]
-        );
-
-        if (!activoResult.rows.length) {
-          throw buildError(`Activo ${detalle.activo_id} no encontrado`, 400);
-        }
-
-        await client.query(
-          `
-          UPDATE activo
-          SET estado = 'en_stock',
-              ubicacion_actual_id = $2
-          WHERE id = $1
-          `,
-          [detalle.activo_id, entrega.ubicacion_destino_id]
-        );
-      }
-
-      await client.query(
-        `
-        UPDATE entrega
-        SET estado = 'recibido',
-            receptor_trabajador_id = COALESCE($2, receptor_trabajador_id),
-            recibido_por_usuario_id = $3,
-            recibido_en = NOW(),
-            confirmada_en = NOW()
-        WHERE id = $1
-        `,
-        [id, payload.receptor_trabajador_id || null, userId]
-      );
-
-      await writeAuditEvent({
-        client,
-        entidadTipo: 'entrega',
-        entidadId: id,
-        accion: 'actualizar',
-        usuarioId: userId,
-        diff: {
-          estado_anterior: entrega.estado,
-          estado_nuevo: 'recibido',
-          tipo: entrega.tipo,
-          receptor_trabajador_id: payload.receptor_trabajador_id || entrega.receptor_trabajador_id || null,
-        },
-      });
-
-      await client.query('COMMIT');
-      return this.getById(id);
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
   static async deshacer(id, userId, motivo) {
     const client = await db.pool.connect();
     try {
@@ -1912,7 +1727,7 @@ class EntregasService {
         return this.getById(id);
       }
 
-      if (!['confirmada', 'en_transito', 'recibido'].includes(entrega.estado)) {
+      if (entrega.estado !== 'confirmada') {
         throw buildError(`No se puede deshacer una entrega en estado "${entrega.estado}"`, 400);
       }
 
@@ -1950,7 +1765,7 @@ class EntregasService {
 
           const activo = activoResult.rows[0];
 
-          if (entrega.tipo !== 'traslado' && detalle.tipo_item_entrega === 'retornable') {
+          if (detalle.tipo_item_entrega === 'retornable') {
             const custodyResult = await client.query(
               `
               SELECT id
@@ -2026,10 +1841,10 @@ class EntregasService {
           FROM stock
           WHERE ubicacion_id = $1
             AND articulo_id = $2
-            AND lote_id IS NOT DISTINCT FROM $3
+            AND lote_id IS NULL
           FOR UPDATE
           `,
-          [entrega.ubicacion_origen_id, detalle.articulo_id, detalle.lote_id]
+          [entrega.ubicacion_origen_id, detalle.articulo_id]
         );
 
         if (!originStockResult.rows.length) {
@@ -2045,10 +1860,10 @@ class EntregasService {
           FROM stock
           WHERE ubicacion_id = $1
             AND articulo_id = $2
-            AND lote_id IS NOT DISTINCT FROM $3
+            AND lote_id IS NULL
           FOR UPDATE
           `,
-          [entrega.ubicacion_destino_id, detalle.articulo_id, detalle.lote_id]
+          [entrega.ubicacion_destino_id, detalle.articulo_id]
         );
 
         if (!destinationStockResult.rows.length) {
@@ -2103,7 +1918,7 @@ class EntregasService {
           `,
           [
             detalle.articulo_id,
-            detalle.lote_id || null,
+            null,
             entrega.ubicacion_destino_id,
             entrega.ubicacion_origen_id,
             qty,

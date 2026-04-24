@@ -80,9 +80,10 @@ describe('AdminInventoryArticlesPage', () => {
             {
               id: 'article-1',
               nombre: 'Guantes dieléctricos',
-              tipo: 'epp',
-              tracking_mode: 'lote',
-              retorno_mode: 'consumible',
+              grupo_principal: 'equipo',
+              subclasificacion: 'epp',
+              especialidades: ['ooee'],
+              tracking_mode: 'serial',
               nivel_control: 'alto',
               unidad_medida: 'par',
               estado: 'activo',
@@ -90,9 +91,10 @@ describe('AdminInventoryArticlesPage', () => {
             {
               id: 'article-2',
               nombre: 'Lentes de seguridad',
-              tipo: 'epp',
+              grupo_principal: 'herramienta',
+              subclasificacion: 'manual',
+              especialidades: ['oocc'],
               tracking_mode: 'serial',
-              retorno_mode: 'retornable',
               nivel_control: 'medio',
               unidad_medida: 'unidad',
               estado: 'inactivo',
@@ -110,8 +112,15 @@ describe('AdminInventoryArticlesPage', () => {
   it('renderiza catálogo de artículos', () => {
     renderPage();
 
-    expect(screen.getByText('Catálogo de Artículos')).toBeInTheDocument();
+    expect(screen.getByText('Catálogo de Equipos y Herramientas')).toBeInTheDocument();
     expect(screen.getByText('Guantes dieléctricos')).toBeInTheDocument();
+  });
+
+  it('muestra copy operativo sin etiquetas legacy visibles', () => {
+    renderPage();
+
+    expect(screen.getByText('Catálogo de Equipos y Herramientas')).toBeInTheDocument();
+    expect(screen.queryByText(/EPP Control/i)).not.toBeInTheDocument();
   });
 
   it('crea un artículo desde el modal', async () => {
@@ -137,6 +146,40 @@ describe('AdminInventoryArticlesPage', () => {
     );
   });
 
+  it('crea un equipo con subclasificación compatible y especialidades seleccionadas', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: 'Nuevo Artículo' }));
+
+    const modalTitle = await screen.findByRole('heading', { name: 'Nuevo Artículo' });
+    const modal = modalTitle.closest('form') as HTMLFormElement;
+
+    const groupSelect = within(modal).getByDisplayValue('Herramienta');
+    await user.selectOptions(groupSelect, 'equipo');
+
+    const specialtyOOCC = within(modal).getByRole('checkbox', { name: 'OOCC' });
+    const specialtyOOEE = within(modal).getByRole('checkbox', { name: 'OOEE' });
+    await user.click(specialtyOOCC);
+    await user.click(specialtyOOEE);
+
+    await user.type(within(modal).getByPlaceholderText('Ej: Casco de seguridad'), 'Arnés Pro');
+    await user.click(within(modal).getByRole('button', { name: 'Crear artículo' }));
+
+    await waitFor(() => {
+      expect(createArticuloMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(createArticuloMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        grupo_principal: 'equipo',
+        subclasificacion: 'epp',
+        especialidades: ['ooee'],
+        nombre: 'Arnés Pro',
+      })
+    );
+  });
+
   it('edita un artículo existente', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -158,6 +201,40 @@ describe('AdminInventoryArticlesPage', () => {
         expect.objectContaining({
           id: 'article-1',
           nombre: 'Guantes actualizados',
+        })
+      );
+    });
+  });
+
+  it('edita un artículo y permite cambiar a flujo herramienta con subclasificación válida', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getAllByRole('button', { name: 'Editar' })[0]);
+
+    const modalTitle = await screen.findByRole('heading', { name: 'Editar Artículo' });
+    const modal = modalTitle.closest('form') as HTMLFormElement;
+
+    const groupSelect = within(modal).getByDisplayValue('Equipo');
+    await user.selectOptions(groupSelect, 'herramienta');
+
+    const subclasificacionSelect = within(modal).getByDisplayValue('Manual');
+    await user.selectOptions(subclasificacionSelect, 'electrica_cable');
+
+    const nameInput = within(modal).getByPlaceholderText(
+      'Ej: Casco de seguridad'
+    ) as HTMLInputElement;
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Taladro reformulado');
+    await user.click(within(modal).getByRole('button', { name: 'Guardar cambios' }));
+
+    await waitFor(() => {
+      expect(updateArticuloMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'article-1',
+          grupo_principal: 'herramienta',
+          subclasificacion: 'electrica_cable',
+          nombre: 'Taladro reformulado',
         })
       );
     });

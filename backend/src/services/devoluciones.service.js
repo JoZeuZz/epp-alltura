@@ -24,13 +24,6 @@ const MOV_ACTIVO_TYPE_BY_DISPOSICION = {
   mantencion: 'mantencion',
 };
 
-const MOV_STOCK_TYPE_BY_DISPOSICION = {
-  devuelto: 'devolucion',
-  perdido: 'ajuste',
-  baja: 'baja',
-  mantencion: 'ajuste',
-};
-
 const buildError = (message, statusCode = 400, code = null) => {
   const error = new Error(message);
   error.statusCode = statusCode;
@@ -65,6 +58,14 @@ class DevolucionesService {
     const seenAssetIds = new Set();
 
     for (const rawDetalle of rawDetalles) {
+      if (rawDetalle.lote_id) {
+        throw buildError(
+          'No debe enviar lote_id en el nuevo contrato de devoluciones',
+          400,
+          'LOT_NOT_ALLOWED'
+        );
+      }
+
       if (rawDetalle.activo_id) {
         throw buildError(
           'Payload legacy no soportado: use activo_ids para devoluciones de activos',
@@ -83,14 +84,6 @@ class DevolucionesService {
             'Los detalles con activo_ids deben usar cantidad 1',
             400,
             'INVALID_ASSET_QTY'
-          );
-        }
-
-        if (rawDetalle.lote_id) {
-          throw buildError(
-            'No debe enviar lote_id junto con activo_ids',
-            400,
-            'INVALID_ASSET_LOTE'
           );
         }
 
@@ -131,7 +124,7 @@ class DevolucionesService {
         custodia_activo_id: rawDetalle.custodia_activo_id || null,
         articulo_id: rawDetalle.articulo_id || null,
         activo_id: null,
-        lote_id: rawDetalle.lote_id || null,
+        lote_id: null,
         cantidad: rawDetalle.cantidad,
         condicion_entrada: rawDetalle.condicion_entrada,
         disposicion: rawDetalle.disposicion,
@@ -276,11 +269,8 @@ class DevolucionesService {
       SELECT
         dd.*,
         a.nombre AS articulo_nombre,
-        a.tracking_mode,
-        a.retorno_mode,
         ac.codigo AS activo_codigo,
         ac.nro_serie AS activo_nro_serie,
-        l.codigo_lote,
         c.estado AS custodia_estado,
         /* entrega de origen por ítem */
         c.entrega_id AS entrega_origen_id,
@@ -288,7 +278,6 @@ class DevolucionesService {
       FROM devolucion_detalle dd
       LEFT JOIN articulo a ON a.id = dd.articulo_id
       LEFT JOIN activo ac ON ac.id = dd.activo_id
-      LEFT JOIN lote l ON l.id = dd.lote_id
       LEFT JOIN custodia_activo c ON c.id = dd.custodia_activo_id
       LEFT JOIN entrega ent ON ent.id = c.entrega_id
       WHERE dd.devolucion_id = $1
@@ -514,13 +503,21 @@ class DevolucionesService {
           }
         }
 
+        if (!activoId) {
+          throw buildError(
+            'En operación V2 la devolución requiere activo_ids serializados por detalle',
+            400,
+            'ASSET_REQUIRED'
+          );
+        }
+
         if (!articuloId) {
           throw buildError('Cada detalle debe indicar articulo_id o activo_id', 400, 'ARTICLE_REQUIRED');
         }
 
         const articleResult = await client.query(
           `
-          SELECT id, nombre, retorno_mode
+          SELECT id, nombre
           FROM articulo
           WHERE id = $1
           `,
@@ -529,15 +526,6 @@ class DevolucionesService {
 
         if (!articleResult.rows.length) {
           throw buildError(`Artículo ${articuloId} no encontrado`, 400, 'ARTICLE_NOT_FOUND');
-        }
-
-        const article = articleResult.rows[0];
-        if (article.retorno_mode === 'consumible') {
-          throw buildError(
-            `El artículo ${article.nombre} es consumible y no admite devolución estándar. Regístralo como ajuste excepcional de inventario.`,
-            400,
-            'CONSUMABLE_RETURN_NOT_ALLOWED'
-          );
         }
 
         await client.query(
@@ -560,7 +548,7 @@ class DevolucionesService {
             detalle.custodia_activo_id || null,
             articuloId,
             activoId,
-            detalle.lote_id || null,
+            null,
             qty,
             detalle.condicion_entrada || 'ok',
             detalle.disposicion || 'devuelto',
@@ -672,6 +660,14 @@ class DevolucionesService {
         const disposition = detalle.disposicion;
 
         if (detalle.activo_id) {
+          if (qty !== 1) {
+            throw buildError(
+              'Los detalles serializados deben mantener cantidad = 1',
+              400,
+              'INVALID_ASSET_QTY'
+            );
+          }
+
           const activoResult = await client.query(
             `
             SELECT *
@@ -786,129 +782,10 @@ class DevolucionesService {
             ]
           );
         } else {
-          if (!detalle.articulo_id) {
-            throw buildError('Detalle sin artículo no puede ser confirmado', 400, 'ARTICLE_REQUIRED');
-          }
-
-          const articleResult = await client.query(
-            `
-            SELECT id, nombre, retorno_mode
-            FROM articulo
-            WHERE id = $1
-            `,
-            [detalle.articulo_id]
-          );
-
-          if (!articleResult.rows.length) {
-            throw buildError(
-              `Artículo ${detalle.articulo_id} no encontrado`,
-              400,
-              'ARTICLE_NOT_FOUND'
-            );
-          }
-
-          const article = articleResult.rows[0];
-          if (article.retorno_mode === 'consumible') {
-            throw buildError(
-              `El artículo ${article.nombre} es consumible y no admite devolución estándar. Usa un ajuste excepcional autorizado.`,
-              400,
-              'CONSUMABLE_RETURN_NOT_ALLOWED'
-            );
-          }
-
-          const movementType = MOV_STOCK_TYPE_BY_DISPOSICION[disposition];
-
-          if (disposition === 'devuelto') {
-            if (detalle.lote_id) {
-              await client.query(
-                `
-                INSERT INTO stock (
-                  ubicacion_id, articulo_id, lote_id, cantidad_disponible, cantidad_reservada
-                )
-                VALUES ($1, $2, $3, $4, 0)
-                ON CONFLICT (ubicacion_id, articulo_id, lote_id) WHERE lote_id IS NOT NULL
-                DO UPDATE SET
-                  cantidad_disponible = stock.cantidad_disponible + EXCLUDED.cantidad_disponible,
-                  actualizado_en = NOW()
-                `,
-                [devolucion.ubicacion_recepcion_id, detalle.articulo_id, detalle.lote_id, qty]
-              );
-            } else {
-              await client.query(
-                `
-                INSERT INTO stock (
-                  ubicacion_id, articulo_id, lote_id, cantidad_disponible, cantidad_reservada
-                )
-                VALUES ($1, $2, NULL, $3, 0)
-                ON CONFLICT (ubicacion_id, articulo_id) WHERE lote_id IS NULL
-                DO UPDATE SET
-                  cantidad_disponible = stock.cantidad_disponible + EXCLUDED.cantidad_disponible,
-                  actualizado_en = NOW()
-                `,
-                [devolucion.ubicacion_recepcion_id, detalle.articulo_id, qty]
-              );
-            }
-          }
-
-          if (disposition === 'mantencion') {
-            if (detalle.lote_id) {
-              await client.query(
-                `
-                INSERT INTO stock (
-                  ubicacion_id, articulo_id, lote_id, cantidad_disponible, cantidad_reservada
-                )
-                VALUES ($1, $2, $3, 0, $4)
-                ON CONFLICT (ubicacion_id, articulo_id, lote_id) WHERE lote_id IS NOT NULL
-                DO UPDATE SET
-                  cantidad_reservada = stock.cantidad_reservada + EXCLUDED.cantidad_reservada,
-                  actualizado_en = NOW()
-                `,
-                [devolucion.ubicacion_recepcion_id, detalle.articulo_id, detalle.lote_id, qty]
-              );
-            } else {
-              await client.query(
-                `
-                INSERT INTO stock (
-                  ubicacion_id, articulo_id, lote_id, cantidad_disponible, cantidad_reservada
-                )
-                VALUES ($1, $2, NULL, 0, $3)
-                ON CONFLICT (ubicacion_id, articulo_id) WHERE lote_id IS NULL
-                DO UPDATE SET
-                  cantidad_reservada = stock.cantidad_reservada + EXCLUDED.cantidad_reservada,
-                  actualizado_en = NOW()
-                `,
-                [devolucion.ubicacion_recepcion_id, detalle.articulo_id, qty]
-              );
-            }
-          }
-
-          await client.query(
-            `
-            INSERT INTO movimiento_stock (
-              articulo_id,
-              lote_id,
-              tipo,
-              ubicacion_origen_id,
-              ubicacion_destino_id,
-              cantidad,
-              responsable_usuario_id,
-              devolucion_id,
-              notas
-            )
-            VALUES ($1, $2, $3, NULL, $4, $5, $6, $7, $8)
-            `,
-            [
-              detalle.articulo_id,
-              detalle.lote_id || null,
-              movementType,
-              ['devuelto', 'mantencion'].includes(disposition)
-                ? devolucion.ubicacion_recepcion_id
-                : null,
-              qty,
-              userId,
-              devolucion.id,
-              appendDispositionNote(detalle.notas, disposition),
-            ]
+          throw buildError(
+            'En operación V2 solo se permiten devoluciones serializadas con activo_ids',
+            400,
+            'NON_SERIAL_RETURN_NOT_ALLOWED'
           );
         }
       }
@@ -974,7 +851,6 @@ class DevolucionesService {
         a.nro_serie AS activo_nro_serie,
         ar.nombre AS articulo_nombre,
         ar.tipo AS articulo_tipo,
-        ar.tracking_mode,
         u.nombre AS ubicacion_destino_nombre
       FROM custodia_activo c
       INNER JOIN activo a ON a.id = c.activo_id
@@ -1006,7 +882,6 @@ class DevolucionesService {
       "c.estado = 'activa'",
       'c.hasta_en IS NULL',
       "ar.tracking_mode = 'serial'",
-      "ar.retorno_mode = 'retornable'",
     ];
 
     if (filters.articulo_id) {

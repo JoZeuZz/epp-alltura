@@ -18,8 +18,6 @@ interface EntregaDetalleModalProps {
 const ESTADO_LABELS: Record<EntregaEstado, string> = {
   borrador: 'Borrador',
   pendiente_firma: 'Pendiente firma',
-  en_transito: 'En tránsito',
-  recibido: 'Recibido',
   confirmada: 'Confirmada',
   anulada: 'Anulada',
   revertida_admin: 'Revertida',
@@ -28,8 +26,6 @@ const ESTADO_LABELS: Record<EntregaEstado, string> = {
 const ESTADO_CLASSES: Record<EntregaEstado, string> = {
   borrador: 'bg-gray-100 text-gray-700',
   pendiente_firma: 'bg-yellow-100 text-yellow-800',
-  en_transito: 'bg-indigo-100 text-indigo-800',
-  recibido: 'bg-teal-100 text-teal-800',
   confirmada: 'bg-green-100 text-green-800',
   anulada: 'bg-red-100 text-red-700',
   revertida_admin: 'bg-slate-200 text-slate-700',
@@ -37,8 +33,6 @@ const ESTADO_CLASSES: Record<EntregaEstado, string> = {
 
 const TIPO_LABELS: Record<EntregaTipo, string> = {
   entrega: 'Entrega',
-  prestamo: 'Entrega',
-  traslado: 'Traslado',
 };
 
 const CONDICION_LABELS: Record<CondicionSalida, string> = {
@@ -170,7 +164,7 @@ const EntregaDetalleModal: React.FC<EntregaDetalleModalProps> = ({
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Artículo</th>
                   <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Cant.</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cond.</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Lote / Activo</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Activo</th>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Notas</th>
                 </tr>
               </thead>
@@ -193,7 +187,7 @@ const EntregaDetalleModal: React.FC<EntregaDetalleModalProps> = ({
                         )}
                       </td>
                       <td className="px-3 py-2 text-gray-600">
-                        {d.codigo_lote ?? d.activo_codigo ?? '—'}
+                        {d.activo_codigo ?? '—'}
                       </td>
                       <td className="px-3 py-2 text-gray-500 text-xs">{d.notas ?? '—'}</td>
                     </tr>
@@ -208,7 +202,7 @@ const EntregaDetalleModal: React.FC<EntregaDetalleModalProps> = ({
       </div>
 
       {/* Firma (visible cuando el flujo ya fue cerrado) */}
-      {(estado === 'confirmada' || estado === 'recibido') && (
+      {estado === 'confirmada' && (
         <div className="border-t pt-4">
           <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Firma de recepción</h3>
           {entrega.firma_imagen_url ? (

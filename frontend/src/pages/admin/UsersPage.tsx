@@ -425,7 +425,7 @@ const UsersPage: React.FC = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Gestión de Usuarios</h1>
           <p className="text-neutral-gray mt-1">
-            Administración de usuarios y roles para la operación EPP/Herramientas.
+            Administración de usuarios y roles para la operación de equipos y herramientas.
           </p>
         </div>
         <button

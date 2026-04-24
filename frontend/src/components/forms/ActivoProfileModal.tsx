@@ -12,7 +12,6 @@ import { formatCLP } from '../../utils/currency';
 const ESTADO_LABELS: Record<string, string> = {
   en_stock: 'En stock',
   asignado: 'Asignado',
-  en_traslado: 'En traslado',
   mantencion: 'Mantención',
   dado_de_baja: 'Dado de baja',
   perdido: 'Perdido',
@@ -21,7 +20,6 @@ const ESTADO_LABELS: Record<string, string> = {
 const ESTADO_CLASSES: Record<string, string> = {
   en_stock: 'bg-green-100 text-green-700',
   asignado: 'bg-blue-100 text-blue-700',
-  en_traslado: 'bg-indigo-100 text-indigo-700',
   mantencion: 'bg-amber-100 text-amber-700',
   dado_de_baja: 'bg-red-100 text-red-700',
   perdido: 'bg-gray-200 text-gray-600',
@@ -30,7 +28,6 @@ const ESTADO_CLASSES: Record<string, string> = {
 const MOV_ICONS: Record<string, string> = {
   entrada: '📥',
   salida: '📤',
-  traslado: '🔄',
   entrega: '🤝',
   devolucion: '↩️',
   ajuste: '📋',
@@ -41,7 +38,6 @@ const MOV_ICONS: Record<string, string> = {
 const MOV_LABELS: Record<string, string> = {
   entrada: 'Entrada',
   salida: 'Salida',
-  traslado: 'Traslado',
   entrega: 'Entrega',
   devolucion: 'Devolución',
   ajuste: 'Ajuste',
@@ -117,7 +113,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onCambiarEstad
               {/* Acciones rápidas */}
               {(onCambiarEstado || onReubicar || onEditar) && (
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {onCambiarEstado && profile.estado !== 'asignado' && profile.estado !== 'en_traslado' && (
+                  {onCambiarEstado && profile.estado !== 'asignado' && (
                     <button
                       onClick={onCambiarEstado}
                       className="px-2.5 py-1 text-xs font-medium rounded-md bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"

@@ -100,7 +100,6 @@ class ComprasService {
         cd.*,
         a.nombre AS articulo_nombre,
         a.tracking_mode,
-        a.retorno_mode,
         (
           SELECT COALESCE(
             json_agg(
@@ -117,13 +116,7 @@ class ComprasService {
           )
           FROM activo ac
           WHERE ac.compra_detalle_id = cd.id
-        ) AS activos,
-        (
-          SELECT row_to_json(l)
-          FROM lote l
-          WHERE l.compra_detalle_id = cd.id
-          LIMIT 1
-        ) AS lote
+        ) AS activos
       FROM compra_detalle cd
       INNER JOIN articulo a ON a.id = cd.articulo_id
       WHERE cd.compra_id = $1
@@ -410,72 +403,23 @@ class ComprasService {
   }
 
   static async ingresarArticulosConStock(client, context) {
-    let loteId = context.detalle.lote_id || null;
-
-    if (!loteId && (context.articulo.tracking_mode === 'lote' || context.detalle.lote)) {
-      const loteData = context.detalle.lote || {};
-      const loteResult = await client.query(
-        `
-        INSERT INTO lote (
-          articulo_id,
-          compra_detalle_id,
-          codigo_lote,
-          fecha_fabricacion,
-          fecha_vencimiento,
-          estado
-        )
-        VALUES ($1, $2, $3, $4, $5, 'activo')
-        RETURNING id
-        `,
-        [
-          context.articulo.id,
-          context.compraDetalleId,
-          loteData.codigo_lote || null,
-          loteData.fecha_fabricacion || null,
-          loteData.fecha_vencimiento || null,
-        ]
-      );
-
-      loteId = loteResult.rows[0].id;
-    }
-
-    if (loteId) {
-      await client.query(
-        `
-        INSERT INTO stock (
-          ubicacion_id,
-          articulo_id,
-          lote_id,
-          cantidad_disponible,
-          cantidad_reservada
-        )
-        VALUES ($1, $2, $3, $4, 0)
-        ON CONFLICT (ubicacion_id, articulo_id, lote_id) WHERE lote_id IS NOT NULL
-        DO UPDATE SET
-          cantidad_disponible = stock.cantidad_disponible + EXCLUDED.cantidad_disponible,
-          actualizado_en = NOW()
-        `,
-        [context.detalle.ubicacion_id, context.articulo.id, loteId, context.qty]
-      );
-    } else {
-      await client.query(
-        `
-        INSERT INTO stock (
-          ubicacion_id,
-          articulo_id,
-          lote_id,
-          cantidad_disponible,
-          cantidad_reservada
-        )
-        VALUES ($1, $2, NULL, $3, 0)
-        ON CONFLICT (ubicacion_id, articulo_id) WHERE lote_id IS NULL
-        DO UPDATE SET
-          cantidad_disponible = stock.cantidad_disponible + EXCLUDED.cantidad_disponible,
-          actualizado_en = NOW()
-        `,
-        [context.detalle.ubicacion_id, context.articulo.id, context.qty]
-      );
-    }
+    await client.query(
+      `
+      INSERT INTO stock (
+        ubicacion_id,
+        articulo_id,
+        lote_id,
+        cantidad_disponible,
+        cantidad_reservada
+      )
+      VALUES ($1, $2, NULL, $3, 0)
+      ON CONFLICT (ubicacion_id, articulo_id) WHERE lote_id IS NULL
+      DO UPDATE SET
+        cantidad_disponible = stock.cantidad_disponible + EXCLUDED.cantidad_disponible,
+        actualizado_en = NOW()
+      `,
+      [context.detalle.ubicacion_id, context.articulo.id, context.qty]
+    );
 
     await client.query(
       `
@@ -494,7 +438,7 @@ class ComprasService {
       `,
       [
         context.articulo.id,
-        loteId,
+        null,
         context.detalle.ubicacion_id,
         context.qty,
         context.userId,

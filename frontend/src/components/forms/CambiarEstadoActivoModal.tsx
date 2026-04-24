@@ -95,7 +95,6 @@ const CambiarEstadoActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess 
           <p className="text-sm text-gray-500 italic">
             No hay transiciones disponibles para el estado actual ({activo.estado}).
             {activo.estado === 'asignado' && ' Debe procesarse mediante devolución.'}
-            {activo.estado === 'en_traslado' && ' Debe recibirse o deshacerse la entrega.'}
           </p>
         ) : (
           <>

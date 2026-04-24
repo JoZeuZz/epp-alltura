@@ -1,12 +1,12 @@
 -- ==========================================================================
--- Seed de desarrollo integral para flujo EPP/Herramientas.
+-- Seed de desarrollo integral para flujo de Equipos/Herramientas.
 -- Este archivo esta pensado para entorno local y es idempotente.
 --
 -- Dataset: 13 usuarios, 8 trabajadores, 6 ubicaciones, 3 proveedores,
 -- 15 taladros, 11 arneses, 150 guantes, 9 entregas, 3 devoluciones,
 -- 2 egresos y ~60 movimientos de trazabilidad.
 --
--- Cubre los 6 estados de activo: en_stock, asignado, en_traslado,
+-- Cubre los 5 estados de activo: en_stock, asignado,
 -- mantencion, dado_de_baja, perdido.
 --
 -- Password demo para todos: Dev12345!
@@ -15,7 +15,7 @@
 DO $$
 BEGIN
   IF current_database() NOT ILIKE '%dev%'
-     AND current_database() NOT IN ('herramientas_epp') THEN
+     AND current_database() NOT IN ('herramientas_epp', 'herramientas', 'herramientas_dev') THEN
     RAISE NOTICE '002-dev-seed.sql omitido: base de datos no parece de desarrollo (%).', current_database();
     RETURN;
   END IF;
@@ -109,6 +109,7 @@ BEGIN
   INSERT INTO ubicacion (id, nombre, tipo, ubicacion_subtipo, cliente, direccion, estado, fecha_inicio_operacion)
   VALUES
     ('00000000-0000-0000-0000-000000003001', 'Bodega Central',          'bodega',            'fija',        NULL,                'Camino Industrial 100',     'activo', NOW() - INTERVAL '2 years'),
+    -- Compat legacy: se conserva para pruebas históricas y trazabilidad, no como flujo operativo principal.
     ('00000000-0000-0000-0000-000000003002', 'Bodega Transitoria Sur',  'bodega',            'transitoria', NULL,                'Ruta 68 KM 12',            'activo', NOW() - INTERVAL '6 months'),
     ('00000000-0000-0000-0000-000000003003', 'Faena Norte',             'planta',            NULL,          'Minera Norte SpA',  'Ruta 5 Norte KM 1000',     'activo', NOW() - INTERVAL '18 months'),
     ('00000000-0000-0000-0000-000000003004', 'Faena Sur',               'planta',            NULL,          'Constructora Sur',  'Ruta 5 Sur KM 500',        'activo', NOW() - INTERVAL '12 months'),
@@ -131,12 +132,19 @@ BEGIN
   -- 7) ARTICULOS (3) — mismos IDs para compatibilidad
   -- ============================================================
 
-  INSERT INTO articulo (id, tipo, nombre, marca, modelo, categoria, tracking_mode, retorno_mode, nivel_control, requiere_vencimiento, unidad_medida, estado)
+  INSERT INTO articulo (id, tipo, grupo_principal, nombre, marca, modelo, categoria, subclasificacion, tracking_mode, retorno_mode, nivel_control, requiere_vencimiento, unidad_medida, estado)
   VALUES
-    ('00000000-0000-0000-0000-000000000401', 'herramienta', 'Taladro Industrial',    'Bosch',     'GSB-16',     'Herramientas electricas', 'serial', 'retornable', 'alto', FALSE, 'unidad', 'activo'),
-    ('00000000-0000-0000-0000-000000000402', 'epp',         'Arnes de Seguridad',    '3M',        'Protecta X', 'EPP Altura',              'serial', 'retornable', 'alto', TRUE,  'unidad', 'activo'),
-    ('00000000-0000-0000-0000-000000000403', 'consumible',  'Guante de cabritilla',  'SegurPlus', 'GC-01',      'EPP Mano',                'lote',   'consumible', 'bajo', FALSE, 'par',    'activo')
+    ('00000000-0000-0000-0000-000000000401', 'herramienta', 'herramienta', 'Taladro Industrial',    'Bosch',     'GSB-16',     'electrica_cable',         'electrica_cable',         'serial', 'retornable', 'alto', FALSE, 'unidad', 'activo'),
+    ('00000000-0000-0000-0000-000000000402', 'equipo',      'equipo',      'Arnes de Seguridad',    '3M',        'Protecta X', 'epp',                     'epp',                     'serial', 'retornable', 'alto', TRUE,  'unidad', 'activo'),
+    ('00000000-0000-0000-0000-000000000403', 'equipo',      'equipo',      'Guante de cabritilla',  'SegurPlus', 'GC-01',      'epp',                     'epp',                     'lote',   'retornable', 'bajo', FALSE, 'par',    'activo')
   ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO articulo_especialidad (articulo_id, especialidad)
+  VALUES
+    ('00000000-0000-0000-0000-000000000401', 'ooee'),
+    ('00000000-0000-0000-0000-000000000402', 'trabajos_verticales_lineas_de_vida'),
+    ('00000000-0000-0000-0000-000000000403', 'oocc')
+  ON CONFLICT (articulo_id, especialidad) DO NOTHING;
 
   -- ============================================================
   -- 8) COMPRAS: 2 facturas, 2 compras, 3 detalles
@@ -171,7 +179,7 @@ BEGIN
   --  TAL-007 mantencion Taller Mant.       (admin directo)
   --  TAL-008 dado_baja  Bodega Central     (egreso baja)
   --  TAL-009 perdido    Faena Sur          (devolucion D3)
-  --  TAL-010 en_traslado Bodega Central    (traslado E6 en_transito)
+  --  TAL-010 asignado   Faena Sur          (entrega E6 confirmada)
   --  TAL-011 asignado   Faena Sur          (custodia Pedro)
   --  TAL-012 en_stock   Bodega Central     (devuelto D2)
   --  TAL-013 en_stock   Faena Norte        (ingreso directo)
@@ -200,7 +208,7 @@ BEGIN
     ('00000000-0000-0000-0000-000000006007', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-007', 'TAL-007', 130000, 'mantencion',    '00000000-0000-0000-0000-000000003006', NOW()-INTERVAL '60 days', NULL),
     ('00000000-0000-0000-0000-000000006008', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-008', 'TAL-008', 130000, 'dado_de_baja',  '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '60 days', NULL),
     ('00000000-0000-0000-0000-000000006009', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-009', 'TAL-009', 130000, 'perdido',       '00000000-0000-0000-0000-000000003004', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006010', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-010', 'TAL-010', 130000, 'en_traslado',   '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006010', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-010', 'TAL-010', 130000, 'asignado',      '00000000-0000-0000-0000-000000003004', NOW()-INTERVAL '60 days', NULL),
     ('00000000-0000-0000-0000-000000006011', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-011', 'TAL-011', 130000, 'asignado',      '00000000-0000-0000-0000-000000003004', NOW()-INTERVAL '60 days', NULL),
     ('00000000-0000-0000-0000-000000006012', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-012', 'TAL-012', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '60 days', NULL),
     ('00000000-0000-0000-0000-000000006013', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-013', 'TAL-013', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003003', NOW()-INTERVAL '60 days', NULL),
@@ -221,7 +229,7 @@ BEGIN
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
-  -- 10) STOCK CONSUMIBLE
+  -- 10) STOCK NO SERIALIZADO
   -- Balance: 150 ingreso - 35 entregas - 35 egresos = 80 pares
   -- ============================================================
 
@@ -236,22 +244,22 @@ BEGIN
   --  E3 confirmada  Maria   TAL-003                    → Faena Norte
   --  E4 confirmada  Ana     TAL-012+ARN-002+ARN-003    → Faena Sur
   --  E5 confirmada  Pedro   TAL-011+TAL-009+ARN-005+ARN-006+ARN-009+15guantes → Faena Sur
-  --  E6 en_transito Rosa    TAL-010 (traslado)         → Faena Sur
+  --  E6 confirmada  Rosa    TAL-010                    → Faena Sur
   --  E7 confirmada  Luis    TAL-014+10guantes          → Proyecto Minero
   --  E8 confirmada  Felipe  ARN-008                    → Proyecto Minero
   --  E9 borrador    Ana     TAL-005 (sin firma)        → Faena Sur
   -- ============================================================
 
-  INSERT INTO entrega (id, creado_por_usuario_id, trabajador_id, ubicacion_origen_id, ubicacion_destino_id, tipo, estado, nota_destino, creado_en, confirmada_en, transportista_trabajador_id, recibido_por_usuario_id, recibido_en) VALUES
-    ('00000000-0000-0000-0000-000000008001', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002001', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', 'entrega',  'confirmada',  'Entrega taladro + arnes + guantes a Juan para faena.',         NOW()-INTERVAL '30 days', NOW()-INTERVAL '30 days', NULL, NULL, NULL),
-    ('00000000-0000-0000-0000-000000008002', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002003', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', 'entrega',  'confirmada',  'Entrega taladro a Carlos para obra norte.',                    NOW()-INTERVAL '28 days', NOW()-INTERVAL '28 days', NULL, NULL, NULL),
-    ('00000000-0000-0000-0000-000000008003', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002002', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', 'entrega',  'confirmada',  'Entrega taladro a Maria para tarea puntual.',                  NOW()-INTERVAL '25 days', NOW()-INTERVAL '25 days', NULL, NULL, NULL),
-    ('00000000-0000-0000-0000-000000008004', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002004', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', 'entrega',  'confirmada',  'Entrega taladro + 2 arneses a Ana para faena sur.',            NOW()-INTERVAL '22 days', NOW()-INTERVAL '22 days', NULL, NULL, NULL),
-    ('00000000-0000-0000-0000-000000008005', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002005', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', 'entrega',  'confirmada',  'Entrega de equipos a Pedro para cuadrilla sur.',               NOW()-INTERVAL '20 days', NOW()-INTERVAL '20 days', NULL, NULL, NULL),
-    ('00000000-0000-0000-0000-000000008006', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002007', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', 'traslado', 'en_transito', 'Traslado de taladro a Faena Sur por Rosa.',                    NOW()-INTERVAL '10 days', NULL,                      '00000000-0000-0000-0000-000000002007', NULL, NULL),
-    ('00000000-0000-0000-0000-000000008007', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002006', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003005', 'entrega',  'confirmada',  'Entrega taladro + guantes a Luis para proyecto minero.',       NOW()-INTERVAL '15 days', NOW()-INTERVAL '15 days', NULL, NULL, NULL),
-    ('00000000-0000-0000-0000-000000008008', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002008', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003005', 'entrega',  'confirmada',  'Entrega arnes a Felipe para trabajo en altura.',              NOW()-INTERVAL '12 days', NOW()-INTERVAL '12 days', NULL, NULL, NULL),
-    ('00000000-0000-0000-0000-000000008009', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002004', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', 'entrega',  'borrador',    'Entrega pendiente de revision para Ana.',                      NOW()-INTERVAL '2 days',  NULL,                      NULL, NULL, NULL)
+  INSERT INTO entrega (id, creado_por_usuario_id, trabajador_id, ubicacion_origen_id, ubicacion_destino_id, tipo, estado, nota_destino, creado_en, confirmada_en) VALUES
+    ('00000000-0000-0000-0000-000000008001', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002001', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', 'entrega', 'confirmada', 'Entrega taladro + arnes + guantes a Juan para faena.',         NOW()-INTERVAL '30 days', NOW()-INTERVAL '30 days'),
+    ('00000000-0000-0000-0000-000000008002', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002003', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', 'entrega', 'confirmada', 'Entrega taladro a Carlos para obra norte.',                    NOW()-INTERVAL '28 days', NOW()-INTERVAL '28 days'),
+    ('00000000-0000-0000-0000-000000008003', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002002', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', 'entrega', 'confirmada', 'Entrega taladro a Maria para tarea puntual.',                  NOW()-INTERVAL '25 days', NOW()-INTERVAL '25 days'),
+    ('00000000-0000-0000-0000-000000008004', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002004', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', 'entrega', 'confirmada', 'Entrega taladro + 2 arneses a Ana para faena sur.',            NOW()-INTERVAL '22 days', NOW()-INTERVAL '22 days'),
+    ('00000000-0000-0000-0000-000000008005', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002005', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', 'entrega', 'confirmada', 'Entrega de equipos a Pedro para cuadrilla sur.',               NOW()-INTERVAL '20 days', NOW()-INTERVAL '20 days'),
+    ('00000000-0000-0000-0000-000000008006', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002007', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', 'entrega', 'confirmada', 'Entrega de taladro a Rosa para Faena Sur.',                     NOW()-INTERVAL '10 days', NOW()-INTERVAL '10 days'),
+    ('00000000-0000-0000-0000-000000008007', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002006', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003005', 'entrega', 'confirmada', 'Entrega taladro + guantes a Luis para proyecto minero.',       NOW()-INTERVAL '15 days', NOW()-INTERVAL '15 days'),
+    ('00000000-0000-0000-0000-000000008008', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002008', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003005', 'entrega', 'confirmada', 'Entrega arnes a Felipe para trabajo en altura.',              NOW()-INTERVAL '12 days', NOW()-INTERVAL '12 days'),
+    ('00000000-0000-0000-0000-000000008009', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000002004', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', 'entrega', 'borrador',   'Entrega pendiente de revision para Ana.',                      NOW()-INTERVAL '2 days',  NULL)
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
@@ -277,9 +285,9 @@ BEGIN
     ('00000000-0000-0000-0000-000000008111', '00000000-0000-0000-0000-000000008005', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000006105', NULL, 1,  'retornable', 'ok',    'Arnes tipo 1 para Pedro.'),
     ('00000000-0000-0000-0000-000000008112', '00000000-0000-0000-0000-000000008005', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000006106', NULL, 1,  'retornable', 'usado', 'Arnes tipo 2, estado usado.'),
     ('00000000-0000-0000-0000-000000008113', '00000000-0000-0000-0000-000000008005', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000006109', NULL, 1,  'retornable', 'ok',    'Tercer arnes para Pedro.'),
-    ('00000000-0000-0000-0000-000000008114', '00000000-0000-0000-0000-000000008005', '00000000-0000-0000-0000-000000000403', NULL,                                    NULL, 15, 'asignacion',  'ok',    'Guantes consumibles para cuadrilla.'),
-    -- E6: traslado (TAL-010)
-    ('00000000-0000-0000-0000-000000008115', '00000000-0000-0000-0000-000000008006', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000006010', NULL, 1,  'retornable', 'ok',    'Taladro para traslado a Faena Sur.'),
+    ('00000000-0000-0000-0000-000000008114', '00000000-0000-0000-0000-000000008005', '00000000-0000-0000-0000-000000000403', NULL,                                    NULL, 15, 'asignacion',  'ok',    'Guantes para cuadrilla.'),
+    -- E6: Rosa (TAL-010)
+    ('00000000-0000-0000-0000-000000008115', '00000000-0000-0000-0000-000000008006', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000006010', NULL, 1,  'retornable', 'ok',    'Taladro para entrega en Faena Sur.'),
     -- E7: Luis (TAL-014 + 10 guantes)
     ('00000000-0000-0000-0000-000000008116', '00000000-0000-0000-0000-000000008007', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000006014', NULL, 1,  'retornable', 'ok',    'Taladro para proyecto minero.'),
     ('00000000-0000-0000-0000-000000008117', '00000000-0000-0000-0000-000000008007', '00000000-0000-0000-0000-000000000403', NULL,                                    NULL, 10, 'asignacion',  'ok',    'Guantes para proyecto minero.'),
@@ -299,7 +307,7 @@ BEGIN
     ('00000000-0000-0000-0000-000000008203', '00000000-0000-0000-0000-000000008003', '00000000-0000-0000-0000-000000002002', 'en_dispositivo', 'Declaro recibir en conformidad los elementos de esta entrega.', 'dev-hash-e3', 'https://example.local/sig/e3.png', '127.0.0.1', 'dev-seed', NOW()-INTERVAL '25 days'),
     ('00000000-0000-0000-0000-000000008204', '00000000-0000-0000-0000-000000008004', '00000000-0000-0000-0000-000000002004', 'en_dispositivo', 'Declaro recibir en conformidad los elementos de esta entrega.', 'dev-hash-e4', 'https://example.local/sig/e4.png', '127.0.0.1', 'dev-seed', NOW()-INTERVAL '22 days'),
     ('00000000-0000-0000-0000-000000008205', '00000000-0000-0000-0000-000000008005', '00000000-0000-0000-0000-000000002005', 'en_dispositivo', 'Declaro recibir en conformidad los elementos de esta entrega.', 'dev-hash-e5', 'https://example.local/sig/e5.png', '127.0.0.1', 'dev-seed', NOW()-INTERVAL '20 days'),
-    ('00000000-0000-0000-0000-000000008206', '00000000-0000-0000-0000-000000008006', '00000000-0000-0000-0000-000000002007', 'en_dispositivo', 'Declaro recibir en conformidad los elementos de este traslado.','dev-hash-e6', 'https://example.local/sig/e6.png', '127.0.0.1', 'dev-seed', NOW()-INTERVAL '10 days'),
+    ('00000000-0000-0000-0000-000000008206', '00000000-0000-0000-0000-000000008006', '00000000-0000-0000-0000-000000002007', 'en_dispositivo', 'Declaro recibir en conformidad los elementos de esta entrega.', 'dev-hash-e6', 'https://example.local/sig/e6.png', '127.0.0.1', 'dev-seed', NOW()-INTERVAL '10 days'),
     ('00000000-0000-0000-0000-000000008207', '00000000-0000-0000-0000-000000008007', '00000000-0000-0000-0000-000000002006', 'en_dispositivo', 'Declaro recibir en conformidad los elementos de esta entrega.', 'dev-hash-e7', 'https://example.local/sig/e7.png', '127.0.0.1', 'dev-seed', NOW()-INTERVAL '15 days'),
     ('00000000-0000-0000-0000-000000008208', '00000000-0000-0000-0000-000000008008', '00000000-0000-0000-0000-000000002008', 'en_dispositivo', 'Declaro recibir en conformidad los elementos de esta entrega.', 'dev-hash-e8', 'https://example.local/sig/e8.png', '127.0.0.1', 'dev-seed', NOW()-INTERVAL '12 days')
   ON CONFLICT (id) DO NOTHING;
@@ -309,12 +317,13 @@ BEGIN
   -- ============================================================
 
   INSERT INTO custodia_activo (id, activo_id, trabajador_id, ubicacion_destino_id, entrega_id, desde_en, hasta_en, estado) VALUES
-    -- activas (7)
+    -- activas (8)
     ('00000000-0000-0000-0000-000000008301', '00000000-0000-0000-0000-000000006001', '00000000-0000-0000-0000-000000002001', '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000008001', NOW()-INTERVAL '30 days', NULL,                      'activa'),
     ('00000000-0000-0000-0000-000000008302', '00000000-0000-0000-0000-000000006101', '00000000-0000-0000-0000-000000002001', '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000008001', NOW()-INTERVAL '30 days', NULL,                      'activa'),
     ('00000000-0000-0000-0000-000000008303', '00000000-0000-0000-0000-000000006002', '00000000-0000-0000-0000-000000002003', '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000008002', NOW()-INTERVAL '28 days', NULL,                      'activa'),
     ('00000000-0000-0000-0000-000000008306', '00000000-0000-0000-0000-000000006102', '00000000-0000-0000-0000-000000002004', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000008004', NOW()-INTERVAL '22 days', NULL,                      'activa'),
     ('00000000-0000-0000-0000-000000008308', '00000000-0000-0000-0000-000000006011', '00000000-0000-0000-0000-000000002005', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000008005', NOW()-INTERVAL '20 days', NULL,                      'activa'),
+    ('00000000-0000-0000-0000-000000008315', '00000000-0000-0000-0000-000000006010', '00000000-0000-0000-0000-000000002007', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000008006', NOW()-INTERVAL '10 days', NULL,                      'activa'),
     ('00000000-0000-0000-0000-000000008313', '00000000-0000-0000-0000-000000006014', '00000000-0000-0000-0000-000000002006', '00000000-0000-0000-0000-000000003005', '00000000-0000-0000-0000-000000008007', NOW()-INTERVAL '15 days', NULL,                      'activa'),
     ('00000000-0000-0000-0000-000000008314', '00000000-0000-0000-0000-000000006108', '00000000-0000-0000-0000-000000002008', '00000000-0000-0000-0000-000000003005', '00000000-0000-0000-0000-000000008008', NOW()-INTERVAL '12 days', NULL,                      'activa'),
     -- cerradas por devolucion (7)
@@ -367,18 +376,18 @@ BEGIN
   -- ============================================================
   -- 18) EGRESOS (2)
   --  EG1: baja (TAL-008 + 10 guantes danados)
-  --  EG2: consumo (25 guantes)
+  --  EG2: salida operativa (25 guantes)
   -- ============================================================
 
   INSERT INTO egreso (id, creado_por_usuario_id, tipo_motivo, creado_en, notas) VALUES
     ('00000000-0000-0000-0000-000000009301', '00000000-0000-0000-0000-000000001002', 'baja',    NOW()-INTERVAL '8 days', 'Baja de taladro danado y guantes irrecuperables.'),
-    ('00000000-0000-0000-0000-000000009302', '00000000-0000-0000-0000-000000001002', 'consumo', NOW()-INTERVAL '5 days', 'Consumo programado de guantes para cuadrilla.')
+    ('00000000-0000-0000-0000-000000009302', '00000000-0000-0000-0000-000000001002', 'salida', NOW()-INTERVAL '5 days', 'Salida operativa programada de guantes para cuadrilla.')
   ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO egreso_detalle (id, egreso_id, articulo_id, ubicacion_id, lote_id, cantidad, notas, activo_id) VALUES
     ('00000000-0000-0000-0000-000000009401', '00000000-0000-0000-0000-000000009301', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000003001', NULL, 1,  'Taladro TAL-008 dado de baja por falla mecanica.', '00000000-0000-0000-0000-000000006008'),
     ('00000000-0000-0000-0000-000000009402', '00000000-0000-0000-0000-000000009301', '00000000-0000-0000-0000-000000000403', '00000000-0000-0000-0000-000000003001', NULL, 10, 'Guantes danados dados de baja.',                    NULL),
-    ('00000000-0000-0000-0000-000000009403', '00000000-0000-0000-0000-000000009302', '00000000-0000-0000-0000-000000000403', '00000000-0000-0000-0000-000000003001', NULL, 25, 'Consumo general de guantes.',                       NULL)
+    ('00000000-0000-0000-0000-000000009403', '00000000-0000-0000-0000-000000009302', '00000000-0000-0000-0000-000000000403', '00000000-0000-0000-0000-000000003001', NULL, 25, 'Salida operativa de guantes.',                      NULL)
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
@@ -393,7 +402,7 @@ BEGIN
     ('00000000-0000-0000-0000-00000000a005', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '20 days', 'entrega',  '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', 15,  '00000000-0000-0000-0000-000000001002', NULL, '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Salida guantes E5 a Pedro.'),
     ('00000000-0000-0000-0000-00000000a006', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '15 days', 'entrega',  '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003005', 10,  '00000000-0000-0000-0000-000000001002', NULL, '00000000-0000-0000-0000-000000008007', NULL, NULL, 'Salida guantes E7 a Luis.'),
     ('00000000-0000-0000-0000-00000000a007', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '8 days',  'baja',     '00000000-0000-0000-0000-000000003001', NULL,                                    10,  '00000000-0000-0000-0000-000000001002', NULL, NULL, NULL, '00000000-0000-0000-0000-000000009301', 'Baja guantes danados EG1.'),
-    ('00000000-0000-0000-0000-00000000a008', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '5 days',  'consumo',  '00000000-0000-0000-0000-000000003001', NULL,                                    25,  '00000000-0000-0000-0000-000000001002', NULL, NULL, NULL, '00000000-0000-0000-0000-000000009302', 'Consumo guantes EG2.')
+    ('00000000-0000-0000-0000-00000000a008', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '5 days',  'salida',   '00000000-0000-0000-0000-000000003001', NULL,                                    25,  '00000000-0000-0000-0000-000000001002', NULL, NULL, NULL, '00000000-0000-0000-0000-000000009302', 'Salida operativa guantes EG2.')
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
@@ -448,8 +457,8 @@ BEGIN
     ('00000000-0000-0000-0000-00000000b036', '00000000-0000-0000-0000-000000006105', NOW()-INTERVAL '20 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Entrega ARN-005 a Pedro.'),
     ('00000000-0000-0000-0000-00000000b037', '00000000-0000-0000-0000-000000006106', NOW()-INTERVAL '20 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Entrega ARN-006 a Pedro.'),
     ('00000000-0000-0000-0000-00000000b038', '00000000-0000-0000-0000-000000006109', NOW()-INTERVAL '20 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Entrega ARN-009 a Pedro.'),
-    -- E6: traslado en_transito TAL-010
-    ('00000000-0000-0000-0000-00000000b039', '00000000-0000-0000-0000-000000006010', NOW()-INTERVAL '10 days', 'traslado', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000008006', NULL, NULL, 'Traslado TAL-010 a Faena Sur (en transito).'),
+    -- E6: entrega TAL-010 a Rosa
+    ('00000000-0000-0000-0000-00000000b039', '00000000-0000-0000-0000-000000006010', NOW()-INTERVAL '10 days', 'entrega',  '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000008006', NULL, NULL, 'Entrega TAL-010 a Rosa.'),
     -- E7+E8: entregas a proyecto minero
     ('00000000-0000-0000-0000-00000000b040', '00000000-0000-0000-0000-000000006014', NOW()-INTERVAL '15 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003005', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000008007', NULL, NULL, 'Entrega TAL-014 a Luis.'),
     ('00000000-0000-0000-0000-00000000b041', '00000000-0000-0000-0000-000000006108', NOW()-INTERVAL '12 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003005', '00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000008008', NULL, NULL, 'Entrega ARN-008 a Felipe.'),
@@ -464,11 +473,11 @@ BEGIN
     -- BAJA EGRESO
     ('00000000-0000-0000-0000-00000000b049', '00000000-0000-0000-0000-000000006008', NOW()-INTERVAL '8 days',  'baja',       '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001002', NULL, NULL, '00000000-0000-0000-0000-000000009301', 'TAL-008 dado de baja por falla.'),
     -- REUBICACIONES
-    ('00000000-0000-0000-0000-00000000b050', '00000000-0000-0000-0000-000000006006', NOW()-INTERVAL '35 days', 'traslado',   '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003002', '00000000-0000-0000-0000-000000001002', NULL, NULL, NULL, 'Reubicacion TAL-006 a Bodega Transitoria.'),
-    ('00000000-0000-0000-0000-00000000b051', '00000000-0000-0000-0000-000000006110', NOW()-INTERVAL '35 days', 'traslado',   '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003002', '00000000-0000-0000-0000-000000001002', NULL, NULL, NULL, 'Reubicacion ARN-010 a Bodega Transitoria.'),
+    ('00000000-0000-0000-0000-00000000b050', '00000000-0000-0000-0000-000000006006', NOW()-INTERVAL '35 days', 'ajuste',     '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003002', '00000000-0000-0000-0000-000000001002', NULL, NULL, NULL, 'Reubicacion TAL-006 a Bodega Transitoria.'),
+    ('00000000-0000-0000-0000-00000000b051', '00000000-0000-0000-0000-000000006110', NOW()-INTERVAL '35 days', 'ajuste',     '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003002', '00000000-0000-0000-0000-000000001002', NULL, NULL, NULL, 'Reubicacion ARN-010 a Bodega Transitoria.'),
     -- MANTENCION ADMIN DIRECTA
     ('00000000-0000-0000-0000-00000000b052', '00000000-0000-0000-0000-000000006007', NOW()-INTERVAL '34 days', 'mantencion', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003006', '00000000-0000-0000-0000-000000001001', NULL, NULL, NULL, 'TAL-007 enviado a mantencion preventiva por admin.')
   ON CONFLICT (id) DO NOTHING;
 
-  RAISE NOTICE '002-dev-seed.sql aplicado: dataset completo — 13 usuarios, 8 trabajadores, 26 activos (6 estados), 9 entregas, 3 devoluciones, 2 egresos, ~60 movimientos.';
+  RAISE NOTICE '002-dev-seed.sql aplicado: dataset completo — 13 usuarios, 8 trabajadores, 26 activos (5 estados), 9 entregas, 3 devoluciones, 2 egresos, ~60 movimientos.';
 END $$;

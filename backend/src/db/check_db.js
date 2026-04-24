@@ -17,7 +17,6 @@ const requiredTables = [
   'documento_compra',
   'compra',
   'compra_detalle',
-  'lote',
   'activo',
   'stock',
   'entrega',

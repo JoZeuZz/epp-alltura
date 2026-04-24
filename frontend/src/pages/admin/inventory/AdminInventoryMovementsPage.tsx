@@ -12,7 +12,6 @@ interface MovementRow {
   tipo?: string;
   articulo_nombre?: string;
   cantidad?: number;
-  codigo_lote?: string | null;
   ubicacion_origen_nombre?: string | null;
   ubicacion_destino_nombre?: string | null;
   responsable_email?: string;
@@ -44,10 +43,8 @@ const formatDateTime = (value?: string | null): string => {
 const TIPO_LABELS: Record<string, string> = {
   entrada: 'Entrada',
   salida: 'Salida',
-  traslado: 'Traslado',
   ajuste: 'Ajuste',
   baja: 'Baja',
-  consumo: 'Consumo',
   entrega: 'Entrega',
   devolucion: 'Devolución',
 };
@@ -149,7 +146,7 @@ const AdminInventoryMovementsPage: React.FC = () => {
     []
   );
 
-  const tipos = ['entrada', 'salida', 'traslado', 'ajuste', 'baja', 'consumo', 'entrega', 'devolucion'];
+  const tipos = ['entrada', 'salida', 'ajuste', 'baja', 'entrega', 'devolucion'];
 
   const handleExport = async () => {
     try {

@@ -30,7 +30,6 @@ interface ArticuloOption {
   id: string;
   nombre: string;
   tracking_mode?: 'serial' | 'lote';
-  retorno_mode?: 'retornable' | 'consumible';
 }
 
 const trackingModeLabel = (mode?: ArticuloOption['tracking_mode']) => {
@@ -60,13 +59,10 @@ const emptyReturnDetail = () => ({
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 const ACCEPTANCE_TEXT_DEFAULT =
-  'Declaro recibir los EPP/herramientas detallados, en condición declarada, asumiendo custodia y uso responsable.';
-
-const ACCEPTANCE_TEXT_TRASLADO =
-  'Declaro transportar y custodiar temporalmente los artículos indicados en este traslado, asumiendo responsabilidad por su resguardo hasta la recepción en la bodega destino.';
+  'Confirmo que recibo los equipos y herramientas indicados en buen estado y me comprometo a su uso y cuidado responsable.';
 
 const ACCEPTANCE_TEXT_DEVOLUCION =
-  'Declaro haber recepcionado los artículos devueltos y validado su condición de entrada según el registro de devolución.';
+  'Confirmo que recibo la devolución y que la condición de entrada quedó registrada correctamente.';
 
 interface DeliveryTokenMeta {
   token: string;
@@ -134,18 +130,14 @@ const WarehouseDashboard: React.FC = () => {
 
   const [deliveryForm, setDeliveryForm] = useState({
     trabajador_id: '',
-    transportista_trabajador_id: '',
-    receptor_trabajador_id: '',
     ubicacion_origen_id: '',
     ubicacion_destino_id: '',
-    es_traslado: false,
     nota_destino: '',
     detalles: [emptyDeliveryDetail()],
   });
 
   const [signatureForm, setSignatureForm] = useState({
     entregaId: '',
-    texto_aceptacion: ACCEPTANCE_TEXT_DEFAULT,
   });
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [signaturePadKey, setSignaturePadKey] = useState(0);
@@ -159,7 +151,6 @@ const WarehouseDashboard: React.FC = () => {
 
   const [returnSignatureForm, setReturnSignatureForm] = useState({
     devolucionId: '',
-    texto_aceptacion: ACCEPTANCE_TEXT_DEVOLUCION,
   });
   const [returnSignatureFile, setReturnSignatureFile] = useState<File | null>(null);
   const [returnSignaturePadKey, setReturnSignaturePadKey] = useState(0);
@@ -193,11 +184,6 @@ const WarehouseDashboard: React.FC = () => {
     [devoluciones]
   );
 
-  const selectedPendingDelivery = useMemo(
-    () => pendingDeliveries.find((item) => item.id === signatureForm.entregaId) || null,
-    [pendingDeliveries, signatureForm.entregaId]
-  );
-
   const selectedPurchaseArticle = useMemo(
     () => articulos.find((item) => item.id === purchaseForm.articulo_id),
     [articulos, purchaseForm.articulo_id]
@@ -211,23 +197,18 @@ const WarehouseDashboard: React.FC = () => {
     });
   };
 
-  const isTraslado = deliveryForm.es_traslado;
-
   const availableOriginLocations = useMemo(
     () => ubicaciones.filter((item) => !item.tipo || item.tipo === 'bodega'),
     [ubicaciones]
   );
 
-  const availableDestinationLocations = useMemo(() => {
-    if (isTraslado) {
-      return ubicaciones.filter((item) => !item.tipo || item.tipo === 'bodega');
-    }
-
-    return ubicaciones.filter((item) => !item.tipo || item.tipo === 'planta');
-  }, [ubicaciones, isTraslado]);
+  const availableDestinationLocations = useMemo(
+    () => ubicaciones.filter((item) => !item.tipo || item.tipo === 'planta'),
+    [ubicaciones]
+  );
 
   const returnableArticles = useMemo(
-    () => articulos.filter((item) => item.retorno_mode !== 'consumible'),
+    () => articulos.filter((item) => item.tracking_mode === 'serial'),
     [articulos]
   );
 
@@ -252,17 +233,8 @@ const WarehouseDashboard: React.FC = () => {
     e.preventDefault();
 
     try {
-      const resolvedTrabajadorId = isTraslado
-        ? deliveryForm.transportista_trabajador_id
-        : deliveryForm.trabajador_id;
-
-      if (!resolvedTrabajadorId) {
-        toast.error(isTraslado ? 'Selecciona transportista.' : 'Selecciona trabajador.');
-        return;
-      }
-
-      if (isTraslado && !deliveryForm.receptor_trabajador_id) {
-        toast.error('Selecciona receptor para el traslado.');
+      if (!deliveryForm.trabajador_id) {
+        toast.error('Selecciona trabajador.');
         return;
       }
 
@@ -306,22 +278,15 @@ const WarehouseDashboard: React.FC = () => {
           }
         }
 
-        if (art.retorno_mode === 'consumible' && (detail.activo_ids?.length || 0) > 0) {
-          toast.error(`El artículo ${art.nombre} es consumible y no admite activos serializados.`);
+        if (art.tracking_mode && art.tracking_mode !== 'serial') {
+          toast.error(`El artículo ${art.nombre} no cumple política V2: solo serializados.`);
           return;
         }
       }
 
       const payload = {
         ...deliveryForm,
-        trabajador_id: resolvedTrabajadorId,
-        es_traslado: isTraslado,
-        transportista_trabajador_id: isTraslado
-          ? deliveryForm.transportista_trabajador_id
-          : null,
-        receptor_trabajador_id: isTraslado
-          ? deliveryForm.receptor_trabajador_id
-          : null,
+        trabajador_id: deliveryForm.trabajador_id,
         detalles: deliveryForm.detalles.map((detail) => ({
           ...detail,
           activo_ids: detail.activo_ids?.length ? detail.activo_ids : undefined,
@@ -336,8 +301,6 @@ const WarehouseDashboard: React.FC = () => {
       setDeliveryForm((prev) => ({
         ...prev,
         trabajador_id: '',
-        transportista_trabajador_id: '',
-        receptor_trabajador_id: '',
         nota_destino: '',
         detalles: [emptyDeliveryDetail()],
       }));
@@ -389,7 +352,7 @@ const WarehouseDashboard: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append('firma_archivo', signatureFile, signatureFile.name);
-      formData.append('texto_aceptacion', signatureForm.texto_aceptacion);
+      formData.append('texto_aceptacion', ACCEPTANCE_TEXT_DEFAULT);
 
       await post(`/firmas/entregas/${signatureForm.entregaId}/firmar-dispositivo`, formData);
 
@@ -513,7 +476,7 @@ const WarehouseDashboard: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append('firma_archivo', returnSignatureFile, returnSignatureFile.name);
-      formData.append('texto_aceptacion', returnSignatureForm.texto_aceptacion);
+      formData.append('texto_aceptacion', ACCEPTANCE_TEXT_DEVOLUCION);
 
       await post(`/devoluciones/${returnSignatureForm.devolucionId}/firmar-dispositivo`, formData);
 
@@ -600,69 +563,33 @@ const WarehouseDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Módulo Bodega EPP/Herramientas</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Bodega Operativa</h1>
         <p className="text-neutral-gray mt-1">
-          {section === 'dashboard' && 'Crea entregas, registra firmas, confirma devoluciones y controla inventario.'}
-          {section === 'operaciones' && 'Operación diaria: pendientes de firma, entregas por confirmar y devoluciones.'}
+          {section === 'dashboard' && 'Gestiona ingresos de inventario y consulta stock disponible.'}
+          {section === 'operaciones' && 'Registra entregas y devoluciones, y confirma recepciones pendientes.'}
         </p>
       </div>
 
       <section className="bg-white rounded-lg shadow-md p-5">
-        <h2 className="text-lg font-semibold text-dark-blue mb-4">Crear Entrega</h2>
+        <h2 className="text-lg font-semibold text-dark-blue mb-4">Registrar entrega</h2>
         <form className="space-y-3" onSubmit={handleCreateDelivery}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <select
               data-testid="delivery-worker-select"
               className="border rounded-md p-2"
-              value={isTraslado ? deliveryForm.transportista_trabajador_id : deliveryForm.trabajador_id}
+              value={deliveryForm.trabajador_id}
               onChange={(e) =>
-                setDeliveryForm((prev) =>
-                  isTraslado
-                    ? { ...prev, transportista_trabajador_id: e.target.value }
-                    : { ...prev, trabajador_id: e.target.value }
-                )
+                setDeliveryForm((prev) => ({ ...prev, trabajador_id: e.target.value }))
               }
               required
             >
-              <option value="">{isTraslado ? 'Selecciona transportista' : 'Selecciona trabajador'}</option>
+              <option value="">Selecciona trabajador</option>
               {trabajadores.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.nombres} {item.apellidos}
                 </option>
               ))}
             </select>
-            {isTraslado && (
-              <select
-                className="border rounded-md p-2"
-                value={deliveryForm.receptor_trabajador_id}
-                onChange={(e) =>
-                  setDeliveryForm((prev) => ({ ...prev, receptor_trabajador_id: e.target.value }))
-                }
-                required
-              >
-                <option value="">Selecciona receptor en bodega destino</option>
-                {trabajadores.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.nombres} {item.apellidos}
-                  </option>
-                ))}
-              </select>
-            )}
-            <label className="border rounded-md p-2 flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={deliveryForm.es_traslado}
-                onChange={(e) =>
-                  setDeliveryForm((prev) => ({
-                    ...prev,
-                    es_traslado: e.target.checked,
-                    ubicacion_origen_id: '',
-                    ubicacion_destino_id: '',
-                  }))
-                }
-              />
-              Es traslado entre bodegas
-            </label>
             <select
               data-testid="delivery-origin-select"
               className="border rounded-md p-2"
@@ -694,10 +621,12 @@ const WarehouseDashboard: React.FC = () => {
           </div>
           <textarea
             className="border rounded-md p-2 w-full"
-            placeholder="Nota destino"
+            placeholder="Observación (opcional)"
             value={deliveryForm.nota_destino}
             onChange={(e) => setDeliveryForm((prev) => ({ ...prev, nota_destino: e.target.value }))}
           />
+
+          <p className="text-xs text-gray-500">Solo se permiten activos serializados en este flujo.</p>
 
           {deliveryForm.detalles.map((detail, index) => (
             <div key={`detail-${index}`} className="border rounded-md p-3 bg-gray-50">
@@ -725,7 +654,7 @@ const WarehouseDashboard: React.FC = () => {
                   <option value="">Artículo</option>
                   {articulos.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.nombre} ({trackingModeLabel(item.tracking_mode)})
+                      {item.nombre}
                     </option>
                   ))}
                 </select>
@@ -742,13 +671,6 @@ const WarehouseDashboard: React.FC = () => {
                     disabled={getArticuloById(detail.articulo_id)?.tracking_mode !== 'serial'}
                   />
                 </div>
-                <input
-                  className="border rounded-md p-2"
-                  placeholder="Lote ID (opcional)"
-                  value={detail.lote_id}
-                  onChange={(e) => setDeliveryDetail(index, 'lote_id', e.target.value)}
-                  disabled={getArticuloById(detail.articulo_id)?.tracking_mode !== 'lote'}
-                />
                 <input
                   data-testid={`delivery-quantity-input-${index}`}
                   className="border rounded-md p-2"
@@ -797,14 +719,14 @@ const WarehouseDashboard: React.FC = () => {
               type="submit"
               className="px-3 py-2 rounded-md bg-primary-blue text-white"
             >
-              Crear Entrega Borrador
+              Crear borrador
             </button>
           </div>
         </form>
       </section>
 
       <section className="bg-white rounded-lg shadow-md p-5">
-        <h2 className="text-lg font-semibold text-dark-blue mb-4">Firma y Confirmación de Entregas</h2>
+        <h2 className="text-lg font-semibold text-dark-blue mb-4">Confirmar entregas</h2>
 
         <form className="space-y-3 mb-4" onSubmit={handleSignInDevice}>
           <select
@@ -812,42 +734,27 @@ const WarehouseDashboard: React.FC = () => {
             value={signatureForm.entregaId}
             onChange={(e) => {
               const entregaId = e.target.value;
-              const entregaSeleccionada = pendingDeliveries.find((item) => item.id === entregaId);
-              const acceptanceText = entregaSeleccionada?.tipo === 'traslado'
-                ? ACCEPTANCE_TEXT_TRASLADO
-                : ACCEPTANCE_TEXT_DEFAULT;
-
-              setSignatureForm((prev) => ({
-                ...prev,
-                entregaId,
-                texto_aceptacion: acceptanceText,
-              }));
+              setSignatureForm({ entregaId });
             }}
           >
             <option value="">Selecciona entrega</option>
             {pendingDeliveries.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.id.slice(0, 8)} - {item.estado}
+                Entrega {item.id.slice(0, 8)} · {item.estado}
               </option>
             ))}
           </select>
-          <textarea
-            className="border rounded-md p-2"
-            value={signatureForm.texto_aceptacion}
-            onChange={(e) => setSignatureForm((prev) => ({ ...prev, texto_aceptacion: e.target.value }))}
-          />
+          <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+            {ACCEPTANCE_TEXT_DEFAULT}
+          </div>
           <SignaturePad
             key={`warehouse-signature-${signaturePadKey}`}
             required
-            label={
-              selectedPendingDelivery?.tipo === 'traslado'
-                ? 'Firma manuscrita de transportista'
-                : 'Firma manuscrita de recepción'
-            }
+            label="Firma del trabajador"
             onChange={(_dataUrl, file) => setSignatureFile(file)}
           />
           <button className="px-3 py-2 rounded-md bg-dark-blue text-white" type="submit">
-            Firmar en Dispositivo
+            Registrar firma local
           </button>
         </form>
 
@@ -855,9 +762,9 @@ const WarehouseDashboard: React.FC = () => {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-2">Entrega</th>
+                <th className="text-left py-2 px-2">Entrega</th>
                 <th className="text-left py-2 px-2">Estado</th>
-                <th className="text-left py-2 px-2">QR Firma</th>
+                <th className="text-left py-2 px-2">QR de confirmación</th>
                 <th className="text-left py-2 px-2">Acciones</th>
               </tr>
             </thead>
@@ -923,7 +830,7 @@ const WarehouseDashboard: React.FC = () => {
                       className="px-2 py-1 text-xs rounded bg-primary-blue text-white"
                       onClick={() => handleConfirmDelivery(item.id)}
                     >
-                      Confirmar Entrega
+                      Confirmar
                     </button>
                   </td>
                 </tr>
@@ -934,7 +841,7 @@ const WarehouseDashboard: React.FC = () => {
       </section>
 
       <section className="bg-white rounded-lg shadow-md p-5">
-        <h2 className="text-lg font-semibold text-dark-blue mb-4">Crear Devolución</h2>
+        <h2 className="text-lg font-semibold text-dark-blue mb-4">Registrar devolución</h2>
         <form className="space-y-3" onSubmit={handleCreateReturn}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <select
@@ -968,7 +875,7 @@ const WarehouseDashboard: React.FC = () => {
           </div>
           <textarea
             className="border rounded-md p-2 w-full"
-            placeholder="Notas devolución"
+            placeholder="Observación (opcional)"
             value={returnForm.notas}
             onChange={(e) => setReturnForm((prev) => ({ ...prev, notas: e.target.value }))}
           />
@@ -1063,46 +970,39 @@ const WarehouseDashboard: React.FC = () => {
               Agregar Ítem Devolución
             </button>
             <button type="submit" className="px-3 py-2 rounded-md bg-primary-blue text-white">
-              Crear Devolución Borrador
+              Crear borrador
             </button>
           </div>
         </form>
 
         <div className="mt-4">
-          <h3 className="font-semibold text-dark-blue mb-2">Devoluciones Pendientes de Confirmación</h3>
+          <h3 className="font-semibold text-dark-blue mb-2">Confirmar devoluciones</h3>
           <form className="space-y-2 mb-3" onSubmit={handleSignReturnInDevice}>
             <select
               className="border rounded-md p-2 w-full"
               value={returnSignatureForm.devolucionId}
               onChange={(e) =>
-                setReturnSignatureForm((prev) => ({
-                  ...prev,
-                  devolucionId: e.target.value,
-                }))
+                setReturnSignatureForm({ devolucionId: e.target.value })
               }
             >
               <option value="">Selecciona devolución</option>
               {pendingReturns.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.id.slice(0, 8)} - {item.estado}
+                  Devolución {item.id.slice(0, 8)} · {item.estado}
                 </option>
               ))}
             </select>
-            <textarea
-              className="border rounded-md p-2 w-full"
-              value={returnSignatureForm.texto_aceptacion}
-              onChange={(e) =>
-                setReturnSignatureForm((prev) => ({ ...prev, texto_aceptacion: e.target.value }))
-              }
-            />
+            <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+              {ACCEPTANCE_TEXT_DEVOLUCION}
+            </div>
             <SignaturePad
               key={`warehouse-return-signature-${returnSignaturePadKey}`}
               required
-              label="Firma manuscrita de recepción de devolución"
+              label="Firma de recepción de devolución"
               onChange={(_dataUrl, file) => setReturnSignatureFile(file)}
             />
             <button className="px-3 py-2 rounded-md bg-dark-blue text-white" type="submit">
-              Firmar Devolución
+              Registrar firma
             </button>
           </form>
 
@@ -1123,190 +1023,194 @@ const WarehouseDashboard: React.FC = () => {
         </div>
       </section>
 
-      <section className="bg-white rounded-lg shadow-md p-5">
-        <h2 className="text-lg font-semibold text-dark-blue mb-4">Ingreso de Inventario por Compra</h2>
-        <div className="flex gap-2 mb-3">
-          <input
-            className="border rounded-md p-2 flex-1"
-            placeholder="Crear proveedor rápido"
-            value={newProveedorNombre}
-            onChange={(e) => setNewProveedorNombre(e.target.value)}
-          />
-          <button className="px-3 py-2 rounded-md border" type="button" onClick={handleCreateProveedor}>
-            Crear Proveedor
-          </button>
-        </div>
-
-        <form className="space-y-3" onSubmit={handleCreatePurchase}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <select
-              className="border rounded-md p-2"
-              value={purchaseForm.proveedor_id}
-              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, proveedor_id: e.target.value }))}
-              required
-            >
-              <option value="">Proveedor</option>
-              {proveedores.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nombre}
-                </option>
-              ))}
-            </select>
-            <select
-              className="border rounded-md p-2"
-              value={purchaseForm.tipo}
-              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, tipo: e.target.value }))}
-            >
-              <option value="factura">Factura</option>
-              <option value="boleta">Boleta</option>
-              <option value="guia">Guía</option>
-            </select>
-            <input
-              className="border rounded-md p-2"
-              placeholder="Número documento"
-              value={purchaseForm.numero}
-              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, numero: e.target.value }))}
-              required
-            />
-            <input
-              className="border rounded-md p-2"
-              type="date"
-              value={purchaseForm.fecha}
-              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, fecha: e.target.value }))}
-              required
-            />
-            <select
-              className="border rounded-md p-2"
-              value={purchaseForm.articulo_id}
-              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, articulo_id: e.target.value }))}
-              required
-            >
-              <option value="">Artículo</option>
-              {articulos.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nombre} ({trackingModeLabel(item.tracking_mode)})
-                </option>
-              ))}
-            </select>
-            <select
-              className="border rounded-md p-2"
-              value={purchaseForm.ubicacion_id}
-              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, ubicacion_id: e.target.value }))}
-              required
-            >
-              <option value="">Ubicación ingreso</option>
-              {ubicaciones.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.nombre}
-                </option>
-              ))}
-            </select>
-            <input
-              className="border rounded-md p-2"
-              type="number"
-              min={1}
-              step={1}
-              placeholder="Cantidad"
-              value={purchaseForm.cantidad}
-              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, cantidad: parseQuantityInteger(e.target.value, 1) }))}
-            />
-            <input
-              className="border rounded-md p-2"
-              type="number"
-              min={0}
-              step={1}
-              placeholder="Costo unitario CLP"
-              value={purchaseForm.costo_unitario}
-              onChange={(e) =>
-                setPurchaseForm((prev) => ({ ...prev, costo_unitario: Number(e.target.value) }))
-              }
-            />
-            <input
-              className="border rounded-md p-2"
-              placeholder="Código lote (si aplica)"
-              value={purchaseForm.codigo_lote}
-              onChange={(e) => setPurchaseForm((prev) => ({ ...prev, codigo_lote: e.target.value }))}
-            />
-          </div>
-
-          {selectedPurchaseArticle?.tracking_mode === 'serial' && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Código unitario *</label>
-              {purchaseForm.activos.map((activo, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400 w-5 text-right">{index + 1}.</span>
-                  <input
-                    className="flex-1 border rounded-md p-2 text-sm"
-                    placeholder={`Ej: TAL-00${index + 1}`}
-                    value={activo.codigo}
-                    onChange={(e) => {
-                      const updated = [...purchaseForm.activos];
-                      updated[index] = { codigo: e.target.value };
-                      setPurchaseForm((prev) => ({ ...prev, activos: updated }));
-                    }}
-                  />
-                  {purchaseForm.activos.length > 1 && (
-                    <button
-                      type="button"
-                      className="text-red-400 hover:text-red-600 text-lg px-1"
-                      onClick={() => {
-                        const updated = purchaseForm.activos.filter((_, i) => i !== index);
-                        setPurchaseForm((prev) => ({ ...prev, activos: updated }));
-                      }}
-                    >
-                      &times;
-                    </button>
-                  )}
-                </div>
-              ))}
-              <button
-                type="button"
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                onClick={() => setPurchaseForm((prev) => ({ ...prev, activos: [...prev.activos, { codigo: '' }] }))}
-              >
-                + Agregar unidad
+      {section === 'dashboard' && (
+        <>
+          <section className="bg-white rounded-lg shadow-md p-5">
+            <h2 className="text-lg font-semibold text-dark-blue mb-4">Ingreso de inventario</h2>
+            <div className="flex gap-2 mb-3">
+              <input
+                className="border rounded-md p-2 flex-1"
+                placeholder="Crear proveedor rápido"
+                value={newProveedorNombre}
+                onChange={(e) => setNewProveedorNombre(e.target.value)}
+              />
+              <button className="px-3 py-2 rounded-md border" type="button" onClick={handleCreateProveedor}>
+                Crear proveedor
               </button>
             </div>
-          )}
 
-          <textarea
-            className="border rounded-md p-2 w-full"
-            placeholder="Notas compra"
-            value={purchaseForm.notas}
-            onChange={(e) => setPurchaseForm((prev) => ({ ...prev, notas: e.target.value }))}
-          />
+            <form className="space-y-3" onSubmit={handleCreatePurchase}>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <select
+                  className="border rounded-md p-2"
+                  value={purchaseForm.proveedor_id}
+                  onChange={(e) => setPurchaseForm((prev) => ({ ...prev, proveedor_id: e.target.value }))}
+                  required
+                >
+                  <option value="">Proveedor</option>
+                  {proveedores.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.nombre}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="border rounded-md p-2"
+                  value={purchaseForm.tipo}
+                  onChange={(e) => setPurchaseForm((prev) => ({ ...prev, tipo: e.target.value }))}
+                >
+                  <option value="factura">Factura</option>
+                  <option value="boleta">Boleta</option>
+                  <option value="guia">Guía</option>
+                </select>
+                <input
+                  className="border rounded-md p-2"
+                  placeholder="Número documento"
+                  value={purchaseForm.numero}
+                  onChange={(e) => setPurchaseForm((prev) => ({ ...prev, numero: e.target.value }))}
+                  required
+                />
+                <input
+                  className="border rounded-md p-2"
+                  type="date"
+                  value={purchaseForm.fecha}
+                  onChange={(e) => setPurchaseForm((prev) => ({ ...prev, fecha: e.target.value }))}
+                  required
+                />
+                <select
+                  className="border rounded-md p-2"
+                  value={purchaseForm.articulo_id}
+                  onChange={(e) => setPurchaseForm((prev) => ({ ...prev, articulo_id: e.target.value }))}
+                  required
+                >
+                  <option value="">Artículo</option>
+                  {articulos.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.nombre} ({trackingModeLabel(item.tracking_mode)})
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="border rounded-md p-2"
+                  value={purchaseForm.ubicacion_id}
+                  onChange={(e) => setPurchaseForm((prev) => ({ ...prev, ubicacion_id: e.target.value }))}
+                  required
+                >
+                  <option value="">Ubicación ingreso</option>
+                  {ubicaciones.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.nombre}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="border rounded-md p-2"
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Cantidad"
+                  value={purchaseForm.cantidad}
+                  onChange={(e) => setPurchaseForm((prev) => ({ ...prev, cantidad: parseQuantityInteger(e.target.value, 1) }))}
+                />
+                <input
+                  className="border rounded-md p-2"
+                  type="number"
+                  min={0}
+                  step={1}
+                  placeholder="Costo unitario CLP"
+                  value={purchaseForm.costo_unitario}
+                  onChange={(e) =>
+                    setPurchaseForm((prev) => ({ ...prev, costo_unitario: Number(e.target.value) }))
+                  }
+                />
+                <input
+                  className="border rounded-md p-2"
+                  placeholder="Código lote (si aplica)"
+                  value={purchaseForm.codigo_lote}
+                  onChange={(e) => setPurchaseForm((prev) => ({ ...prev, codigo_lote: e.target.value }))}
+                />
+              </div>
 
-          <button type="submit" className="px-3 py-2 rounded-md bg-primary-blue text-white">
-            Registrar Compra
-          </button>
-        </form>
-      </section>
+              {selectedPurchaseArticle?.tracking_mode === 'serial' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Código unitario *</label>
+                  {purchaseForm.activos.map((activo, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 w-5 text-right">{index + 1}.</span>
+                      <input
+                        className="flex-1 border rounded-md p-2 text-sm"
+                        placeholder={`Ej: TAL-00${index + 1}`}
+                        value={activo.codigo}
+                        onChange={(e) => {
+                          const updated = [...purchaseForm.activos];
+                          updated[index] = { codigo: e.target.value };
+                          setPurchaseForm((prev) => ({ ...prev, activos: updated }));
+                        }}
+                      />
+                      {purchaseForm.activos.length > 1 && (
+                        <button
+                          type="button"
+                          className="text-red-400 hover:text-red-600 text-lg px-1"
+                          onClick={() => {
+                            const updated = purchaseForm.activos.filter((_, i) => i !== index);
+                            setPurchaseForm((prev) => ({ ...prev, activos: updated }));
+                          }}
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    onClick={() => setPurchaseForm((prev) => ({ ...prev, activos: [...prev.activos, { codigo: '' }] }))}
+                  >
+                    + Agregar unidad
+                  </button>
+                </div>
+              )}
 
-      <section className="bg-white rounded-lg shadow-md p-5">
-        <h2 className="text-lg font-semibold text-dark-blue mb-3">Stock Actual (Muestra)</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-2 px-2">Artículo</th>
-                <th className="text-left py-2 px-2">Ubicación</th>
-                <th className="text-left py-2 px-2">Disponible</th>
-                <th className="text-left py-2 px-2">Reservada</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stock.slice(0, 15).map((item) => (
-                <tr key={item.id} className="border-b last:border-b-0 border-gray-100">
-                  <td className="py-2 px-2">{item.articulo_nombre}</td>
-                  <td className="py-2 px-2">{item.ubicacion_nombre}</td>
-                  <td className="py-2 px-2">{Number(item.cantidad_disponible)}</td>
-                  <td className="py-2 px-2">{Number(item.cantidad_reservada)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              <textarea
+                className="border rounded-md p-2 w-full"
+                placeholder="Notas compra"
+                value={purchaseForm.notas}
+                onChange={(e) => setPurchaseForm((prev) => ({ ...prev, notas: e.target.value }))}
+              />
+
+              <button type="submit" className="px-3 py-2 rounded-md bg-primary-blue text-white">
+                Registrar compra
+              </button>
+            </form>
+          </section>
+
+          <section className="bg-white rounded-lg shadow-md p-5">
+            <h2 className="text-lg font-semibold text-dark-blue mb-3">Stock actual (muestra)</h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-2 px-2">Artículo</th>
+                    <th className="text-left py-2 px-2">Ubicación</th>
+                    <th className="text-left py-2 px-2">Disponible</th>
+                    <th className="text-left py-2 px-2">Reservada</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stock.slice(0, 15).map((item) => (
+                    <tr key={item.id} className="border-b last:border-b-0 border-gray-100">
+                      <td className="py-2 px-2">{item.articulo_nombre}</td>
+                      <td className="py-2 px-2">{item.ubicacion_nombre}</td>
+                      <td className="py-2 px-2">{Number(item.cantidad_disponible)}</td>
+                      <td className="py-2 px-2">{Number(item.cantidad_reservada)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 };

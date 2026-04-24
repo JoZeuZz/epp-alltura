@@ -16,7 +16,6 @@ export interface InventoryIngressFormValues {
   notas: string;
   cantidad: number;
   costo_unitario: number;
-  codigo_lote: string;
   activos: IngressActivoEntry[];
   agregar_documento: boolean;
   proveedor_id: string;
@@ -60,12 +59,6 @@ const buildIngresoDetail = (
     if (base.cantidad <= 0) {
       throw new Error('La cantidad debe ser mayor que cero.');
     }
-  }
-
-  if (trackingMode === 'lote' || form.codigo_lote.trim()) {
-    base.lote = {
-      codigo_lote: form.codigo_lote.trim() || null,
-    };
   }
 
   return base;

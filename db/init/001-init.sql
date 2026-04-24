@@ -108,18 +108,105 @@ CREATE TABLE IF NOT EXISTS proveedor (
 
 CREATE TABLE IF NOT EXISTS articulo (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('herramienta', 'epp', 'consumible')),
+  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('equipo', 'herramienta')),
+  grupo_principal VARCHAR(20) NOT NULL DEFAULT 'herramienta' CHECK (grupo_principal IN ('equipo', 'herramienta')),
   nombre VARCHAR(150) NOT NULL,
   marca VARCHAR(120),
   modelo VARCHAR(120),
-  categoria VARCHAR(120),
+  categoria VARCHAR(120) CHECK (categoria IN ('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria')),
+  subclasificacion VARCHAR(120) NOT NULL CHECK (subclasificacion IN ('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria')),
   tracking_mode VARCHAR(20) NOT NULL CHECK (tracking_mode IN ('serial', 'lote')),
-  retorno_mode VARCHAR(20) NOT NULL CHECK (retorno_mode IN ('retornable', 'consumible')),
+  retorno_mode VARCHAR(20) NOT NULL CHECK (retorno_mode IN ('retornable')),
   nivel_control VARCHAR(20) NOT NULL CHECK (nivel_control IN ('alto', 'medio', 'bajo', 'fuera_scope')),
   requiere_vencimiento BOOLEAN NOT NULL DEFAULT FALSE,
   unidad_medida VARCHAR(50) NOT NULL,
   estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo')),
-  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT chk_articulo_grupo_subclasificacion CHECK (
+    (grupo_principal = 'equipo' AND subclasificacion IN ('epp', 'medicion_ensayos'))
+    OR (grupo_principal = 'herramienta' AND subclasificacion IN ('manual', 'electrica_cable', 'inalambrica_bateria'))
+  )
+);
+
+-- Compatibilidad idempotente para bases previas al catálogo V2.
+ALTER TABLE articulo
+  ADD COLUMN IF NOT EXISTS grupo_principal VARCHAR(20),
+  ADD COLUMN IF NOT EXISTS subclasificacion VARCHAR(120);
+
+ALTER TABLE articulo DROP CONSTRAINT IF EXISTS articulo_tipo_check;
+ALTER TABLE articulo DROP CONSTRAINT IF EXISTS articulo_grupo_principal_check;
+ALTER TABLE articulo DROP CONSTRAINT IF EXISTS articulo_categoria_check;
+ALTER TABLE articulo DROP CONSTRAINT IF EXISTS articulo_subclasificacion_check;
+ALTER TABLE articulo DROP CONSTRAINT IF EXISTS articulo_retorno_mode_check;
+ALTER TABLE articulo DROP CONSTRAINT IF EXISTS chk_articulo_grupo_subclasificacion;
+
+UPDATE articulo
+SET tipo = CASE
+  WHEN lower(tipo) = 'herramienta' THEN 'herramienta'
+  ELSE 'equipo'
+END;
+
+UPDATE articulo
+SET grupo_principal = CASE
+  WHEN lower(tipo) = 'herramienta' THEN 'herramienta'
+  WHEN lower(COALESCE(grupo_principal, '')) = 'herramienta' THEN 'herramienta'
+  ELSE 'equipo'
+END;
+
+UPDATE articulo
+SET subclasificacion = CASE
+  WHEN lower(COALESCE(subclasificacion, '')) IN ('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria')
+    THEN lower(subclasificacion)
+  WHEN lower(COALESCE(categoria, '')) IN ('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria')
+    THEN lower(categoria)
+  WHEN lower(tipo) = 'herramienta' THEN 'manual'
+  ELSE 'epp'
+END;
+
+UPDATE articulo
+SET categoria = subclasificacion
+WHERE categoria IS NULL
+  OR lower(COALESCE(categoria, '')) NOT IN ('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria');
+
+UPDATE articulo
+SET retorno_mode = 'retornable';
+
+ALTER TABLE articulo ALTER COLUMN grupo_principal SET DEFAULT 'herramienta';
+ALTER TABLE articulo ALTER COLUMN grupo_principal SET NOT NULL;
+ALTER TABLE articulo ALTER COLUMN subclasificacion SET NOT NULL;
+
+ALTER TABLE articulo
+  ADD CONSTRAINT articulo_tipo_check
+    CHECK (tipo IN ('equipo', 'herramienta'));
+
+ALTER TABLE articulo
+  ADD CONSTRAINT articulo_grupo_principal_check
+    CHECK (grupo_principal IN ('equipo', 'herramienta'));
+
+ALTER TABLE articulo
+  ADD CONSTRAINT articulo_categoria_check
+    CHECK (categoria IN ('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria'));
+
+ALTER TABLE articulo
+  ADD CONSTRAINT articulo_subclasificacion_check
+    CHECK (subclasificacion IN ('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria'));
+
+ALTER TABLE articulo
+  ADD CONSTRAINT articulo_retorno_mode_check
+    CHECK (retorno_mode IN ('retornable'));
+
+ALTER TABLE articulo
+  ADD CONSTRAINT chk_articulo_grupo_subclasificacion
+    CHECK (
+      (grupo_principal = 'equipo' AND subclasificacion IN ('epp', 'medicion_ensayos'))
+      OR (grupo_principal = 'herramienta' AND subclasificacion IN ('manual', 'electrica_cable', 'inalambrica_bateria'))
+    );
+
+CREATE TABLE IF NOT EXISTS articulo_especialidad (
+  articulo_id UUID NOT NULL REFERENCES articulo(id) ON DELETE CASCADE,
+  especialidad VARCHAR(80) NOT NULL CHECK (especialidad IN ('oocc', 'ooee', 'andamios', 'trabajos_verticales_lineas_de_vida')),
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (articulo_id, especialidad)
 );
 
 -- ============================================================
@@ -176,7 +263,7 @@ CREATE TABLE IF NOT EXISTS activo (
   nro_serie VARCHAR(120) UNIQUE,
   codigo VARCHAR(120) NOT NULL UNIQUE,
   valor INTEGER,
-  estado VARCHAR(30) NOT NULL DEFAULT 'en_stock' CHECK (estado IN ('en_stock', 'asignado', 'en_traslado', 'mantencion', 'dado_de_baja', 'perdido')),
+  estado VARCHAR(30) NOT NULL DEFAULT 'en_stock' CHECK (estado IN ('en_stock', 'asignado', 'mantencion', 'dado_de_baja', 'perdido')),
   ubicacion_actual_id UUID NOT NULL REFERENCES ubicacion(id),
   fecha_compra TIMESTAMPTZ,
   fecha_vencimiento TIMESTAMPTZ,
@@ -213,26 +300,18 @@ CREATE TABLE IF NOT EXISTS entrega (
   trabajador_id UUID NOT NULL REFERENCES trabajador(id),
   ubicacion_origen_id UUID NOT NULL REFERENCES ubicacion(id),
   ubicacion_destino_id UUID NOT NULL REFERENCES ubicacion(id),
-  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrega', 'traslado')),
-  estado VARCHAR(25) NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'pendiente_firma', 'en_transito', 'recibido', 'confirmada', 'anulada', 'revertida_admin')),
+  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrega')),
+  estado VARCHAR(25) NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'pendiente_firma', 'confirmada', 'anulada', 'revertida_admin')),
   nota_destino TEXT,
   creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   confirmada_en TIMESTAMPTZ,
-  transportista_trabajador_id UUID REFERENCES trabajador(id) ON DELETE SET NULL,
-  receptor_trabajador_id UUID REFERENCES trabajador(id) ON DELETE SET NULL,
   motivo_anulacion TEXT,
-  recibido_por_usuario_id UUID REFERENCES usuario(id) ON DELETE SET NULL,
-  recibido_en TIMESTAMPTZ,
   deshecha_por_usuario_id UUID REFERENCES usuario(id) ON DELETE SET NULL,
   deshecha_en TIMESTAMPTZ,
   fecha_devolucion_esperada TIMESTAMPTZ,
   CONSTRAINT chk_entrega_motivo_anulacion CHECK (
     estado <> 'anulada'
     OR (motivo_anulacion IS NOT NULL AND length(btrim(motivo_anulacion)) >= 5)
-  ),
-  CONSTRAINT chk_entrega_recepcion_traslado CHECK (
-    estado <> 'recibido'
-    OR (recibido_en IS NOT NULL AND recibido_por_usuario_id IS NOT NULL)
   )
 );
 
@@ -378,7 +457,7 @@ CREATE TABLE IF NOT EXISTS movimiento_stock (
   articulo_id UUID NOT NULL REFERENCES articulo(id),
   lote_id UUID REFERENCES lote(id) ON DELETE SET NULL,
   fecha_movimiento TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrada', 'salida', 'traslado', 'ajuste', 'baja', 'consumo', 'entrega', 'devolucion')),
+  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrada', 'salida', 'ajuste', 'baja', 'consumo', 'entrega', 'devolucion')),
   ubicacion_origen_id UUID REFERENCES ubicacion(id) ON DELETE SET NULL,
   ubicacion_destino_id UUID REFERENCES ubicacion(id) ON DELETE SET NULL,
   cantidad NUMERIC(14,4) NOT NULL CHECK (cantidad > 0),
@@ -395,7 +474,7 @@ CREATE TABLE IF NOT EXISTS movimiento_activo (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   activo_id UUID NOT NULL REFERENCES activo(id),
   fecha_movimiento TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrada', 'salida', 'traslado', 'entrega', 'devolucion', 'ajuste', 'baja', 'mantencion')),
+  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrada', 'salida', 'entrega', 'devolucion', 'ajuste', 'baja', 'mantencion')),
   ubicacion_origen_id UUID REFERENCES ubicacion(id) ON DELETE SET NULL,
   ubicacion_destino_id UUID REFERENCES ubicacion(id) ON DELETE SET NULL,
   responsable_usuario_id UUID NOT NULL REFERENCES usuario(id),
@@ -497,8 +576,11 @@ CREATE INDEX IF NOT EXISTS idx_ubicacion_inicio_operacion ON ubicacion(fecha_ini
 CREATE INDEX IF NOT EXISTS idx_ubicacion_cierre_operacion ON ubicacion(fecha_cierre_operacion);
 
 CREATE INDEX IF NOT EXISTS idx_articulo_tipo ON articulo(tipo);
+CREATE INDEX IF NOT EXISTS idx_articulo_grupo_principal ON articulo(grupo_principal);
 CREATE INDEX IF NOT EXISTS idx_articulo_tracking_mode ON articulo(tracking_mode);
 CREATE INDEX IF NOT EXISTS idx_articulo_estado ON articulo(estado);
+CREATE INDEX IF NOT EXISTS idx_articulo_subclasificacion ON articulo(subclasificacion);
+CREATE INDEX IF NOT EXISTS idx_articulo_especialidad_especialidad ON articulo_especialidad(especialidad);
 
 -- Purchases
 CREATE INDEX IF NOT EXISTS idx_documento_compra_proveedor_id ON documento_compra(proveedor_id);
@@ -525,10 +607,7 @@ CREATE INDEX IF NOT EXISTS idx_entrega_trabajador_id ON entrega(trabajador_id);
 CREATE INDEX IF NOT EXISTS idx_entrega_creado_por_usuario_id ON entrega(creado_por_usuario_id);
 CREATE INDEX IF NOT EXISTS idx_entrega_estado ON entrega(estado);
 CREATE INDEX IF NOT EXISTS idx_entrega_tipo ON entrega(tipo);
-CREATE INDEX IF NOT EXISTS idx_entrega_transportista_trabajador_id ON entrega(transportista_trabajador_id);
-CREATE INDEX IF NOT EXISTS idx_entrega_receptor_trabajador_id ON entrega(receptor_trabajador_id);
 CREATE INDEX IF NOT EXISTS idx_entrega_estado_motivo_anulacion ON entrega(estado, creado_en DESC) WHERE estado = 'anulada';
-CREATE INDEX IF NOT EXISTS idx_entrega_estado_recibido ON entrega(estado, recibido_en DESC) WHERE estado = 'recibido';
 CREATE INDEX IF NOT EXISTS idx_entrega_estado_revertida ON entrega(estado, deshecha_en DESC) WHERE estado = 'revertida_admin';
 CREATE INDEX IF NOT EXISTS idx_entrega_detalle_entrega_id ON entrega_detalle(entrega_id);
 CREATE INDEX IF NOT EXISTS idx_entrega_detalle_articulo_id ON entrega_detalle(articulo_id);

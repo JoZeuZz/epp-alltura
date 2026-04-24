@@ -1,6 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Modal from '../Modal';
-import type { Articulo, ArticuloCreatePayload, ArticuloTipo } from '../../services/apiService';
+import type {
+  Articulo,
+  ArticuloCreatePayload,
+  ArticuloEspecialidad,
+  ArticuloGrupoPrincipal,
+  ArticuloSubclasificacion,
+} from '../../services/apiService';
 
 interface ArticleFormModalProps {
   isOpen: boolean;
@@ -12,13 +18,13 @@ interface ArticleFormModalProps {
 }
 
 interface ArticleFormValues {
-  tipo: ArticuloTipo;
+  grupo_principal: ArticuloGrupoPrincipal;
   nombre: string;
   marca: string;
   modelo: string;
-  categoria: string;
-  tracking_mode: ArticuloCreatePayload['tracking_mode'];
-  retorno_mode: ArticuloCreatePayload['retorno_mode'];
+  subclasificacion: ArticuloSubclasificacion;
+  especialidades: ArticuloEspecialidad[];
+  nivel_control: NonNullable<ArticuloCreatePayload['nivel_control']>;
   requiere_vencimiento: boolean;
   unidad_medida: string;
   estado: ArticuloCreatePayload['estado'];
@@ -27,29 +33,108 @@ interface ArticleFormValues {
 type FormErrors = Partial<Record<keyof ArticleFormValues, string>>;
 
 const INITIAL_FORM: ArticleFormValues = {
-  tipo: 'herramienta',
+  grupo_principal: 'herramienta',
   nombre: '',
   marca: '',
   modelo: '',
-  categoria: '',
-  tracking_mode: 'serial',
-  retorno_mode: 'retornable',
+  subclasificacion: 'manual',
+  especialidades: ['oocc'],
+  nivel_control: 'medio',
   requiere_vencimiento: false,
   unidad_medida: 'unidad',
   estado: 'activo',
 };
 
+const SUBCLASIFICACIONES_BY_GRUPO: Record<ArticuloGrupoPrincipal, ArticuloSubclasificacion[]> = {
+  equipo: ['epp', 'medicion_ensayos'],
+  herramienta: ['manual', 'electrica_cable', 'inalambrica_bateria'],
+};
+
+const SUBCLASIFICACION_LABELS: Record<ArticuloSubclasificacion, string> = {
+  epp: 'Protección personal',
+  medicion_ensayos: 'Medición y ensayos',
+  manual: 'Manual',
+  electrica_cable: 'Eléctrica cable',
+  inalambrica_bateria: 'Inalámbrica batería',
+};
+
+const ESPECIALIDAD_SET = new Set<ArticuloEspecialidad>([
+  'oocc',
+  'ooee',
+  'andamios',
+  'trabajos_verticales_lineas_de_vida',
+]);
+
+const normalizeGrupoPrincipal = (value?: string | null): ArticuloGrupoPrincipal => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'equipo' || normalized === 'epp') {
+    return 'equipo';
+  }
+  return 'herramienta';
+};
+
+const normalizeSubclasificacion = (
+  value: unknown,
+  grupoPrincipal: ArticuloGrupoPrincipal
+): ArticuloSubclasificacion => {
+  const aliases: Record<string, ArticuloSubclasificacion> = {
+    herramientas: 'manual',
+    herramientas_electricas: 'electrica_cable',
+    proteccion_altura: 'epp',
+    proteccion_manos: 'epp',
+  };
+
+  const normalized = String(value || '').trim().toLowerCase();
+  const mapped = aliases[normalized] || (normalized as ArticuloSubclasificacion);
+  const allowed = SUBCLASIFICACIONES_BY_GRUPO[grupoPrincipal];
+
+  return allowed.includes(mapped) ? mapped : allowed[0];
+};
+
+const normalizeEspecialidades = (value: unknown): ArticuloEspecialidad[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const mapped = value
+    .map((item) => {
+      const normalized = String(item || '').trim().toLowerCase();
+      if (normalized === 'trabajos_verticales') return 'trabajos_verticales_lineas_de_vida';
+      return normalized;
+    })
+    .filter((item): item is ArticuloEspecialidad => ESPECIALIDAD_SET.has(item as ArticuloEspecialidad));
+
+  return Array.from(new Set(mapped));
+};
+
+const ESPECIALIDADES_OPTIONS: Array<{ value: ArticuloEspecialidad; label: string }> = [
+  { value: 'oocc', label: 'OOCC' },
+  { value: 'ooee', label: 'OOEE' },
+  { value: 'andamios', label: 'Andamios' },
+  {
+    value: 'trabajos_verticales_lineas_de_vida',
+    label: 'Trabajos verticales y líneas de vida',
+  },
+];
+
 const mapArticuloToFormValues = (articulo?: Articulo | null): ArticleFormValues => {
   if (!articulo) return INITIAL_FORM;
 
+  const grupoPrincipal = normalizeGrupoPrincipal(articulo.grupo_principal);
+  const subclasificacion = normalizeSubclasificacion(
+    articulo.subclasificacion,
+    grupoPrincipal
+  );
+  const especialidades = normalizeEspecialidades(articulo.especialidades);
+
   return {
-    tipo: articulo.tipo || 'herramienta',
+    grupo_principal: grupoPrincipal,
     nombre: articulo.nombre || '',
     marca: articulo.marca || '',
     modelo: articulo.modelo || '',
-    categoria: articulo.categoria || '',
-    tracking_mode: articulo.tracking_mode || 'lote',
-    retorno_mode: articulo.retorno_mode || 'retornable',
+    subclasificacion,
+    especialidades: especialidades.length ? especialidades : ['oocc'],
+    nivel_control: articulo.nivel_control || 'medio',
     requiere_vencimiento: Boolean(articulo.requiere_vencimiento),
     unidad_medida: articulo.unidad_medida || 'unidad',
     estado: articulo.estado || 'activo',
@@ -88,9 +173,6 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
     setGeneralError('');
   }, [initialValues, isEditMode, isOpen]);
 
-  const isConsumable = formValues.tipo === 'consumible';
-  const isRetornable = formValues.retorno_mode === 'retornable';
-
   const validateForm = useMemo(
     () => (values: ArticleFormValues): FormErrors => {
       const nextErrors: FormErrors = {};
@@ -103,6 +185,10 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
         nextErrors.unidad_medida = 'La unidad de medida es obligatoria.';
       }
 
+      if (!Array.isArray(values.especialidades) || values.especialidades.length === 0) {
+        nextErrors.especialidades = 'Selecciona al menos una especialidad.';
+      }
+
       return nextErrors;
     },
     []
@@ -112,26 +198,35 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
     field: K,
     value: ArticleFormValues[K]
   ) => {
-    if (field === 'tipo') {
-      const tipo = value as ArticuloTipo;
+    if (field === 'grupo_principal') {
+      const grupoPrincipal = value as ArticuloGrupoPrincipal;
       setFormValues((prev) => ({
         ...prev,
-        tipo,
-        retorno_mode: tipo === 'consumible' ? 'consumible' : 'retornable',
-        tracking_mode: tipo === 'consumible' ? 'lote' : 'serial',
-      }));
-    } else if (field === 'retorno_mode') {
-      const retornoMode = value as ArticleFormValues['retorno_mode'];
-      setFormValues((prev) => ({
-        ...prev,
-        retorno_mode: retornoMode,
-        tracking_mode: retornoMode === 'retornable' ? 'serial' : prev.tracking_mode,
+        grupo_principal: grupoPrincipal,
+        subclasificacion: normalizeSubclasificacion(prev.subclasificacion, grupoPrincipal),
       }));
     } else {
       setFormValues((prev) => ({ ...prev, [field]: value }));
     }
 
     setErrors((prev) => ({ ...prev, [field]: undefined }));
+    setGeneralError('');
+  };
+
+  const toggleEspecialidad = (especialidad: ArticuloEspecialidad) => {
+    setFormValues((prev) => {
+      const exists = prev.especialidades.includes(especialidad);
+      const especialidades = exists
+        ? prev.especialidades.filter((item) => item !== especialidad)
+        : [...prev.especialidades, especialidad];
+
+      return {
+        ...prev,
+        especialidades,
+      };
+    });
+
+    setErrors((prev) => ({ ...prev, especialidades: undefined }));
     setGeneralError('');
   };
 
@@ -145,13 +240,13 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
     }
 
     const payload: ArticuloCreatePayload = {
-      tipo: formValues.tipo,
+      grupo_principal: formValues.grupo_principal,
       nombre: formValues.nombre.trim(),
-      marca: formValues.marca.trim() || null,
-      modelo: formValues.modelo.trim() || null,
-      categoria: formValues.categoria.trim() || null,
-      tracking_mode: formValues.tracking_mode,
-      retorno_mode: isConsumable ? 'consumible' : formValues.retorno_mode,
+      marca: formValues.marca.trim(),
+      modelo: formValues.modelo.trim(),
+      subclasificacion: formValues.subclasificacion,
+      especialidades: formValues.especialidades,
+      nivel_control: formValues.nivel_control,
       requiere_vencimiento: formValues.requiere_vencimiento,
       unidad_medida: formValues.unidad_medida.trim(),
       estado: formValues.estado,
@@ -186,7 +281,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           <p className="text-sm text-gray-500">
             {isEditMode
               ? 'Modifica la configuración del artículo para inventario y trazabilidad.'
-              : 'Crea herramientas o EPP para que queden disponibles en ingresos y stock.'}
+              : 'Crea equipos y herramientas para que queden disponibles en ingresos y stock.'}
           </p>
         </div>
 
@@ -203,51 +298,52 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           </div>
 
           <div>
-            <label className="label-base text-gray-700">Tipo *</label>
+            <label className="label-base text-gray-700">Grupo principal *</label>
             <select
               className="w-full border rounded-md p-2"
-              value={formValues.tipo}
-              onChange={(event) => handleFieldChange('tipo', event.target.value as ArticuloTipo)}
+              value={formValues.grupo_principal}
+              onChange={(event) =>
+                handleFieldChange('grupo_principal', event.target.value as ArticuloGrupoPrincipal)
+              }
             >
+              <option value="equipo">Equipo</option>
               <option value="herramienta">Herramienta</option>
-              <option value="epp">EPP</option>
-              <option value="consumible">Consumible</option>
             </select>
           </div>
 
           <div>
-            <label className="label-base text-gray-700">Modo de seguimiento *</label>
+            <label className="label-base text-gray-700">Nivel de control *</label>
             <select
-              className="w-full border rounded-md p-2 disabled:bg-gray-100"
-              value={formValues.tracking_mode}
-              disabled={isConsumable || isRetornable}
+              className="w-full border rounded-md p-2"
+              value={formValues.nivel_control}
               onChange={(event) =>
                 handleFieldChange(
-                  'tracking_mode',
-                  event.target.value as ArticleFormValues['tracking_mode']
+                  'nivel_control',
+                  event.target.value as ArticleFormValues['nivel_control']
                 )
               }
             >
-              <option value="serial">Por Unidad</option>
-              <option value="lote">Por Lote</option>
+              <option value="alto">Alto</option>
+              <option value="medio">Medio</option>
+              <option value="bajo">Bajo</option>
+              <option value="fuera_scope">Fuera de scope</option>
             </select>
           </div>
 
           <div>
-            <label className="label-base text-gray-700">Retorno mode *</label>
+            <label className="label-base text-gray-700">Subclasificación *</label>
             <select
-              className="w-full border rounded-md p-2 disabled:bg-gray-100"
-              value={isConsumable ? 'consumible' : formValues.retorno_mode}
-              disabled={isConsumable}
+              className="w-full border rounded-md p-2"
+              value={formValues.subclasificacion}
               onChange={(event) =>
-                handleFieldChange(
-                  'retorno_mode',
-                  event.target.value as ArticleFormValues['retorno_mode']
-                )
+                handleFieldChange('subclasificacion', event.target.value as ArticuloSubclasificacion)
               }
             >
-              <option value="retornable">Retornable (activo)</option>
-              <option value="consumible">Consumible</option>
+              {SUBCLASIFICACIONES_BY_GRUPO[formValues.grupo_principal].map((option) => (
+                <option key={option} value={option}>
+                  {SUBCLASIFICACION_LABELS[option]}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -283,15 +379,6 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           </div>
 
           <div>
-            <label className="label-base text-gray-700">Categoría</label>
-            <input
-              className="w-full border rounded-md p-2"
-              value={formValues.categoria}
-              onChange={(event) => handleFieldChange('categoria', event.target.value)}
-            />
-          </div>
-
-          <div>
             <label className="label-base text-gray-700">Estado inicial</label>
             <select
               className="w-full border rounded-md p-2"
@@ -303,6 +390,28 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
               <option value="activo">Activo</option>
               <option value="inactivo">Inactivo</option>
             </select>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="label-base text-gray-700">Especialidades *</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
+              {ESPECIALIDADES_OPTIONS.map((option) => {
+                const checked = formValues.especialidades.includes(option.value);
+                return (
+                  <label key={option.value} className="inline-flex items-center gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleEspecialidad(option.value)}
+                    />
+                    {option.label}
+                  </label>
+                );
+              })}
+            </div>
+            {errors.especialidades ? (
+              <p className="text-xs text-red-600 mt-1">{errors.especialidades}</p>
+            ) : null}
           </div>
 
           <div className="md:col-span-2">

@@ -2,11 +2,9 @@ import React, { useEffect, useState } from 'react';
 import Modal from '../Modal';
 import type {
   EntregaCreatePayload,
-  EntregaCreateBatchFromTemplatePayload,
   EntregaDetallePayload,
   EntregaTemplate,
   CondicionSalida,
-  EntregaTipo,
   EntregaTemplateDetailOverridePayload,
 } from '../../services/apiService';
 import { previewEntregaTemplate } from '../../services/apiService';
@@ -36,28 +34,16 @@ interface ArticuloOption {
   id: string;
   nombre: string;
   tracking_mode: 'serial' | 'lote';
-  retorno_mode: 'retornable' | 'consumible';
-}
-
-interface LoteOption {
-  id: string;
-  articulo_id: string;
-  codigo_lote?: string | null;
 }
 
 interface EntregaCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (payload: EntregaCreatePayload) => Promise<void>;
-  onSubmitTemplateBatch?: (payload: {
-    templateId: string;
-    request: EntregaCreateBatchFromTemplatePayload;
-  }) => Promise<void>;
   isSubmitting: boolean;
   trabajadores: TrabajadorOption[];
   ubicaciones: UbicacionOption[];
   articulos: ArticuloOption[];
-  lotes?: LoteOption[];
   templates?: EntregaTemplate[];
 }
 
@@ -71,7 +57,6 @@ const EMPTY_DETALLE: EntregaDetallePayload = {
   articulo_id: '',
   cantidad: 1,
   condicion_salida: 'ok',
-  lote_id: null,
   activo_ids: [],
   notas: null,
 };
@@ -80,31 +65,23 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
-  onSubmitTemplateBatch,
   isSubmitting,
   trabajadores,
   ubicaciones,
   articulos,
-  lotes = [],
   templates = [],
 }) => {
   const [step, setStep] = useState<1 | 2>(1);
   const [trabajadorId, setTrabajadorId] = useState('');
-  const [transportistaTrabajadorId, setTransportistaTrabajadorId] = useState('');
-  const [receptorTrabajadorId, setReceptorTrabajadorId] = useState('');
-  const [esTraslado, setEsTraslado] = useState(false);
   const [ubicacionOrigenId, setUbicacionOrigenId] = useState('');
   const [ubicacionDestinoId, setUbicacionDestinoId] = useState('');
   const [notaDestino, setNotaDestino] = useState('');
-  const [fechaDevolucion, setFechaDevolucion] = useState('');
   const [detalles, setDetalles] = useState<EntregaDetallePayload[]>([{ ...EMPTY_DETALLE }]);
   const [error, setError] = useState<string | null>(null);
 
   // Filtro de búsqueda de trabajador
   const [trabajadorSearch, setTrabajadorSearch] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
-  const [isMassiveMode, setIsMassiveMode] = useState(false);
-  const [massiveWorkerIds, setMassiveWorkerIds] = useState<string[]>([]);
   const [isLoadingTemplatePreview, setIsLoadingTemplatePreview] = useState(false);
   const [templatePreviewError, setTemplatePreviewError] = useState<string | null>(null);
 
@@ -112,19 +89,13 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
     if (!isOpen) {
       setStep(1);
       setTrabajadorId('');
-      setTransportistaTrabajadorId('');
-      setReceptorTrabajadorId('');
-      setEsTraslado(false);
       setUbicacionOrigenId('');
       setUbicacionDestinoId('');
       setNotaDestino('');
-      setFechaDevolucion('');
       setDetalles([{ ...EMPTY_DETALLE }]);
       setError(null);
       setTrabajadorSearch('');
       setSelectedTemplateId('');
-      setIsMassiveMode(false);
-      setMassiveWorkerIds([]);
       setIsLoadingTemplatePreview(false);
       setTemplatePreviewError(null);
     }
@@ -173,22 +144,6 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   }, [selectedTemplateId, ubicacionOrigenId]);
 
   useEffect(() => {
-    if (!selectedTemplateId && isMassiveMode) {
-      setIsMassiveMode(false);
-      setMassiveWorkerIds([]);
-    }
-  }, [selectedTemplateId, isMassiveMode]);
-
-  useEffect(() => {
-    if (!isMassiveMode) return;
-    if (!esTraslado) return;
-
-    setEsTraslado(false);
-    setTransportistaTrabajadorId('');
-    setReceptorTrabajadorId('');
-  }, [isMassiveMode, esTraslado]);
-
-  useEffect(() => {
     setDetalles((prev) =>
       prev.map((detalle) => {
         const art = articuloOf(detalle.articulo_id);
@@ -213,8 +168,6 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
     );
   });
 
-  const isTraslado = esTraslado;
-
   const ubicacionesOrigen = ubicaciones.filter((u) => {
     if (!u.tipo) return true;
     return u.tipo === 'bodega';
@@ -222,22 +175,17 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 
   const ubicacionesDestino = ubicaciones.filter((u) => {
     if (!u.tipo) return true;
-    if (isTraslado) return u.tipo === 'bodega';
     return u.tipo === 'planta';
   });
 
   // Step 1 validation
-  const hasWorkerSelection = isMassiveMode
-    ? massiveWorkerIds.length > 0
-    : (isTraslado ? transportistaTrabajadorId !== '' : trabajadorId !== '');
+  const hasWorkerSelection = trabajadorId !== '';
 
   const canGoToStep2 =
     hasWorkerSelection &&
     ubicacionOrigenId !== '' &&
     ubicacionDestinoId !== '' &&
-    ubicacionOrigenId !== ubicacionDestinoId &&
-    (!isTraslado || receptorTrabajadorId !== '') &&
-    (!isMassiveMode || !isTraslado);
+    ubicacionOrigenId !== ubicacionDestinoId;
 
   // Step 2 helpers
   const addDetalle = () =>
@@ -251,19 +199,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       prev.map((d, i) => (i === idx ? { ...d, [field]: value } : d))
     );
 
-  const lotesForArticulo = (articuloId: string) =>
-    lotes.filter((l) => l.articulo_id === articuloId);
-
   const articuloOf = (id: string) => articulos.find((a) => a.id === id);
-
-  const toggleMassiveWorker = (nextWorkerId: string) => {
-    setMassiveWorkerIds((prev) => {
-      if (prev.includes(nextWorkerId)) {
-        return prev.filter((id) => id !== nextWorkerId);
-      }
-      return [...prev, nextWorkerId];
-    });
-  };
 
   const updateArticuloDetalle = (idx: number, articuloId: string) => {
     const art = articuloOf(articuloId);
@@ -275,7 +211,6 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
           ...d,
           articulo_id: articuloId,
           activo_ids: art?.tracking_mode === 'serial' ? [] : [],
-          lote_id: art?.tracking_mode === 'lote' ? d.lote_id ?? null : null,
           cantidad: art?.tracking_mode === 'serial' ? 1 : d.cantidad,
         };
       })
@@ -287,17 +222,6 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
     // Validate detalles
     if (ubicacionOrigenId === ubicacionDestinoId) {
       setError('La ubicación de origen y destino no puede ser la misma.');
-      return;
-    }
-
-    if (
-      isMassiveMode &&
-      detalles.some((detail) => {
-        const article = articuloOf(detail.articulo_id);
-        return article?.tracking_mode === 'serial';
-      })
-    ) {
-      setError('El modo masivo no admite artículos serializados en este MVP.');
       return;
     }
 
@@ -341,75 +265,27 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
         }
       }
 
-      if (art.retorno_mode === 'consumible' && (d.activo_ids?.length || 0) > 0) {
-        setError(`El artículo "${art.nombre}" es consumible y no admite activos serializados.`);
-        return;
-      }
     }
 
     const templateOverrides: EntregaTemplateDetailOverridePayload[] = buildTemplateDetailOverrides(
       detalles.map((d) => ({
         articulo_id: d.articulo_id,
         activo_ids: d.activo_ids?.length ? d.activo_ids : undefined,
-        lote_id: d.lote_id || null,
         cantidad: d.activo_ids?.length ? undefined : Number(d.cantidad),
         condicion_salida: d.condicion_salida || 'ok',
         notas: d.notas || null,
       }))
     );
 
-    if (isMassiveMode) {
-      if (!selectedTemplateId) {
-        setError('Selecciona una plantilla para habilitar creación masiva.');
-        return;
-      }
-
-      if (!onSubmitTemplateBatch) {
-        setError('La creación masiva no está disponible en este contexto.');
-        return;
-      }
-
-      const batchRequest: EntregaCreateBatchFromTemplatePayload = {
-        trabajador_ids: massiveWorkerIds,
-        ubicacion_origen_id: ubicacionOrigenId,
-        ubicacion_destino_id: ubicacionDestinoId,
-        tipo: 'entrega',
-        es_traslado: false,
-        nota_destino: notaDestino || null,
-        fecha_devolucion_esperada: fechaDevolucion || null,
-        detalles_overrides: templateOverrides,
-      };
-
-      try {
-        await onSubmitTemplateBatch({
-          templateId: selectedTemplateId,
-          request: batchRequest,
-        });
-        return;
-      } catch (err: unknown) {
-        const e = err as { response?: { data?: { message?: string } }; message?: string };
-        setError(e?.response?.data?.message ?? e?.message ?? 'No se pudo crear el lote de entregas.');
-        return;
-      }
-    }
-
-    const resolvedTrabajadorId = isTraslado ? transportistaTrabajadorId : trabajadorId;
-    const resolvedTipo: EntregaTipo | undefined = isTraslado ? 'traslado' : 'entrega';
-
     const payload: EntregaCreatePayload = {
-      trabajador_id: resolvedTrabajadorId,
-      transportista_trabajador_id: isTraslado ? transportistaTrabajadorId : null,
-      receptor_trabajador_id: isTraslado ? receptorTrabajadorId || null : null,
+      trabajador_id: trabajadorId,
       ubicacion_origen_id: ubicacionOrigenId,
       ubicacion_destino_id: ubicacionDestinoId,
-      tipo: resolvedTipo,
-      es_traslado: isTraslado,
+      tipo: 'entrega',
       nota_destino: notaDestino || null,
-      fecha_devolucion_esperada: fechaDevolucion || null,
       detalles: templateOverrides.map((item) => ({
         articulo_id: item.articulo_id,
         activo_ids: item.activo_ids,
-        lote_id: item.lote_id || null,
         cantidad: item.activo_ids?.length ? undefined : item.cantidad,
         condicion_salida: item.condicion_salida || 'ok',
         notas: item.notas || null,
@@ -425,8 +301,6 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   };
 
   const selectedTrabajador = trabajadores.find((t) => t.id === trabajadorId);
-  const selectedTransportista = trabajadores.find((t) => t.id === transportistaTrabajadorId);
-  const selectedReceptor = trabajadores.find((t) => t.id === receptorTrabajadorId);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Nueva entrega">
@@ -446,7 +320,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               {step > s ? '✓' : s}
             </div>
             <span className={`ml-2 text-sm ${step === s ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
-              {s === 1 ? 'Encabezado' : 'Artículos'}
+              {s === 1 ? 'Datos básicos' : 'Ítems'}
             </span>
             {s < 2 && <div className="flex-1 h-px bg-gray-200 mx-4" />}
           </React.Fragment>
@@ -464,11 +338,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
             <select
               id="entrega-template-id"
               value={selectedTemplateId}
-              onChange={(e) => {
-                setSelectedTemplateId(e.target.value);
-                setIsMassiveMode(false);
-                setMassiveWorkerIds([]);
-              }}
+              onChange={(e) => setSelectedTemplateId(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
             >
               <option value="">— Sin plantilla —</option>
@@ -491,166 +361,46 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
             )}
           </div>
 
-          {selectedTemplateId && (
-            <div className="flex items-center gap-3 rounded-lg border border-gray-300 px-3 py-2">
-              <input
-                id="entrega-modo-masivo"
-                type="checkbox"
-                checked={isMassiveMode}
-                onChange={(e) => {
-                  const enabled = e.target.checked;
-                  setIsMassiveMode(enabled);
-                  if (enabled) {
-                    setTrabajadorId('');
-                    setTransportistaTrabajadorId('');
-                    setReceptorTrabajadorId('');
-                    setEsTraslado(false);
-                  } else {
-                    setMassiveWorkerIds([]);
-                  }
-                }}
-                className="h-4 w-4 rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
-              />
-              <label htmlFor="entrega-modo-masivo" className="text-sm text-gray-700 select-none">
-                Crear borradores masivos con la plantilla (un borrador por trabajador)
-              </label>
-            </div>
-          )}
-
-          {/* Trabajador / Trabajadores */}
+          {/* Trabajador */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {isMassiveMode ? 'Trabajadores (modo masivo)' : isTraslado ? 'Transportista' : 'Trabajador'} <span className="text-red-500">*</span>
+              Trabajador <span className="text-red-500">*</span>
             </label>
             <input
               id="entrega-trabajador-busqueda"
               type="text"
-              placeholder="Buscar por nombre o RUT..."
+              placeholder="Buscar trabajador por nombre o RUT..."
               value={trabajadorSearch}
               onChange={(e) => setTrabajadorSearch(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none mb-2"
               aria-label="Buscar trabajador por nombre o RUT"
             />
-
-            {isMassiveMode ? (
-              <div className="max-h-44 overflow-y-auto border border-gray-300 rounded-lg bg-white divide-y divide-gray-100">
-                {filteredTrabajadores.map((t) => {
-                  const checked = massiveWorkerIds.includes(t.id);
-                  return (
-                    <label key={t.id} className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => toggleMassiveWorker(t.id)}
-                        className="h-4 w-4 rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
-                      />
-                      <span>
-                        {t.nombres} {t.apellidos} · {t.rut}
-                        {t.cargo ? ` · ${t.cargo}` : ''}
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            ) : (
-              <>
-                <select
-                  id="entrega-trabajador-select"
-                  value={isTraslado ? transportistaTrabajadorId : trabajadorId}
-                  onChange={(e) => {
-                    if (isTraslado) {
-                      setTransportistaTrabajadorId(e.target.value);
-                    } else {
-                      setTrabajadorId(e.target.value);
-                    }
-                  }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
-                  aria-label={isTraslado ? 'Seleccionar transportista' : 'Seleccionar trabajador'}
-                >
-                  <option value="">— Seleccionar trabajador —</option>
-                  {filteredTrabajadores.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.nombres} {t.apellidos} · {t.rut}
-                      {t.cargo ? ` · ${t.cargo}` : ''}
-                    </option>
-                  ))}
-                </select>
-                {((isTraslado ? selectedTransportista : selectedTrabajador)) && (
-                  <p className="mt-1 text-xs text-green-600 font-medium">
-                    ✓ {(isTraslado ? selectedTransportista : selectedTrabajador)?.nombres}{' '}
-                    {(isTraslado ? selectedTransportista : selectedTrabajador)?.apellidos}
-                  </p>
-                )}
-              </>
-            )}
-
-            {isMassiveMode && (
-              <p className="mt-1 text-xs text-green-700 font-medium">
-                {massiveWorkerIds.length} trabajador(es) seleccionados para borradores masivos.
+            <select
+              id="entrega-trabajador-select"
+              value={trabajadorId}
+              onChange={(e) => setTrabajadorId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+              aria-label="Seleccionar trabajador"
+            >
+              <option value="">— Seleccionar trabajador —</option>
+              {filteredTrabajadores.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.nombres} {t.apellidos} · {t.rut}
+                  {t.cargo ? ` · ${t.cargo}` : ''}
+                </option>
+              ))}
+            </select>
+            {selectedTrabajador && (
+              <p className="mt-1 text-xs text-green-600 font-medium">
+                ✓ {selectedTrabajador.nombres} {selectedTrabajador.apellidos}
               </p>
             )}
-          </div>
-
-          {isTraslado && !isMassiveMode && (
-            <div>
-              <label htmlFor="entrega-receptor-trabajador" className="block text-sm font-medium text-gray-700 mb-1">
-                Receptor en bodega destino <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="entrega-receptor-trabajador"
-                value={receptorTrabajadorId}
-                onChange={(e) => setReceptorTrabajadorId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
-              >
-                <option value="">— Seleccionar receptor —</option>
-                {filteredTrabajadores.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nombres} {t.apellidos} · {t.rut}
-                    {t.cargo ? ` · ${t.cargo}` : ''}
-                  </option>
-                ))}
-              </select>
-              {selectedReceptor && (
-                <p className="mt-1 text-xs text-green-600 font-medium">
-                  ✓ {selectedReceptor.nombres} {selectedReceptor.apellidos}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Modo de movimiento */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Movimiento
-            </label>
-            <div className="flex items-center gap-3 rounded-lg border border-gray-300 px-3 py-2">
-              <input
-                id="entrega-es-traslado"
-                type="checkbox"
-                checked={isTraslado}
-                disabled={isMassiveMode}
-                onChange={(e) => {
-                  setEsTraslado(e.target.checked);
-                  setUbicacionOrigenId('');
-                  setUbicacionDestinoId('');
-                }}
-                className="h-4 w-4 rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
-              />
-              <label htmlFor="entrega-es-traslado" className="text-sm text-gray-700 select-none">
-                Es traslado entre bodegas
-              </label>
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-                {isMassiveMode
-                  ? 'El modo masivo usa entrega estándar (no traslado) en este MVP.'
-                  : 'Si no está marcado, se registra como entrega estándar.'}
-            </p>
           </div>
 
           {/* Ubicación origen */}
           <div>
             <label htmlFor="entrega-ubicacion-origen" className="block text-sm font-medium text-gray-700 mb-1">
-              Ubicación origen (bodega) <span className="text-red-500">*</span>
+              Desde (bodega) <span className="text-red-500">*</span>
             </label>
             <select
               id="entrega-ubicacion-origen"
@@ -658,7 +408,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               onChange={(e) => setUbicacionOrigenId(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
             >
-              <option value="">— Seleccionar ubicación origen —</option>
+              <option value="">— Seleccionar origen —</option>
               {ubicacionesOrigen.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.nombre}
@@ -670,7 +420,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
           {/* Ubicación destino */}
           <div>
             <label htmlFor="entrega-ubicacion-destino" className="block text-sm font-medium text-gray-700 mb-1">
-              Ubicación destino <span className="text-red-500">*</span>
+              Hacia (planta) <span className="text-red-500">*</span>
             </label>
             <select
               id="entrega-ubicacion-destino"
@@ -678,7 +428,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               onChange={(e) => setUbicacionDestinoId(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
             >
-              <option value="">— Seleccionar ubicación destino —</option>
+              <option value="">— Seleccionar destino —</option>
               {ubicacionesDestino.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.nombre}
@@ -690,37 +440,17 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
           {/* Nota */}
           <div>
             <label htmlFor="entrega-nota-destino" className="block text-sm font-medium text-gray-700 mb-1">
-              Nota / observaciones
+              Observación (opcional)
             </label>
             <textarea
               id="entrega-nota-destino"
               rows={2}
               value={notaDestino}
               onChange={(e) => setNotaDestino(e.target.value)}
-              placeholder="Información adicional..."
+              placeholder="Ej: turno, encargado, contexto de entrega"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
             />
           </div>
-
-          {/* Fecha devolución esperada */}
-          {!isTraslado && (
-            <div>
-              <label htmlFor="entrega-fecha-devolucion" className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha devolución esperada
-              </label>
-              <input
-                id="entrega-fecha-devolucion"
-                type="date"
-                value={fechaDevolucion}
-                onChange={(e) => setFechaDevolucion(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Opcional. Se usará para el semáforo de devolución de activos retornables.
-              </p>
-            </div>
-          )}
         </div>
       )}
 
@@ -729,8 +459,6 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
         <div className="space-y-4">
           {detalles.map((detalle, idx) => {
             const art = articuloOf(detalle.articulo_id);
-            const artLotes = art ? lotesForArticulo(art.id) : [];
-            const needsLote = art?.tracking_mode === 'lote';
             const needsSerial = art?.tracking_mode === 'serial';
 
             return (
@@ -794,7 +522,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                   {/* Condición */}
                   <div>
                     <label htmlFor={`entrega-detalle-condicion-${idx}`} className="block text-xs font-medium text-gray-600 mb-1">
-                      Condición de salida
+                      Condición inicial
                     </label>
                     <select
                       id={`entrega-detalle-condicion-${idx}`}
@@ -814,41 +542,20 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                 </div>
 
                 {needsSerial && (
-                  <AssetUnitSelector
-                    value={detalle.activo_ids ?? []}
-                    onChange={(next) => updateDetalle(idx, 'activo_ids', next)}
-                    articuloId={detalle.articulo_id || undefined}
-                    ubicacionId={ubicacionOrigenId || undefined}
-                    excludedIds={detalles.flatMap((row, rowIdx) =>
-                      rowIdx === idx ? [] : (row.activo_ids ?? []).filter(Boolean)
-                    )}
-                    label="Seleccionar activo"
-                    required
-                  />
-                )}
-
-                {/* Lote (solo si tracking_mode === 'lote') */}
-                {needsLote && (
-                  <div>
-                    <label htmlFor={`entrega-detalle-lote-${idx}`} className="block text-xs font-medium text-gray-600 mb-1">
-                      Lote
-                    </label>
-                    <select
-                      id={`entrega-detalle-lote-${idx}`}
-                      value={detalle.lote_id ?? ''}
-                      onChange={(e) =>
-                        updateDetalle(idx, 'lote_id', e.target.value || null)
-                      }
-                      className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
-                    >
-                      <option value="">— Sin lote específico —</option>
-                      {artLotes.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.codigo_lote ?? l.id}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <>
+                    <AssetUnitSelector
+                      value={detalle.activo_ids ?? []}
+                      onChange={(next) => updateDetalle(idx, 'activo_ids', next)}
+                      articuloId={detalle.articulo_id || undefined}
+                      ubicacionId={ubicacionOrigenId || undefined}
+                      excludedIds={detalles.flatMap((row, rowIdx) =>
+                        rowIdx === idx ? [] : (row.activo_ids ?? []).filter(Boolean)
+                      )}
+                      label="Seleccionar activo"
+                      required
+                    />
+                    <p className="text-xs text-gray-500">Selecciona al menos un activo para este ítem.</p>
+                  </>
                 )}
 
                 {/* Notas */}
@@ -929,11 +636,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               onClick={handleSubmit}
               className="flex-1 py-2 px-4 bg-primary-blue text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
             >
-              {isSubmitting
-                ? 'Creando...'
-                : isMassiveMode
-                  ? 'Crear borradores masivos'
-                  : 'Crear entrega'}
+              {isSubmitting ? 'Creando...' : 'Crear borrador'}
             </button>
           </>
         )}

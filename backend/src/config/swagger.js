@@ -1,10 +1,10 @@
 const swaggerSpec = {
   openapi: '3.0.0',
   info: {
-    title: 'Alltura EPP/Herramientas API',
+    title: 'Alltura Equipos/Herramientas API',
     version: '1.0.0',
     description:
-      'API del MVP operativo de inventario, entregas, firmas, devoluciones, custodias y trazabilidad para EPP/Herramientas.',
+      'API del MVP operativo de inventario, entregas, firmas, devoluciones, custodias y trazabilidad para equipos y herramientas.',
   },
   servers: [
     {
@@ -20,7 +20,7 @@ const swaggerSpec = {
     { name: 'Devoluciones', description: 'Borrador, confirmación y cierre de custodia' },
     { name: 'Compras', description: 'Ingreso de inventario por compra' },
     { name: 'Inventario', description: 'Stock y movimientos' },
-    { name: 'Dashboard', description: 'Indicadores operativos EPP' },
+    { name: 'Dashboard', description: 'Indicadores operativos' },
   ],
   components: {
     securitySchemes: {
@@ -633,13 +633,6 @@ const swaggerSpec = {
                         ubicacion_id: { type: 'string', format: 'uuid' },
                         cantidad: { type: 'number' },
                         costo_unitario: { type: 'number' },
-                        lote: {
-                          type: 'object',
-                          nullable: true,
-                          properties: {
-                            codigo_lote: { type: 'string', nullable: true },
-                          },
-                        },
                         activos: {
                           type: 'array',
                           items: {
@@ -712,12 +705,6 @@ const swaggerSpec = {
             schema: { type: 'string', format: 'uuid' },
           },
           {
-            name: 'lote_id',
-            in: 'query',
-            required: false,
-            schema: { type: 'string', format: 'uuid' },
-          },
-          {
             name: 'limit',
             in: 'query',
             required: false,
@@ -762,7 +749,7 @@ const swaggerSpec = {
     '/api/dashboard/indicadores-operativos': {
       get: {
         tags: ['Dashboard'],
-        summary: 'Indicadores operativos EPP (canónico)',
+        summary: 'Indicadores operativos (canónico)',
         security: [{ bearerAuth: [] }],
         responses: {
           200: {
@@ -804,7 +791,7 @@ const swaggerSpec = {
     '/api/dashboard/summary': {
       get: {
         tags: ['Dashboard'],
-        summary: 'Resumen de indicadores EPP',
+        summary: 'Resumen de indicadores operativos',
         security: [{ bearerAuth: [] }],
         responses: {
           200: {

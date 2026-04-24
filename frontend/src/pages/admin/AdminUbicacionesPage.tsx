@@ -437,7 +437,7 @@ const AdminUbicacionesPage: React.FC = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Ubicaciones</h1>
           <p className="text-neutral-gray mt-1 text-sm">
-            Bodegas y plantas donde se almacena o usa el EPP.
+            Bodegas y plantas donde se almacenan o usan equipos y herramientas.
           </p>
         </div>
         <button

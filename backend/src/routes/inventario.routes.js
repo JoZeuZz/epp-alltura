@@ -51,20 +51,12 @@ const serialAssetSchema = Joi.object({
   fecha_vencimiento: Joi.date().iso().allow(null),
 });
 
-const loteSchema = Joi.object({
-  codigo_lote: Joi.string().trim().max(100).allow('', null),
-  fecha_fabricacion: Joi.date().iso().allow(null),
-  fecha_vencimiento: Joi.date().iso().allow(null),
-});
-
 const ingresoDetalleSchema = Joi.object({
   articulo_id: uuid.required(),
   ubicacion_id: uuid.required(),
   cantidad: Joi.number().integer().positive().required(),
   costo_unitario: Joi.number().integer().min(0).default(0),
   notas: Joi.string().trim().max(1000).allow('', null),
-  lote_id: uuid.allow(null),
-  lote: loteSchema,
   activos: Joi.array().items(serialAssetSchema),
 });
 
@@ -191,7 +183,7 @@ router.delete(
 
 // ── Egresos ────────────────────────────────────────────────
 const createEgresoSchema = Joi.object({
-  tipo_motivo: Joi.string().valid('salida', 'baja', 'consumo', 'ajuste').required(),
+  tipo_motivo: Joi.string().valid('salida', 'baja', 'ajuste').required(),
   notas: Joi.string().trim().max(1000).allow('', null),
   detalles: Joi.array().items(
     Joi.object({
@@ -199,7 +191,6 @@ const createEgresoSchema = Joi.object({
       ubicacion_id: uuid.required(),
       cantidad: Joi.number().integer().positive().optional(),
       activo_ids: Joi.array().items(uuid).min(1).optional(),
-      lote_id: uuid.allow(null),
       notas: Joi.string().trim().max(1000).allow('', null),
     }).custom((value, helpers) => {
       if ((!value.activo_ids || value.activo_ids.length === 0) && (value.cantidad === undefined || value.cantidad === null)) {
@@ -211,12 +202,6 @@ const createEgresoSchema = Joi.object({
       if (value.activo_ids && value.cantidad !== undefined && value.cantidad !== null) {
         return helpers.error('any.custom', {
           message: 'No debe combinar cantidad con activo_ids en el mismo detalle',
-        });
-      }
-
-      if (value.activo_ids && value.lote_id) {
-        return helpers.error('any.custom', {
-          message: 'No debe enviar lote_id junto con activo_ids',
         });
       }
 
@@ -327,13 +312,6 @@ router.get(
 );
 
 router.get(
-  '/lotes',
-  authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
-  InventarioController.getLotes
-);
-
-router.get(
   '/activos/:id/perfil',
   authMiddleware,
   checkRole(['admin', 'supervisor', 'bodega']),
@@ -343,7 +321,7 @@ router.get(
 // ── Gestión de activos (admin) ─────────────────────────────
 const cambiarEstadoActivoSchema = Joi.object({
   nuevo_estado: Joi.string()
-    .valid('en_stock', 'asignado', 'en_traslado', 'mantencion', 'dado_de_baja', 'perdido')
+    .valid('en_stock', 'asignado', 'mantencion', 'dado_de_baja', 'perdido')
     .required(),
   motivo: Joi.string().trim().min(3).max(500).required(),
   ubicacion_destino_id: uuid.when('nuevo_estado', {

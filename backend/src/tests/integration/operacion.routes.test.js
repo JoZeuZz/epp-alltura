@@ -1,18 +1,79 @@
 jest.mock('../../middleware/auth', () => ({
   authMiddleware: (req, _res, next) => {
+    const actor = String(req.headers['x-test-actor'] || 'bodega').toLowerCase();
+
+    if (actor === 'admin') {
+      req.user = {
+        id: 'user-admin-1',
+        role: 'admin',
+        roles: ['admin'],
+      };
+      return next();
+    }
+
+    if (actor === 'worker' || actor === 'trabajador') {
+      req.user = {
+        id: 'user-worker-1',
+        role: 'worker',
+        roles: ['worker', 'trabajador'],
+      };
+      return next();
+    }
+
     req.user = {
-      id: 'user-1',
+      id: 'user-bodega-1',
       role: 'bodega',
       roles: ['bodega'],
     };
-    next();
+    return next();
   },
 }));
 
-jest.mock('../../middleware/roles', () => ({
-  checkRole: () => (_req, _res, next) => next(),
-  isAdmin: (_req, _res, next) => next(),
-}));
+jest.mock('../../middleware/roles', () => {
+  const normalizeRole = (role) => {
+    if (role === 'worker' || role === 'client') {
+      return 'trabajador';
+    }
+    return role;
+  };
+
+  const checkRole = (requiredRoles) => {
+    const normalizedRequired = (Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles]).map(
+      normalizeRole
+    );
+
+    return (req, res, next) => {
+      if (!req.user) {
+        return res.status(401).json({
+          success: false,
+          message: 'No autenticado',
+          data: null,
+          errors: ['UNAUTHENTICATED'],
+        });
+      }
+
+      const userRoles = Array.isArray(req.user.roles) ? req.user.roles : [req.user.role];
+      const normalizedUserRoles = userRoles.map(normalizeRole);
+      const authorized = normalizedRequired.some((role) => normalizedUserRoles.includes(role));
+
+      if (!authorized) {
+        return res.status(403).json({
+          success: false,
+          message: 'No autorizado',
+          data: null,
+          errors: ['FORBIDDEN'],
+        });
+      }
+
+      return next();
+    };
+  };
+
+  return {
+    checkRole,
+    isAdmin: checkRole(['admin']),
+  };
+});
 
 jest.mock('../../services/entregas.service', () => ({
   list: jest.fn(),
@@ -50,6 +111,7 @@ jest.mock('../../services/inventario.service', () => ({
   getAuditoria: jest.fn(),
   getIngresos: jest.fn(),
   createIngreso: jest.fn(),
+  createEgreso: jest.fn(),
 }));
 
 jest.mock('../../lib/logger', () => ({
@@ -76,7 +138,7 @@ const DevolucionesService = require('../../services/devoluciones.service');
 const DashboardService = require('../../services/dashboard.service');
 const InventarioService = require('../../services/inventario.service');
 
-describe('EPP API Route Integration', () => {
+describe('Operación API Route Integration', () => {
   const buildApp = () => {
     const app = express();
     app.use(express.json());
@@ -134,6 +196,29 @@ describe('EPP API Route Integration', () => {
     expect(response.body.success).toBe(false);
     expect(response.body.message).toBe('Error de validación');
     expect(Array.isArray(response.body.errors)).toBe(true);
+  });
+
+  it('rejects entrega payload when tipo is different from entrega', async () => {
+    const app = buildApp();
+
+    const response = await request(app).post('/api/entregas').send({
+      trabajador_id: '11111111-1111-4111-8111-111111111111',
+      ubicacion_origen_id: '22222222-2222-4222-8222-222222222222',
+      ubicacion_destino_id: '33333333-3333-4333-8333-333333333333',
+      tipo: 'traslado',
+      detalles: [
+        {
+          articulo_id: '44444444-4444-4444-8444-444444444444',
+          cantidad: 1,
+          condicion_salida: 'ok',
+        },
+      ],
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe('Error de validación');
+    expect(JSON.stringify(response.body.errors || [])).toMatch(/tipo/i);
   });
 
   it('consumes firma token route and returns standardized success envelope', async () => {
@@ -217,6 +302,16 @@ describe('EPP API Route Integration', () => {
     expect(oldProjectSummary.status).toBe(404);
   });
 
+  it('returns 404 for removed legacy entrega receive endpoint', async () => {
+    const app = buildApp();
+
+    const response = await request(app)
+      .post('/api/entregas/11111111-1111-4111-8111-111111111111/recibir-traslado')
+      .send();
+
+    expect(response.status).toBe(404);
+  });
+
   it('creates inventory ingreso without documento and returns standardized envelope', async () => {
     InventarioService.createIngreso.mockResolvedValue({
       id: 'compra-1',
@@ -237,7 +332,7 @@ describe('EPP API Route Integration', () => {
           costo_unitario: 1000,
         },
       ],
-    });
+    }).set('x-test-actor', 'admin');
 
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
@@ -250,6 +345,7 @@ describe('EPP API Route Integration', () => {
 
     const response = await request(app)
       .post('/api/inventario/ingresos')
+      .set('x-test-actor', 'admin')
       .field(
         'payload_json',
         JSON.stringify({
@@ -272,5 +368,52 @@ describe('EPP API Route Integration', () => {
     expect(response.status).toBe(400);
     expect(response.body.success).toBe(false);
     expect(response.body.message).toContain('documento_compra');
+  });
+
+  it('rejects egreso payload when tipo_motivo is consumo', async () => {
+    const app = buildApp();
+
+    const response = await request(app)
+      .post('/api/inventario/egresos')
+      .set('x-test-actor', 'admin')
+      .send({
+        tipo_motivo: 'consumo',
+        notas: 'No permitido en contrato canónico',
+        detalles: [
+          {
+            articulo_id: '44444444-4444-4444-8444-444444444444',
+            ubicacion_id: '33333333-3333-4333-8333-333333333333',
+            cantidad: 1,
+          },
+        ],
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe('Error de validación');
+    expect(JSON.stringify(response.body.errors || [])).toMatch(/tipo_motivo|consumo/i);
+  });
+
+  it('returns 403 when worker tries to create egreso', async () => {
+    const app = buildApp();
+
+    const response = await request(app)
+      .post('/api/inventario/egresos')
+      .set('x-test-actor', 'worker')
+      .send({
+        tipo_motivo: 'baja',
+        notas: 'Intento sin permisos',
+        detalles: [
+          {
+            articulo_id: '44444444-4444-4444-8444-444444444444',
+            ubicacion_id: '33333333-3333-4333-8333-333333333333',
+            cantidad: 1,
+          },
+        ],
+      });
+
+    expect(response.status).toBe(403);
+    expect(response.body.success).toBe(false);
+    expect(response.body.message).toBe('No autorizado');
   });
 });

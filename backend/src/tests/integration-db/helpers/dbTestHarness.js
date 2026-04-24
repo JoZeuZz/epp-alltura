@@ -50,6 +50,14 @@ const assertSafeReset = () => {
 
 const initializeSchema = async () => {
   assertSafeReset();
+
+  // Asegura que la re-inicialización por suite parta sin residuos de datos.
+  try {
+    await resetTransactionalData();
+  } catch {
+    // Primera ejecución: puede fallar si aún no existen tablas. Se ignora.
+  }
+
   await initializeDatabase();
 };
 

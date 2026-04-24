@@ -39,7 +39,6 @@ const uuid = Joi.string()
 const entregaDetalleSchema = Joi.object({
   articulo_id: uuid.required(),
   activo_ids: Joi.array().items(uuid).min(1).optional(),
-  lote_id: uuid.allow(null),
   cantidad: Joi.number().integer().positive().optional(),
   condicion_salida: Joi.string().valid('ok', 'usado', 'danado').default('ok'),
   notas: Joi.string().trim().max(1000).allow('', null),
@@ -74,7 +73,6 @@ const templateItemOverrideSchema = Joi.object({
   articulo_id: uuid.required(),
   cantidad: Joi.number().integer().positive().optional(),
   activo_ids: Joi.array().items(uuid).min(1).optional(),
-  lote_id: uuid.allow(null),
   condicion_salida: Joi.string().valid('ok', 'usado', 'danado').optional(),
   notas: Joi.string().trim().max(1000).allow('', null),
 });
@@ -83,39 +81,17 @@ const createFromTemplateSchema = Joi.object({
   trabajador_id: uuid.required(),
   ubicacion_origen_id: uuid.required(),
   ubicacion_destino_id: uuid.required(),
-  tipo: Joi.string().valid('entrega', 'prestamo', 'traslado').optional(),
-  es_traslado: Joi.boolean().optional(),
+  tipo: Joi.string().valid('entrega').optional(),
   nota_destino: Joi.string().trim().max(1000).allow('', null),
   fecha_devolucion_esperada: Joi.date().iso().allow(null),
   detalles_overrides: Joi.array().items(templateItemOverrideSchema).optional(),
-})
-  .custom((value, helpers) => {
-    if (typeof value.es_traslado === 'boolean' && value.tipo) {
-      if (value.es_traslado && value.tipo !== 'traslado') {
-        return helpers.error('any.custom', {
-          message: 'Si es_traslado=true, tipo debe ser "traslado"',
-        });
-      }
-
-      if (!value.es_traslado && !['entrega', 'prestamo'].includes(value.tipo)) {
-        return helpers.error('any.custom', {
-          message: 'El payload combina tipo y es_traslado de forma inconsistente',
-        });
-      }
-    }
-
-    return value;
-  }, 'consistencia tipo/es_traslado')
-  .messages({
-    'any.custom': '{{#message}}',
-  });
+});
 
 const createBatchFromTemplateSchema = Joi.object({
   trabajador_ids: Joi.array().items(uuid).min(1).required(),
   ubicacion_origen_id: uuid.required(),
   ubicacion_destino_id: uuid.required(),
-  tipo: Joi.string().valid('entrega', 'prestamo').optional(),
-  es_traslado: Joi.boolean().valid(false).optional(),
+  tipo: Joi.string().valid('entrega').optional(),
   nota_destino: Joi.string().trim().max(1000).allow('', null),
   fecha_devolucion_esperada: Joi.date().iso().allow(null),
   detalles_overrides: Joi.array().items(templateItemOverrideSchema).optional(),
@@ -141,37 +117,13 @@ const templatePreviewQuerySchema = Joi.object({
 
 const createEntregaSchema = Joi.object({
   trabajador_id: uuid.required(),
-  transportista_trabajador_id: uuid.allow(null),
-  receptor_trabajador_id: uuid.allow(null),
   ubicacion_origen_id: uuid.required(),
   ubicacion_destino_id: uuid.required(),
-  tipo: Joi.string().valid('entrega', 'prestamo', 'traslado').optional(),
-  es_traslado: Joi.boolean().optional(),
+  tipo: Joi.string().valid('entrega').optional(),
   nota_destino: Joi.string().trim().max(1000).allow('', null),
   fecha_devolucion_esperada: Joi.date().iso().allow(null),
   detalles: Joi.array().items(entregaDetalleSchema).min(1).required(),
-})
-  .or('tipo', 'es_traslado')
-  .custom((value, helpers) => {
-    if (typeof value.es_traslado === 'boolean' && value.tipo) {
-      if (value.es_traslado && value.tipo !== 'traslado') {
-        return helpers.error('any.custom', {
-          message: 'Si es_traslado=true, tipo debe ser "traslado"',
-        });
-      }
-
-      if (!value.es_traslado && !['entrega', 'prestamo'].includes(value.tipo)) {
-        return helpers.error('any.custom', {
-          message: 'El payload combina tipo y es_traslado de forma inconsistente',
-        });
-      }
-    }
-    return value;
-  }, 'consistencia tipo/es_traslado')
-  .messages({
-    'object.missing': 'Debe enviar tipo o es_traslado',
-    'any.custom': '{{#message}}',
-  });
+});
 
 const anularEntregaSchema = Joi.object({
   motivo: Joi.string().trim().min(5).max(1000).required(),
@@ -179,10 +131,6 @@ const anularEntregaSchema = Joi.object({
 
 const deshacerEntregaSchema = Joi.object({
   motivo: Joi.string().trim().min(5).max(1000).required(),
-});
-
-const recibirTrasladoSchema = Joi.object({
-  receptor_trabajador_id: uuid.allow(null),
 });
 
 router.get('/', authMiddleware, checkRole(['admin', 'supervisor', 'bodega']), EntregasController.list);
@@ -268,14 +216,6 @@ router.post(
   authMiddleware,
   checkRole(['admin', 'supervisor', 'bodega']),
   EntregasController.confirm
-);
-
-router.post(
-  '/:id/recibir',
-  authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
-  validateBody(recibirTrasladoSchema),
-  EntregasController.recibirTraslado
 );
 
 router.post(

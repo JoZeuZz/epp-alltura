@@ -17,99 +17,135 @@ const validateBody = (schema) => {
   };
 };
 
-const validateArticuloClassification = (value, helpers) => {
-  const tipo = value.tipo;
-  const trackingMode = value.tracking_mode;
-  const retornoMode = value.retorno_mode;
-
-  if (retornoMode === 'retornable' && trackingMode !== 'serial') {
-    return helpers.error('any.custom', {
-      message: 'Los artículos retornables deben gestionarse por unidad',
-    });
-  }
-
-  if (retornoMode === 'consumible' && trackingMode === 'serial') {
-    return helpers.error('any.custom', {
-      message: 'Los artículos consumibles no pueden gestionarse por unidad',
-    });
-  }
-
-  if (tipo === 'consumible' && retornoMode !== 'consumible') {
-    return helpers.error('any.custom', {
-      message: 'Los artículos de tipo "consumible" deben tener retorno_mode "consumible"',
-    });
-  }
-
-  if ((tipo === 'herramienta' || tipo === 'epp') && retornoMode === 'retornable' && trackingMode !== 'serial') {
-    return helpers.error('any.custom', {
-      message: 'Herramientas/EPP retornables deben gestionarse por unidad',
-    });
-  }
-
-  return value;
+const SUBCLASIFICACIONES_POR_GRUPO = {
+  equipo: new Set(['epp', 'medicion_ensayos']),
+  herramienta: new Set(['manual', 'electrica_cable', 'inalambrica_bateria']),
 };
 
+const normalizeGrupoPrincipal = (value) => {
+  if (value === undefined) return undefined;
+
+  return String(value || '').trim().toLowerCase();
+};
+
+const normalizeSubclasificacion = (value) => {
+  if (value === undefined) return undefined;
+
+  return String(value || '').trim().toLowerCase();
+};
+
+const validateGrupoSubclasificacionCreate = (value, helpers) => {
+  const grupoPrincipal = normalizeGrupoPrincipal(value.grupo_principal);
+  const subclasificacion = normalizeSubclasificacion(value.subclasificacion);
+  const subclasificacionesPermitidas = SUBCLASIFICACIONES_POR_GRUPO[grupoPrincipal];
+
+  if (!subclasificacionesPermitidas || !subclasificacionesPermitidas.has(subclasificacion)) {
+    return helpers.error('any.custom', {
+      message: `La subclasificación "${subclasificacion}" no es válida para grupo_principal "${grupoPrincipal}"`,
+    });
+  }
+
+  return {
+    ...value,
+    grupo_principal: grupoPrincipal,
+    subclasificacion,
+  };
+};
+
+const validateGrupoSubclasificacionUpdate = (value, helpers) => {
+  const hasGrupo = Object.prototype.hasOwnProperty.call(value, 'grupo_principal');
+  const hasSubclasificacion = Object.prototype.hasOwnProperty.call(value, 'subclasificacion');
+
+  if (hasGrupo && !hasSubclasificacion) {
+    return helpers.error('any.custom', {
+      message: 'Si actualiza grupo_principal debe enviar subclasificacion compatible',
+    });
+  }
+
+  const grupoPrincipal = hasGrupo ? normalizeGrupoPrincipal(value.grupo_principal) : undefined;
+  const subclasificacion = hasSubclasificacion
+    ? normalizeSubclasificacion(value.subclasificacion)
+    : undefined;
+
+  if (hasGrupo && hasSubclasificacion) {
+    const subclasificacionesPermitidas = SUBCLASIFICACIONES_POR_GRUPO[grupoPrincipal];
+    if (!subclasificacionesPermitidas || !subclasificacionesPermitidas.has(subclasificacion)) {
+      return helpers.error('any.custom', {
+        message: `La subclasificación "${subclasificacion}" no es válida para grupo_principal "${grupoPrincipal}"`,
+      });
+    }
+  }
+
+  return {
+    ...value,
+    grupo_principal: hasGrupo ? grupoPrincipal : value.grupo_principal,
+    subclasificacion: hasSubclasificacion ? subclasificacion : value.subclasificacion,
+  };
+};
+
+const especialidadSchema = Joi.string()
+  .trim()
+  .lowercase()
+  .valid('oocc', 'ooee', 'andamios', 'trabajos_verticales_lineas_de_vida');
+
 const articuloCreateSchema = Joi.object({
-  tipo: Joi.string().valid('herramienta', 'epp', 'consumible').required(),
+  grupo_principal: Joi.string().trim().lowercase().valid('equipo', 'herramienta').required(),
+  subclasificacion: Joi.string()
+    .trim()
+    .lowercase()
+    .valid('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria')
+    .required(),
+  especialidades: Joi.array().items(especialidadSchema).unique().default([]),
   nombre: Joi.string().trim().min(2).max(150).required(),
-  marca: Joi.string().trim().max(120).allow('', null),
-  modelo: Joi.string().trim().max(120).allow('', null),
-  categoria: Joi.string().trim().max(120).allow('', null),
-  tracking_mode: Joi.string().valid('serial', 'lote').required(),
-  retorno_mode: Joi.string().valid('retornable', 'consumible').required(),
+  marca: Joi.string().trim().min(1).max(120).required(),
+  modelo: Joi.string().trim().min(1).max(120).required(),
   nivel_control: Joi.string().valid('alto', 'medio', 'bajo', 'fuera_scope').required(),
   requiere_vencimiento: Joi.boolean().default(false),
   unidad_medida: Joi.string().trim().max(50).required(),
   estado: Joi.string().valid('activo', 'inactivo').default('activo'),
+  tipo: Joi.any().forbidden().messages({ 'any.unknown': 'Use grupo_principal en lugar de tipo' }),
+  tracking_mode: Joi.any().forbidden().messages({
+    'any.unknown': 'tracking_mode ya no se recibe en el payload de artículo',
+  }),
+  retorno_mode: Joi.any().forbidden().messages({
+    'any.unknown': 'retorno_mode ya no se recibe en el payload de artículo',
+  }),
+  categoria: Joi.any().forbidden().messages({
+    'any.unknown': 'Use subclasificacion en lugar de categoria',
+  }),
 })
-  .custom(validateArticuloClassification, 'article classification validation')
+  .custom(validateGrupoSubclasificacionCreate, 'group-subclassification validation')
   .messages({
     'any.custom': '{{#message}}',
   });
 
 const articuloUpdateSchema = Joi.object({
-  tipo: Joi.string().valid('herramienta', 'epp', 'consumible'),
+  grupo_principal: Joi.string().trim().lowercase().valid('equipo', 'herramienta'),
+  subclasificacion: Joi.string()
+    .trim()
+    .lowercase()
+    .valid('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria'),
+  especialidades: Joi.array().items(especialidadSchema).unique(),
   nombre: Joi.string().trim().min(2).max(150),
-  marca: Joi.string().trim().max(120).allow('', null),
-  modelo: Joi.string().trim().max(120).allow('', null),
-  categoria: Joi.string().trim().max(120).allow('', null),
-  tracking_mode: Joi.string().valid('serial', 'lote'),
-  retorno_mode: Joi.string().valid('retornable', 'consumible'),
+  marca: Joi.string().trim().min(1).max(120),
+  modelo: Joi.string().trim().min(1).max(120),
   nivel_control: Joi.string().valid('alto', 'medio', 'bajo', 'fuera_scope'),
   requiere_vencimiento: Joi.boolean(),
   unidad_medida: Joi.string().trim().max(50),
   estado: Joi.string().valid('activo', 'inactivo'),
+  tipo: Joi.any().forbidden().messages({ 'any.unknown': 'Use grupo_principal en lugar de tipo' }),
+  tracking_mode: Joi.any().forbidden().messages({
+    'any.unknown': 'tracking_mode ya no se recibe en el payload de artículo',
+  }),
+  retorno_mode: Joi.any().forbidden().messages({
+    'any.unknown': 'retorno_mode ya no se recibe en el payload de artículo',
+  }),
+  categoria: Joi.any().forbidden().messages({
+    'any.unknown': 'Use subclasificacion en lugar de categoria',
+  }),
 })
   .min(1)
-  .custom((value, helpers) => {
-    if (value.tracking_mode === undefined && value.retorno_mode === undefined && value.tipo === undefined) {
-      return value;
-    }
-
-    const tipo = value.tipo;
-    const trackingMode = value.tracking_mode;
-    const retornoMode = value.retorno_mode;
-
-    if (retornoMode === 'retornable' && trackingMode && trackingMode !== 'serial') {
-      return helpers.error('any.custom', {
-        message: 'Los artículos retornables deben gestionarse por unidad',
-      });
-    }
-
-    if (retornoMode === 'consumible' && trackingMode === 'serial') {
-      return helpers.error('any.custom', {
-        message: 'Los artículos consumibles no pueden gestionarse por unidad',
-      });
-    }
-
-    if (tipo === 'consumible' && retornoMode && retornoMode !== 'consumible') {
-      return helpers.error('any.custom', {
-        message: 'Los artículos de tipo "consumible" deben tener retorno_mode "consumible"',
-      });
-    }
-
-    return value;
-  }, 'article classification update validation')
+  .custom(validateGrupoSubclasificacionUpdate, 'group-subclassification validation')
   .messages({
     'any.custom': '{{#message}}',
   });

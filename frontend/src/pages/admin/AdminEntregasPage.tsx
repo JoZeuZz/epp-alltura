@@ -11,9 +11,7 @@ import { useDeliverySignatureEvents } from '../../hooks/useDeliverySignatureEven
 import {
   getEntregaById,
   createEntrega,
-  createEntregasBatchFromTemplate,
   confirmEntrega,
-  recibirTraslado,
   anularEntrega,
   deshacerEntrega,
   permanentDeleteEntrega,
@@ -21,9 +19,7 @@ import {
   generateEntregaSignatureToken,
   type EntregaRow,
   type EntregaEstado,
-  type EntregaTipo,
   type EntregaCreatePayload,
-  type EntregaCreateBatchFromTemplatePayload,
   type EntregaTemplate,
   type EntregaEstadoDevolucion,
 } from '../../services/apiService';
@@ -37,9 +33,7 @@ const QUERY_KEY = 'admin-entregas';
 
 const ESTADO_LABELS: Record<EntregaEstado, string> = {
   borrador: 'Borrador',
-  pendiente_firma: 'Pendiente firma',
-  en_transito: 'En tránsito',
-  recibido: 'Recibido',
+  pendiente_firma: 'Pendiente confirmación',
   confirmada: 'Confirmada',
   anulada: 'Anulada',
   revertida_admin: 'Revertida',
@@ -48,23 +42,9 @@ const ESTADO_LABELS: Record<EntregaEstado, string> = {
 const ESTADO_CLASSES: Record<EntregaEstado, string> = {
   borrador: 'bg-gray-100 text-gray-700',
   pendiente_firma: 'bg-yellow-100 text-yellow-800',
-  en_transito: 'bg-indigo-100 text-indigo-800',
-  recibido: 'bg-teal-100 text-teal-800',
   confirmada: 'bg-green-100 text-green-800',
   anulada: 'bg-red-100 text-red-700',
   revertida_admin: 'bg-slate-200 text-slate-700',
-};
-
-const TIPO_LABELS: Record<EntregaTipo, string> = {
-  entrega: 'Entrega',
-  prestamo: 'Entrega',
-  traslado: 'Traslado',
-};
-
-const TIPO_CLASSES: Record<EntregaTipo, string> = {
-  entrega: 'bg-blue-100 text-blue-700',
-  prestamo: 'bg-blue-100 text-blue-700',
-  traslado: 'bg-orange-100 text-orange-700',
 };
 
 const DEVOLUCION_LABELS: Record<string, string> = {
@@ -82,9 +62,7 @@ const DEVOLUCION_CLASSES: Record<string, string> = {
 const FILTER_TABS: { label: string; value: EntregaEstado | 'todas' }[] = [
   { label: 'Todas', value: 'todas' },
   { label: 'Borrador', value: 'borrador' },
-  { label: 'Pendiente firma', value: 'pendiente_firma' },
-  { label: 'En tránsito', value: 'en_transito' },
-  { label: 'Recibidas', value: 'recibido' },
+  { label: 'Pendiente confirmación', value: 'pendiente_firma' },
   { label: 'Confirmadas', value: 'confirmada' },
   { label: 'Anuladas', value: 'anulada' },
   { label: 'Revertidas', value: 'revertida_admin' },
@@ -134,7 +112,6 @@ const AdminEntregasPage: React.FC = () => {
   const [entregaDetalle, setEntregaDetalle] = useState<EntregaRow | null>(null);
   const [entregaFirma, setEntregaFirma] = useState<EntregaRow | null>(null);
   const [entregaConfirmar, setEntregaConfirmar] = useState<EntregaRow | null>(null);
-  const [entregaRecibir, setEntregaRecibir] = useState<EntregaRow | null>(null);
   const [entregaAnular, setEntregaAnular] = useState<EntregaRow | null>(null);
   const [entregaDeshacer, setEntregaDeshacer] = useState<EntregaRow | null>(null);
   const [entregaEliminar, setEntregaEliminar] = useState<EntregaRow | null>(null);
@@ -154,7 +131,6 @@ const AdminEntregasPage: React.FC = () => {
   const { data: trabajadores = [] } = useGet<unknown[]>([QUERY_KEY, 'trabajadores'], '/trabajadores');
   const { data: ubicaciones = [] } = useGet<unknown[]>([QUERY_KEY, 'ubicaciones'], '/ubicaciones');
   const { data: articulos = [] } = useGet<unknown[]>([QUERY_KEY, 'articulos'], '/articulos');
-  const { data: lotes = [] } = useGet<unknown[]>([QUERY_KEY, 'lotes'], '/inventario/lotes');
   const { data: entregaTemplates = [] } = useGet<EntregaTemplate[]>(
     [QUERY_KEY, 'templates'],
     '/entregas/templates',
@@ -168,22 +144,6 @@ const AdminEntregasPage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       toast.success('Entrega creada correctamente.');
-      setShowCreate(false);
-    },
-    onError: (err) => toast.error(toErrorMessage(err)),
-  });
-
-  const createBatchTemplateMutation = useMutation({
-    mutationFn: ({
-      templateId,
-      request,
-    }: {
-      templateId: string;
-      request: EntregaCreateBatchFromTemplatePayload;
-    }) => createEntregasBatchFromTemplate(templateId, request),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
-      toast.success(`Se crearon ${result.total_creadas} borradores desde plantilla.`);
       setShowCreate(false);
     },
     onError: (err) => toast.error(toErrorMessage(err)),
@@ -206,16 +166,6 @@ const AdminEntregasPage: React.FC = () => {
       toast.success('Entrega anulada correctamente.');
       setEntregaAnular(null);
       setMotivoAnulacion('');
-    },
-    onError: (err) => toast.error(toErrorMessage(err)),
-  });
-
-  const recibirMutation = useMutation({
-    mutationFn: (id: string) => recibirTraslado(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
-      toast.success('Traslado recibido correctamente.');
-      setEntregaRecibir(null);
     },
     onError: (err) => toast.error(toErrorMessage(err)),
   });
@@ -301,13 +251,6 @@ const AdminEntregasPage: React.FC = () => {
     await createMutation.mutateAsync(payload);
   };
 
-  const handleCreateTemplateBatch = async (payload: {
-    templateId: string;
-    request: EntregaCreateBatchFromTemplatePayload;
-  }) => {
-    await createBatchTemplateMutation.mutateAsync(payload);
-  };
-
   const handleFirmar = async (entregaId: string, firmaBase64: string, textoAceptacion: string) => {
     await firmaMutation.mutateAsync({ entregaId, firmaBase64, textoAceptacion });
   };
@@ -332,20 +275,6 @@ const AdminEntregasPage: React.FC = () => {
       header: 'Trabajador',
       render: (_v, row) =>
         row.nombres && row.apellidos ? `${row.nombres} ${row.apellidos}` : '—',
-    },
-    {
-      key: 'tipo',
-      header: 'Tipo',
-      render: (_v, row) => {
-        const tipo = row.tipo as EntregaTipo;
-        return (
-          <span
-            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${TIPO_CLASSES[tipo] ?? 'bg-gray-100 text-gray-700'}`}
-          >
-            {TIPO_LABELS[tipo] ?? tipo}
-          </span>
-        );
-      },
     },
     {
       key: 'detalles',
@@ -441,18 +370,6 @@ const AdminEntregasPage: React.FC = () => {
               </button>
             )}
 
-            {/* Recibir traslado — solo en en_transito */}
-            {estado === 'en_transito' && row.tipo === 'traslado' && (
-              <button
-                type="button"
-                onClick={() => setEntregaRecibir(row)}
-                className="px-2 py-1 text-xs text-teal-600 hover:text-teal-800 hover:underline"
-                aria-label={`Confirmar recepción de traslado para ${trabajadorNombre}`}
-              >
-                Recibir
-              </button>
-            )}
-
             {/* Anular — en borrador o pendiente_firma */}
             {(estado === 'borrador' || estado === 'pendiente_firma') && (
               <button
@@ -468,7 +385,7 @@ const AdminEntregasPage: React.FC = () => {
               </button>
             )}
 
-            {['confirmada', 'en_transito', 'recibido'].includes(estado) && (
+            {estado === 'confirmada' && (
               <button
                 type="button"
                 onClick={() => {
@@ -510,9 +427,9 @@ const AdminEntregasPage: React.FC = () => {
       {/* Encabezado */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Entregas</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Entregas y Confirmaciones</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Gestión de entregas y traslados de artículos a trabajadores.
+            Crea, firma y confirma recepciones de equipos y herramientas.
           </p>
         </div>
         <button
@@ -566,12 +483,10 @@ const AdminEntregasPage: React.FC = () => {
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
         onSubmit={handleCreate}
-        onSubmitTemplateBatch={handleCreateTemplateBatch}
-        isSubmitting={createMutation.isPending || createBatchTemplateMutation.isPending}
+        isSubmitting={createMutation.isPending}
         trabajadores={trabajadores as any}
         ubicaciones={ubicaciones as any}
         articulos={articulos as any}
-        lotes={lotes as any}
         templates={entregaTemplates}
       />
 
@@ -606,33 +521,17 @@ const AdminEntregasPage: React.FC = () => {
         variant="info"
       />
 
-      {/* Recibir traslado */}
-      <ConfirmationModal
-        isOpen={!!entregaRecibir}
-        onClose={() => setEntregaRecibir(null)}
-        onConfirm={() => entregaRecibir && recibirMutation.mutate(entregaRecibir.id)}
-        title="Recibir traslado"
-        message={
-          entregaRecibir
-            ? `¿Confirmar recepción del traslado para ${entregaRecibir.nombres ?? ''} ${entregaRecibir.apellidos ?? ''}?`
-            : ''
-        }
-        confirmText="Recibir"
-        variant="info"
-        confirmDisabled={recibirMutation.isPending}
-      />
-
       {/* Modal compartir firma remota */}
       <Modal
         isOpen={!!tokenShare}
         onClose={() => setTokenShare(null)}
-        title="Compartir firma por QR"
+        title="Compartir confirmación por QR"
       >
         {tokenShare && (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-dark-blue">Firma remota por QR</h3>
+            <h3 className="text-lg font-semibold text-dark-blue">Confirmación remota por QR</h3>
             <p className="text-sm text-gray-600">
-              Comparte este QR o enlace con el receptor para firmar desde su teléfono.
+              Comparte este QR o enlace con el trabajador para confirmar desde su teléfono.
             </p>
 
             <div className="flex flex-col items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
@@ -669,7 +568,7 @@ const AdminEntregasPage: React.FC = () => {
               </button>
               <a
                 href={`https://wa.me/?text=${encodeURIComponent(
-                  `Firma esta entrega en: ${window.location.origin}/firma/${tokenShare.token}`
+                  `Confirma esta entrega en: ${window.location.origin}/firma/${tokenShare.token}`
                 )}`}
                 target="_blank"
                 rel="noreferrer"

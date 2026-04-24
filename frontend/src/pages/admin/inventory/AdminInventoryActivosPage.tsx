@@ -15,7 +15,6 @@ import {
 const ESTADO_LABELS: Record<string, string> = {
   en_stock: 'En stock',
   asignado: 'Asignado',
-  en_traslado: 'En traslado',
   mantencion: 'Mantención',
   dado_de_baja: 'Dado de baja',
   perdido: 'Perdido',
@@ -24,7 +23,6 @@ const ESTADO_LABELS: Record<string, string> = {
 const ESTADO_CLASSES: Record<string, string> = {
   en_stock: 'bg-green-100 text-green-700',
   asignado: 'bg-blue-100 text-blue-700',
-  en_traslado: 'bg-indigo-100 text-indigo-700',
   mantencion: 'bg-amber-100 text-amber-700',
   dado_de_baja: 'bg-red-100 text-red-700',
   perdido: 'bg-gray-200 text-gray-600',
@@ -172,7 +170,7 @@ const AdminInventoryActivosPage: React.FC = () => {
       header: 'Acciones',
       render: (_v, row) => {
         const est = row.estado ?? '';
-        const bloqueado = est === 'asignado' || est === 'en_traslado';
+        const bloqueado = est === 'asignado';
         return (
           <div className="flex gap-1 flex-wrap">
             <button
