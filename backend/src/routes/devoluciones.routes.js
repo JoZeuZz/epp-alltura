@@ -31,15 +31,14 @@ const devolucionDetalleSchema = Joi.object({
   custodia_activo_id: uuid.allow(null),
   articulo_id: uuid.allow(null),
   activo_ids: Joi.array().items(uuid).min(1).optional(),
-  lote_id: uuid.allow(null),
   cantidad: Joi.number().integer().positive().required(),
   condicion_entrada: Joi.string().valid('ok', 'usado', 'danado', 'perdido').default('ok'),
   disposicion: Joi.string().valid('devuelto', 'perdido', 'baja', 'mantencion').required(),
   notas: Joi.string().trim().max(1000).allow('', null),
 }).custom((value, helpers) => {
-  if ((!value.activo_ids || value.activo_ids.length === 0) && !value.articulo_id) {
+  if (!value.activo_ids || value.activo_ids.length === 0) {
     return helpers.error('any.custom', {
-      message: 'Cada detalle debe incluir activo_ids o articulo_id',
+      message: 'Cada detalle debe incluir activo_ids en operación V2',
     });
   }
 

@@ -27,10 +27,10 @@ const SupervisorDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Panel Supervisor EPP</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Panel Supervisor de Equipos y Herramientas</h1>
         <p className="text-neutral-gray mt-1">
-          {section === 'dashboard' && 'Seguimiento operacional de entregas y devoluciones por cuadrilla.'}
-          {section === 'trazabilidad' && 'Trazabilidad reciente de activos para control en terreno.'}
+          {section === 'dashboard' && 'Seguimiento diario de entregas y devoluciones por cuadrilla.'}
+          {section === 'trazabilidad' && 'Revisa movimientos recientes de activos en terreno.'}
         </p>
       </div>
 
@@ -48,7 +48,6 @@ const SupervisorDashboard: React.FC = () => {
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-left py-2 px-2">Estado</th>
-                <th className="text-left py-2 px-2">Tipo</th>
                 <th className="text-left py-2 px-2">Creación</th>
                 <th className="text-left py-2 px-2">Confirmada</th>
               </tr>
@@ -57,7 +56,6 @@ const SupervisorDashboard: React.FC = () => {
               {(data.entregas || []).slice(0, 10).map((item) => (
                 <tr key={item.id} className="border-b last:border-b-0 border-gray-100">
                   <td className="py-2 px-2">{item.estado}</td>
-                  <td className="py-2 px-2">{item.tipo}</td>
                   <td className="py-2 px-2">{new Date(item.creado_en).toLocaleString()}</td>
                   <td className="py-2 px-2">{item.confirmada_en ? new Date(item.confirmada_en).toLocaleString() : '-'}</td>
                 </tr>

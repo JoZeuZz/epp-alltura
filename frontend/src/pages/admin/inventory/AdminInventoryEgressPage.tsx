@@ -25,16 +25,9 @@ interface UbicacionOption {
   nombre: string;
 }
 
-interface LoteOption {
-  id: string;
-  articulo_id: string;
-  codigo_lote?: string | null;
-}
-
 const TIPO_MOTIVO_LABELS: Record<EgresoTipoMotivo, string> = {
   salida: 'Salida directa',
   baja: 'Baja',
-  consumo: 'Consumo',
   ajuste: 'Ajuste',
 };
 
@@ -63,7 +56,6 @@ const AdminInventoryEgressPage: React.FC = () => {
     ['admin-inventory', 'ubicaciones'],
     '/ubicaciones'
   );
-  const { data: lotes = [] } = useGet<LoteOption[]>(['admin-inventory', 'lotes'], '/inventario/lotes');
   const {
     data: egresos = [],
     isLoading: egresosLoading,
@@ -154,7 +146,7 @@ const AdminInventoryEgressPage: React.FC = () => {
           <div>
             <h2 className="text-lg font-semibold text-dark-blue">Egresos</h2>
             <p className="text-sm text-gray-500">
-              Registra salidas, bajas, consumos o ajustes de stock con impacto inmediato en inventario.
+              Registra salidas, bajas o ajustes de stock con impacto inmediato en inventario.
             </p>
           </div>
           <button
@@ -189,7 +181,6 @@ const AdminInventoryEgressPage: React.FC = () => {
         isSubmitting={egresoMutation.isPending}
         articulos={articulos}
         ubicaciones={ubicaciones}
-        lotes={lotes}
       />
 
       <ConfirmationModal

@@ -13,7 +13,7 @@ export interface User {
   profile_picture_url?: string;
 }
 
-// ─── Entidades EPP/Herramientas ───────────────────────────────────────────────
+// ─── Entidades de Equipos y Herramientas ─────────────────────────────────────
 
 export interface Persona {
   id: string;
@@ -43,6 +43,7 @@ export interface Ubicacion {
   nombre: string;
   descripcion?: string;
   tipo?: string;
+  estado?: 'activo' | 'inactivo';
   activo: boolean;
   created_at: string;
 }
@@ -60,39 +61,35 @@ export interface Proveedor {
 
 export interface Articulo {
   id: string;
+  grupo_principal: 'equipo' | 'herramienta';
+  subclasificacion:
+    | 'epp'
+    | 'medicion_ensayos'
+    | 'manual'
+    | 'electrica_cable'
+    | 'inalambrica_bateria';
+  especialidades: Array<
+    'oocc' | 'ooee' | 'andamios' | 'trabajos_verticales_lineas_de_vida'
+  >;
   nombre: string;
-  descripcion?: string;
-  categoria?: string;
-  tipo: 'consumible' | 'activo';
+  marca: string;
+  modelo: string;
   unidad_medida?: string;
-  requiere_talla: boolean;
-  tracking_mode: 'lote' | 'individual' | 'ninguno';
+  requiere_talla?: boolean;
+  estado?: 'activo' | 'inactivo';
   /** URL servida por /api/image-proxy */
   imagen_url?: string;
-  activo: boolean;
-  created_at: string;
-}
-
-export interface Lote {
-  id: string;
-  articulo_id: string;
-  codigo_lote: string;
-  proveedor_id?: string;
-  ubicacion_id?: string;
-  fecha_vencimiento?: string;
-  cantidad_inicial: number;
-  estado: 'disponible' | 'agotado' | 'vencido' | 'retirado';
-  notas?: string;
+  activo?: boolean;
   created_at: string;
 }
 
 export interface Activo {
   id: string;
   articulo_id: string;
-  lote_id?: string;
-  codigo_activo: string;
+  codigo: string;
+  codigo_activo?: string;
   talla?: string;
-  estado: 'disponible' | 'en_uso' | 'mantenimiento' | 'baja';
+  estado: 'en_stock' | 'asignado' | 'mantencion' | 'dado_de_baja' | 'perdido';
   ubicacion_actual_id?: string;
   notas?: string;
   created_at: string;
@@ -105,20 +102,25 @@ export interface Stock {
   id: string;
   articulo_id: string;
   ubicacion_id: string;
-  lote_id?: string;
-  cantidad: number;
+  cantidad_disponible?: number;
+  cantidad_reservada?: number;
+  cantidad?: number;
   created_at: string;
   updated_at: string;
   /** Campos JOIN */
   articulo_nombre?: string;
   ubicacion_nombre?: string;
-  codigo_lote?: string;
 }
 
 // ─── Entregas ─────────────────────────────────────────────────────────────────
 
-export type EntregaTipo = 'epp' | 'herramienta' | 'material' | 'equipo' | 'otro';
-export type EntregaEstado = 'pendiente' | 'pendiente_firma' | 'firmada' | 'cancelada';
+export type EntregaTipo = 'entrega';
+export type EntregaEstado =
+  | 'borrador'
+  | 'pendiente_firma'
+  | 'confirmada'
+  | 'anulada'
+  | 'revertida_admin';
 
 export interface Entrega {
   id: string;
@@ -129,8 +131,12 @@ export interface Entrega {
   tipo: EntregaTipo;
   estado: EntregaEstado;
   nota_destino?: string;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
+  creado_en?: string;
+  confirmada_en?: string;
+  firmado_en?: string;
+  cantidad_items?: number;
   /** Campos JOIN */
   trabajador_nombres?: string;
   trabajador_apellidos?: string;
@@ -145,16 +151,13 @@ export interface EntregaDetalle {
   articulo_id?: string;
   activo_id?: string;
   activo_ids?: string[];
-  lote_id?: string;
   cantidad: number;
   condicion_salida?: string;
   notas?: string;
   /** Campos JOIN */
   articulo_nombre?: string;
-  articulo_tipo?: 'consumible' | 'activo';
-  tracking_mode?: 'lote' | 'individual' | 'ninguno';
+  articulo_tipo?: 'equipo' | 'herramienta' | 'activo';
   activo_codigo?: string;
-  codigo_lote?: string;
 }
 
 // ─── Firmas ───────────────────────────────────────────────────────────────────
@@ -181,7 +184,12 @@ export interface FirmaToken {
 
 // ─── Custodia / Devoluciones ──────────────────────────────────────────────────
 
-export type CustodiaEstado = 'activa' | 'devuelta' | 'baja';
+export type CustodiaEstado =
+  | 'activa'
+  | 'devuelta'
+  | 'baja'
+  | 'perdida'
+  | 'mantencion';
 
 export interface CustodiaActivo {
   id: string;
@@ -205,10 +213,12 @@ export interface Devolucion {
   trabajador_id: string;
   usuario_bod_id?: string;
   supervisor_id?: string;
-  estado: 'pendiente' | 'aprobada' | 'rechazada';
+  estado: 'borrador' | 'pendiente_firma' | 'confirmada' | 'anulada';
   notas?: string;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
+  creado_en?: string;
+  confirmada_en?: string;
   /** Campos JOIN */
   trabajador_nombres?: string;
   trabajador_apellidos?: string;
@@ -219,10 +229,10 @@ export interface DevolucionDetalle {
   devolucion_id: string;
   activo_id?: string;
   activo_ids?: string[];
-  lote_id?: string;
   articulo_id?: string;
   cantidad?: number;
-  condicion_retorno?: string;
+  condicion_entrada?: 'ok' | 'usado' | 'danado' | 'perdido';
+  disposicion?: 'devuelto' | 'perdido' | 'baja' | 'mantencion';
   notas?: string;
   /** Campos JOIN */
   articulo_nombre?: string;
@@ -239,7 +249,6 @@ export interface DashboardSummary {
   activos_disponibles: number;
   devoluciones_pendientes: number;
   stock_bajo?: number;
-  lotes_por_vencer?: number;
 }
 
 // ─── Respuestas de error API ──────────────────────────────────────────────────

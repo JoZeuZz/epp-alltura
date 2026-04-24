@@ -30,7 +30,7 @@ const LEGACY_NOTIFICATION_COLORS: Record<string, string> = {
   system: 'bg-gray-50 border-gray-200',
 };
 
-export const EPP_ALLOWED_NOTIFICATION_PATHS = new Set([
+export const ALLOWED_NOTIFICATION_PATHS = new Set([
   '/admin/dashboard',
   '/admin/trazabilidad',
   '/admin/trabajadores',
@@ -64,7 +64,7 @@ export const resolveNotificationItemNavigationLink = (
   }
 
   const [path] = link.split('?');
-  if (EPP_ALLOWED_NOTIFICATION_PATHS.has(path)) {
+  if (ALLOWED_NOTIFICATION_PATHS.has(path)) {
     return link;
   }
 

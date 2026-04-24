@@ -34,6 +34,9 @@ const buildToken = (role: Role) => {
 };
 
 const setupApiMocks = async (page: Page) => {
+  const entregas: Array<{ id: string; estado: string; tipo: string; cantidad_items: number }> = [];
+  const devoluciones: Array<{ id: string; estado: string }> = [];
+
   await page.route('**/api/**', async (route) => {
     const request = route.request();
     const method = request.method();
@@ -132,6 +135,26 @@ const setupApiMocks = async (page: Page) => {
     }
 
     if (path.startsWith('/api/inventario/activos-disponibles')) {
+      const articuloId = url.searchParams.get('articulo_id');
+      const ubicacionId = url.searchParams.get('ubicacion_id');
+
+      if (articuloId === 'articulo-1' && ubicacionId === 'ubicacion-1') {
+        return json(
+          envelope([
+            {
+              id: 'activo-1',
+              codigo: 'ACT-001',
+              nro_serie: 'SN-001',
+              estado: 'en_stock',
+              articulo_id: 'articulo-1',
+              articulo_nombre: 'Taladro',
+              ubicacion_id: 'ubicacion-1',
+              ubicacion_nombre: 'Bodega Central',
+            },
+          ])
+        );
+      }
+
       return json(envelope([]));
     }
 
@@ -173,23 +196,47 @@ const setupApiMocks = async (page: Page) => {
 
     if (path === '/api/entregas') {
       if (method === 'GET') {
-        return json(envelope([]));
+        return json(envelope(entregas));
       }
 
-      return json(
-        envelope({
-          id: 'abcd1234-1234-4234-8234-1234567890ab',
-          estado: 'borrador',
-        })
-      );
+      const created = {
+        id: 'abcd1234-1234-4234-8234-1234567890ab',
+        estado: 'borrador',
+        tipo: 'entrega',
+        cantidad_items: 1,
+      };
+      entregas.unshift(created);
+
+      return json(envelope(created));
     }
 
     if (path === '/api/devoluciones') {
       if (method === 'GET') {
-        return json(envelope([]));
+        return json(envelope(devoluciones));
       }
 
-      return json(envelope({ id: 'devolucion-1', estado: 'borrador' }));
+      const created = { id: 'devolucion-1', estado: 'borrador' };
+      devoluciones.unshift(created);
+      return json(envelope(created));
+    }
+
+    if (path.startsWith('/api/devoluciones/activos-elegibles')) {
+      return json(
+        envelope([
+          {
+            custodia_activo_id: 'custodia-1',
+            trabajador_id: 'trabajador-1',
+            desde_en: new Date().toISOString(),
+            activo_id: 'activo-1',
+            codigo: 'ACT-001',
+            nro_serie: 'SN-001',
+            articulo_id: 'articulo-1',
+            articulo_nombre: 'Taladro',
+            ubicacion_actual_id: 'ubicacion-2',
+            ubicacion_actual_nombre: 'Faena Norte',
+          },
+        ])
+      );
     }
 
     if (path === '/api/proveedores') {
@@ -267,7 +314,7 @@ test('admin dashboard smoke', async ({ page }) => {
   await setupRoleSession(page, 'admin');
   await page.goto('/admin/dashboard');
 
-  await expect(page.getByRole('heading', { name: /Panel Administrativo EPP/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Panel de Equipos y Herramientas/i })).toBeVisible();
   await expect(page.getByText('Activos Totales')).toBeVisible();
   await expect(page.getByText('Movimientos de Stock Recientes')).toBeVisible();
 });
@@ -276,18 +323,44 @@ test('bodega dashboard smoke', async ({ page }) => {
   await setupRoleSession(page, 'bodega');
   await page.goto('/bodega/dashboard');
 
-  await expect(page.getByRole('heading', { name: /Módulo Bodega EPP\/Herramientas/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Crear Entrega Borrador' })).toBeVisible();
-  await expect(page.getByText(/^Firma manuscrita de recepción\s*\*$/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Bodega Operativa/i })).toBeVisible();
+  await expect(page.getByText('Solo se permiten activos serializados en este flujo.')).toBeVisible();
+  await expect(page.getByTestId('delivery-create-submit')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Registrar firma local' })).toBeVisible();
+});
+
+test('bodega create return draft smoke', async ({ page }) => {
+  await setupRoleSession(page, 'bodega');
+  await page.goto('/bodega/dashboard');
+
+  const returnSection = page
+    .locator('section')
+    .filter({ has: page.getByRole('heading', { name: /Registrar devolución/i }) });
+
+  await returnSection.locator('select').nth(0).selectOption('trabajador-1');
+  await returnSection.locator('select').nth(1).selectOption('ubicacion-1');
+  await returnSection.locator('select').nth(2).selectOption('articulo-1');
+  await returnSection.getByRole('button', { name: /ACT-001/i }).click();
+  await returnSection.getByRole('button', { name: 'Crear borrador' }).click();
+
+  await expect(returnSection.getByText(/Firma requerida/i).first()).toBeVisible();
+});
+
+test('ui visible mantiene naming operativo', async ({ page }) => {
+  await setupRoleSession(page, 'admin');
+  await page.goto('/admin/dashboard');
+
+  await expect(page.getByRole('heading', { name: /Panel de Equipos y Herramientas/i })).toBeVisible();
+  await expect(page.getByText(/EPP Control/i)).toHaveCount(0);
 });
 
 test('trabajador dashboard smoke', async ({ page }) => {
   await setupRoleSession(page, 'worker');
   await page.goto('/worker/firmas');
 
-  await expect(page.getByRole('heading', { name: /Portal Trabajador EPP/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Firmar Recepción' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Firmar con Token' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Mis Equipos y Herramientas/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Confirmar recepción' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Confirmar con código' })).toBeVisible();
 });
 
 test('bodega login and create delivery draft smoke', async ({ page }) => {
@@ -303,12 +376,14 @@ test('bodega login and create delivery draft smoke', async ({ page }) => {
   await page.getByRole('button', { name: 'Login' }).click();
 
   await expect(page).toHaveURL(/\/bodega\/dashboard/);
-  await expect(page.getByRole('heading', { name: /Módulo Bodega EPP\/Herramientas/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Bodega Operativa/i })).toBeVisible();
 
   await page.getByTestId('delivery-worker-select').selectOption('trabajador-1');
   await page.getByTestId('delivery-origin-select').selectOption('ubicacion-1');
   await page.getByTestId('delivery-destination-select').selectOption('ubicacion-2');
-  await page.getByTestId('delivery-article-select-0').selectOption('articulo-2');
+  await page.getByTestId('delivery-article-select-0').selectOption('articulo-1');
+  await expect(page.getByRole('button', { name: /ACT-001/i })).toBeVisible();
+  await page.getByRole('button', { name: /ACT-001/i }).click();
   await page.getByTestId('delivery-create-submit').click();
 
   await expect(page.getByRole('cell', { name: 'abcd1234' })).toBeVisible();

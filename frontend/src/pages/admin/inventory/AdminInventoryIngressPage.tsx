@@ -203,7 +203,7 @@ const AdminInventoryIngressPage: React.FC = () => {
             onClick={() => setIsModalOpen(true)}
             disabled={ingresoMutation.isPending}
           >
-            Ingresar Herramienta/EPP
+            Ingresar equipo/herramienta
           </button>
         </div>
 

@@ -1,6 +1,6 @@
-# Backend Alltura EPP Control
+# Backend Alltura Equipos y Herramientas
 
-API de Alltura EPP Control para gestionar autenticación, inventario, entregas, devoluciones, firmas, egresos, proveedores, ubicaciones y trazabilidad.
+API de Alltura para gestionar autenticación, inventario, entregas, devoluciones, firmas, egresos, proveedores, ubicaciones y trazabilidad.
 
 ## Stack Técnico
 
@@ -38,7 +38,7 @@ DB_HOST=localhost
 DB_PORT=55432
 DB_USER=postgres
 DB_PASSWORD=postgres
-DB_NAME=herramientas
+DB_NAME=herramientas_epp
 
 REDIS_URL=redis://localhost:56379
 
@@ -112,12 +112,13 @@ Todos bajo prefijo /api.
 - tracking_mode permitido: serial o lote.
 - Cantidades físicas enteras en operaciones críticas.
 - Custodia activa única por activo serial.
+- Compatibilidad legacy (`consumo`, `retorno_mode`, `traslado`, `en_transito`, `recibirTraslado`) se conserva de forma acotada y no define el flujo operativo principal.
 
 Estas reglas están reforzadas por validaciones en rutas/servicios y por SQL en db/init.
 
 ## Seed de Desarrollo
 
-Con inicialización en entorno local, db/init/009-dev-seed.sql crea dataset demo para pruebas manuales con usuarios de distintos roles.
+Con inicialización en entorno local, db/init/002-dev-seed.sql (sobre 001/003/004) crea dataset demo para pruebas manuales con usuarios de distintos roles.
 
 Credenciales demo típicas:
 

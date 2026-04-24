@@ -233,12 +233,6 @@ const AdminInventoryStockPage: React.FC = () => {
     () => [
       { key: 'articulo_nombre', header: 'Artículo' },
       {
-        key: 'tracking_mode',
-        header: 'Seguimiento',
-        hideOnMobile: true,
-        render: (value) => (value === 'serial' ? 'Por Unidad' : 'Por Lote'),
-      },
-      {
         key: 'ubicaciones_count',
         header: 'Ubicaciones',
         align: 'right',
@@ -381,7 +375,7 @@ const AdminInventoryStockPage: React.FC = () => {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold text-dark-blue">Stock</h2>
-          <p className="text-sm text-gray-500">Explora artículos y abre detalle de lotes/activos sólo cuando lo necesites.</p>
+          <p className="text-sm text-gray-500">Explora artículos y abre detalle de stock/activos sólo cuando lo necesites.</p>
         </div>
         <Link
           to="/admin/inventario/articulos"

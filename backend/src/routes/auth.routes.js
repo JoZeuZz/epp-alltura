@@ -31,10 +31,6 @@ const AUTH_LOGIN_RATE_LIMIT_MAX = Number.parseInt(
   process.env.AUTH_LOGIN_RATE_LIMIT_MAX || '',
   10
 );
-const AUTH_LOGIN_LOCK_MAX_ATTEMPTS = Number.parseInt(
-  process.env.AUTH_LOGIN_LOCK_MAX_ATTEMPTS || '',
-  10
-);
 
 // Limitar intentos de login (alineado con AuthService).
 const authLimiter = rateLimit({

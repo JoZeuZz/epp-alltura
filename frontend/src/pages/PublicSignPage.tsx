@@ -13,9 +13,7 @@ interface EntregaDetalle {
   notas?: string;
   articulo_nombre: string;
   articulo_tipo: string;
-  tracking_mode: string;
   activo_codigo?: string;
-  codigo_lote?: string;
 }
 
 interface TokenInfo {
@@ -50,60 +48,16 @@ const buildDefaultAcceptanceText = (
   apellidos: string,
   detalles: EntregaDetalle[]
 ): string => {
-  const isRetornableDetalle = (d: EntregaDetalle) => {
-    if (d.tipo_item_entrega) {
-      return d.tipo_item_entrega === 'retornable';
-    }
-
-    // Compatibilidad histórica previa a migración 008.
-    return d.tracking_mode === 'serial' || Boolean(d.activo_codigo);
-  };
-
   const toDetalleLabel = (d: EntregaDetalle) => {
     const cod = d.activo_codigo ? ` (cód. ${d.activo_codigo})` : '';
     return `${d.articulo_nombre}${cod} x${Number(d.cantidad)}`;
   };
 
-  const retornables = detalles.filter(isRetornableDetalle);
-  const asignados = detalles.filter((d) => !isRetornableDetalle(d));
-
   const nombreArticulos = detalles.map(toDetalleLabel).join(', ');
-  const retornablesTexto = retornables.map(toDetalleLabel).join(', ');
-  const asignadosTexto = asignados.map(toDetalleLabel).join(', ');
-
-  if (detalles.length > 0 && retornables.length === 0 && asignados.length === detalles.length) {
-    return (
-      `Yo, ${nombres} ${apellidos}, declaro recibir conforme los siguientes EPP/herramientas: ` +
-      `${nombreArticulos || 'los artículos detallados'}. ` +
-      `Acepto hacerme responsable de su uso correcto y cuidado, ` +
-      `y me comprometo a reportar cualquier extravío o daño a mi supervisor.`
-    );
-  }
-
-  if (retornables.length > 0 && asignados.length === 0) {
-    return (
-      `Yo, ${nombres} ${apellidos}, declaro recibir conforme los siguientes artículos retornables: ` +
-      `${retornablesTexto}. ` +
-      `Acepto hacerme responsable de su custodia, uso correcto y devolución, ` +
-      `y me comprometo a reportar cualquier extravío o daño a mi supervisor.`
-    );
-  }
-
-  if (retornables.length > 0 && asignados.length > 0) {
-    return (
-      `Yo, ${nombres} ${apellidos}, declaro recibir conforme los artículos retornables (${retornablesTexto}) ` +
-      `y los artículos de asignación/consumo (${asignadosTexto}). ` +
-      `Acepto hacerme responsable de la custodia, uso correcto y devolución de los ítems retornables, ` +
-      `y del uso correcto de los ítems de asignación/consumo. ` +
-      `Me comprometo a reportar cualquier extravío o daño a mi supervisor.`
-    );
-  }
-
   return (
-    `Yo, ${nombres} ${apellidos}, declaro recibir conforme los siguientes EPP/herramientas: ` +
-    `${nombreArticulos || 'los artículos detallados'}. ` +
-    `Acepto hacerme responsable de su uso correcto y cuidado, ` +
-    `y me comprometo a reportar cualquier extravío o daño a mi supervisor.`
+    `Yo, ${nombres} ${apellidos}, confirmo que recibo los equipos y herramientas indicados ` +
+    `(${nombreArticulos || 'ítems detallados'}) en buen estado. ` +
+    `Me comprometo a su uso y cuidado responsable.`
   );
 };
 
@@ -114,7 +68,6 @@ const PublicSignPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [padKey, setPadKey] = useState(0);
-  const [textoAceptacion, setTextoAceptacion] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
@@ -145,9 +98,6 @@ const PublicSignPage: React.FC = () => {
         }
 
         setTokenInfo(data);
-        setTextoAceptacion(
-          buildDefaultAcceptanceText(data.nombres, data.apellidos, data.detalles)
-        );
         setState('form');
       })
       .catch(() => {
@@ -162,8 +112,8 @@ const PublicSignPage: React.FC = () => {
       setSubmitError('Debes dibujar tu firma antes de continuar.');
       return;
     }
-    if (!textoAceptacion.trim()) {
-      setSubmitError('El texto de aceptación no puede estar vacío.');
+    if (!tokenInfo) {
+      setSubmitError('No se pudo cargar la información de la entrega.');
       return;
     }
 
@@ -173,7 +123,10 @@ const PublicSignPage: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append('firma_archivo', signatureFile, signatureFile.name);
-      formData.append('texto_aceptacion', textoAceptacion.trim());
+      formData.append(
+        'texto_aceptacion',
+        buildDefaultAcceptanceText(tokenInfo.nombres, tokenInfo.apellidos, tokenInfo.detalles)
+      );
 
       const res = await fetch(`/api/firmas/tokens/${token}/firmar`, {
         method: 'POST',
@@ -209,7 +162,7 @@ const PublicSignPage: React.FC = () => {
         <LogoHeader />
         <div className="bg-white rounded-xl shadow-md p-8 w-full max-w-md text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue mx-auto mb-4" />
-          <p className="text-neutral-gray">Cargando información de entrega...</p>
+          <p className="text-neutral-gray">Cargando información de confirmación...</p>
         </div>
       </div>
     );
@@ -248,9 +201,9 @@ const PublicSignPage: React.FC = () => {
                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h1 className="text-xl font-bold text-dark-blue mb-2">Entrega ya firmada</h1>
+          <h1 className="text-xl font-bold text-dark-blue mb-2">Recepción ya confirmada</h1>
           <p className="text-neutral-gray text-sm">
-            Esta entrega ya fue firmada correctamente. No es necesario firmar nuevamente.
+            Esta recepción ya fue confirmada correctamente. No es necesario firmar nuevamente.
           </p>
         </div>
       </div>
@@ -269,13 +222,13 @@ const PublicSignPage: React.FC = () => {
                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h1 className="text-xl font-bold text-dark-blue mb-2">¡Firma registrada!</h1>
+          <h1 className="text-xl font-bold text-dark-blue mb-2">¡Confirmación registrada!</h1>
           <p className="text-neutral-gray text-sm mb-4">
-            Tu firma ha sido registrada correctamente. Puedes cerrar esta página.
+            Tu confirmación fue registrada correctamente. Puedes cerrar esta página.
           </p>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <p className="text-green-700 text-xs">
-              Recuerda usar correctamente los EPP/herramientas entregados y reportar cualquier daño
+              Recuerda usar correctamente los equipos y herramientas entregados y reportar cualquier daño
               o extravío a tu supervisor.
             </p>
           </div>
@@ -309,8 +262,6 @@ const PublicSignPage: React.FC = () => {
   const info = tokenInfo!;
   const tipoLabel: Record<string, string> = {
     entrega: 'Entrega',
-    prestamo: 'Entrega',
-    traslado: 'Traslado',
   };
 
   return (
@@ -320,7 +271,7 @@ const PublicSignPage: React.FC = () => {
 
         {/* Encabezado de la operación */}
         <div className="bg-primary-blue text-white rounded-xl p-6 shadow-md">
-          <h1 className="text-xl font-bold mb-1">Acta de Recepción — {tipoLabel[info.entrega_tipo] ?? info.entrega_tipo}</h1>
+          <h1 className="text-xl font-bold mb-1">Confirmación de recepción — {tipoLabel[info.entrega_tipo] ?? info.entrega_tipo}</h1>
           <p className="text-blue-100 text-sm">
             Trabajador: <span className="font-semibold">{info.nombres} {info.apellidos}</span>
             {info.rut && <span className="ml-2 text-blue-200 text-xs">RUT {info.rut}</span>}
@@ -343,7 +294,7 @@ const PublicSignPage: React.FC = () => {
         {info.detalles.length > 0 && (
           <div className="bg-white rounded-xl shadow-md p-5">
             <h2 className="font-semibold text-dark-blue mb-3 text-base">
-              Artículos a recibir ({info.detalles.length})
+              Equipos y herramientas ({info.detalles.length})
             </h2>
             <div className="space-y-2">
               {info.detalles.map((d, i) => (
@@ -359,9 +310,6 @@ const PublicSignPage: React.FC = () => {
                       {d.activo_codigo && (
                         <span> — Código: <span className="font-medium font-mono">{d.activo_codigo}</span></span>
                       )}
-                      {d.codigo_lote && (
-                        <span> — Lote: <span className="font-medium">{d.codigo_lote}</span></span>
-                      )}
                     </p>
                     {d.notas && <p className="text-neutral-gray text-xs italic mt-0.5">{d.notas}</p>}
                   </div>
@@ -375,10 +323,12 @@ const PublicSignPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Texto de aceptación */}
           <div className="bg-white rounded-xl shadow-md p-5">
-            <h2 className="font-semibold text-dark-blue mb-3 text-base">Texto de aceptación</h2>
+            <h2 className="font-semibold text-dark-blue mb-3 text-base">Declaración de recepción</h2>
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
               <p className="text-amber-700 text-xs font-semibold mb-1">Al firmar confirmas lo siguiente:</p>
-              <p className="text-amber-900 text-sm leading-relaxed">{textoAceptacion}</p>
+              <p className="text-amber-900 text-sm leading-relaxed">
+                {buildDefaultAcceptanceText(info.nombres, info.apellidos, info.detalles)}
+              </p>
             </div>
           </div>
 
@@ -421,7 +371,7 @@ const PublicSignPage: React.FC = () => {
               disabled={!signatureFile || isSubmitting}
               className="flex-1 px-5 py-4 rounded-xl bg-primary-blue text-white font-semibold text-base shadow-md hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-h-[44px]"
             >
-              {isSubmitting ? 'Enviando...' : 'Confirmar y Firmar'}
+              {isSubmitting ? 'Enviando...' : 'Confirmar recepción'}
             </button>
           </div>
         </form>

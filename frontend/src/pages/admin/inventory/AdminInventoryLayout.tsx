@@ -14,7 +14,7 @@ const AdminInventoryLayout: React.FC = () => {
       <section className="space-y-2">
         <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Control de Inventario</h1>
         <p className="text-neutral-gray">
-          Administra stock, movimientos e ingresos de herramientas y EPP desde módulos separados.
+          Administra stock, movimientos e ingresos de equipos y herramientas desde módulos separados.
         </p>
       </section>
 

@@ -15,19 +15,13 @@ interface ArticuloOption {
 }
 
 const trackingModeLabel = (mode?: ArticuloOption['tracking_mode']) => {
-  if (mode === 'lote') return 'Por Lote';
+  if (mode === 'lote') return 'Por cantidad';
   return 'Por Unidad';
 };
 
 interface UbicacionOption {
   id: string;
   nombre: string;
-}
-
-interface LoteOption {
-  id: string;
-  articulo_id: string;
-  codigo_lote?: string | null;
 }
 
 interface InventoryEgressModalProps {
@@ -37,13 +31,11 @@ interface InventoryEgressModalProps {
   isSubmitting: boolean;
   articulos: ArticuloOption[];
   ubicaciones: UbicacionOption[];
-  lotes?: LoteOption[];
 }
 
 const TIPO_MOTIVO_LABELS: Record<EgresoTipoMotivo, string> = {
   salida: 'Salida directa',
   baja: 'Baja / retiro permanente',
-  consumo: 'Consumo',
   ajuste: 'Ajuste de inventario',
 };
 
@@ -52,7 +44,6 @@ const EMPTY_DETALLE: InventoryEgresoDetallePayload = {
   ubicacion_id: '',
   cantidad: 1,
   activo_ids: [],
-  lote_id: null,
   notas: null,
 };
 
@@ -63,7 +54,6 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
   isSubmitting,
   articulos,
   ubicaciones,
-  lotes = [],
 }) => {
   const [tipoMotivo, setTipoMotivo] = useState<EgresoTipoMotivo>('salida');
   const [notasGenerales, setNotasGenerales] = useState('');
@@ -87,9 +77,7 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
     setDetalles((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
-      // Al cambiar artículo, limpiar lote
       if (field === 'articulo_id') {
-        updated[index].lote_id = null;
         updated[index].activo_ids = [];
         updated[index].cantidad = 1;
       }
@@ -173,7 +161,6 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
         ubicacion_id: d.ubicacion_id,
         cantidad: d.activo_ids?.length ? undefined : Number(d.cantidad),
         activo_ids: d.activo_ids?.length ? d.activo_ids : undefined,
-        lote_id: d.activo_ids?.length ? null : d.lote_id || null,
         notas: d.notas?.trim() || null,
       })),
     };
@@ -195,7 +182,7 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title="Registrar egreso de inventario"
-      description="Registra una salida, baja, consumo o ajuste de stock"
+      description="Registra una salida, baja o ajuste de stock"
     >
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div className="space-y-1">
@@ -249,7 +236,6 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
           </div>
 
           {detalles.map((detalle, index) => {
-            const lotesDelArticulo = lotes.filter((l) => l.articulo_id === detalle.articulo_id);
             const articuloSeleccionado = articulos.find((a) => a.id === detalle.articulo_id);
             const isSerial = articuloSeleccionado?.tracking_mode === 'serial';
 
@@ -332,26 +318,6 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
                         label="Seleccionar activo"
                         required
                       />
-                    </div>
-                  )}
-
-                  {articuloSeleccionado?.tracking_mode === 'lote' && (
-                    <div>
-                      <label className="label-base text-gray-700">Lote (opcional)</label>
-                      <select
-                        className="w-full border rounded-md p-2"
-                        value={detalle.lote_id ?? ''}
-                        onChange={(e) =>
-                          setDetalleField(index, 'lote_id', e.target.value || null)
-                        }
-                      >
-                        <option value="">Sin lote específico</option>
-                        {lotesDelArticulo.map((l) => (
-                          <option key={l.id} value={l.id}>
-                            {l.codigo_lote ?? `Lote ${l.id.slice(0, 8)}`}
-                          </option>
-                        ))}
-                      </select>
                     </div>
                   )}
 

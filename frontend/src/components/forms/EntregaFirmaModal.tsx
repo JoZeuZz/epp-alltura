@@ -11,12 +11,8 @@ interface EntregaFirmaModalProps {
 }
 
 const TEXTO_ACEPTACION =
-  'Declaro haber recibido los artículos indicados en esta entrega, ' +
-  'comprometiéndome a su correcto uso y cuidado según las políticas de la empresa.';
-
-const TEXTO_ACEPTACION_TRASLADO =
-  'Declaro transportar y custodiar temporalmente los artículos indicados en este traslado, ' +
-  'asumiendo responsabilidad por su resguardo hasta la recepción en la bodega destino.';
+  'Confirmo que recibo los equipos y herramientas indicados en buen estado ' +
+  'y me comprometo a su uso y cuidado responsable.';
 
 const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
   isOpen,
@@ -133,14 +129,12 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
     if (!canvas) return;
     if (!entrega) return;
     if (!hasFirma) {
-      setError('Por favor dibuje la firma antes de confirmar.');
+      setError('Debes firmar antes de confirmar.');
       return;
     }
 
     const firmaBase64 = canvas.toDataURL('image/png');
-    const acceptanceText = entrega.tipo === 'traslado'
-      ? TEXTO_ACEPTACION_TRASLADO
-      : TEXTO_ACEPTACION;
+    const acceptanceText = TEXTO_ACEPTACION;
 
     try {
       await onFirmar(entrega.id, firmaBase64, acceptanceText);
@@ -157,30 +151,21 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
       ? `${entrega.nombres} ${entrega.apellidos}`
       : '—';
 
-  const isTraslado = entrega.tipo === 'traslado';
-  const acceptanceText = isTraslado ? TEXTO_ACEPTACION_TRASLADO : TEXTO_ACEPTACION;
-  const signerLabel = isTraslado ? 'transportista' : 'receptor';
+  const acceptanceText = TEXTO_ACEPTACION;
+  const signerLabel = 'trabajador';
   const itemsCount = entrega.cantidad_items ?? entrega.detalles?.length ?? 0;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={isTraslado ? 'Firma de traslado' : 'Firma de entrega'}>
+    <Modal isOpen={isOpen} onClose={onClose} title="Confirmar recepción">
       {/* Resumen entrega */}
       <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
         <p className="text-sm text-gray-700">
-          <span className="font-medium">{isTraslado ? 'Transportista' : 'Trabajador'}:</span> {trabajadorNombre}
+          <span className="font-medium">Trabajador:</span> {trabajadorNombre}
           {entrega.rut ? ` · RUT ${entrega.rut}` : ''}
         </p>
         <p className="text-sm text-gray-700 mt-1">
           <span className="font-medium">Artículos:</span>{' '}
           {itemsCount} ítem(s)
-        </p>
-        <p className="text-sm text-gray-700 mt-1">
-          <span className="font-medium">Tipo:</span>{' '}
-          {entrega.tipo === 'entrega'
-            ? 'Entrega'
-            : entrega.tipo === 'prestamo'
-            ? 'Entrega'
-            : 'Traslado'}
         </p>
       </div>
 
@@ -259,7 +244,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
           onClick={handleConfirmar}
           className="flex-1 py-2 px-4 bg-primary-blue text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {isSubmitting ? 'Registrando firma...' : 'Confirmar firma'}
+          {isSubmitting ? 'Registrando confirmación...' : 'Confirmar recepción'}
         </button>
       </div>
     </Modal>

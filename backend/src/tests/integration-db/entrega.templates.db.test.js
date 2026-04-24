@@ -131,7 +131,6 @@ const IDS = {
   ubicacionOrigenId: '11111111-1111-4111-8111-111111111111',
   ubicacionDestinoId: '22222222-2222-4222-8222-222222222222',
   articuloSerialId: '55555555-5555-4555-8555-555555555555',
-  articuloCantidadId: '66666666-6666-4666-8666-666666666666',
   activoSerialId: '99999999-9999-4999-8999-999999999999',
 };
 
@@ -202,14 +201,13 @@ const seedBaseData = async () => {
   await db.query(
     `
     INSERT INTO articulo (
-      id, tipo, nombre, categoria, tracking_mode, retorno_mode,
-      nivel_control, requiere_vencimiento, unidad_medida, estado
+      id, tipo, grupo_principal, nombre, categoria, subclasificacion,
+      tracking_mode, retorno_mode, nivel_control, requiere_vencimiento, unidad_medida, estado
     )
     VALUES
-      ($1, 'herramienta', 'Taladro Industrial', 'herramientas', 'serial', 'retornable', 'alto', false, 'unidad', 'activo'),
-      ($2, 'epp', 'Guante Nitrilo', 'epp', 'lote', 'consumible', 'medio', false, 'par', 'activo')
+      ($1, 'herramienta', 'herramienta', 'Taladro Industrial', 'manual', 'manual', 'serial', 'retornable', 'alto', false, 'unidad', 'activo')
     `,
-    [IDS.articuloSerialId, IDS.articuloCantidadId]
+    [IDS.articuloSerialId]
   );
 
   await db.query(
@@ -258,7 +256,7 @@ maybeDescribe('Entrega templates integration with real DB', () => {
     expect(String(response.body.message || '')).toMatch(/requiere_serial/i);
   });
 
-  it('creates draft from template with serial override and creates batch drafts for non-serial', async () => {
+  it('creates draft from template with serial override and rejects batch creation for serial templates', async () => {
     const serialTemplateResponse = await request(app)
       .post('/api/entregas/templates')
       .set('x-test-actor', 'admin')
@@ -298,27 +296,27 @@ maybeDescribe('Entrega templates integration with real DB', () => {
     expect(draftFromTemplateResponse.body.data.estado).toBe('borrador');
     expect(draftFromTemplateResponse.body.data.detalles).toHaveLength(1);
 
-    const consumibleTemplateResponse = await request(app)
+    const serialBatchTemplateResponse = await request(app)
       .post('/api/entregas/templates')
       .set('x-test-actor', 'admin')
       .send({
-        nombre: 'Plantilla Consumible P2',
-        descripcion: 'Template lote para batch',
+        nombre: 'Plantilla Serial Batch P2',
+        descripcion: 'Template serial para validar rechazo de batch',
         items: [
           {
-            articulo_id: IDS.articuloCantidadId,
-            cantidad: 2,
-            requiere_serial: false,
-            notas_default: 'Entrega estándar por lote',
+            articulo_id: IDS.articuloSerialId,
+            cantidad: 1,
+            requiere_serial: true,
+            notas_default: 'Debe forzar validación serial en batch',
           },
         ],
       });
 
-    expect(consumibleTemplateResponse.status).toBe(201);
-    const consumibleTemplateId = consumibleTemplateResponse.body.data.id;
+    expect(serialBatchTemplateResponse.status).toBe(201);
+    const serialBatchTemplateId = serialBatchTemplateResponse.body.data.id;
 
     const batchResponse = await request(app)
-      .post(`/api/entregas/templates/${consumibleTemplateId}/create-draft-batch`)
+      .post(`/api/entregas/templates/${serialBatchTemplateId}/create-draft-batch`)
       .set('x-test-actor', 'bodega')
       .send({
         trabajador_ids: [IDS.workerId1, IDS.workerId2],
@@ -327,15 +325,16 @@ maybeDescribe('Entrega templates integration with real DB', () => {
         tipo: 'entrega',
         detalles_overrides: [
           {
-            articulo_id: IDS.articuloCantidadId,
-            cantidad: 3,
+            articulo_id: IDS.articuloSerialId,
+            activo_ids: [IDS.activoSerialId],
             condicion_salida: 'ok',
           },
         ],
       });
 
-    expect(batchResponse.status).toBe(201);
-    expect(batchResponse.body.data.total_creadas).toBe(2);
+    expect(batchResponse.status).toBe(400);
+    expect(String(batchResponse.body.message || '')).toMatch(/error de validaci[oó]n|serializados/i);
+    expect(JSON.stringify(batchResponse.body.errors || [])).toMatch(/serializados|activo_ids|requiere_serial/i);
 
     const createdDeliveriesResult = await db.query(
       `
@@ -347,23 +346,7 @@ maybeDescribe('Entrega templates integration with real DB', () => {
       [IDS.bodegaUserId]
     );
 
-    expect(createdDeliveriesResult.rows.length).toBe(3);
-    const batchDeliveries = createdDeliveriesResult.rows.filter((row) => row.id !== draftFromTemplateResponse.body.data.id);
-    expect(batchDeliveries.every((row) => row.estado === 'borrador')).toBe(true);
-
-    const batchWorkerIds = new Set(batchDeliveries.map((row) => row.trabajador_id));
-    expect(batchWorkerIds.has(IDS.workerId1)).toBe(true);
-    expect(batchWorkerIds.has(IDS.workerId2)).toBe(true);
-
-    const detailCountResult = await db.query(
-      `
-      SELECT COUNT(*)::int AS total
-      FROM entrega_detalle
-      WHERE entrega_id = ANY($1::uuid[])
-      `,
-      [batchDeliveries.map((row) => row.id)]
-    );
-
-    expect(detailCountResult.rows[0].total).toBe(2);
-   });
- });
+    expect(createdDeliveriesResult.rows.length).toBe(1);
+    expect(createdDeliveriesResult.rows[0].id).toBe(draftFromTemplateResponse.body.data.id);
+  });
+});

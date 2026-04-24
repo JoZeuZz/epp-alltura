@@ -43,7 +43,6 @@ const INITIAL_FORM_STATE: InventoryIngressFormValues = {
   notas: '',
   cantidad: 1,
   costo_unitario: 0,
-  codigo_lote: '',
   activos: [{ codigo: '' }],
   agregar_documento: false,
   proveedor_id: '',
@@ -56,7 +55,7 @@ const INITIAL_FORM_STATE: InventoryIngressFormValues = {
 const fileAccept = '.pdf,image/jpeg,image/png,image/webp';
 
 const trackingModeLabel = (mode?: TrackingMode) => {
-  if (mode === 'lote') return 'Por Lote';
+  if (mode === 'lote') return 'Por cantidad';
   return 'Por Unidad';
 };
 
@@ -113,7 +112,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
 
     if (targetStep === 2) {
       if (!trackingMode) {
-        setError('Selecciona primero un artículo para determinar el tracking.');
+        setError('Selecciona primero un artículo para determinar el modo de control.');
         return false;
       }
 
@@ -195,12 +194,12 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Ingresar herramienta o EPP"
+      title="Ingresar equipo o herramienta"
       description="Wizard para registrar ingreso de inventario con documento opcional"
     >
       <form className="space-y-6" onSubmit={handleSubmit}>
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold text-dark-blue">Ingresar Herramienta/EPP</h2>
+          <h2 className="text-2xl font-bold text-dark-blue">Ingresar equipo/herramienta</h2>
           <p className="text-sm text-gray-500">
             Registra un ingreso manual o adjunta documento de respaldo de forma opcional.
           </p>
@@ -337,16 +336,6 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
                     className="w-full border rounded-md p-2"
                     value={form.cantidad}
                     onChange={(event) => setField('cantidad', parseQuantityInteger(event.target.value, 1))}
-                  />
-                </div>
-
-                <div>
-                  <label className="label-base text-gray-700">Código (opcional)</label>
-                  <input
-                    className="w-full border rounded-md p-2"
-                    value={form.codigo_lote}
-                    onChange={(event) => setField('codigo_lote', event.target.value)}
-                    placeholder="L-2026-001"
                   />
                 </div>
               </div>

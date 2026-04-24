@@ -55,10 +55,6 @@ const toExpiryMinutes = (expiraEn) => {
 };
 
 const getExpectedSignerWorkerId = (entrega) => {
-  if (entrega?.tipo === 'traslado') {
-    return entrega.transportista_trabajador_id || entrega.trabajador_id;
-  }
-
   return entrega?.trabajador_id || null;
 };
 
@@ -480,13 +476,10 @@ class FirmasService {
         ed.notas,
         a.nombre AS articulo_nombre,
         a.tipo AS articulo_tipo,
-        a.tracking_mode,
-        ac.codigo AS activo_codigo,
-        l.codigo_lote
+        ac.codigo AS activo_codigo
       FROM entrega_detalle ed
       INNER JOIN articulo a ON a.id = ed.articulo_id
       LEFT JOIN activo ac ON ac.id = ed.activo_id
-      LEFT JOIN lote l ON l.id = ed.lote_id
       WHERE ed.entrega_id = $1
       ORDER BY ed.id
       `,
@@ -531,7 +524,6 @@ class FirmasService {
       LEFT JOIN firma_entrega f ON f.entrega_id = e.id
       WHERE (
         e.trabajador_id = $1
-        OR (e.tipo = 'traslado' AND COALESCE(e.transportista_trabajador_id, e.trabajador_id) = $1)
       )
         AND e.estado IN ('borrador', 'pendiente_firma')
         AND f.id IS NULL

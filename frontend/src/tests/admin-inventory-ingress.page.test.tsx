@@ -122,9 +122,9 @@ describe('AdminInventoryIngressPage', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole('button', { name: 'Ingresar Herramienta/EPP' }));
+    await user.click(screen.getByRole('button', { name: 'Ingresar equipo/herramienta' }));
 
-    const modalTitle = await screen.findByRole('heading', { name: 'Ingresar Herramienta/EPP' });
+    const modalTitle = await screen.findByRole('heading', { name: 'Ingresar equipo/herramienta' });
     const modal = modalTitle.closest('form') as HTMLFormElement;
 
     const step1Selects = within(modal).getAllByRole('combobox');

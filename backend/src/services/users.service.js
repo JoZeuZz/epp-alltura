@@ -169,7 +169,6 @@ const getDeleteAssignmentSummary = async (client, targetUserId, trabajadorId) =>
     `
     SELECT
       (SELECT COUNT(*)::int FROM entrega WHERE creado_por_usuario_id = $1) AS entregas,
-      (SELECT COUNT(*)::int FROM entrega WHERE recibido_por_usuario_id = $1) AS entregas_recibidas,
       (SELECT COUNT(*)::int FROM devolucion WHERE recibido_por_usuario_id = $1) AS devoluciones,
       (SELECT COUNT(*)::int FROM compra WHERE creado_por_usuario_id = $1) AS compras,
       (SELECT COUNT(*)::int FROM egreso WHERE creado_por_usuario_id = $1) AS egresos,
@@ -185,7 +184,6 @@ const getDeleteAssignmentSummary = async (client, targetUserId, trabajadorId) =>
 
   const activity = activityResult.rows[0] || {};
   const entregas = activity.entregas || 0;
-  const entregasRecibidas = activity.entregas_recibidas || 0;
   const devoluciones = activity.devoluciones || 0;
   const compras = activity.compras || 0;
   const egresos = activity.egresos || 0;
@@ -199,7 +197,6 @@ const getDeleteAssignmentSummary = async (client, targetUserId, trabajadorId) =>
   return {
     activeCustodies,
     entregas,
-    entregas_recibidas: entregasRecibidas,
     devoluciones,
     compras,
     egresos,
@@ -212,7 +209,6 @@ const getDeleteAssignmentSummary = async (client, targetUserId, trabajadorId) =>
     hasAssignments:
       activeCustodies > 0 ||
       entregas > 0 ||
-      entregasRecibidas > 0 ||
       devoluciones > 0 ||
       compras > 0 ||
       egresos > 0 ||

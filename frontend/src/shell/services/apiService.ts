@@ -96,21 +96,32 @@ export const updateUser = <T = unknown>({ id, ...payload }: UserUpdatePayload) =
   put<T>(`/users/${id}`, payload);
 export const deactivateUser = <T = unknown>(id: string) => del<T>(`/users/${id}`);
 
-export type ArticuloTipo = 'herramienta' | 'epp' | 'consumible';
+export type ArticuloGrupoPrincipal = 'equipo' | 'herramienta';
+export type ArticuloSubclasificacion =
+  | 'epp'
+  | 'medicion_ensayos'
+  | 'manual'
+  | 'electrica_cable'
+  | 'inalambrica_bateria';
+export type ArticuloEspecialidad =
+  | 'oocc'
+  | 'ooee'
+  | 'andamios'
+  | 'trabajos_verticales_lineas_de_vida';
+export type ArticuloTipo = ArticuloGrupoPrincipal;
 export type ArticuloTrackingMode = 'serial' | 'lote';
-export type ArticuloRetornoMode = 'retornable' | 'consumible';
+export type ArticuloRetornoMode = 'retornable';
 export type ArticuloNivelControl = 'alto' | 'medio' | 'bajo' | 'fuera_scope';
 export type ArticuloEstado = 'activo' | 'inactivo';
 
 export interface Articulo {
   id: string;
-  tipo: ArticuloTipo;
+  grupo_principal: ArticuloGrupoPrincipal;
+  subclasificacion?: ArticuloSubclasificacion | string | null;
+  especialidades: ArticuloEspecialidad[];
   nombre: string;
-  marca?: string | null;
-  modelo?: string | null;
-  categoria?: string | null;
-  tracking_mode: ArticuloTrackingMode;
-  retorno_mode: ArticuloRetornoMode;
+  marca: string;
+  modelo: string;
   nivel_control?: ArticuloNivelControl;
   requiere_vencimiento: boolean;
   unidad_medida: string;
@@ -119,23 +130,22 @@ export interface Articulo {
 }
 
 export interface ArticuloQueryParams {
-  tipo?: ArticuloTipo;
+  grupo_principal?: ArticuloGrupoPrincipal;
+  subclasificacion?: ArticuloSubclasificacion;
+  especialidad?: ArticuloEspecialidad;
   estado?: ArticuloEstado;
-  tracking_mode?: ArticuloTrackingMode;
-  retorno_mode?: ArticuloRetornoMode;
   search?: string;
   limit?: number;
   offset?: number;
 }
 
 export interface ArticuloCreatePayload {
-  tipo: ArticuloTipo;
+  grupo_principal: ArticuloGrupoPrincipal;
+  subclasificacion: ArticuloSubclasificacion;
+  especialidades: ArticuloEspecialidad[];
   nombre: string;
-  marca?: string | null;
-  modelo?: string | null;
-  categoria?: string | null;
-  tracking_mode: ArticuloTrackingMode;
-  retorno_mode: ArticuloRetornoMode;
+  marca: string;
+  modelo: string;
   nivel_control?: ArticuloNivelControl;
   requiere_vencimiento?: boolean;
   unidad_medida: string;
@@ -159,7 +169,6 @@ export interface InventoryStockQueryParams {
   search?: string;
   articulo_id?: string;
   ubicacion_id?: string;
-  lote_id?: string;
   limit?: number;
   offset?: number;
 }
@@ -184,8 +193,6 @@ export interface InventoryStockSummaryQueryParams extends CursorPaginationParams
 export interface InventoryStockSummaryRow {
   articulo_id: string;
   articulo_nombre: string;
-  tracking_mode?: ArticuloTrackingMode;
-  retorno_mode?: ArticuloRetornoMode;
   ubicaciones_count: number;
   disponible_total: number;
   reservada_total: number;
@@ -196,20 +203,14 @@ export interface InventoryStockDetailQueryParams extends CursorPaginationParams 
   search?: string;
   articulo_id?: string;
   ubicacion_id?: string;
-  lote_id?: string;
 }
 
 export interface InventoryStockDetailRow {
   id: string;
   articulo_id: string;
   articulo_nombre?: string;
-  tracking_mode?: ArticuloTrackingMode;
-  retorno_mode?: ArticuloRetornoMode;
   ubicacion_id: string;
   ubicacion_nombre?: string;
-  lote_id?: string | null;
-  codigo_lote?: string | null;
-  fecha_vencimiento?: string | null;
   cantidad_disponible?: number;
   cantidad_reservada?: number;
   ultimo_movimiento_tipo?: string | null;
@@ -231,8 +232,6 @@ export interface InventoryActivoDetailRow {
   nro_serie?: string | null;
   articulo_id?: string;
   articulo_nombre?: string;
-  tracking_mode?: ArticuloTrackingMode;
-  retorno_mode?: ArticuloRetornoMode;
   ubicacion_id?: string | null;
   ubicacion_nombre?: string | null;
   estado?: string;
@@ -312,10 +311,6 @@ export interface DevolucionDetalleRow {
   activo_id?: string | null;
   activo_codigo?: string | null;
   activo_nro_serie?: string | null;
-  tracking_mode?: 'serial' | 'lote';
-  retorno_mode?: 'retornable' | 'consumible';
-  lote_id?: string | null;
-  codigo_lote?: string | null;
   cantidad: number;
   condicion_entrada: DevolucionCondicionEntrada;
   disposicion: DevolucionDisposicion;
@@ -349,7 +344,6 @@ export interface DevolucionDetallePayload {
   custodia_activo_id?: string | null;
   articulo_id?: string | null;
   activo_ids?: string[];
-  lote_id?: string | null;
   cantidad: number;
   condicion_entrada?: DevolucionCondicionEntrada;
   disposicion: DevolucionDisposicion;
@@ -408,20 +402,12 @@ export interface CompraDetalleSerialActivoPayload {
   fecha_vencimiento?: string | null;
 }
 
-export interface CompraDetalleLotePayload {
-  codigo_lote?: string | null;
-  fecha_fabricacion?: string | null;
-  fecha_vencimiento?: string | null;
-}
-
 export interface CompraDetallePayload {
   articulo_id: string;
   ubicacion_id: string;
   cantidad: number;
   costo_unitario: number;
   notas?: string | null;
-  lote_id?: string | null;
-  lote?: CompraDetalleLotePayload;
   activos?: CompraDetalleSerialActivoPayload[];
 }
 
@@ -494,8 +480,6 @@ export interface ActivoProfileResponse {
   creado_en: string;
   articulo_id: string;
   articulo_nombre: string;
-  tracking_mode: string;
-  retorno_mode: string;
   custodia_activa?: ActivoCustodiaEntry | null;
   compra?: {
     compra_id: string;
@@ -615,7 +599,7 @@ export const deleteInventoryIngreso = (id: string) =>
 
 // ============ EGRESOS ============
 
-export type EgresoTipoMotivo = 'salida' | 'baja' | 'consumo' | 'ajuste';
+export type EgresoTipoMotivo = 'salida' | 'baja' | 'ajuste';
 
 export interface EgresoRow {
   id: string;
@@ -632,7 +616,6 @@ export interface InventoryEgresoDetallePayload {
   ubicacion_id: string;
   cantidad?: number;
   activo_ids?: string[];
-  lote_id?: string | null;
   notas?: string | null;
 }
 
@@ -658,12 +641,10 @@ export const deleteInventoryEgreso = (id: string) =>
 
 // ============ ENTREGAS ============
 
-export type EntregaTipo = 'entrega' | 'prestamo' | 'traslado';
+export type EntregaTipo = 'entrega';
 export type EntregaEstado =
   | 'borrador'
   | 'pendiente_firma'
-  | 'en_transito'
-  | 'recibido'
   | 'confirmada'
   | 'anulada'
   | 'revertida_admin';
@@ -674,12 +655,8 @@ export interface EntregaDetalleRow {
   entrega_id: string;
   articulo_id: string;
   articulo_nombre?: string;
-  tracking_mode?: 'serial' | 'lote';
-  retorno_mode?: 'retornable' | 'consumible';
   activo_id?: string | null;
   activo_codigo?: string | null;
-  lote_id?: string | null;
-  codigo_lote?: string | null;
   tipo_item_entrega?: 'retornable' | 'asignacion';
   cantidad: number;
   condicion_salida: CondicionSalida;
@@ -697,8 +674,6 @@ export interface EntregaRow {
   id: string;
   creado_por_usuario_id: string;
   trabajador_id: string;
-  transportista_trabajador_id?: string | null;
-  receptor_trabajador_id?: string | null;
   nombres?: string;
   apellidos?: string;
   rut?: string;
@@ -709,8 +684,6 @@ export interface EntregaRow {
   nota_destino?: string | null;
   motivo_anulacion?: string | null;
   creado_en?: string | null;
-  recibido_en?: string | null;
-  recibido_por_usuario_id?: string | null;
   confirmada_en?: string | null;
   cantidad_items?: number;
   firma_imagen_url?: string | null;
@@ -725,7 +698,6 @@ export interface EntregaRow {
 export interface EntregaDetallePayload {
   articulo_id: string;
   activo_ids?: string[];
-  lote_id?: string | null;
   cantidad?: number;
   condicion_salida?: CondicionSalida;
   notas?: string | null;
@@ -733,12 +705,9 @@ export interface EntregaDetallePayload {
 
 export interface EntregaCreatePayload {
   trabajador_id: string;
-  transportista_trabajador_id?: string | null;
-  receptor_trabajador_id?: string | null;
   ubicacion_origen_id: string;
   ubicacion_destino_id: string;
   tipo?: EntregaTipo;
-  es_traslado?: boolean;
   nota_destino?: string | null;
   fecha_devolucion_esperada?: string | null;
   detalles: EntregaDetallePayload[];
@@ -751,8 +720,6 @@ export interface EntregaTemplateItem {
   template_id?: string;
   articulo_id: string;
   articulo_nombre?: string;
-  tracking_mode?: 'serial' | 'lote';
-  retorno_mode?: 'retornable' | 'consumible';
   cantidad: number;
   requiere_serial: boolean;
   notas_default?: string | null;
@@ -805,7 +772,6 @@ export interface EntregaTemplateDetailOverridePayload {
   articulo_id: string;
   cantidad?: number;
   activo_ids?: string[];
-  lote_id?: string | null;
   condicion_salida?: CondicionSalida;
   notas?: string | null;
 }
@@ -815,7 +781,6 @@ export interface EntregaCreateFromTemplatePayload {
   ubicacion_origen_id: string;
   ubicacion_destino_id: string;
   tipo?: EntregaTipo;
-  es_traslado?: boolean;
   nota_destino?: string | null;
   fecha_devolucion_esperada?: string | null;
   detalles_overrides?: EntregaTemplateDetailOverridePayload[];
@@ -825,8 +790,7 @@ export interface EntregaCreateBatchFromTemplatePayload {
   trabajador_ids: string[];
   ubicacion_origen_id: string;
   ubicacion_destino_id: string;
-  tipo?: Exclude<EntregaTipo, 'traslado'>;
-  es_traslado?: false;
+  tipo?: EntregaTipo;
   nota_destino?: string | null;
   fecha_devolucion_esperada?: string | null;
   detalles_overrides?: EntregaTemplateDetailOverridePayload[];
@@ -931,9 +895,6 @@ export const createEntregasBatchFromTemplate = (
 export const confirmEntrega = (id: string) =>
   post<EntregaRow>(`/entregas/${id}/confirm`);
 
-export const recibirTraslado = (id: string, payload?: { receptor_trabajador_id?: string | null }) =>
-  post<EntregaRow>(`/entregas/${id}/recibir`, payload || {});
-
 export const anularEntrega = (id: string, payload: { motivo: string }) =>
   post<EntregaRow>(`/entregas/${id}/anular`, payload);
 
@@ -993,12 +954,12 @@ export const createSupplier = <T = Supplier>(payload: SupplierCreatePayload) =>
   post<T>('/proveedores', payload);
 
 /**
- * Resumen de dashboard EPP.
+ * Resumen de dashboard operativo.
  */
 export const getDashboardSummary = () => get('/dashboard/summary');
 
 /**
- * Indicadores operativos EPP (endpoint canónico).
+ * Indicadores operativos (endpoint canónico).
  */
 export const getOperationalIndicators = () => get('/dashboard/indicadores-operativos');
 
@@ -1046,23 +1007,10 @@ export interface TrabajadorCustodiaRow {
   articulo_id: string;
   articulo_nombre: string;
   articulo_tipo: string;
-  retorno_mode: string;
   ubicacion_nombre: string;
   dias_en_custodia: number;
   semaforo: 'verde' | 'amarillo' | 'rojo' | 'sin_plazo';
   dias_restantes: number | null;
-}
-
-export interface TrabajadorConsumibleRow {
-  detalle_id: string;
-  cantidad: number;
-  articulo_id: string;
-  articulo_nombre: string;
-  articulo_tipo: string;
-  unidad_medida: string;
-  codigo_lote: string | null;
-  entrega_id: string;
-  confirmada_en: string;
 }
 
 export interface TrabajadorProfileResponse {
@@ -1078,7 +1026,6 @@ export interface TrabajadorProfileResponse {
   fecha_ingreso?: string;
   estado: string;
   custodias: TrabajadorCustodiaRow[];
-  consumibles_entregados: TrabajadorConsumibleRow[];
   stats: {
     activos_en_custodia: number;
     total_custodias: number;

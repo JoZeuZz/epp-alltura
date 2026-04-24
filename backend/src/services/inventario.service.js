@@ -98,35 +98,32 @@ class InventarioService {
       conditions.push(`s.articulo_id = $${values.length}`);
     }
 
-    if (filters.lote_id) {
-      values.push(filters.lote_id);
-      conditions.push(`s.lote_id = $${values.length}`);
-    }
-
     if (filters.search) {
       values.push(`%${filters.search}%`);
-      conditions.push(`(a.nombre ILIKE $${values.length} OR COALESCE(l.codigo_lote, '') ILIKE $${values.length})`);
+      conditions.push(`a.nombre ILIKE $${values.length}`);
     }
 
     let query = `
       SELECT
-        s.*,
+        s.id,
+        s.ubicacion_id,
+        s.articulo_id,
+        s.cantidad_disponible,
+        s.cantidad_reservada,
+        s.actualizado_en,
         a.nombre AS articulo_nombre,
         a.tipo AS articulo_tipo,
-        a.tracking_mode,
         a.unidad_medida,
         u.nombre AS ubicacion_nombre,
-        u.tipo AS ubicacion_tipo,
-        l.codigo_lote,
-        l.fecha_vencimiento
+        u.tipo AS ubicacion_tipo
       FROM stock s
       INNER JOIN articulo a ON a.id = s.articulo_id
       INNER JOIN ubicacion u ON u.id = s.ubicacion_id
-      LEFT JOIN lote l ON l.id = s.lote_id
+      WHERE s.lote_id IS NULL
     `;
 
     if (conditions.length > 0) {
-      query += ` WHERE ${conditions.join(' AND ')}`;
+      query += ` AND ${conditions.join(' AND ')}`;
     }
 
     query += ' ORDER BY a.nombre ASC, u.nombre ASC';
@@ -213,8 +210,6 @@ class InventarioService {
       SELECT
         sr.articulo_id,
         a.nombre AS articulo_nombre,
-        a.tracking_mode,
-        a.retorno_mode,
         COUNT(DISTINCT sr.ubicacion_id)::int AS ubicaciones_count,
         COALESCE(SUM(sr.disponible_total), 0) AS disponible_total,
         COALESCE(SUM(sr.reservada_total), 0) AS reservada_total,
@@ -222,7 +217,7 @@ class InventarioService {
       FROM source_rows sr
       INNER JOIN articulo a ON a.id = sr.articulo_id
       ${outerConditions.length ? `WHERE ${outerConditions.join(' AND ')}` : ''}
-      GROUP BY sr.articulo_id, a.nombre, a.tracking_mode, a.retorno_mode
+      GROUP BY sr.articulo_id, a.nombre
       ORDER BY a.nombre ASC, sr.articulo_id ASC
       LIMIT $${limitIndex} OFFSET $${offsetIndex}
     `;
@@ -252,14 +247,9 @@ class InventarioService {
       conditions.push(`s.articulo_id = $${values.length}`);
     }
 
-    if (filters.lote_id) {
-      values.push(filters.lote_id);
-      conditions.push(`s.lote_id = $${values.length}`);
-    }
-
     if (filters.search) {
       values.push(`%${filters.search}%`);
-      conditions.push(`(a.nombre ILIKE $${values.length} OR COALESCE(l.codigo_lote, '') ILIKE $${values.length})`);
+      conditions.push(`a.nombre ILIKE $${values.length}`);
     }
 
     const limit = parseBoundedInteger(filters.limit, { min: 1, max: 200, fallback: 50 });
@@ -275,22 +265,16 @@ class InventarioService {
         s.id,
         s.articulo_id,
         s.ubicacion_id,
-        s.lote_id,
         s.cantidad_disponible,
         s.cantidad_reservada,
         a.nombre AS articulo_nombre,
-        a.tracking_mode,
-        a.retorno_mode,
         u.nombre AS ubicacion_nombre,
-        l.codigo_lote,
-        l.fecha_vencimiento,
         lm.tipo AS ultimo_movimiento_tipo,
         lm.fecha_movimiento AS ultimo_movimiento_fecha,
         lm.responsable_email AS ultimo_movimiento_responsable
       FROM stock s
       INNER JOIN articulo a ON a.id = s.articulo_id
       INNER JOIN ubicacion u ON u.id = s.ubicacion_id
-      LEFT JOIN lote l ON l.id = s.lote_id
       LEFT JOIN LATERAL (
         SELECT
           ms.tipo,
@@ -299,20 +283,15 @@ class InventarioService {
         FROM movimiento_stock ms
         INNER JOIN usuario us ON us.id = ms.responsable_usuario_id
         WHERE ms.articulo_id = s.articulo_id
-          AND (
-            (s.lote_id IS NOT NULL AND ms.lote_id = s.lote_id)
-            OR
-            (s.lote_id IS NULL AND ms.lote_id IS NULL
-              AND (ms.ubicacion_origen_id = s.ubicacion_id OR ms.ubicacion_destino_id = s.ubicacion_id)
-            )
-          )
+          AND (ms.ubicacion_origen_id = s.ubicacion_id OR ms.ubicacion_destino_id = s.ubicacion_id)
         ORDER BY ms.fecha_movimiento DESC
         LIMIT 1
       ) lm ON TRUE
+      WHERE s.lote_id IS NULL
     `;
 
     if (conditions.length > 0) {
-      query += ` WHERE ${conditions.join(' AND ')}`;
+      query += ` AND ${conditions.join(' AND ')}`;
     }
 
     query += `
@@ -382,7 +361,6 @@ class InventarioService {
       SELECT
         ms.*,
         a.nombre AS articulo_nombre,
-        l.codigo_lote,
         uo.nombre AS ubicacion_origen_nombre,
         ud.nombre AS ubicacion_destino_nombre,
         us.email_login AS responsable_email,
@@ -397,7 +375,6 @@ class InventarioService {
         COALESCE(ms.compra_id, ms.egreso_id, ms.entrega_id, ms.devolucion_id) AS referencia_origen_id
       FROM movimiento_stock ms
       INNER JOIN articulo a ON a.id = ms.articulo_id
-      LEFT JOIN lote l ON l.id = ms.lote_id
       LEFT JOIN ubicacion uo ON uo.id = ms.ubicacion_origen_id
       LEFT JOIN ubicacion ud ON ud.id = ms.ubicacion_destino_id
       INNER JOIN usuario us ON us.id = ms.responsable_usuario_id
@@ -426,7 +403,6 @@ class InventarioService {
       'fecha_movimiento',
       'tipo',
       'articulo_nombre',
-      'codigo_lote',
       'cantidad',
       'ubicacion_origen',
       'ubicacion_destino',
@@ -449,7 +425,6 @@ class InventarioService {
           csvEscape(row.fecha_movimiento),
           csvEscape(row.tipo),
           csvEscape(row.articulo_nombre),
-          csvEscape(row.codigo_lote),
           csvEscape(row.cantidad),
           csvEscape(row.ubicacion_origen_nombre),
           csvEscape(row.ubicacion_destino_nombre),
@@ -574,8 +549,6 @@ class InventarioService {
         ar.id AS articulo_id,
         ar.nombre AS articulo_nombre,
         ar.tipo AS articulo_tipo,
-        ar.tracking_mode,
-        ar.retorno_mode,
         u.id AS ubicacion_id,
         u.nombre AS ubicacion_nombre,
         u.tipo AS ubicacion_tipo,
@@ -678,8 +651,6 @@ class InventarioService {
         ar.id AS articulo_id,
         ar.nombre AS articulo_nombre,
         ar.tipo AS articulo_tipo,
-        ar.tracking_mode,
-        ar.retorno_mode,
         u.id AS ubicacion_id,
         u.nombre AS ubicacion_nombre,
         u.tipo AS ubicacion_tipo,
@@ -888,43 +859,6 @@ class InventarioService {
     return EgresosService.deleteEgreso(id, userId);
   }
 
-  static async getLotes(filters = {}) {
-    const values = [];
-    const conditions = [];
-
-    if (filters.articulo_id) {
-      values.push(filters.articulo_id);
-      conditions.push(`l.articulo_id = $${values.length}`);
-    }
-
-    if (filters.estado) {
-      values.push(filters.estado);
-      conditions.push(`l.estado = $${values.length}`);
-    }
-
-    let query = `
-      SELECT
-        l.id,
-        l.articulo_id,
-        l.codigo_lote,
-        l.fecha_fabricacion,
-        l.fecha_vencimiento,
-        l.estado,
-        a.nombre AS articulo_nombre
-      FROM lote l
-      INNER JOIN articulo a ON a.id = l.articulo_id
-    `;
-
-    if (conditions.length > 0) {
-      query += ` WHERE ${conditions.join(' AND ')}`;
-    }
-
-    query += ` ORDER BY l.creado_en DESC`;
-
-    const { rows } = await db.query(query, values);
-    return rows;
-  }
-
   /**
    * Perfil completo de un activo serializado: datos base, custodia actual,
    * compra de origen, y timeline de movimientos + custodias.
@@ -938,7 +872,6 @@ class InventarioService {
         ac.ubicacion_actual_id, ac.fecha_compra, ac.fecha_vencimiento, ac.valor,
         ac.creado_en,
         a.id AS articulo_id, a.nombre AS articulo_nombre,
-        a.tracking_mode, a.retorno_mode,
         u.nombre AS ubicacion_nombre
       FROM activo ac
       INNER JOIN articulo a ON a.id = ac.articulo_id
@@ -1144,7 +1077,7 @@ class InventarioService {
     }
   }
 
-  // ── Reubicar activo (traslado directo entre ubicaciones) ──
+  // ── Reubicar activo (movimiento directo entre ubicaciones) ──
   static async reubicarActivo(activoId, { ubicacion_destino_id, motivo }, usuarioId) {
     const client = await db.pool.connect();
     try {
@@ -1201,7 +1134,7 @@ class InventarioService {
       await client.query(
         `INSERT INTO movimiento_activo
           (activo_id, tipo, ubicacion_origen_id, ubicacion_destino_id, responsable_usuario_id, notas)
-         VALUES ($1, 'traslado', $2, $3, $4, $5)`,
+         VALUES ($1, 'ajuste', $2, $3, $4, $5)`,
         [activoId, activo.ubicacion_actual_id, ubicacion_destino_id, usuarioId, motivo || null]
       );
 

@@ -225,7 +225,6 @@ class TrabajadoresService {
         ar.id AS articulo_id,
         ar.nombre AS articulo_nombre,
         ar.tipo AS articulo_tipo,
-        ar.retorno_mode,
         u.nombre AS ubicacion_nombre,
         GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - ca.desde_en)) / 86400))::int AS dias_en_custodia,
         CASE
@@ -261,32 +260,7 @@ class TrabajadoresService {
       [id]
     );
 
-    // 3. Historial de consumibles entregados
-    const { rows: consumibles } = await db.query(
-      `
-      SELECT
-        ed.id AS detalle_id,
-        ed.cantidad,
-        ar.id AS articulo_id,
-        ar.nombre AS articulo_nombre,
-        ar.tipo AS articulo_tipo,
-        ar.unidad_medida,
-        l.codigo_lote,
-        e.id AS entrega_id,
-        e.confirmada_en
-      FROM entrega_detalle ed
-      INNER JOIN entrega e ON e.id = ed.entrega_id
-      INNER JOIN articulo ar ON ar.id = ed.articulo_id
-      LEFT JOIN lote l ON l.id = ed.lote_id
-      WHERE e.trabajador_id = $1
-        AND e.estado = 'confirmada'
-        AND ed.activo_id IS NULL
-      ORDER BY e.confirmada_en DESC
-      `,
-      [id]
-    );
-
-    // 4. Estadísticas
+    // 3. Estadísticas
     const { rows: statsRows } = await db.query(
       `
       SELECT
@@ -313,7 +287,6 @@ class TrabajadoresService {
     return {
       ...trabajador,
       custodias,
-      consumibles_entregados: consumibles,
       stats: statsRows[0],
     };
   }

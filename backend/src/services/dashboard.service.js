@@ -166,7 +166,7 @@ class DashboardService {
   }
 
   static async getOperationalIndicators() {
-    const [stockMovementsResult, assetMovementsResult, consumiblesResult, ubicacionesResult, firmasResult] = await Promise.all([
+    const [stockMovementsResult, assetMovementsResult, noSerializadosResult, ubicacionesResult, firmasResult] = await Promise.all([
       db.query(
         `
         SELECT
@@ -196,12 +196,10 @@ class DashboardService {
       db.query(
         `
         SELECT
-          COUNT(*)::int AS movimientos_consumibles_30d,
-          COALESCE(SUM(ms.cantidad), 0) AS cantidad_consumibles_30d
+          COUNT(*)::int AS movimientos_no_serializados_30d,
+          COALESCE(SUM(ms.cantidad), 0) AS cantidad_no_serializados_30d
         FROM movimiento_stock ms
-        INNER JOIN articulo a ON a.id = ms.articulo_id
         WHERE ms.fecha_movimiento >= NOW() - INTERVAL '30 days'
-          AND a.retorno_mode = 'consumible'
         `
       ),
       db.query(
@@ -212,12 +210,7 @@ class DashboardService {
             WHERE tipo = 'bodega'
               AND COALESCE(ubicacion_subtipo, 'fija') = 'fija'
               AND fecha_cierre_operacion IS NULL
-          )::int AS bodegas_activas,
-          COUNT(*) FILTER (
-            WHERE tipo = 'bodega'
-              AND ubicacion_subtipo = 'transitoria'
-              AND fecha_cierre_operacion IS NULL
-          )::int AS bodegas_transitorias_activas
+          )::int AS bodegas_activas
         FROM ubicacion
         `
       ),
@@ -233,7 +226,7 @@ class DashboardService {
 
     const stock = stockMovementsResult.rows[0];
     const activos = assetMovementsResult.rows[0];
-    const consumibles = consumiblesResult.rows[0];
+    const noSerializados = noSerializadosResult.rows[0];
     const ubicaciones = ubicacionesResult.rows[0];
     const firmas = firmasResult.rows[0];
 
@@ -255,14 +248,13 @@ class DashboardService {
         mantenciones: activos.mantenciones || 0,
         bajas: activos.bajas || 0,
       },
-      consumibles: {
-        movimientos_30d: consumibles.movimientos_consumibles_30d || 0,
-        cantidad_30d: Number(consumibles.cantidad_consumibles_30d || 0),
+      no_serializados: {
+        movimientos_30d: noSerializados.movimientos_no_serializados_30d || 0,
+        cantidad_30d: Number(noSerializados.cantidad_no_serializados_30d || 0),
       },
       ubicaciones: {
         total: ubicaciones.total || 0,
         bodegas_activas: ubicaciones.bodegas_activas || 0,
-        bodegas_transitorias_activas: ubicaciones.bodegas_transitorias_activas || 0,
       },
       firmas: {
         actas_firmadas_30d: firmas.actas_firmadas_30d || 0,

@@ -5,7 +5,7 @@ import {
 } from '../components/forms/entregaTemplate.utils';
 
 describe('entrega template prefill utils', () => {
-  it('prefill crea detalles compatibles con serial y lote', () => {
+  it('prefill crea detalles compatibles con serial y cantidad', () => {
     const detalles = buildDraftDetailsFromTemplateItems([
       {
         articulo_id: 'art-serial',
@@ -14,10 +14,10 @@ describe('entrega template prefill utils', () => {
         notas_default: 'Serial requerido',
       },
       {
-        articulo_id: 'art-lote',
+        articulo_id: 'art-cantidad',
         cantidad: 3,
         requiere_serial: false,
-        notas_default: 'Lote estándar',
+        notas_default: 'Cantidad estándar',
       },
     ] as never);
 
@@ -29,11 +29,10 @@ describe('entrega template prefill utils', () => {
         notas: 'Serial requerido',
       },
       {
-        articulo_id: 'art-lote',
+        articulo_id: 'art-cantidad',
         cantidad: 3,
-        lote_id: null,
         condicion_salida: 'ok',
-        notas: 'Lote estándar',
+        notas: 'Cantidad estándar',
       },
     ]);
   });
@@ -47,9 +46,8 @@ describe('entrega template prefill utils', () => {
         notas: 'nota serial',
       },
       {
-        articulo_id: 'art-lote',
+        articulo_id: 'art-cantidad',
         cantidad: 2,
-        lote_id: 'lote-1',
         condicion_salida: 'usado',
       },
     ]);
@@ -59,15 +57,13 @@ describe('entrega template prefill utils', () => {
         articulo_id: 'art-serial',
         cantidad: undefined,
         activo_ids: ['activo-1'],
-        lote_id: null,
         condicion_salida: 'ok',
         notas: 'nota serial',
       },
       {
-        articulo_id: 'art-lote',
+        articulo_id: 'art-cantidad',
         cantidad: 2,
         activo_ids: undefined,
-        lote_id: 'lote-1',
         condicion_salida: 'usado',
         notas: null,
       },

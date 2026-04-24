@@ -181,7 +181,7 @@ const AppLayout = () => {
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Dashboard EPP</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Dashboard Operativo</span>
       </NavLink>
       <NavLink
         to="/admin/entregas"
@@ -279,7 +279,7 @@ const AppLayout = () => {
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7L4 7m16 5H4m16 5H4" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Operación Bodega</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Bodega Operativa</span>
       </NavLink>
       <NavLink
         to="/bodega/operaciones"
@@ -289,7 +289,7 @@ const AppLayout = () => {
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Entregas y Devoluciones</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Operación Diaria</span>
       </NavLink>
       <NavLink
         to="/bodega/devoluciones"
@@ -314,7 +314,7 @@ const AppLayout = () => {
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12c2.761 0 5-2.239 5-5S14.761 2 12 2 7 4.239 7 7s2.239 5 5 5zM4 22c0-4.418 3.582-8 8-8s8 3.582 8 8" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Mis Activos</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Mis Equipos</span>
       </NavLink>
       <NavLink
         to="/worker/firmas"
@@ -324,7 +324,7 @@ const AppLayout = () => {
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5h2m-1-3v6m9 4v9a1 1 0 01-1 1H4a1 1 0 01-1-1v-9m18 0l-9-5-9 5" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Firmas Pendientes</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Confirmar Recepción</span>
       </NavLink>
     </Fragment>
   );
@@ -339,7 +339,7 @@ const AppLayout = () => {
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Mis Activos</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Mis Equipos</span>
       </NavLink>
     </Fragment>
   );

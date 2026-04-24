@@ -64,7 +64,6 @@ const buildEntregaActaPdfBuffer = async ({ entrega, detalles }) => {
     appendField(doc, 'Ubicación destino', entrega.ubicacion_destino_nombre || entrega.ubicacion_destino_id);
     appendField(doc, 'Creado en', formatDateTime(entrega.creado_en));
     appendField(doc, 'Confirmado en', formatDateTime(entrega.confirmada_en));
-    appendField(doc, 'Recibido en', formatDateTime(entrega.recibido_en));
     appendField(doc, 'Fecha devolución esperada', formatDateTime(entrega.fecha_devolucion_esperada));
 
     appendSectionTitle(doc, 'Detalle de ítems');
@@ -76,7 +75,7 @@ const buildEntregaActaPdfBuffer = async ({ entrega, detalles }) => {
         doc.font('Helvetica').text(
           `Cantidad: ${toText(item.cantidad)} | Condición salida: ${toText(item.condicion_salida)}`
         );
-        doc.text(`Activo/Lote: ${toText(item.activo_codigo || item.codigo_lote || item.activo_id || item.lote_id)}`);
+        doc.text(`Código activo: ${toText(item.activo_codigo || item.activo_id)}`);
         doc.text(`Notas: ${toText(item.notas)}`);
         doc.moveDown(0.3);
       });

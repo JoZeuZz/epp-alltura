@@ -20,7 +20,6 @@ export const buildDraftDetailsFromTemplateItems = (
     return {
       articulo_id: item.articulo_id,
       cantidad: Number(item.cantidad) || 1,
-      lote_id: null,
       condicion_salida: 'ok',
       notas: item.notas_default ?? null,
     };
@@ -36,7 +35,6 @@ export const buildTemplateDetailOverrides = (
       articulo_id: item.articulo_id,
       cantidad: item.cantidad,
       activo_ids: Array.isArray(item.activo_ids) ? item.activo_ids.filter(Boolean) : undefined,
-      lote_id: item.lote_id ?? null,
       condicion_salida: item.condicion_salida,
       notas: item.notas ?? null,
     }));

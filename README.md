@@ -1,10 +1,10 @@
-# Alltura EPP Control
+# Alltura Control Operativo de Equipos y Herramientas
 
-Sistema integral para gestionar inventario de EPP y herramientas, con trazabilidad operativa de ingresos, entregas, firmas, devoluciones, egresos y movimientos.
+Sistema integral para gestionar inventario de equipos y herramientas, con trazabilidad operativa de ingresos, entregas, firmas, devoluciones, egresos y movimientos.
 
 ## Resumen
 
-Alltura EPP Control digitaliza la operación diaria de bodega y terreno con foco en:
+Alltura digitaliza la operación diaria de bodega y terreno con foco en:
 
 - Control de stock por ubicación.
 - Trazabilidad por artículo en modo serial o lote.
@@ -68,6 +68,11 @@ Monorepo con tres bloques principales:
 - Egreso: salida operativa o baja.
 - Trazabilidad: movimientos de stock/activo y auditoría.
 
+Compatibilidad legacy explícita:
+
+- Términos y rutas históricas (`consumo`, `retorno_mode`, `traslado`, `en_transito`, `recibirTraslado`) se mantienen sólo por compatibilidad acotada y validaciones negativas.
+- El flujo principal vigente es operativo simplificado con entregas/devoluciones serializadas y confirmación con firma.
+
 ### Reglas de Negocio Relevantes
 
 - tracking_mode válido: serial o lote.
@@ -106,7 +111,7 @@ Servicios:
 
 ### 4) Login de desarrollo (seed)
 
-Si la base se inicializa con db/init/009-dev-seed.sql, tendrás usuarios demo como:
+El baseline de desarrollo usa db/init/002-dev-seed.sql (junto con 001/003/004) y genera usuarios demo como:
 
 - admin.dev@alltura.local
 - bodega.dev@alltura.local
@@ -115,6 +120,13 @@ Si la base se inicializa con db/init/009-dev-seed.sql, tendrás usuarios demo co
 - maria.rojas@alltura.local
 
 Password demo: Dev12345!
+
+Para reconstruir el entorno desde cero (reset destructivo):
+
+```bash
+docker compose -f docker-compose.dev.yml down -v
+docker compose -f docker-compose.dev.yml up -d
+```
 
 ## Variables de Entorno Mínimas
 
@@ -128,7 +140,7 @@ DB_HOST=localhost
 DB_PORT=55432
 DB_USER=postgres
 DB_PASSWORD=postgres
-DB_NAME=herramientas
+DB_NAME=herramientas_epp
 
 REDIS_URL=redis://localhost:56379
 
@@ -205,10 +217,10 @@ npm run dev
 Flujo smoke mínimo:
 
 1. Login como `admin` o `bodega` y abrir entregas/devoluciones. Endpoints: `GET /api/entregas`, `GET /api/devoluciones`.
-2. En `AdminEntregasPage`, crear entrega en borrador con al menos un ítem. Endpoint: `POST /api/entregas`.
+2. En `AdminEntregasPage`, crear entrega serializada en borrador con al menos un activo. Endpoint: `POST /api/entregas`.
 3. Firmar la entrega (al menos una vía). Endpoints: `POST /api/firmas/entregas/:entregaId/firmar-dispositivo`, `POST /api/firmas/entregas/:entregaId/token`, `POST /api/firmas/tokens/:token/firmar`, `GET /api/firmas/tokens/:token`.
 4. Confirmar entrega desde `AdminEntregasPage`. Endpoint: `POST /api/entregas/:id/confirm`.
-5. En `AdminDevolucionesPage`, crear devolución con trabajador + recepción y detalle válido. Endpoints: `GET /api/devoluciones/activos-elegibles`, `POST /api/devoluciones`.
+5. En `AdminDevolucionesPage`, crear devolución serializada con trabajador + recepción y detalle válido. Endpoints: `GET /api/devoluciones/activos-elegibles`, `POST /api/devoluciones`.
 6. Firmar y confirmar devolución desde la misma página. Endpoints: `POST /api/devoluciones/:id/firmar-dispositivo`, `POST /api/devoluciones/:id/confirm`.
 7. Validar trazabilidad básica por operación completada. Endpoints: `GET /api/entregas/:id`, `GET /api/devoluciones/:id`. Criterio: entrega en `confirmada`, devolución en `confirmada`, y detalle consistente (firma y disposiciones).
 
@@ -260,4 +272,4 @@ Controles activos de seguridad en backend:
 
 ## Estado
 
-Aplicación operativa enfocada en dominio EPP/herramientas, con flujo productivo en evolución continua.
+Aplicación operativa enfocada en dominio de equipos y herramientas, con flujo productivo en evolución continua.
