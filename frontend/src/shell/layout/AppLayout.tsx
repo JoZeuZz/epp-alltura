@@ -176,7 +176,7 @@ const AppLayout = () => {
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M6 12h12M6 17h12" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3l7 3v5c0 4.97-3.05 8.88-7 10-3.95-1.12-7-5.03-7-10V6l7-3z" />
         </svg>
         <span className={!isSidebarOpen ? 'lg:hidden' : ''}>EPP</span>
       </NavLink>
@@ -186,7 +186,7 @@ const AppLayout = () => {
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V7a2 2 0 00-2-2h-3V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v1H6a2 2 0 00-2 2v6m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16v10a2 2 0 01-2 2H6a2 2 0 01-2-2V8zm5-4h6a2 2 0 012 2v2H7V6a2 2 0 012-2z" />
         </svg>
         <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Equipos</span>
       </NavLink>
@@ -196,7 +196,7 @@ const AppLayout = () => {
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.7 6.3a1 1 0 010 1.4l-2.3 2.3a3 3 0 01-4.2 4.2l-4.8 4.8 1.4 1.4 4.8-4.8a3 3 0 004.2-4.2l2.3-2.3a1 1 0 011.4 0l1.4 1.4-1.4 1.4" />
         </svg>
         <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Herramientas</span>
       </NavLink>

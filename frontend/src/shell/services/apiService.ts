@@ -224,7 +224,10 @@ export interface InventoryActivoDetailQueryParams extends CursorPaginationParams
   ubicacion_id?: string;
   estado?: string;
   solo_entregados?: boolean;
+  tipo_activo?: InventoryActivoTypeScope;
 }
+
+export type InventoryActivoTypeScope = 'herramientas' | 'epp' | 'equipos';
 
 export interface InventoryActivoDetailRow {
   id: string;

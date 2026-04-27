@@ -71,6 +71,35 @@ const decodeOffsetCursor = (cursor) => {
   }
 };
 
+const buildScopedAssetTypeCondition = (value, nextParamIndex) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized || normalized === 'all') return null;
+
+  if (normalized === 'herramientas' || normalized === 'herramienta') {
+    return {
+      condition: `ar.grupo_principal = $${nextParamIndex}`,
+      value: 'herramienta',
+    };
+  }
+
+  if (normalized === 'epp') {
+    return {
+      condition: `ar.subclasificacion = $${nextParamIndex}`,
+      value: 'epp',
+    };
+  }
+
+  if (normalized === 'equipos' || normalized === 'equipo') {
+    return {
+      condition: `(ar.grupo_principal = $${nextParamIndex} AND ar.subclasificacion <> $${nextParamIndex + 1})`,
+      value: ['equipo', 'epp'],
+    };
+  }
+
+  return null;
+};
+
+
 class InventarioService {
   static async getIngresos(filters = {}) {
     return ComprasService.list(filters);
@@ -526,6 +555,16 @@ class InventarioService {
       conditions.push(`a.estado = $${values.length}`);
     }
 
+    const tipoActivoFilter = buildScopedAssetTypeCondition(filters.tipo_activo, values.length + 1);
+    if (tipoActivoFilter) {
+      if (Array.isArray(tipoActivoFilter.value)) {
+        values.push(...tipoActivoFilter.value);
+      } else {
+        values.push(tipoActivoFilter.value);
+      }
+      conditions.push(tipoActivoFilter.condition);
+    }
+
     if (filters.search) {
       values.push(`%${filters.search}%`);
       conditions.push(
@@ -621,6 +660,16 @@ class InventarioService {
 
     if (onlyDelivered) {
       conditions.push(`(a.estado = 'entregado' OR (ca.id IS NOT NULL AND ca.estado = 'activa' AND ca.hasta_en IS NULL))`);
+    }
+
+    const tipoActivoFilter = buildScopedAssetTypeCondition(filters.tipo_activo, values.length + 1);
+    if (tipoActivoFilter) {
+      if (Array.isArray(tipoActivoFilter.value)) {
+        values.push(...tipoActivoFilter.value);
+      } else {
+        values.push(tipoActivoFilter.value);
+      }
+      conditions.push(tipoActivoFilter.condition);
     }
 
     if (filters.search) {

@@ -5,6 +5,7 @@ import { useGet } from '../../../hooks';
 import {
   getInventoryActivosPaged,
   type InventoryActivoDetailRow,
+  type InventoryActivoTypeScope,
 } from '../../../services/apiService';
 import {
   getToolRawStatus,
@@ -16,18 +17,21 @@ import {
   toToolVisualStatus,
   type ToolPresentationSource,
 } from '../../../utils/toolPresentation';
+import { INVENTORY_ASSET_SCOPE_COPY } from './inventoryAssetScope.constants';
 
 interface PagedResponseLike<T> {
   items?: T[];
   rows?: T[];
-  data?: T[] | {
-    items?: T[];
-    rows?: T[];
-    data?: T[];
-    total?: number;
-    nextCursor?: string | null;
-    hasMore?: boolean;
-  };
+  data?:
+    | T[]
+    | {
+        items?: T[];
+        rows?: T[];
+        data?: T[];
+        total?: number;
+        nextCursor?: string | null;
+        hasMore?: boolean;
+      };
   total?: number;
   nextCursor?: string | null;
   hasMore?: boolean;
@@ -54,21 +58,11 @@ const normalizePagedResponse = (payload: unknown): {
   const nested = Array.isArray(src.data) ? null : src.data;
 
   const items =
-    src.items ??
-    src.rows ??
-    (Array.isArray(src.data) ? src.data : undefined) ??
-    nested?.items ??
-    nested?.rows ??
-    nested?.data ??
-    [];
+    src.items ?? src.rows ?? (Array.isArray(src.data) ? src.data : undefined) ?? nested?.items ?? nested?.rows ?? nested?.data ?? [];
 
   return {
     items: Array.isArray(items) ? items : [],
-    total: typeof src.total === 'number'
-      ? src.total
-      : typeof nested?.total === 'number'
-        ? nested.total
-        : null,
+    total: typeof src.total === 'number' ? src.total : typeof nested?.total === 'number' ? nested.total : null,
     nextCursor: src.nextCursor ?? nested?.nextCursor ?? null,
     hasMore: Boolean(src.hasMore ?? nested?.hasMore ?? false),
   };
@@ -82,17 +76,21 @@ const moneyToNumber = (value: string): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const formatCompactCLP = (value: number): string => {
-  return new Intl.NumberFormat('es-CL', {
+const formatCompactCLP = (value: number): string =>
+  new Intl.NumberFormat('es-CL', {
     style: 'currency',
     currency: 'CLP',
     maximumFractionDigits: 0,
   }).format(Math.round(value));
-};
 
 const PAGE_SIZE = 25;
 
-const AdminInventoryToolsPage: React.FC = () => {
+interface AdminInventoryScopedAssetCardsProps {
+  scope: InventoryActivoTypeScope;
+}
+
+const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsProps> = ({ scope }) => {
+  const copy = INVENTORY_ASSET_SCOPE_COPY[scope];
   const [search, setSearch] = useState('');
   const [estadoFilter, setEstadoFilter] = useState<string>('all');
   const [ubicacionFilter, setUbicacionFilter] = useState<string>('all');
@@ -102,22 +100,18 @@ const AdminInventoryToolsPage: React.FC = () => {
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const [selectedTool, setSelectedTool] = useState<ToolPresentationSource | null>(null);
+  const [selectedAsset, setSelectedAsset] = useState<ToolPresentationSource | null>(null);
 
   const queryParams = useMemo(
     () => ({
       limit: PAGE_SIZE,
+      tipo_activo: scope,
     }),
-    []
+    [scope]
   );
 
-  const {
-    data,
-    isLoading,
-    error,
-    refetch,
-  } = useGet<unknown>(
-    ['inventory-tools-paged', queryParams],
+  const { data, isLoading, error, refetch } = useGet<unknown>(
+    ['inventory-activos-paged', queryParams],
     '/inventario/activos-paged',
     queryParams,
     { placeholderData: keepPreviousData }
@@ -135,7 +129,11 @@ const AdminInventoryToolsPage: React.FC = () => {
 
     setIsLoadingMore(true);
     try {
-      const moreRaw = await getInventoryActivosPaged({ limit: PAGE_SIZE, cursor: nextCursor });
+      const moreRaw = await getInventoryActivosPaged({
+        limit: PAGE_SIZE,
+        cursor: nextCursor,
+        tipo_activo: scope,
+      });
       const normalized = normalizePagedResponse(moreRaw);
       setRows((prev) => [...prev, ...normalized.items]);
       setNextCursor(normalized.nextCursor);
@@ -154,7 +152,7 @@ const AdminInventoryToolsPage: React.FC = () => {
     return Array.from(values).sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
-  const filteredTools = useMemo(() => {
+  const filteredAssets = useMemo(() => {
     const term = search.trim().toLowerCase();
 
     return rows.filter((row) => {
@@ -173,12 +171,12 @@ const AdminInventoryToolsPage: React.FC = () => {
   }, [rows, search, estadoFilter, ubicacionFilter]);
 
   const kpis = useMemo(() => {
-    const total = filteredTools.length;
+    const total = filteredAssets.length;
     let available = 0;
     let assigned = 0;
     let liabilityValue = 0;
 
-    filteredTools.forEach((tool) => {
+    filteredAssets.forEach((tool) => {
       const visualStatus = toToolVisualStatus(getToolRawStatus(tool));
       if (visualStatus === 'available') available += 1;
       if (visualStatus === 'assigned') {
@@ -191,25 +189,18 @@ const AdminInventoryToolsPage: React.FC = () => {
       }
     });
 
-    return {
-      total,
-      available,
-      assigned,
-      liabilityValue,
-    };
-  }, [filteredTools]);
+    return { total, available, assigned, liabilityValue };
+  }, [filteredAssets]);
 
   return (
-    <div className="space-y-4" data-tour="admin-inventory-tools-page">
+    <div className="space-y-4">
       <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-        <h2 className="text-2xl sm:text-3xl font-bold text-dark-blue">Gestión de Herramientas</h2>
-        <p className="text-neutral-gray mt-1 text-sm sm:text-base">
-          Administra cada herramienta como una entidad individual, revisando responsable, ubicación, estado y valor asociado.
-        </p>
+        <h2 className="text-2xl sm:text-3xl font-bold text-dark-blue">{copy.managerTitle}</h2>
+        <p className="text-neutral-gray mt-1 text-sm sm:text-base">{copy.managerDescription}</p>
       </section>
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label="KPIs de herramientas">
-        <KpiCard label="Total herramientas" value={String(kpis.total)} />
+      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label={`KPIs de ${scope}`}>
+        <KpiCard label={copy.totalLabel} value={String(kpis.total)} />
         <KpiCard label="Disponibles" value={String(kpis.available)} accent="text-green-600" />
         <KpiCard label="Asignadas" value={String(kpis.assigned)} accent="text-blue-600" />
         <KpiCard
@@ -219,7 +210,7 @@ const AdminInventoryToolsPage: React.FC = () => {
         />
       </section>
 
-      <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-3" aria-label="Filtros de herramientas">
+      <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-3" aria-label={`Filtros de ${scope}`}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <label className="space-y-1">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Buscar</span>
@@ -270,7 +261,7 @@ const AdminInventoryToolsPage: React.FC = () => {
 
       {error ? (
         <section className="bg-white rounded-lg shadow-sm border border-red-100 p-4 space-y-3" role="alert">
-          <p className="text-sm text-red-600">No fue posible cargar herramientas. Intenta nuevamente.</p>
+          <p className="text-sm text-red-600">{copy.errorMessage}</p>
           <button
             type="button"
             onClick={() => {
@@ -283,11 +274,11 @@ const AdminInventoryToolsPage: React.FC = () => {
         </section>
       ) : (
         <ToolGrid
-          tools={filteredTools}
+          tools={filteredAssets}
           loading={isLoading}
-          emptyMessage="No se encontraron herramientas para los filtros seleccionados."
-          selectedToolId={selectedTool?.id ?? null}
-          onToolSelect={setSelectedTool}
+          emptyMessage={copy.emptyMessage}
+          selectedToolId={selectedAsset?.id ?? null}
+          onToolSelect={setSelectedAsset}
         />
       )}
 
@@ -299,15 +290,15 @@ const AdminInventoryToolsPage: React.FC = () => {
             disabled={isLoadingMore}
             className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50"
           >
-            {isLoadingMore ? 'Cargando...' : 'Cargar más herramientas'}
+            {isLoadingMore ? 'Cargando...' : copy.loadMoreLabel}
           </button>
         </div>
       )}
 
       <ToolDetailsModal
-        isOpen={Boolean(selectedTool)}
-        tool={selectedTool}
-        onClose={() => setSelectedTool(null)}
+        isOpen={Boolean(selectedAsset)}
+        tool={selectedAsset}
+        onClose={() => setSelectedAsset(null)}
         onRefresh={() => {
           void refetch();
         }}
@@ -316,15 +307,11 @@ const AdminInventoryToolsPage: React.FC = () => {
   );
 };
 
-const KpiCard: React.FC<{ label: string; value: string; accent?: string }> = ({
-  label,
-  value,
-  accent = 'text-dark-blue',
-}) => (
+const KpiCard: React.FC<{ label: string; value: string; accent?: string }> = ({ label, value, accent = 'text-dark-blue' }) => (
   <article className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
     <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
     <p className={`text-2xl font-bold mt-1 ${accent}`}>{value}</p>
   </article>
 );
 
-export default AdminInventoryToolsPage;
+export default AdminInventoryScopedAssetCards;

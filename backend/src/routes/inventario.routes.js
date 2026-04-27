@@ -31,6 +31,21 @@ const validateBody = (schema) => {
   };
 };
 
+const validateQuery = (schema) => {
+  return async (req, _res, next) => {
+    try {
+      req.query = await schema.validateAsync(req.query, {
+        abortEarly: false,
+        stripUnknown: true,
+        convert: true,
+      });
+      return next();
+    } catch (error) {
+      return next(error);
+    }
+  };
+};
+
 const uuid = Joi.string()
   .trim()
   .pattern(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)
@@ -212,6 +227,17 @@ const createEgresoSchema = Joi.object({
   ).min(1).required(),
 });
 
+const activosQuerySchema = Joi.object({
+  articulo_id: uuid,
+  ubicacion_id: uuid,
+  estado: Joi.string().trim().max(40),
+  search: Joi.string().trim().max(120),
+  limit: Joi.number().integer().min(1).max(200),
+  cursor: Joi.string().trim().max(300),
+  solo_entregados: Joi.boolean(),
+  tipo_activo: Joi.string().trim().lowercase().valid('herramientas', 'herramienta', 'epp', 'equipos', 'equipo', 'all'),
+});
+
 router.get(
   '/egresos',
   authMiddleware,
@@ -287,6 +313,7 @@ router.get(
   '/activos',
   authMiddleware,
   checkRole(['admin', 'supervisor', 'bodega']),
+  validateQuery(activosQuerySchema),
   InventarioController.getActivos
 );
 
@@ -294,6 +321,7 @@ router.get(
   '/activos-paged',
   authMiddleware,
   checkRole(['admin', 'supervisor', 'bodega']),
+  validateQuery(activosQuerySchema),
   InventarioController.getActivosPaged
 );
 
