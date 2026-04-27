@@ -204,7 +204,7 @@ ALTER TABLE articulo
 
 CREATE TABLE IF NOT EXISTS articulo_especialidad (
   articulo_id UUID NOT NULL REFERENCES articulo(id) ON DELETE CASCADE,
-  especialidad VARCHAR(80) NOT NULL CHECK (especialidad IN ('oocc', 'ooee', 'andamios', 'trabajos_verticales_lineas_de_vida')),
+  especialidad VARCHAR(80) NOT NULL CHECK (especialidad IN ('oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida')),
   creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (articulo_id, especialidad)
 );

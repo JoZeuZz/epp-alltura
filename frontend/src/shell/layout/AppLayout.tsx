@@ -163,74 +163,44 @@ const AppLayout = () => {
   const activeLinkClass = `flex items-center px-3 py-2 text-white bg-primary-blue rounded-lg ${
     !isSidebarOpen ? 'lg:justify-center lg:px-2' : ''
   }`;
-  const isAdminInventoryRoute = location.pathname.startsWith('/admin/inventario');
-  const isAdminEntregasRoute = location.pathname.startsWith('/admin/entregas');
-  const isAdminDevolucionesRoute = location.pathname.startsWith('/admin/devoluciones');
   const navSectionClass = `px-3 pt-3 pb-1 text-[11px] font-semibold tracking-[0.08em] text-gray-400 uppercase ${
     !isSidebarOpen ? 'lg:hidden' : ''
   }`;
 
   const adminLinks = (
     <Fragment>
-      <p className={navSectionClass}>Operaciones</p>
+      <p className={navSectionClass}>Inventario</p>
       <NavLink
-        to="/admin/dashboard"
+        to="/admin/inventario/epp"
         onClick={handleLinkClick}
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7h12M6 12h12M6 17h12" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Dashboard Operativo</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>EPP</span>
       </NavLink>
       <NavLink
-        to="/admin/entregas"
+        to="/admin/inventario/equipos"
         onClick={handleLinkClick}
-        className={({ isActive }) =>
-          isActive || isAdminEntregasRoute ? activeLinkClass : linkClass
-        }
+        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 12a2 2 0 002 2h8a2 2 0 002-2L19 8m-9 4h4" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V7a2 2 0 00-2-2h-3V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v1H6a2 2 0 00-2 2v6m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Entregas</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Equipos</span>
       </NavLink>
       <NavLink
-        to="/admin/devoluciones"
+        to="/admin/inventario/herramientas"
         onClick={handleLinkClick}
-        className={({ isActive }) =>
-          isActive || isAdminDevolucionesRoute ? activeLinkClass : linkClass
-        }
+        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Devoluciones</span>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Herramientas</span>
       </NavLink>
-      <NavLink
-        to="/admin/inventario/articulos"
-        onClick={handleLinkClick}
-        className={({ isActive }) =>
-          isActive || isAdminInventoryRoute ? activeLinkClass : linkClass
-        }
-      >
-        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V7a2 2 0 00-2-2h-3V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v1H6a2 2 0 00-2 2v6m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-4m-8 0H4m4 0v1a1 1 0 001 1h6a1 1 0 001-1v-1" />
-        </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Inventario</span>
-      </NavLink>
-      <p className={navSectionClass}>Configuración</p>
-      <NavLink
-        to="/admin/ubicaciones"
-        onClick={handleLinkClick}
-        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
-      >
-        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Ubicaciones</span>
-      </NavLink>
+      <p className={navSectionClass}>Personal</p>
       <NavLink
         to="/admin/trabajadores"
         onClick={handleLinkClick}
@@ -250,6 +220,29 @@ const AppLayout = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.655-.084-1.289-.241-1.892M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.655.084-1.289.241-1.892m0 0a5.002 5.002 0 019.518 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM6 10a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
         <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Usuarios del Sistema</span>
+      </NavLink>
+
+      <p className={navSectionClass}>Ubicación</p>
+      <NavLink
+        to="/admin/ubicacion/proyectos"
+        onClick={handleLinkClick}
+        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
+      >
+        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M6 7v13m6-13v13m6-13v13M4 20h16" />
+        </svg>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Proyectos</span>
+      </NavLink>
+      <NavLink
+        to="/admin/ubicacion/bodegas"
+        onClick={handleLinkClick}
+        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
+      >
+        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Bodegas</span>
       </NavLink>
     </Fragment>
   );

@@ -1,6 +1,6 @@
 export interface InAppNotificationMetadata {
   project_id?: number | string;
-  scaffold_id?: number | string;
+  asset_id?: number | string;
   [key: string]: unknown;
 }
 

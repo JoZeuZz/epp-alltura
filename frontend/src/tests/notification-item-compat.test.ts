@@ -22,7 +22,7 @@ describe('notificationItemCompat', () => {
   it('falls back to /notifications when link is missing or invalid', () => {
     expect(resolveNotificationItemNavigationLink(null)).toBe('/notifications');
     expect(resolveNotificationItemNavigationLink('admin/dashboard')).toBe('/notifications');
-    expect(resolveNotificationItemNavigationLink('/admin/scaffolds?project=12')).toBe(
+    expect(resolveNotificationItemNavigationLink('/admin/assets?project=12')).toBe(
       '/notifications'
     );
   });

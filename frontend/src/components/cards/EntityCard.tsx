@@ -19,6 +19,7 @@ export interface CardAction {
   show?: boolean; // Condicional para mostrar/ocultar
   icon?: React.ReactNode;
   dataTour?: string;
+  disabled?: boolean;
 }
 
 export interface EntityCardProps {
@@ -48,7 +49,8 @@ const InfoRow: React.FC<{ field: InfoField }> = ({ field }) => {
 };
 
 const ActionButton: React.FC<{ action: CardAction }> = ({ action }) => {
-  const baseClasses = 'px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5';
+  const baseClasses =
+    'px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-primary-blue focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed';
   
   const variantClasses = {
     primary: 'bg-primary-blue text-white hover:bg-blue-700',
@@ -65,12 +67,37 @@ const ActionButton: React.FC<{ action: CardAction }> = ({ action }) => {
       data-tour={action.dataTour}
       className={`${baseClasses} ${variantClasses[variant]}`}
       title={action.label}
+      disabled={action.disabled}
     >
       {action.icon && <span className="w-3.5 h-3.5">{action.icon}</span>}
       <span className="text-xs">{action.label}</span>
     </button>
   );
 };
+
+interface ActionGroupConfig {
+  key: 'operacion_principal' | 'mantenimiento_estado' | 'administracion';
+  title: string;
+  labels: string[];
+}
+
+const ACTION_GROUPS: ActionGroupConfig[] = [
+  {
+    key: 'operacion_principal',
+    title: 'Operación principal',
+    labels: ['Entregar a trabajador', 'Recibir devolución'],
+  },
+  {
+    key: 'mantenimiento_estado',
+    title: 'Mantenimiento/estado',
+    labels: ['Reubicar', 'Cambiar estado'],
+  },
+  {
+    key: 'administracion',
+    title: 'Administración',
+    labels: ['Editar herramienta', 'Ver perfil/historial'],
+  },
+];
 
 export const EntityCard: React.FC<EntityCardProps> = ({
   title,
@@ -89,6 +116,9 @@ export const EntityCard: React.FC<EntityCardProps> = ({
   `.trim();
   
   const visibleActions = actions.filter(action => action.show !== false);
+  const shouldRenderGroupedActions = visibleActions.some((action) =>
+    ACTION_GROUPS.some((group) => group.labels.includes(action.label))
+  );
   
   return (
     <div className={cardClasses} onClick={onClick}>
@@ -118,10 +148,32 @@ export const EntityCard: React.FC<EntityCardProps> = ({
       
       {/* Acciones */}
       {visibleActions.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
-          {visibleActions.map((action, index) => (
-            <ActionButton key={index} action={action} />
-          ))}
+        <div className="pt-3 border-t border-gray-200">
+          {shouldRenderGroupedActions ? (
+            <div className="space-y-3">
+              {ACTION_GROUPS.map((group) => {
+                const groupActions = visibleActions.filter((action) => group.labels.includes(action.label));
+                if (groupActions.length === 0) return null;
+
+                return (
+                  <div key={group.key} className="rounded-lg border border-gray-200 p-3 space-y-2">
+                    <h5 className="text-sm font-semibold text-gray-700">{group.title}</h5>
+                    <div className="flex flex-wrap gap-2">
+                      {groupActions.map((action, index) => (
+                        <ActionButton key={`${group.key}-${index}`} action={action} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {visibleActions.map((action, index) => (
+                <ActionButton key={index} action={action} />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

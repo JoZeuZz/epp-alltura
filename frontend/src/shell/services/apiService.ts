@@ -106,7 +106,7 @@ export type ArticuloSubclasificacion =
 export type ArticuloEspecialidad =
   | 'oocc'
   | 'ooee'
-  | 'andamios'
+  | 'equipos'
   | 'trabajos_verticales_lineas_de_vida';
 export type ArticuloTipo = ArticuloGrupoPrincipal;
 export type ArticuloTrackingMode = 'serial' | 'lote';

@@ -26,3 +26,4 @@ docs/
 .env
 service-account.json
 dist/
+test-results/

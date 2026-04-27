@@ -11,22 +11,7 @@ import {
   type CursorPaginatedResponse,
   type InventoryActivoDetailRow,
 } from '../../../services/apiService';
-
-const ESTADO_LABELS: Record<string, string> = {
-  en_stock: 'En stock',
-  asignado: 'Asignado',
-  mantencion: 'Mantención',
-  dado_de_baja: 'Dado de baja',
-  perdido: 'Perdido',
-};
-
-const ESTADO_CLASSES: Record<string, string> = {
-  en_stock: 'bg-green-100 text-green-700',
-  asignado: 'bg-blue-100 text-blue-700',
-  mantencion: 'bg-amber-100 text-amber-700',
-  dado_de_baja: 'bg-red-100 text-red-700',
-  perdido: 'bg-gray-200 text-gray-600',
-};
+import { getToolStatusBadgeClasses, getToolStatusLabel } from '../../../utils/toolPresentation';
 
 const FILTER_TABS: { label: string; value: string }[] = [
   { label: 'Todos', value: '' },
@@ -37,11 +22,12 @@ const FILTER_TABS: { label: string; value: string }[] = [
   { label: 'Perdidos', value: 'perdido' },
 ];
 
+const LIMIT = 25;
+
 const AdminInventoryActivosPage: React.FC = () => {
   const [filters, setFilters] = useState({
     search: '',
     estado: '',
-    limit: 25,
   });
 
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -57,7 +43,7 @@ const AdminInventoryActivosPage: React.FC = () => {
     () => ({
       search: filters.search || undefined,
       estado: filters.estado || undefined,
-      limit: filters.limit,
+      limit: LIMIT,
     }),
     [filters]
   );
@@ -81,7 +67,7 @@ const AdminInventoryActivosPage: React.FC = () => {
     if (!hasMore || !nextCursor || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
-      const more = await getInventoryActivosPaged({ ...queryParams, cursor: nextCursor });
+      const more = await getInventoryActivosPaged({ ...queryParams, limit: LIMIT, cursor: nextCursor });
       setRows((prev) => [...prev, ...(more.items ?? [])]);
       setNextCursor(more.nextCursor ?? null);
       setHasMore(more.hasMore ?? false);
@@ -120,9 +106,9 @@ const AdminInventoryActivosPage: React.FC = () => {
         const est = row.estado ?? '';
         return (
           <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ESTADO_CLASSES[est] ?? 'bg-gray-100 text-gray-700'}`}
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${getToolStatusBadgeClasses(est)}`}
           >
-            {ESTADO_LABELS[est] ?? est}
+            Estado: {getToolStatusLabel(est)}
           </span>
         );
       },

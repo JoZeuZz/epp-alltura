@@ -16,6 +16,14 @@ import {
   updateArticulo,
 } from '../../../services/apiService';
 
+export type InventoryArticleManagerScope = 'all' | 'epp' | 'equipos' | 'herramientas';
+
+interface InventoryArticleManagerConfig {
+  scope?: InventoryArticleManagerScope;
+  title?: string;
+  description?: string;
+}
+
 const toErrorMessage = (error: unknown): string => {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -54,7 +62,7 @@ const subclasificacionLabel = (value?: string | null): string => {
 const especialidadLabel = (value: string): string => {
   if (value === 'oocc') return 'OOCC';
   if (value === 'ooee') return 'OOEE';
-  if (value === 'andamios') return 'Andamios';
+  if (value === 'equipos') return 'Equipos';
   if (value === 'trabajos_verticales' || value === 'trabajos_verticales_lineas_de_vida') {
     return 'Trabajos verticales y líneas de vida';
   }
@@ -68,8 +76,52 @@ interface ArticleActionState {
   articulo: Articulo;
 }
 
-const AdminInventoryArticlesPage: React.FC = () => {
+const CONFIG_BY_SCOPE: Record<InventoryArticleManagerScope, Required<InventoryArticleManagerConfig>> = {
+  all: {
+    scope: 'all',
+    title: 'Catálogo de Equipos y Herramientas',
+    description: 'Administra equipos y herramientas disponibles para ingresos y operación.',
+  },
+  epp: {
+    scope: 'epp',
+    title: 'Gestor de EPP',
+    description: 'Administra elementos de protección personal disponibles para operación.',
+  },
+  equipos: {
+    scope: 'equipos',
+    title: 'Gestor de Equipos',
+    description: 'Administra equipos y activos técnicos usados en operación.',
+  },
+  herramientas: {
+    scope: 'herramientas',
+    title: 'Gestor de Herramientas',
+    description: 'Administra herramientas manuales y eléctricas para terreno y bodega.',
+  },
+};
+
+const resolveInitialFilters = (
+  scope: InventoryArticleManagerScope
+): Pick<ArticuloQueryParams, 'grupo_principal' | 'subclasificacion'> => {
+  if (scope === 'epp') {
+    return { grupo_principal: 'equipo', subclasificacion: 'epp' };
+  }
+  if (scope === 'equipos') {
+    return { grupo_principal: 'equipo', subclasificacion: undefined };
+  }
+  if (scope === 'herramientas') {
+    return { grupo_principal: 'herramienta', subclasificacion: undefined };
+  }
+  return { grupo_principal: undefined, subclasificacion: undefined };
+};
+
+const AdminInventoryArticlesPage: React.FC<InventoryArticleManagerConfig> = ({
+  scope = 'all',
+  title,
+  description,
+}) => {
   const queryClient = useQueryClient();
+  const initialFilters = resolveInitialFilters(scope);
+  const resolvedConfig = CONFIG_BY_SCOPE[scope];
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingArticulo, setEditingArticulo] = useState<Articulo | null>(null);
   const [pendingAction, setPendingAction] = useState<ArticleActionState | null>(null);
@@ -83,8 +135,8 @@ const AdminInventoryArticlesPage: React.FC = () => {
     offset: number;
   }>({
     search: '',
-    grupo_principal: '',
-    subclasificacion: '',
+    grupo_principal: initialFilters.grupo_principal || '',
+    subclasificacion: initialFilters.subclasificacion || '',
     especialidad: '',
     estado: '',
     limit: 25,
@@ -325,9 +377,9 @@ const AdminInventoryArticlesPage: React.FC = () => {
     <section className="bg-white rounded-lg shadow-md p-5 space-y-4" data-tour="admin-inventory-articles-table">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold text-dark-blue">Catálogo de Equipos y Herramientas</h2>
+          <h2 className="text-lg font-semibold text-dark-blue">{title || resolvedConfig.title}</h2>
           <p className="text-sm text-gray-500">
-            Administra equipos y herramientas disponibles para ingresos y operación.
+            {description || resolvedConfig.description}
           </p>
         </div>
         <button
@@ -361,6 +413,7 @@ const AdminInventoryArticlesPage: React.FC = () => {
               offset: 0,
             }))
           }
+          disabled={scope !== 'all'}
         >
           <option value="">Todos los grupos</option>
           <option value="equipo">Equipo</option>
@@ -377,6 +430,7 @@ const AdminInventoryArticlesPage: React.FC = () => {
               offset: 0,
             }))
           }
+          disabled={scope === 'epp'}
         >
           <option value="">Todas las subclasificaciones</option>
           <option value="epp">Protección personal</option>
@@ -400,7 +454,7 @@ const AdminInventoryArticlesPage: React.FC = () => {
           <option value="">Todas las especialidades</option>
           <option value="oocc">OOCC</option>
           <option value="ooee">OOEE</option>
-          <option value="andamios">Andamios</option>
+          <option value="equipos">Equipos</option>
           <option value="trabajos_verticales_lineas_de_vida">Trabajos verticales y líneas de vida</option>
         </select>
 

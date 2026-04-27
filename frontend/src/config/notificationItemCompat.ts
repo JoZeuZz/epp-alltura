@@ -9,8 +9,8 @@ export interface NotificationItemPresentation {
 const LEGACY_NOTIFICATION_ICONS: Record<string, string> = {
   new_client_note: '📝',
   note_resolved: '✅',
-  scaffold_updated: '🔄',
-  scaffold_modification_added: '➕',
+  asset_updated: '🔄',
+  asset_modification_added: '➕',
   project_assigned: '📋',
   note_urgent: '⚠️',
   custodia_vencida: '🚨',
@@ -21,8 +21,8 @@ const LEGACY_NOTIFICATION_ICONS: Record<string, string> = {
 const LEGACY_NOTIFICATION_COLORS: Record<string, string> = {
   new_client_note: 'bg-blue-50 border-blue-200',
   note_resolved: 'bg-green-50 border-green-200',
-  scaffold_updated: 'bg-purple-50 border-purple-200',
-  scaffold_modification_added: 'bg-cyan-50 border-cyan-200',
+  asset_updated: 'bg-purple-50 border-purple-200',
+  asset_modification_added: 'bg-cyan-50 border-cyan-200',
   project_assigned: 'bg-indigo-50 border-indigo-200',
   note_urgent: 'bg-red-50 border-red-200',
   custodia_vencida: 'bg-red-50 border-red-200',

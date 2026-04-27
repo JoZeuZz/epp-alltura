@@ -11,7 +11,7 @@ const SUBCLASIFICACIONES_POR_GRUPO = {
 const ESPECIALIDADES_VALIDAS = new Set([
   'oocc',
   'ooee',
-  'andamios',
+  'equipos',
   'trabajos_verticales_lineas_de_vida',
 ]);
 

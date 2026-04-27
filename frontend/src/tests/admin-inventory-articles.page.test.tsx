@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as hooks from '../hooks';
 import * as apiService from '../services/apiService';
-import AdminInventoryArticlesPage from '../pages/admin/inventory/AdminInventoryArticlesPage';
+import AdminInventoryArticlesPage, { type InventoryArticleManagerScope } from '../pages/admin/inventory/AdminInventoryArticlesPage';
 
 vi.mock('focus-trap-react', () => ({
   __esModule: true,
@@ -49,11 +49,11 @@ const createQueryClient = () =>
     },
   });
 
-const renderPage = () => {
+const renderPage = (scope: InventoryArticleManagerScope = 'all') => {
   const client = createQueryClient();
   return render(
     <QueryClientProvider client={client}>
-      <AdminInventoryArticlesPage />
+      <AdminInventoryArticlesPage scope={scope} />
     </QueryClientProvider>
   );
 };
@@ -178,6 +178,56 @@ describe('AdminInventoryArticlesPage', () => {
         nombre: 'Arnés Pro',
       })
     );
+  });
+
+
+
+  it('aplica filtros iniciales para el scope EPP y bloquea filtros de clasificación', () => {
+    renderPage('epp');
+
+    expect(mockUseGet).toHaveBeenCalledWith(
+      expect.anything(),
+      '/articulos',
+      expect.objectContaining({
+        grupo_principal: 'equipo',
+        subclasificacion: 'epp',
+      }),
+      expect.anything()
+    );
+
+    const filters = screen.getAllByRole('combobox');
+    expect(filters[0]).toBeDisabled();
+    expect(filters[1]).toBeDisabled();
+  });
+
+  it('aplica filtros iniciales para el scope Equipos', () => {
+    renderPage('equipos');
+
+    expect(mockUseGet).toHaveBeenCalledWith(
+      expect.anything(),
+      '/articulos',
+      expect.objectContaining({
+        grupo_principal: 'equipo',
+      }),
+      expect.anything()
+    );
+
+    expect(screen.getByRole('heading', { name: 'Gestor de Equipos' })).toBeInTheDocument();
+  });
+
+  it('aplica filtros iniciales para el scope Herramientas', () => {
+    renderPage('herramientas');
+
+    expect(mockUseGet).toHaveBeenCalledWith(
+      expect.anything(),
+      '/articulos',
+      expect.objectContaining({
+        grupo_principal: 'herramienta',
+      }),
+      expect.anything()
+    );
+
+    expect(screen.getByRole('heading', { name: 'Gestor de Herramientas' })).toBeInTheDocument();
   });
 
   it('edita un artículo existente', async () => {

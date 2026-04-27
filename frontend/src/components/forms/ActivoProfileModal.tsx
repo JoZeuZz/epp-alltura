@@ -1,29 +1,14 @@
-import React from 'react';
+import React, { useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Modal from '../Modal';
 import {
   getActivoProfile,
+  type ActivoCustodiaEntry,
   type ActivoProfileResponse,
   type ActivoTimelineEntry,
-  type ActivoCustodiaEntry,
 } from '../../services/apiService';
 import { formatCLP } from '../../utils/currency';
-
-const ESTADO_LABELS: Record<string, string> = {
-  en_stock: 'En stock',
-  asignado: 'Asignado',
-  mantencion: 'Mantención',
-  dado_de_baja: 'Dado de baja',
-  perdido: 'Perdido',
-};
-
-const ESTADO_CLASSES: Record<string, string> = {
-  en_stock: 'bg-green-100 text-green-700',
-  asignado: 'bg-blue-100 text-blue-700',
-  mantencion: 'bg-amber-100 text-amber-700',
-  dado_de_baja: 'bg-red-100 text-red-700',
-  perdido: 'bg-gray-200 text-gray-600',
-};
+import { getToolStatusBadgeClasses, getToolStatusLabel } from '../../utils/toolPresentation';
 
 const MOV_ICONS: Record<string, string> = {
   entrada: '📥',
@@ -74,6 +59,8 @@ interface Props {
 }
 
 const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onCambiarEstado, onReubicar, onEditar }) => {
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
+  const detailsPanelId = useId();
   const { data: profile, isLoading, error } = useQuery<ActivoProfileResponse>({
     queryKey: ['activo-profile', activoId],
     queryFn: () => getActivoProfile(activoId),
@@ -93,57 +80,99 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onCambiarEstad
       {profile && (
         <div className="space-y-6">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-            <div className="flex-1 space-y-1">
-              <h3 className="text-lg font-bold text-gray-900">{profile.articulo_nombre}</h3>
-              <div className="flex flex-wrap gap-2 text-sm text-gray-600">
-                <span>Código: <strong>{profile.codigo}</strong></span>
-                {profile.nro_serie && <span>Serie: <strong>{profile.nro_serie}</strong></span>}
-              </div>
-              <div className="flex flex-wrap gap-2 mt-1">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ESTADO_CLASSES[profile.estado] ?? 'bg-gray-100 text-gray-700'}`}>
-                  {ESTADO_LABELS[profile.estado] ?? profile.estado}
-                </span>
-                {profile.ubicacion_nombre && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">
-                    📍 {profile.ubicacion_nombre}
+          <div className="space-y-4">
+            <div className="sm:hidden space-y-3">
+              <div className="grid grid-cols-3 gap-2">
+                <MobileSummaryItem label="Estado">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getToolStatusBadgeClasses(profile.estado)}`}>
+                    {getToolStatusLabel(profile.estado)}
                   </span>
+                </MobileSummaryItem>
+                <MobileSummaryItem label="Responsable">
+                  <span className="font-medium text-gray-900">
+                    {profile.custodia_activa
+                      ? `${profile.custodia_activa.custodio_nombres} ${profile.custodia_activa.custodio_apellidos}`
+                      : 'Sin custodia'}
+                  </span>
+                </MobileSummaryItem>
+                <MobileSummaryItem label="Valor">
+                  <span className="font-medium text-gray-900">
+                    {profile.compra?.precio_unitario != null ? formatCLP(profile.compra.precio_unitario) : '—'}
+                  </span>
+                </MobileSummaryItem>
+              </div>
+              <ActionButtons
+                estado={profile.estado}
+                onCambiarEstado={onCambiarEstado}
+                onReubicar={onReubicar}
+                onEditar={onEditar}
+              />
+
+              <button
+                type="button"
+                aria-expanded={showMoreDetails}
+                aria-controls={detailsPanelId}
+                onClick={() => setShowMoreDetails((prev) => !prev)}
+                className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:text-blue-800"
+              >
+                {showMoreDetails ? 'Ocultar detalles' : 'Ver más detalles'}
+              </button>
+              <div id={detailsPanelId} className={`${showMoreDetails ? 'block' : 'hidden'} bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700 space-y-1`}>
+                <p>
+                  Artículo: <strong>{profile.articulo_nombre}</strong>
+                </p>
+                <p>
+                  Fecha relevante:{' '}
+                  <strong>
+                    {formatDate(profile.custodia_activa?.desde_en ?? profile.compra?.fecha_compra)}
+                  </strong>
+                </p>
+                <p>
+                  Ubicación extendida:{' '}
+                  <strong>
+                    {profile.custodia_activa?.custodia_ubicacion_nombre ?? profile.ubicacion_nombre ?? '—'}
+                  </strong>
+                </p>
+                <p>
+                  Código: <strong>{profile.codigo}</strong>
+                </p>
+                {profile.nro_serie && (
+                  <p>
+                    Serie: <strong>{profile.nro_serie}</strong>
+                  </p>
                 )}
               </div>
-              {/* Acciones rápidas */}
-              {(onCambiarEstado || onReubicar || onEditar) && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {onCambiarEstado && profile.estado !== 'asignado' && (
-                    <button
-                      onClick={onCambiarEstado}
-                      className="px-2.5 py-1 text-xs font-medium rounded-md bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
-                    >
-                      Cambiar estado
-                    </button>
-                  )}
-                  {onReubicar && profile.estado === 'en_stock' && (
-                    <button
-                      onClick={onReubicar}
-                      className="px-2.5 py-1 text-xs font-medium rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors"
-                    >
-                      Reubicar
-                    </button>
-                  )}
-                  {onEditar && (
-                    <button
-                      onClick={onEditar}
-                      className="px-2.5 py-1 text-xs font-medium rounded-md bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors"
-                    >
-                      Editar
-                    </button>
+            </div>
+
+            <div className="hidden sm:flex flex-col sm:flex-row sm:items-start gap-4">
+              <div className="flex-1 space-y-1">
+                <h3 className="text-lg font-bold text-gray-900">{profile.articulo_nombre}</h3>
+                <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+                  <span>Código: <strong>{profile.codigo}</strong></span>
+                  {profile.nro_serie && <span>Serie: <strong>{profile.nro_serie}</strong></span>}
+                </div>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getToolStatusBadgeClasses(profile.estado)}`}>
+                    {getToolStatusLabel(profile.estado)}
+                  </span>
+                  {profile.ubicacion_nombre && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-600">
+                      📍 {profile.ubicacion_nombre}
+                    </span>
                   )}
                 </div>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-3 text-center">
-              <StatBox label="Entregas" value={profile.estadisticas.total_entregas} />
-              <StatBox label="Devoluciones" value={profile.estadisticas.total_devoluciones} />
-              <StatBox label="Días custodia" value={profile.estadisticas.dias_total_custodia} />
+                <ActionButtons
+                  estado={profile.estado}
+                  onCambiarEstado={onCambiarEstado}
+                  onReubicar={onReubicar}
+                  onEditar={onEditar}
+                />
+              </div>
+              <div className="flex flex-wrap gap-3 text-center">
+                <StatBox label="Entregas" value={profile.estadisticas.total_entregas} />
+                <StatBox label="Devoluciones" value={profile.estadisticas.total_devoluciones} />
+                <StatBox label="Días custodia" value={profile.estadisticas.dias_total_custodia} />
+              </div>
             </div>
           </div>
 
@@ -244,6 +273,51 @@ const StatBox: React.FC<{ label: string; value: number }> = ({ label, value }) =
     <p className="text-[10px] text-gray-500 uppercase tracking-wide">{label}</p>
   </div>
 );
+
+const MobileSummaryItem: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div className="bg-white border rounded-lg p-2">
+    <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">{label}</p>
+    <div className="text-xs">{children}</div>
+  </div>
+);
+
+const ActionButtons: React.FC<{
+  estado: string;
+  onCambiarEstado?: () => void;
+  onReubicar?: () => void;
+  onEditar?: () => void;
+}> = ({ estado, onCambiarEstado, onReubicar, onEditar }) => {
+  if (!onCambiarEstado && !onReubicar && !onEditar) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2 mt-2">
+      {onCambiarEstado && estado !== 'asignado' && (
+        <button
+          onClick={onCambiarEstado}
+          className="px-2.5 py-1 text-xs font-medium rounded-md bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
+        >
+          Cambiar estado
+        </button>
+      )}
+      {onReubicar && estado === 'en_stock' && (
+        <button
+          onClick={onReubicar}
+          className="px-2.5 py-1 text-xs font-medium rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors"
+        >
+          Reubicar
+        </button>
+      )}
+      {onEditar && (
+        <button
+          onClick={onEditar}
+          className="px-2.5 py-1 text-xs font-medium rounded-md bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors"
+        >
+          Editar
+        </button>
+      )}
+    </div>
+  );
+};
 
 const TimelineItem: React.FC<{ entry: ActivoTimelineEntry }> = ({ entry }) => (
   <li className="relative pl-10">
