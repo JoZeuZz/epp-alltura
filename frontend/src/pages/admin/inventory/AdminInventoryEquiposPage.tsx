@@ -1,14 +1,8 @@
 import React from 'react';
-import AdminInventoryArticlesPage from './AdminInventoryArticlesPage';
+import AdminInventoryScopedAssetPage from './AdminInventoryScopedAssetPage';
 
-const AdminInventoryEquiposPage: React.FC = () => (
-  <div className="space-y-4" data-tour="admin-inventory-equipos">
-    <section className="space-y-1">
-      <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Gestor de Equipos</h1>
-      <p className="text-neutral-gray">Gestión de equipos con filtros y acciones operativas.</p>
-    </section>
-    <AdminInventoryArticlesPage scope="equipos" />
-  </div>
-);
+const AdminInventoryEquiposPage: React.FC = () => {
+  return <AdminInventoryScopedAssetPage scope="equipos" />;
+};
 
 export default AdminInventoryEquiposPage;

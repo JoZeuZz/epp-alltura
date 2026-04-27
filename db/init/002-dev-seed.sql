@@ -129,21 +129,23 @@ BEGIN
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
-  -- 7) ARTICULOS (3) — mismos IDs para compatibilidad
+  -- 7) ARTICULOS (4) — mismos IDs para compatibilidad
   -- ============================================================
 
   INSERT INTO articulo (id, tipo, grupo_principal, nombre, marca, modelo, categoria, subclasificacion, tracking_mode, retorno_mode, nivel_control, requiere_vencimiento, unidad_medida, estado)
   VALUES
     ('00000000-0000-0000-0000-000000000401', 'herramienta', 'herramienta', 'Taladro Industrial',    'Bosch',     'GSB-16',     'electrica_cable',         'electrica_cable',         'serial', 'retornable', 'alto', FALSE, 'unidad', 'activo'),
     ('00000000-0000-0000-0000-000000000402', 'equipo',      'equipo',      'Arnes de Seguridad',    '3M',        'Protecta X', 'epp',                     'epp',                     'serial', 'retornable', 'alto', TRUE,  'unidad', 'activo'),
-    ('00000000-0000-0000-0000-000000000403', 'equipo',      'equipo',      'Guante de cabritilla',  'SegurPlus', 'GC-01',      'epp',                     'epp',                     'lote',   'retornable', 'bajo', FALSE, 'par',    'activo')
+    ('00000000-0000-0000-0000-000000000403', 'equipo',      'equipo',      'Guante de cabritilla',  'SegurPlus', 'GC-01',      'epp',                     'epp',                     'lote',   'retornable', 'bajo', FALSE, 'par',    'activo'),
+    ('00000000-0000-0000-0000-000000000404', 'equipo',      'equipo',      'Medidor Láser Distancia', 'Fluke',   '424D',       'medicion_ensayos',        'medicion_ensayos',        'serial', 'retornable', 'alto', FALSE, 'unidad', 'activo')
   ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO articulo_especialidad (articulo_id, especialidad)
   VALUES
     ('00000000-0000-0000-0000-000000000401', 'ooee'),
     ('00000000-0000-0000-0000-000000000402', 'trabajos_verticales_lineas_de_vida'),
-    ('00000000-0000-0000-0000-000000000403', 'oocc')
+    ('00000000-0000-0000-0000-000000000403', 'oocc'),
+    ('00000000-0000-0000-0000-000000000404', 'equipos')
   ON CONFLICT (articulo_id, especialidad) DO NOTHING;
 
   -- ============================================================
@@ -167,7 +169,7 @@ BEGIN
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
-  -- 9) ACTIVOS SERIALIZADOS: 15 taladros + 11 arneses = 26
+  -- 9) ACTIVOS SERIALIZADOS: 15 taladros + 11 arneses + 1 medidor = 27
   --
   --  Estado final planificado:
   --  TAL-001 asignado   Faena Norte        (custodia Juan)
@@ -225,7 +227,8 @@ BEGIN
     ('00000000-0000-0000-0000-000000006108', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-008', 'ARN-008', 95000, 'asignado',      '00000000-0000-0000-0000-000000003005', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
     ('00000000-0000-0000-0000-000000006109', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-009', 'ARN-009', 95000, 'perdido',       '00000000-0000-0000-0000-000000003004', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
     ('00000000-0000-0000-0000-000000006110', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-010', 'ARN-010', 95000, 'en_stock',      '00000000-0000-0000-0000-000000003002', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
-    ('00000000-0000-0000-0000-000000006111', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-011', 'ARN-011', 95000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months')
+    ('00000000-0000-0000-0000-000000006111', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-011', 'ARN-011', 95000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
+    ('00000000-0000-0000-0000-000000006201', '00000000-0000-0000-0000-000000000404', NULL,                                      'SER-MED-001', 'MED-001', 480000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '20 days', NULL)
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
@@ -479,5 +482,5 @@ BEGIN
     ('00000000-0000-0000-0000-00000000b052', '00000000-0000-0000-0000-000000006007', NOW()-INTERVAL '34 days', 'mantencion', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003006', '00000000-0000-0000-0000-000000001001', NULL, NULL, NULL, 'TAL-007 enviado a mantencion preventiva por admin.')
   ON CONFLICT (id) DO NOTHING;
 
-  RAISE NOTICE '002-dev-seed.sql aplicado: dataset completo — 13 usuarios, 8 trabajadores, 26 activos (5 estados), 9 entregas, 3 devoluciones, 2 egresos, ~60 movimientos.';
+  RAISE NOTICE '002-dev-seed.sql aplicado: dataset completo — 13 usuarios, 8 trabajadores, 27 activos (5 estados), 9 entregas, 3 devoluciones, 2 egresos, ~60 movimientos.';
 END $$;
