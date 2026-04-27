@@ -85,7 +85,7 @@ const verifySupervisorOwnership = (resource) => {
 
 // Stubs de compatibilidad para rutas legacy. En EPP el control se hará por entidad real.
 const checkProjectAccess = (_req, _res, next) => next();
-const checkScaffoldAccess = (_req, _res, next) => next();
+const checkAssetAccess = (_req, _res, next) => next();
 
 module.exports = {
   isAdmin,
@@ -99,5 +99,5 @@ module.exports = {
   checkOwnership,
   verifySupervisorOwnership,
   checkProjectAccess,
-  checkScaffoldAccess,
+  checkAssetAccess,
 };

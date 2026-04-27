@@ -525,7 +525,7 @@ const AdminTrabajadoresPage: React.FC = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Trabajadores</h1>
           <p className="text-neutral-gray mt-1 text-sm">
-            Gestiona el personal que recibe equipos y herramientas.
+            Registro de personal interno. Los trabajadores no son usuarios del sistema por defecto.
           </p>
         </div>
         <button

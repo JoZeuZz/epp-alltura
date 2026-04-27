@@ -45,6 +45,13 @@ interface EntregaCreateModalProps {
   ubicaciones: UbicacionOption[];
   articulos: ArticuloOption[];
   templates?: EntregaTemplate[];
+  initialActivoId?: string | number;
+  initialArticuloId?: string | number;
+  lockActivoSelection?: boolean;
+  initialActivoCode?: string;
+  initialActivoName?: string;
+  initialActivoValue?: string;
+  onSuccess?: () => void;
 }
 
 const CONDICION_LABELS: Record<CondicionSalida, string> = {
@@ -70,13 +77,39 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   ubicaciones,
   articulos,
   templates = [],
+  initialActivoId,
+  initialArticuloId,
+  lockActivoSelection = false,
+  initialActivoCode,
+  initialActivoName,
+  initialActivoValue,
+  onSuccess,
 }) => {
+  const normalizedInitialActivoId =
+    initialActivoId != null && initialActivoId !== '' ? String(initialActivoId) : '';
+  const normalizedInitialArticuloId =
+    initialArticuloId != null && initialArticuloId !== '' ? String(initialArticuloId) : '';
+  const shouldPrefillSingleAsset = Boolean(normalizedInitialActivoId && normalizedInitialArticuloId);
+
+  const buildInitialDetalles = (): EntregaDetallePayload[] => {
+    if (!shouldPrefillSingleAsset) {
+      return [{ ...EMPTY_DETALLE }];
+    }
+
+    return [{
+      ...EMPTY_DETALLE,
+      articulo_id: normalizedInitialArticuloId,
+      activo_ids: [normalizedInitialActivoId],
+      cantidad: 1,
+    }];
+  };
+
   const [step, setStep] = useState<1 | 2>(1);
   const [trabajadorId, setTrabajadorId] = useState('');
   const [ubicacionOrigenId, setUbicacionOrigenId] = useState('');
   const [ubicacionDestinoId, setUbicacionDestinoId] = useState('');
   const [notaDestino, setNotaDestino] = useState('');
-  const [detalles, setDetalles] = useState<EntregaDetallePayload[]>([{ ...EMPTY_DETALLE }]);
+  const [detalles, setDetalles] = useState<EntregaDetallePayload[]>(buildInitialDetalles);
   const [error, setError] = useState<string | null>(null);
 
   // Filtro de búsqueda de trabajador
@@ -92,14 +125,14 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       setUbicacionOrigenId('');
       setUbicacionDestinoId('');
       setNotaDestino('');
-      setDetalles([{ ...EMPTY_DETALLE }]);
+      setDetalles(buildInitialDetalles());
       setError(null);
       setTrabajadorSearch('');
       setSelectedTemplateId('');
       setIsLoadingTemplatePreview(false);
       setTemplatePreviewError(null);
     }
-  }, [isOpen]);
+  }, [isOpen, initialActivoId, initialArticuloId]);
 
   useEffect(() => {
     if (!selectedTemplateId) {
@@ -218,6 +251,10 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting) {
+      return;
+    }
+
     setError(null);
     // Validate detalles
     if (ubicacionOrigenId === ubicacionDestinoId) {
@@ -294,6 +331,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 
     try {
       await onSubmit(payload);
+      onSuccess?.();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
       setError(e?.response?.data?.message ?? e?.message ?? 'No se pudo crear la entrega.');
@@ -304,6 +342,26 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Nueva entrega">
+      {shouldPrefillSingleAsset && (
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
+          <p className="text-xs font-semibold text-blue-900 uppercase tracking-wide">Resumen de herramienta</p>
+          <p className="text-sm text-blue-900">
+            <span className="font-medium">Código:</span> {initialActivoCode || normalizedInitialActivoId}
+          </p>
+          {initialActivoName && (
+            <p className="text-sm text-blue-900">
+              <span className="font-medium">Herramienta:</span> {initialActivoName}
+            </p>
+          )}
+          <p className="text-sm text-blue-900">
+            <span className="font-medium">Valor bajo responsabilidad:</span> {initialActivoValue || 'Sin valor registrado'}
+          </p>
+          <p className="text-xs text-blue-800 mt-1">
+            Al entregar esta herramienta, el trabajador queda asociado a su devolución.
+          </p>
+        </div>
+      )}
+
       {/* Step indicator */}
       <div className="flex items-center mb-6">
         {[1, 2].map((s) => (
@@ -339,6 +397,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               id="entrega-template-id"
               value={selectedTemplateId}
               onChange={(e) => setSelectedTemplateId(e.target.value)}
+              disabled={lockActivoSelection && shouldPrefillSingleAsset}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
             >
               <option value="">— Sin plantilla —</option>
@@ -488,6 +547,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                     onChange={(e) =>
                       updateArticuloDetalle(idx, e.target.value)
                     }
+                    disabled={lockActivoSelection && shouldPrefillSingleAsset}
                     className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
                   >
                     <option value="">— Seleccionar artículo —</option>
@@ -553,6 +613,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                       )}
                       label="Seleccionar activo"
                       required
+                      disabled={lockActivoSelection && shouldPrefillSingleAsset}
                     />
                     <p className="text-xs text-gray-500">Selecciona al menos un activo para este ítem.</p>
                   </>
@@ -579,6 +640,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
           <button
             type="button"
             onClick={addDetalle}
+            disabled={lockActivoSelection && shouldPrefillSingleAsset}
             className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-primary-blue hover:text-primary-blue transition-colors"
             aria-label="Agregar un nuevo ítem de artículo"
           >

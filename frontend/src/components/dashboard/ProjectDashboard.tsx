@@ -15,18 +15,18 @@ export interface ProjectDashboardSummary {
   assemblyProgressPercentage?: number;
   disassemblyProgressPercentage?: number;
 
-  // Scaffolds
-  totalScaffolds: number;
-  assembledScaffolds: number;
-  disassembledScaffolds: number;
-  inProgressScaffolds: number;
+  // Assets
+  totalAssets: number;
+  assembledAssets: number;
+  disassembledAssets: number;
+  inProgressAssets: number;
   greenCards: number;
   redCards: number;
-  disassembledWithoutCardScaffolds?: number;
+  disassembledWithoutCardAssets?: number;
   activeCardsTotal?: number;
 
   // Extra indicators
-  recentScaffoldsCount: number;
+  recentAssetsCount: number;
   avgProgress: number;
 }
 
@@ -89,10 +89,10 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ summary, projectNam
   const historicalAssembledCubicMeters =
     toSafeNumber(summary.historicalAssembledCubicMeters) || assembledCubicMeters;
 
-  const totalScaffolds = toSafeNumber(summary.totalScaffolds);
-  const assembledScaffolds = toSafeNumber(summary.assembledScaffolds);
-  const inProgressScaffolds = toSafeNumber(summary.inProgressScaffolds);
-  const disassembledScaffolds = toSafeNumber(summary.disassembledScaffolds);
+  const totalAssets = toSafeNumber(summary.totalAssets);
+  const assembledAssets = toSafeNumber(summary.assembledAssets);
+  const inProgressAssets = toSafeNumber(summary.inProgressAssets);
+  const disassembledAssets = toSafeNumber(summary.disassembledAssets);
 
   const greenCards = toSafeNumber(summary.greenCards);
   const redCards = toSafeNumber(summary.redCards);
@@ -100,7 +100,7 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ summary, projectNam
     toSafeNumber(summary.activeCardsTotal) || greenCards + redCards;
 
   const avgProgress = clampPercentage(toSafeNumber(summary.avgProgress));
-  const recentScaffoldsCount = toSafeNumber(summary.recentScaffoldsCount);
+  const recentAssetsCount = toSafeNumber(summary.recentAssetsCount);
 
   const completionPercentage = clampPercentage(
     summary.completionPercentage ??
@@ -123,8 +123,8 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ summary, projectNam
         : 0)
   );
 
-  const disassembledWithoutCardScaffolds = toSafeNumber(
-    summary.disassembledWithoutCardScaffolds
+  const disassembledWithoutCardAssets = toSafeNumber(
+    summary.disassembledWithoutCardAssets
   );
 
   return (
@@ -138,14 +138,14 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ summary, projectNam
 
       {redCards > 0 && (
         <div className="rounded-lg border-l-4 border-red-500 bg-red-50 p-4 text-sm text-red-700">
-          There are {redCards} scaffold{redCards === 1 ? '' : 's'} with red card status.
+          There are {redCards} asset{redCards === 1 ? '' : 's'} with red card status.
         </div>
       )}
 
       <CustomGrid cols={2} mdCols={2} lgCols={4} gap="md">
         <MetricCard
-          title="Total Scaffolds"
-          value={totalScaffolds}
+          title="Total Assets"
+          value={totalAssets}
           icon={CubeIcon}
           colorClass="text-primary-blue"
         />
@@ -159,7 +159,7 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ summary, projectNam
           title="Average Progress"
           value={`${Math.round(avgProgress)}%`}
           icon={CheckCircleIcon}
-          subtitle={`${recentScaffoldsCount} scaffold(s) created recently`}
+          subtitle={`${recentAssetsCount} asset(s) created recently`}
           colorClass="text-green-600"
         />
         <MetricCard
@@ -173,22 +173,22 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ summary, projectNam
 
       <CustomGrid cols={1} lgCols={2} gap="md">
         <StatsCard
-          title="Scaffold Status"
+          title="Asset Status"
           icon={CubeIcon}
           items={[
             {
               label: 'Assembled',
-              value: `${assembledScaffolds} (${formatPercentage(assembledScaffolds, totalScaffolds)})`,
+              value: `${assembledAssets} (${formatPercentage(assembledAssets, totalAssets)})`,
               color: 'text-green-600',
             },
             {
               label: 'In Progress',
-              value: `${inProgressScaffolds} (${formatPercentage(inProgressScaffolds, totalScaffolds)})`,
+              value: `${inProgressAssets} (${formatPercentage(inProgressAssets, totalAssets)})`,
               color: 'text-blue-600',
             },
             {
               label: 'Disassembled',
-              value: `${disassembledScaffolds} (${formatPercentage(disassembledScaffolds, totalScaffolds)})`,
+              value: `${disassembledAssets} (${formatPercentage(disassembledAssets, totalAssets)})`,
               color: 'text-yellow-600',
             },
           ]}
@@ -210,7 +210,7 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ summary, projectNam
             },
             {
               label: 'Disassembled Without Card',
-              value: disassembledWithoutCardScaffolds,
+              value: disassembledWithoutCardAssets,
               color: 'text-neutral-gray',
             },
           ]}
@@ -273,8 +273,8 @@ const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ summary, projectNam
 
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div>
-              <p className="text-xs opacity-80">Active Scaffolds</p>
-              <p className="text-xl font-semibold">{assembledScaffolds + inProgressScaffolds}</p>
+              <p className="text-xs opacity-80">Active Assets</p>
+              <p className="text-xl font-semibold">{assembledAssets + inProgressAssets}</p>
             </div>
             <div>
               <p className="text-xs opacity-80">Active m3</p>

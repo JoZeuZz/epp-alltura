@@ -423,9 +423,9 @@ const UsersPage: React.FC = () => {
     <div className="space-y-6">
       <section className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Gestión de Usuarios</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Usuarios del Sistema</h1>
           <p className="text-neutral-gray mt-1">
-            Administración de usuarios y roles para la operación de equipos y herramientas.
+            Gestión de cuentas con acceso a la plataforma y asignación de roles operativos.
           </p>
         </div>
         <button

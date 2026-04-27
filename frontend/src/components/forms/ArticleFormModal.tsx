@@ -61,7 +61,7 @@ const SUBCLASIFICACION_LABELS: Record<ArticuloSubclasificacion, string> = {
 const ESPECIALIDAD_SET = new Set<ArticuloEspecialidad>([
   'oocc',
   'ooee',
-  'andamios',
+  'equipos',
   'trabajos_verticales_lineas_de_vida',
 ]);
 
@@ -110,7 +110,7 @@ const normalizeEspecialidades = (value: unknown): ArticuloEspecialidad[] => {
 const ESPECIALIDADES_OPTIONS: Array<{ value: ArticuloEspecialidad; label: string }> = [
   { value: 'oocc', label: 'OOCC' },
   { value: 'ooee', label: 'OOEE' },
-  { value: 'andamios', label: 'Andamios' },
+  { value: 'equipos', label: 'Equipos' },
   {
     value: 'trabajos_verticales_lineas_de_vida',
     label: 'Trabajos verticales y líneas de vida',

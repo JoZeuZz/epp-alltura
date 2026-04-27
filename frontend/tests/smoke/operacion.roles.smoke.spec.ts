@@ -134,6 +134,36 @@ const setupApiMocks = async (page: Page) => {
       );
     }
 
+    if (path.startsWith('/api/inventario/activos-paged')) {
+      return json(
+        envelope({
+          items: [
+            {
+              id: 'activo-1',
+              codigo: 'ACT-001',
+              articulo_nombre: 'Taladro',
+              estado: 'en_stock',
+              ubicacion_nombre: 'Bodega Central',
+              valor: 120000,
+            },
+            {
+              id: 'activo-2',
+              codigo: 'ACT-002',
+              articulo_nombre: 'Esmeril Angular',
+              estado: 'asignado',
+              ubicacion_nombre: 'Faena Norte',
+              custodio_nombres: 'Ana',
+              custodio_apellidos: 'Rojas',
+              valor: 98000,
+            },
+          ],
+          total: 2,
+          hasMore: false,
+          nextCursor: null,
+        })
+      );
+    }
+
     if (path.startsWith('/api/inventario/activos-disponibles')) {
       const articuloId = url.searchParams.get('articulo_id');
       const ubicacionId = url.searchParams.get('ubicacion_id');
@@ -317,6 +347,15 @@ test('admin dashboard smoke', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /Panel de Equipos y Herramientas/i })).toBeVisible();
   await expect(page.getByText('Activos Totales')).toBeVisible();
   await expect(page.getByText('Movimientos de Stock Recientes')).toBeVisible();
+});
+
+test('admin herramientas page smoke', async ({ page }) => {
+  await setupRoleSession(page, 'admin');
+  await page.goto('/admin/inventario/herramientas');
+
+  await expect(page.getByRole('heading', { name: /Gestión de Herramientas/i })).toBeVisible();
+  await expect(page.getByText('ACT-001')).toBeVisible();
+  await expect(page.getByText('Taladro')).toBeVisible();
 });
 
 test('bodega dashboard smoke', async ({ page }) => {

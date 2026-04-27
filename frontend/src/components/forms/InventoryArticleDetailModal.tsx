@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import Modal from '../Modal';
 import { ResponsiveTable, type TableColumn } from '../layout';
 import { formatQuantityInteger } from '../../utils/quantity';
+import { getToolStatusBadgeClasses, getToolStatusLabel } from '../../utils/toolPresentation';
 import type {
   InventoryActivoDetailRow,
   InventoryStockDetailRow,
@@ -25,41 +26,6 @@ interface InventoryArticleDetailModalProps {
   onLoadMoreStock: () => void;
   onLoadMoreAssets: () => void;
 }
-
-const toEstadoLabel = (estado?: string) => {
-  const value = String(estado || '').toLowerCase();
-  switch (value) {
-    case 'en_stock':
-      return 'En stock';
-    case 'asignado':
-      return 'Asignado';
-    case 'mantencion':
-      return 'Mantención';
-    case 'perdido':
-      return 'Perdido';
-    case 'dado_de_baja':
-      return 'Baja';
-    default:
-      return estado || '—';
-  }
-};
-
-const estadoBadgeClass = (estado?: string) => {
-  const value = String(estado || '').toLowerCase();
-  switch (value) {
-    case 'en_stock':
-      return 'bg-green-100 text-green-700';
-    case 'asignado':
-      return 'bg-blue-100 text-blue-700';
-    case 'mantencion':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'perdido':
-    case 'dado_de_baja':
-      return 'bg-red-100 text-red-700';
-    default:
-      return 'bg-gray-100 text-gray-700';
-  }
-};
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return '—';
@@ -183,8 +149,8 @@ const InventoryArticleDetailModal: React.FC<InventoryArticleDetailModalProps> = 
         render: (value) => {
           const estado = String(value || '');
           return (
-            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${estadoBadgeClass(estado)}`}>
-              {toEstadoLabel(estado)}
+            <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${getToolStatusBadgeClasses(estado)}`}>
+              Estado: {getToolStatusLabel(estado)}
             </span>
           );
         },

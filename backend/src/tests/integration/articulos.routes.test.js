@@ -151,7 +151,7 @@ describe('Articulos API Route Integration', () => {
       id: 'articulo-v2-2',
       grupo_principal: 'herramienta',
       subclasificacion: 'manual',
-      especialidades: ['oocc', 'andamios'],
+      especialidades: ['oocc', 'equipos'],
       nombre: 'Llave de impacto',
       estado: 'activo',
     });
@@ -160,7 +160,7 @@ describe('Articulos API Route Integration', () => {
     const payload = {
       grupo_principal: 'herramienta',
       subclasificacion: 'manual',
-      especialidades: ['oocc', 'andamios'],
+      especialidades: ['oocc', 'equipos'],
       nombre: 'Llave de impacto',
       marca: 'Makita',
       modelo: 'TW1000',

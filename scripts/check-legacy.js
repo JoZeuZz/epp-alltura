@@ -14,7 +14,7 @@ const FORBIDDEN_FILES = [
 
 const FORBIDDEN_PATTERNS = [
   '/admin/projects',
-  '/admin/scaffolds',
+  '/admin/assets',
   '/client/',
   '/supervisor/project/',
   '/dashboard/cubic-meters',

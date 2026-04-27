@@ -4,11 +4,11 @@
  */
 
 const SuccessMessages = {
-  // Scaffolds
-  SCAFFOLD_CREATED: 'Andamio creado exitosamente',
-  SCAFFOLD_UPDATED: 'Andamio actualizado exitosamente',
-  SCAFFOLD_DELETED: 'Andamio eliminado exitosamente',
-  SCAFFOLD_STATUS_UPDATED: 'Estado del andamio actualizado exitosamente',
+  // Assets
+  ASSET_CREATED: 'Equipo creado exitosamente',
+  ASSET_UPDATED: 'Equipo actualizado exitosamente',
+  ASSET_DELETED: 'Equipo eliminado exitosamente',
+  ASSET_STATUS_UPDATED: 'Estado del equipo actualizado exitosamente',
   
   // Projects
   PROJECT_CREATED: 'Proyecto creado exitosamente',
@@ -35,13 +35,13 @@ const ErrorMessages = {
   FORBIDDEN: 'Acceso denegado. No tiene permisos suficientes',
   INVALID_CREDENTIALS: 'Credenciales inválidas',
   
-  // Scaffolds
-  SCAFFOLD_NOT_FOUND: 'Andamio no encontrado',
-  SCAFFOLD_NOT_OWNER: 'Solo puedes editar andamios que tú mismo creaste',
+  // Assets
+  ASSET_NOT_FOUND: 'Equipo no encontrado',
+  ASSET_NOT_OWNER: 'Solo puedes editar equipos que tú mismo creaste',
   INITIAL_IMAGE_REQUIRED: 'La imagen inicial es obligatoria',
   DISASSEMBLY_IMAGE_REQUIRED: 'Se requiere imagen de desarmado',
-  GREEN_CARD_DISASSEMBLED: 'No puedes poner tarjeta verde mientras el andamio esté desarmado',
-  PROGRESS_NOT_100: 'El andamio debe tener 100% de progreso para marcarse como armado',
+  GREEN_CARD_DISASSEMBLED: 'No puedes poner tarjeta verde mientras el equipo esté desarmado',
+  PROGRESS_NOT_100: 'El equipo debe tener 100% de progreso para marcarse como armado',
   
   // Projects
   PROJECT_NOT_FOUND: 'Proyecto no encontrado',

@@ -95,6 +95,7 @@ interface UbicacionFormModalProps {
   isSubmitting: boolean;
   mode: 'create' | 'edit';
   initialValues?: Ubicacion | null;
+  forcedTipo?: TipoUbicacion;
 }
 
 const UbicacionFormModal: React.FC<UbicacionFormModalProps> = ({
@@ -104,6 +105,7 @@ const UbicacionFormModal: React.FC<UbicacionFormModalProps> = ({
   isSubmitting,
   mode,
   initialValues,
+  forcedTipo,
 }) => {
   const [values, setValues] = useState<UbicacionFormValues>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -112,11 +114,12 @@ const UbicacionFormModal: React.FC<UbicacionFormModalProps> = ({
 
   React.useEffect(() => {
     if (isOpen) {
-      setValues(mapToForm(initialValues));
+      const mapped = mapToForm(initialValues);
+      setValues(forcedTipo ? { ...mapped, tipo: forcedTipo } : mapped);
       setErrors({});
       setGeneralError('');
     }
-  }, [isOpen, initialValues]);
+  }, [isOpen, initialValues, forcedTipo]);
 
   const setField = <K extends keyof UbicacionFormValues>(k: K, v: UbicacionFormValues[K]) => {
     setValues((prev) => ({ ...prev, [k]: v }));
@@ -129,7 +132,7 @@ const UbicacionFormModal: React.FC<UbicacionFormModalProps> = ({
     if (Object.keys(formErrors).length > 0) { setErrors(formErrors); return; }
     setGeneralError('');
     try {
-      await onSubmit(values);
+      await onSubmit(forcedTipo ? { ...values, tipo: forcedTipo } : values);
     } catch (err) {
       setGeneralError(toErrorMessage(err));
     }
@@ -171,13 +174,20 @@ const UbicacionFormModal: React.FC<UbicacionFormModalProps> = ({
               className={inputClass('tipo')}
               value={values.tipo}
               onChange={(e) => setField('tipo', e.target.value as TipoUbicacion)}
+              disabled={Boolean(forcedTipo)}
             >
-              {(Object.entries(TIPO_FORM_LABELS) as [TipoUbicacionOperativa, string][]).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
-              ))}
-              {values.tipo === 'proyecto' && <option value="proyecto">Proyecto</option>}
-              {values.tipo === 'taller_mantencion' && (
-                <option value="taller_mantencion">Taller Mantención</option>
+              {forcedTipo ? (
+                <option value={forcedTipo}>{TIPO_LABELS[forcedTipo]}</option>
+              ) : (
+                <>
+                  {(Object.entries(TIPO_FORM_LABELS) as [TipoUbicacionOperativa, string][]).map(([key, label]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                  {values.tipo === 'proyecto' && <option value="proyecto">Proyecto</option>}
+                  {values.tipo === 'taller_mantencion' && (
+                    <option value="taller_mantencion">Taller Mantención</option>
+                  )}
+                </>
               )}
             </select>
             {errors.tipo && <p className="text-red-500 text-xs mt-1">{errors.tipo}</p>}
@@ -263,11 +273,45 @@ interface ConfirmState {
 }
 
 const QUERY_KEY = 'ubicaciones-admin';
+const SCOPE_DEFAULTS: Record<AdminUbicacionScope, { title: string; description: string; createLabel: string }> = {
+  all: {
+    title: 'Ubicaciones',
+    description: 'Bodegas y plantas donde se almacenan o usan equipos y herramientas.',
+    createLabel: 'Nueva Ubicación',
+  },
+  bodegas: {
+    title: 'Bodegas',
+    description: 'Administra las bodegas operativas donde se controla el inventario.',
+    createLabel: 'Nueva Bodega',
+  },
+  proyectos: {
+    title: 'Proyectos',
+    description: 'Administra proyectos y frentes de trabajo asociados a la operación.',
+    createLabel: 'Nuevo Proyecto',
+  },
+};
 
-const AdminUbicacionesPage: React.FC = () => {
+export type AdminUbicacionScope = 'all' | 'bodegas' | 'proyectos';
+
+interface AdminUbicacionesPageProps {
+  scope?: AdminUbicacionScope;
+  title?: string;
+  description?: string;
+}
+
+const AdminUbicacionesPage: React.FC<AdminUbicacionesPageProps> = ({
+  scope = 'all',
+  title,
+  description,
+}) => {
+  const scopeDefaults = SCOPE_DEFAULTS[scope];
+  const forcedTipo: TipoUbicacion | undefined =
+    scope === 'bodegas' ? 'bodega' : scope === 'proyectos' ? 'proyecto' : undefined;
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [filterTipo, setFilterTipo] = useState<TipoUbicacion | 'todos'>('todos');
+  const [filterTipo, setFilterTipo] = useState<TipoUbicacion | 'todos'>(
+    scope === 'bodegas' ? 'bodega' : scope === 'proyectos' ? 'proyecto' : 'todos'
+  );
   const [filterEstado, setFilterEstado] = useState<EstadoUbicacion | 'todos'>('todos');
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Ubicacion | null>(null);
@@ -435,9 +479,9 @@ const AdminUbicacionesPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Ubicaciones</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">{title || scopeDefaults.title}</h1>
           <p className="text-neutral-gray mt-1 text-sm">
-            Bodegas y plantas donde se almacenan o usan equipos y herramientas.
+            {description || scopeDefaults.description}
           </p>
         </div>
         <button
@@ -447,7 +491,7 @@ const AdminUbicacionesPage: React.FC = () => {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          Nueva Ubicación
+          {scopeDefaults.createLabel}
         </button>
       </div>
 
@@ -465,6 +509,7 @@ const AdminUbicacionesPage: React.FC = () => {
             value={filterTipo}
             onChange={(e) => setFilterTipo(e.target.value as TipoUbicacion | 'todos')}
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
+            disabled={scope !== 'all'}
           >
             <option value="todos">Todos los tipos</option>
             {(Object.entries(TIPO_LABELS) as [TipoUbicacion, string][]).map(([k, l]) => (
@@ -554,6 +599,7 @@ const AdminUbicacionesPage: React.FC = () => {
         isSubmitting={isSubmitting}
         mode={editTarget ? 'edit' : 'create'}
         initialValues={editTarget}
+        forcedTipo={forcedTipo}
       />
 
       {/* Modal confirmar toggle */}

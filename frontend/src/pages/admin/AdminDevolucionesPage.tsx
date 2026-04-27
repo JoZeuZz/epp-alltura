@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { ResponsiveTable, type TableColumn } from '../../components/layout';
@@ -88,6 +89,7 @@ const toErrorMessage = (error: unknown): string => {
 const AdminDevolucionesPage: React.FC = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
 
   const [filterEstado, setFilterEstado] = useState<DevolucionEstado | 'todas'>('todas');
   const [showCreate, setShowCreate] = useState(false);
@@ -95,6 +97,14 @@ const AdminDevolucionesPage: React.FC = () => {
   const [devolucionFirma, setDevolucionFirma] = useState<DevolucionRow | null>(null);
   const [devolucionConfirmar, setDevolucionConfirmar] = useState<DevolucionRow | null>(null);
   const [guidedSearch, setGuidedSearch] = useState('');
+  const [prefillApplied, setPrefillApplied] = useState(false);
+
+  const prefillTrabajadorId = searchParams.get('trabajador_id') || '';
+  const prefillActivoId = searchParams.get('activo_id') || '';
+  const prefillCustodiaId = searchParams.get('custodia_id') || '';
+  const prefillToolCode = searchParams.get('tool_code') || '';
+  const prefillToolName = searchParams.get('tool_name') || '';
+  const prefillToolValue = searchParams.get('tool_value') || '';
 
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [signaturePadKey, setSignaturePadKey] = useState(0);
@@ -294,6 +304,40 @@ const AdminDevolucionesPage: React.FC = () => {
       };
     });
   };
+
+  React.useEffect(() => {
+    if (prefillApplied) return;
+    if (!prefillTrabajadorId && !prefillActivoId && !prefillCustodiaId) {
+      setPrefillApplied(true);
+      return;
+    }
+
+    setShowCreate(true);
+    if (prefillTrabajadorId) {
+      setForm((prev) => ({ ...prev, trabajador_id: prefillTrabajadorId }));
+    }
+  }, [prefillActivoId, prefillApplied, prefillCustodiaId, prefillTrabajadorId]);
+
+  React.useEffect(() => {
+    if (prefillApplied) return;
+    if (!showCreate) return;
+    if (!prefillActivoId && !prefillCustodiaId) {
+      setPrefillApplied(true);
+      return;
+    }
+    if (eligibleAssets.length === 0) return;
+
+    const preselected = eligibleAssets.find((asset) => {
+      if (prefillCustodiaId && asset.custodia_activo_id === prefillCustodiaId) return true;
+      if (prefillActivoId && asset.activo_id === prefillActivoId) return true;
+      return false;
+    });
+
+    if (preselected) {
+      appendGuidedAssetDetail(preselected);
+    }
+    setPrefillApplied(true);
+  }, [eligibleAssets, prefillActivoId, prefillApplied, prefillCustodiaId, showCreate]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -572,6 +616,22 @@ const AdminDevolucionesPage: React.FC = () => {
           <p className="text-sm text-gray-600">
             Operador actual: <span className="font-medium">{user?.first_name || ''} {user?.last_name || ''}</span>. Este mismo usuario debe registrar firma y confirmación.
           </p>
+          {(prefillToolCode || prefillActivoId) && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-1">
+              <p className="text-xs font-semibold text-amber-900 uppercase tracking-wide">Resumen de herramienta</p>
+              <p className="text-sm text-amber-900">
+                <span className="font-medium">Código:</span> {prefillToolCode || prefillActivoId}
+              </p>
+              {prefillToolName && (
+                <p className="text-sm text-amber-900">
+                  <span className="font-medium">Herramienta:</span> {prefillToolName}
+                </p>
+              )}
+              <p className="text-sm text-amber-900">
+                <span className="font-medium">Valor bajo responsabilidad:</span> {prefillToolValue || 'Sin valor registrado'}
+              </p>
+            </div>
+          )}
           <form onSubmit={handleCreate} className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">

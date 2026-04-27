@@ -37,7 +37,7 @@ describe('NotificationItem navigation', () => {
     const user = userEvent.setup();
     render(
       <NotificationItem
-        notification={{ ...baseNotification, link: '/admin/scaffolds?project=12' }}
+        notification={{ ...baseNotification, link: '/admin/assets?project=12' }}
         onMarkAsRead={vi.fn(async () => {})}
         onDelete={vi.fn(async () => {})}
       />

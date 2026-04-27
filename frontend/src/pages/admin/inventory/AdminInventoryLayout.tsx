@@ -35,6 +35,9 @@ const AdminInventoryLayout: React.FC = () => {
           <NavLink to="/admin/inventario/egresos" className={tabClass}>
             Egresos
           </NavLink>
+          <NavLink to="/admin/inventario/herramientas" className={tabClass}>
+            Herramientas
+          </NavLink>
           <NavLink to="/admin/inventario/activos" className={tabClass}>
             Activos
           </NavLink>

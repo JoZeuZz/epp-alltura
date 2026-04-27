@@ -163,3 +163,21 @@ Sirve la build de producción de forma local para previsualizarla.
 ## Aprender Más
 
 Para aprender React, consulta la [documentación de React](https://reactjs.org/).
+
+## Migración de navegación Admin (Inventario/Ubicación)
+
+La navegación de Administración fue reorganizada en tres grupos: **Inventario**, **Personal** y **Ubicación**.
+
+### Rutas vigentes
+
+- `/admin/inventario/epp`
+- `/admin/inventario/equipos`
+- `/admin/inventario/herramientas`
+- `/admin/ubicacion/proyectos`
+- `/admin/ubicacion/bodegas`
+
+### Compatibilidad temporal (legacy)
+
+- `/admin/ubicaciones` redirige a `/admin/ubicacion/bodegas`.
+- `/admin/inventario` y subrutas legacy (`/articulos`, `/stock`, `/movimientos`, `/ingresos`, `/egresos`, `/activos`) redirigen a `/admin/inventario/herramientas`.
+- El layout legacy de inventario queda en `/admin/inventario/legacy` y no debe usarse como punto de entrada principal.

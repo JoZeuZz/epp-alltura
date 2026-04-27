@@ -118,7 +118,7 @@ export default function Modal({ isOpen, onClose, children, title, description }:
             <button
               ref={closeButtonRef}
               onClick={onClose} 
-              className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg p-1.5 text-2xl leading-none transition-all duration-200 active:scale-95"
+              className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg p-1.5 text-2xl leading-none transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-blue focus:ring-offset-2"
               aria-label="Cerrar modal"
             >
               <span aria-hidden="true">&times;</span>

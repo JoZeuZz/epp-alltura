@@ -41,7 +41,7 @@ export const UnauthorizedPage: React.FC = () => {
           <h3 className="font-semibold text-blue-800 mb-2">Roles en el sistema:</h3>
           <ul className="text-sm text-blue-700 space-y-1">
             <li>• <strong>Admin:</strong> Acceso completo al sistema</li>
-            <li>• <strong>Supervisor:</strong> Crear y editar andamios</li>
+            <li>• <strong>Supervisor:</strong> Crear y editar equipos</li>
             <li>• <strong>Cliente:</strong> Ver proyectos asignados</li>
           </ul>
         </div>

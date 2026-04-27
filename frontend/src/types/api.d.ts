@@ -69,7 +69,7 @@ export interface Articulo {
     | 'electrica_cable'
     | 'inalambrica_bateria';
   especialidades: Array<
-    'oocc' | 'ooee' | 'andamios' | 'trabajos_verticales_lineas_de_vida'
+    'oocc' | 'ooee' | 'equipos' | 'trabajos_verticales_lineas_de_vida'
   >;
   nombre: string;
   marca: string;

@@ -4,7 +4,7 @@ server {
 
   server_tokens off;
 
-  # Allow larger uploads for scaffold images
+  # Allow larger uploads for asset images
   client_max_body_size 25m;
   client_body_timeout 60s;
   send_timeout 180s;

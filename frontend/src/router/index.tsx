@@ -14,21 +14,6 @@ const AdminInventoryLayout = lazy(
 const AdminInventoryArticlesPage = lazy(
   () => import('../pages/admin/inventory/AdminInventoryArticlesPage')
 );
-const AdminInventoryStockPage = lazy(
-  () => import('../pages/admin/inventory/AdminInventoryStockPage')
-);
-const AdminInventoryMovementsPage = lazy(
-  () => import('../pages/admin/inventory/AdminInventoryMovementsPage')
-);
-const AdminInventoryIngressPage = lazy(
-  () => import('../pages/admin/inventory/AdminInventoryIngressPage')
-);
-const AdminInventoryEgressPage = lazy(
-  () => import('../pages/admin/inventory/AdminInventoryEgressPage')
-);
-const AdminInventoryActivosPage = lazy(
-  () => import('../pages/admin/inventory/AdminInventoryActivosPage')
-);
 const UsersPage = lazy(() => import('../pages/admin/UsersPage'));
 const SupervisorDashboard = lazy(() => import('../pages/supervisor/SupervisorDashboard'));
 const WarehouseDashboard = lazy(() => import('../pages/bodega/WarehouseDashboard'));
@@ -39,9 +24,15 @@ const UnauthorizedPage = lazy(() => import('../pages/UnauthorizedPage'));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'));
 const PublicSignPage = lazy(() => import('../pages/PublicSignPage'));
 const AdminTrabajadoresPage = lazy(() => import('../pages/admin/AdminTrabajadoresPage'));
-const AdminUbicacionesPage = lazy(() => import('../pages/admin/AdminUbicacionesPage'));
 const AdminEntregasPage = lazy(() => import('../pages/admin/AdminEntregasPage'));
 const AdminDevolucionesPage = lazy(() => import('../pages/admin/AdminDevolucionesPage'));
+const AdminInventoryEppPage = lazy(() => import('../pages/admin/inventory/AdminInventoryEppPage'));
+const AdminInventoryEquiposPage = lazy(() => import('../pages/admin/inventory/AdminInventoryEquiposPage'));
+const AdminInventoryHerramientasPage = lazy(
+  () => import('../pages/admin/inventory/AdminInventoryHerramientasPage')
+);
+const AdminProyectosPage = lazy(() => import('../pages/admin/AdminProyectosPage'));
+const AdminBodegasPage = lazy(() => import('../pages/admin/AdminBodegasPage'));
 
 type RouteRole = 'admin' | 'supervisor' | 'bodega' | 'worker';
 
@@ -310,8 +301,17 @@ export const router = createBrowserRouter([
       },
       {
         path: 'admin/ubicaciones',
+        loader: () => redirect('/admin/ubicacion/bodegas'),
+      },
+      {
+        path: 'admin/ubicacion/proyectos',
         loader: requireRole(['admin']),
-        element: <AdminUbicacionesPage />,
+        element: <AdminProyectosPage />,
+      },
+      {
+        path: 'admin/ubicacion/bodegas',
+        loader: requireRole(['admin']),
+        element: <AdminBodegasPage />,
       },
       {
         path: 'admin/entregas',
@@ -325,12 +325,31 @@ export const router = createBrowserRouter([
       },
       {
         path: 'admin/inventario',
+        loader: () => redirect('/admin/inventario/herramientas'),
+      },
+      {
+        path: 'admin/inventario/epp',
+        loader: requireRole(['admin']),
+        element: <AdminInventoryEppPage />,
+      },
+      {
+        path: 'admin/inventario/equipos',
+        loader: requireRole(['admin']),
+        element: <AdminInventoryEquiposPage />,
+      },
+      {
+        path: 'admin/inventario/herramientas',
+        loader: requireRole(['admin']),
+        element: <AdminInventoryHerramientasPage />,
+      },
+      {
+        path: 'admin/inventario/legacy',
         loader: requireRole(['admin']),
         element: <AdminInventoryLayout />,
         children: [
           {
             index: true,
-            loader: () => redirect('/admin/inventario/articulos'),
+            loader: () => redirect('/admin/inventario/herramientas'),
           },
           {
             path: 'articulos',
@@ -338,25 +357,49 @@ export const router = createBrowserRouter([
           },
           {
             path: 'stock',
-            element: <AdminInventoryStockPage />,
+            loader: () => redirect('/admin/inventario/herramientas'),
           },
           {
             path: 'movimientos',
-            element: <AdminInventoryMovementsPage />,
+            loader: () => redirect('/admin/inventario/herramientas'),
           },
           {
             path: 'ingresos',
-            element: <AdminInventoryIngressPage />,
+            loader: () => redirect('/admin/inventario/herramientas'),
           },
           {
             path: 'egresos',
-            element: <AdminInventoryEgressPage />,
+            loader: () => redirect('/admin/inventario/herramientas'),
           },
           {
             path: 'activos',
-            element: <AdminInventoryActivosPage />,
+            loader: () => redirect('/admin/inventario/herramientas'),
           },
         ],
+      },
+      {
+        path: 'admin/inventario/articulos',
+        loader: () => redirect('/admin/inventario/herramientas'),
+      },
+      {
+        path: 'admin/inventario/stock',
+        loader: () => redirect('/admin/inventario/herramientas'),
+      },
+      {
+        path: 'admin/inventario/movimientos',
+        loader: () => redirect('/admin/inventario/herramientas'),
+      },
+      {
+        path: 'admin/inventario/ingresos',
+        loader: () => redirect('/admin/inventario/herramientas'),
+      },
+      {
+        path: 'admin/inventario/egresos',
+        loader: () => redirect('/admin/inventario/herramientas'),
+      },
+      {
+        path: 'admin/inventario/activos',
+        loader: () => redirect('/admin/inventario/herramientas'),
       },
       {
         path: 'supervisor/dashboard',

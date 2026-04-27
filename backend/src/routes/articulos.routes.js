@@ -86,7 +86,7 @@ const validateGrupoSubclasificacionUpdate = (value, helpers) => {
 const especialidadSchema = Joi.string()
   .trim()
   .lowercase()
-  .valid('oocc', 'ooee', 'andamios', 'trabajos_verticales_lineas_de_vida');
+  .valid('oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida');
 
 const articuloCreateSchema = Joi.object({
   grupo_principal: Joi.string().trim().lowercase().valid('equipo', 'herramienta').required(),
