@@ -17,11 +17,9 @@ class TrabajadoresService {
         p.nombres,
         p.apellidos,
         p.telefono,
-        p.email,
-        u.email_login
+        p.email
       FROM trabajador t
       INNER JOIN persona p ON p.id = t.persona_id
-      LEFT JOIN usuario u ON u.id = t.usuario_id
       WHERE t.id = $1
       `,
       [id]
@@ -95,14 +93,13 @@ class TrabajadoresService {
       const trabajadorResult = await client.query(
         `
         INSERT INTO trabajador (
-          persona_id, usuario_id, cargo, fecha_ingreso, fecha_salida, estado
+          persona_id, cargo, fecha_ingreso, fecha_salida, estado
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING id
         `,
         [
           personaId,
-          data.usuario_id || null,
           data.cargo || null,
           data.fecha_ingreso || null,
           data.fecha_salida || null,
@@ -160,7 +157,6 @@ class TrabajadoresService {
       }
 
       const fields = {
-        usuario_id: data.usuario_id,
         cargo: data.cargo,
         fecha_ingreso: data.fecha_ingreso,
         fecha_salida: data.fecha_salida,

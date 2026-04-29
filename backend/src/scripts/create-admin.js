@@ -20,7 +20,7 @@ const { validatePasswordStrength, PASSWORD_CONFIG } = require('../middleware/pas
 const { toDbRole } = require('../lib/roleUtils');
 const { validateRutChileno, normalizeRut: normalizeRutLib } = require('../lib/rut');
 
-const ALLOWED_ROLES = new Set(['admin', 'supervisor', 'bodega']);
+const ALLOWED_ROLES = new Set(['admin', 'supervisor']);
 
 const colors = {
   reset: '\x1b[0m',
@@ -125,7 +125,7 @@ const ensureRoleExists = async (roleName) => {
 
 const createAdminUser = async () => {
   print('\n╔══════════════════════════════════════════════════════════════╗', 'bright');
-  print('║    CREADOR MER DE USUARIOS ADMIN/SUPERVISOR/BODEGA         ║', 'bright');
+  print('║    CREADOR DE USUARIOS ADMIN/SUPERVISOR                    ║', 'bright');
   print('╚══════════════════════════════════════════════════════════════╝\n', 'bright');
 
   try {
@@ -134,7 +134,7 @@ const createAdminUser = async () => {
     const email = normalizeEmail(await ask('Email login: '));
     const rut = normalizeRut(await ask('RUT (formato 12.345.678-5 o 12345678-5): '));
     const telefono = await ask('Teléfono (opcional): ');
-    const roleInput = await ask('Rol (admin/supervisor/bodega) [admin]: ');
+    const roleInput = await ask('Rol (admin/supervisor) [admin]: ');
     const role = toDbRole((roleInput || 'admin').trim().toLowerCase());
 
     if (!nombres) {
@@ -154,7 +154,7 @@ const createAdminUser = async () => {
     }
 
     if (!ALLOWED_ROLES.has(role)) {
-      await fail('Rol inválido. Debe ser admin, supervisor o bodega.');
+      await fail('Rol inválido. Debe ser admin o supervisor.');
     }
 
     const roleRecord = await ensureRoleExists(role);
@@ -269,7 +269,7 @@ const createAdminUser = async () => {
 
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
   print('Uso: npm run create-admin --prefix backend', 'bright');
-  print('Crea un usuario admin/supervisor/bodega sobre tablas MER.', 'bright');
+  print('Crea un usuario admin/supervisor sobre tablas MER.', 'bright');
   process.exit(0);
 }
 

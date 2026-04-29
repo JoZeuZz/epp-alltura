@@ -27,6 +27,8 @@ services:
       # Coincide con DB_PORT=55432 en backend/.env
       - "55432:5432"
     volumes:
+      # Usa los SQL del checkout actual al reconstruir la base con `down -v && up -d`.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
       - postgres_dev_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:

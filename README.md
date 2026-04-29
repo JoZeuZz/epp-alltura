@@ -10,7 +10,7 @@ Alltura digitaliza la operación diaria de bodega y terreno con foco en:
 - Trazabilidad por artículo en modo serial o lote.
 - Flujos operativos con validaciones de negocio y auditoría.
 - Firma digital de entregas y devoluciones.
-- Gestión por roles: admin, supervisor, bodega y worker.
+- Gestión por roles autenticables: admin y supervisor. El supervisor cubre la operación antes asociada a supervisor y bodega.
 
 ## Tabla de Contenidos
 
@@ -111,15 +111,17 @@ Servicios:
 
 ### 4) Login de desarrollo (seed)
 
-El baseline de desarrollo usa db/init/002-dev-seed.sql (junto con 001/003/004) y genera usuarios demo como:
+El baseline de desarrollo usa db/init/002-dev-seed.sql (junto con 001/003/004) y genera usuarios demo autenticables solo con roles `admin` y `supervisor`:
 
 - admin.dev@alltura.local
-- bodega.dev@alltura.local
 - supervisor.dev@alltura.local
-- juan.herrera@alltura.local
-- maria.rojas@alltura.local
+- operaciones.dev@alltura.local
+- coordinador.dev@alltura.local
+- auditor.dev@alltura.local
 
 Password demo: Dev12345!
+
+Los trabajadores se mantienen como entidad de dominio administrable, sin login ni dashboard propio.
 
 Para reconstruir el entorno desde cero (reset destructivo):
 
@@ -199,7 +201,7 @@ npm run test:smoke:real
 - CI principal: lint + test + build frontend.
 - Integración DB: flujo separado (manual), recomendado antes de merge en cambios de dominio/SQL.
 
-## Smoke Checklist Mínimo (P0.1) - Operación Bodega y Firma
+## Smoke Checklist Mínimo (P0.1) - Operación Supervisor y Firma
 
 Alcance de UI (sin pantallas nuevas):
 
@@ -216,7 +218,7 @@ npm run dev
 
 Flujo smoke mínimo:
 
-1. Login como `admin` o `bodega` y abrir entregas/devoluciones. Endpoints: `GET /api/entregas`, `GET /api/devoluciones`.
+1. Login como `admin` o `supervisor` y abrir entregas/devoluciones. Endpoints: `GET /api/entregas`, `GET /api/devoluciones`.
 2. En `AdminEntregasPage`, crear entrega serializada en borrador con al menos un activo. Endpoint: `POST /api/entregas`.
 3. Firmar la entrega (al menos una vía). Endpoints: `POST /api/firmas/entregas/:entregaId/firmar-dispositivo`, `POST /api/firmas/entregas/:entregaId/token`, `POST /api/firmas/tokens/:token/firmar`, `GET /api/firmas/tokens/:token`.
 4. Confirmar entrega desde `AdminEntregasPage`. Endpoint: `POST /api/entregas/:id/confirm`.

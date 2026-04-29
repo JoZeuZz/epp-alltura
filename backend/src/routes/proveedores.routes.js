@@ -29,11 +29,11 @@ const proveedorSchema = Joi.object({
   estado: Joi.string().valid('activo', 'inactivo').default('activo'),
 });
 
-router.get('/', authMiddleware, checkRole(['admin', 'supervisor', 'bodega']), ProveedoresController.list);
+router.get('/', authMiddleware, checkRole(['admin', 'supervisor']), ProveedoresController.list);
 router.post(
   '/',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateBody(proveedorSchema),
   ProveedoresController.create
 );

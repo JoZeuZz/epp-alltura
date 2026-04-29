@@ -36,7 +36,7 @@ let buildTestApp = () => {
 
 jest.mock('../../middleware/auth', () => ({
   authMiddleware: (req, _res, next) => {
-    const actor = String(req.headers['x-test-actor'] || 'bodega').toLowerCase();
+    const actor = String(req.headers['x-test-actor'] || 'supervisor').toLowerCase();
 
     if (actor === 'admin') {
       req.user = {
@@ -49,8 +49,8 @@ jest.mock('../../middleware/auth', () => ({
 
     req.user = {
       id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
-      role: 'bodega',
-      roles: ['bodega'],
+      role: 'supervisor',
+      roles: ['supervisor'],
     };
     return next();
   },
@@ -61,10 +61,7 @@ jest.mock('../../middleware/auth', () => ({
 
 jest.mock('../../middleware/roles', () => {
   const normalizeRole = (role) => {
-    if (role === 'worker' || role === 'client') {
-      return 'trabajador';
-    }
-    return role;
+    return role === 'admin' || role === 'supervisor' ? role : null;
   };
 
   const checkRole = (requiredRoles) => {
@@ -143,14 +140,14 @@ const findRoleId = async (roleName) => {
 };
 
 const seedBaseData = async () => {
-  const rolBodega = await findRoleId('bodega');
+  const rolSupervisor = await findRoleId('supervisor');
   const rolAdmin = await findRoleId('admin');
 
   await db.query(
     `
     INSERT INTO persona (id, rut, nombres, apellidos, email, estado)
     VALUES
-      ($1, '11.111.111-1', 'Bodega', 'Tester', 'bodega@test.local', 'activo'),
+      ($1, '11.111.111-1', 'Supervisor', 'Tester', 'supervisor@test.local', 'activo'),
       ($2, '33.333.333-3', 'Admin', 'Tester', 'admin@test.local', 'activo'),
       ($3, '22.222.222-2', 'Trabajador', 'Uno', 'worker1@test.local', 'activo'),
       ($4, '44.444.444-4', 'Trabajador', 'Dos', 'worker2@test.local', 'activo')
@@ -162,7 +159,7 @@ const seedBaseData = async () => {
     `
     INSERT INTO usuario (id, persona_id, email_login, password_hash, estado)
     VALUES
-      ($1, $2, 'bodega@test.local', 'hash', 'activo'),
+      ($1, $2, 'supervisor@test.local', 'hash', 'activo'),
       ($3, $4, 'admin@test.local', 'hash', 'activo')
     `,
     [IDS.bodegaUserId, IDS.bodegaPersonaId, IDS.adminUserId, IDS.adminPersonaId]
@@ -175,7 +172,7 @@ const seedBaseData = async () => {
       ($1, $2),
       ($3, $4)
     `,
-    [IDS.bodegaUserId, rolBodega, IDS.adminUserId, rolAdmin]
+    [IDS.bodegaUserId, rolSupervisor, IDS.adminUserId, rolAdmin]
   );
 
   await db.query(
@@ -277,7 +274,7 @@ maybeDescribe('Entrega templates integration with real DB', () => {
 
     const draftFromTemplateResponse = await request(app)
       .post(`/api/entregas/templates/${serialTemplateId}/create-draft`)
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send({
         trabajador_id: IDS.workerId1,
         ubicacion_origen_id: IDS.ubicacionOrigenId,
@@ -317,7 +314,7 @@ maybeDescribe('Entrega templates integration with real DB', () => {
 
     const batchResponse = await request(app)
       .post(`/api/entregas/templates/${serialBatchTemplateId}/create-draft-batch`)
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send({
         trabajador_ids: [IDS.workerId1, IDS.workerId2],
         ubicacion_origen_id: IDS.ubicacionOrigenId,

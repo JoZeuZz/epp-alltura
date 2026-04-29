@@ -36,7 +36,7 @@ const requiredTables = [
   'push_subscriptions',
 ];
 
-const requiredRoles = ['admin', 'supervisor', 'bodega', 'trabajador'];
+const requiredRoles = ['admin', 'supervisor'];
 
 const checkDatabase = async () => {
   const client = await pool.connect();

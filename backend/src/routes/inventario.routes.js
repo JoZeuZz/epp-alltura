@@ -173,7 +173,7 @@ const ensureIngresoDocumentRules = (req, _res, next) => {
 router.get(
   '/ingresos',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   InventarioController.listIngresos
 );
 
@@ -241,14 +241,14 @@ const activosQuerySchema = Joi.object({
 router.get(
   '/egresos',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   InventarioController.listEgresos
 );
 
 router.get(
   '/egresos/:id',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   InventarioController.getEgresoById
 );
 
@@ -270,49 +270,49 @@ router.delete(
 router.get(
   '/stock',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   InventarioController.getStock
 );
 
 router.get(
   '/stock-summary',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   InventarioController.getStockSummary
 );
 
 router.get(
   '/stock-paged',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   InventarioController.getStockPaged
 );
 
 router.get(
   '/movimientos-stock',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   InventarioController.getStockMovements
 );
 
 router.get(
   '/movimientos-stock/export',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   InventarioController.exportStockMovementsCsv
 );
 
 router.get(
   '/movimientos-activo',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   InventarioController.getAssetMovements
 );
 
 router.get(
   '/activos',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateQuery(activosQuerySchema),
   InventarioController.getActivos
 );
@@ -320,7 +320,7 @@ router.get(
 router.get(
   '/activos-paged',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateQuery(activosQuerySchema),
   InventarioController.getActivosPaged
 );
@@ -328,7 +328,7 @@ router.get(
 router.get(
   '/activos-disponibles',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   InventarioController.getActivosDisponibles
 );
 
@@ -342,7 +342,7 @@ router.get(
 router.get(
   '/activos/:id/perfil',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   InventarioController.getActivoProfile
 );
 

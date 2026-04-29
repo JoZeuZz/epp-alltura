@@ -32,7 +32,7 @@ const enrichTokenUser = (user = {}) => {
     user.roles_db || user.roles || user.role
   );
 
-  const primaryDbRole = toDbRole(user.role_db || user.role || dbRoles[0] || 'trabajador');
+  const primaryDbRole = toDbRole(user.role_db || user.role) || dbRoles[0] || null;
 
   return {
     ...user,
@@ -168,7 +168,7 @@ const authMiddleware = async (req, res, next) => {
  */
 async function generateTokenPair(user) {
   const dbRoles = normalizeDbRoles(user.roles || user.role);
-  const primaryDbRole = toDbRole(user.role || dbRoles[0] || 'trabajador');
+  const primaryDbRole = toDbRole(user.role) || dbRoles[0] || null;
   const { compatibleRoles } = buildCompatibleRoles(dbRoles);
   const primaryRole = toExternalRole(primaryDbRole);
   const email = user.email_login || user.email || '';

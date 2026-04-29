@@ -25,11 +25,9 @@ interface Persona {
 interface Trabajador extends Persona {
   id: string;
   persona_id: string;
-  usuario_id?: string;
   cargo?: string;
   fecha_ingreso?: string;
   estado: 'activo' | 'inactivo';
-  email_login?: string;
 }
 
 interface TrabajadorFormValues {

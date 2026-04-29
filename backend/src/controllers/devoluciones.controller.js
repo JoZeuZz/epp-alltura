@@ -84,17 +84,6 @@ class DevolucionesController {
       return next(error);
     }
   }
-
-  static async getMyCustodias(req, res, next) {
-    try {
-      const data = await DevolucionesService.getActiveCustodiasForUser(req.user.id);
-      return sendSuccess(res, { message: 'Equipos y herramientas asignados obtenidos correctamente', data });
-    } catch (error) {
-      logger.error('Error getting active custodias for user:', error);
-      return next(error);
-    }
-  }
-
   static async getEligibleAssets(req, res, next) {
     try {
       const data = await DevolucionesService.getEligibleAssets(req.query || {});

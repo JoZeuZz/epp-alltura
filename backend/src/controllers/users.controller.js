@@ -97,20 +97,6 @@ class UserController {
     }
   }
 
-  static async getUsersByClientId(req, res, next) {
-    try {
-      const users = await UserService.getUsersByClientId(req.params.clientId);
-
-      return sendSuccess(res, {
-        message: 'Usuarios obtenidos correctamente',
-        data: users,
-      });
-    } catch (error) {
-      logger.error(`Error al obtener usuarios legacy por cliente ${req.params.clientId}:`, error);
-      next(error);
-    }
-  }
-
   static async createUser(req, res, next) {
     try {
       const userData = {

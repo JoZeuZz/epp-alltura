@@ -25,7 +25,7 @@ const rut = Joi.string().trim().custom((value, helpers) => {
   'rut.invalid': 'RUT inválido — verifique el número y el dígito verificador',
 });
 
-const userRole = Joi.string().valid('admin', 'supervisor', 'bodega', 'trabajador', 'worker');
+const userRole = Joi.string().valid('admin', 'supervisor');
 
 const joiPhone = (locale = 'any') =>
   Joi.string().trim().custom((value, helpers) => {

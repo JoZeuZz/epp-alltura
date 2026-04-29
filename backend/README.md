@@ -118,17 +118,19 @@ Estas reglas están reforzadas por validaciones en rutas/servicios y por SQL en 
 
 ## Seed de Desarrollo
 
-Con inicialización en entorno local, db/init/002-dev-seed.sql (sobre 001/003/004) crea dataset demo para pruebas manuales con usuarios de distintos roles.
+Con inicialización en entorno local, db/init/002-dev-seed.sql (sobre 001/003/004) crea dataset demo para pruebas manuales con usuarios autenticables `admin` y `supervisor`.
 
 Credenciales demo típicas:
 
 - admin.dev@alltura.local
-- bodega.dev@alltura.local
 - supervisor.dev@alltura.local
-- juan.herrera@alltura.local
-- maria.rojas@alltura.local
+- operaciones.dev@alltura.local
+- coordinador.dev@alltura.local
+- auditor.dev@alltura.local
 
 Password demo: Dev12345!
+
+Los trabajadores existen como registros de dominio para entregas, custodias, devoluciones y firmas, pero no tienen login.
 
 ## Operación y Observabilidad
 

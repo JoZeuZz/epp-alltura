@@ -1,17 +1,17 @@
-const DB_ROLE_VALUES = new Set(['admin', 'supervisor', 'bodega', 'trabajador']);
+const DB_ROLE_VALUES = new Set(['admin', 'supervisor']);
 
 const toDbRole = (role) => {
-  if (!role) return null;
-  if (role === 'worker' || role === 'client') {
-    return 'trabajador';
+  if (!role) {
+    return null;
   }
-  return role;
+  const normalized = String(role).trim().toLowerCase();
+  return DB_ROLE_VALUES.has(normalized) ? normalized : null;
 };
 
 const toExternalRole = (role) => {
   const dbRole = toDbRole(role);
   if (!dbRole) return null;
-  return dbRole === 'trabajador' ? 'worker' : dbRole;
+  return dbRole;
 };
 
 const normalizeDbRoles = (rolesInput) => {
@@ -27,11 +27,6 @@ const normalizeDbRoles = (rolesInput) => {
 const buildCompatibleRoles = (rolesInput) => {
   const dbRoles = normalizeDbRoles(rolesInput);
   const compatible = new Set(dbRoles);
-
-  if (dbRoles.includes('trabajador')) {
-    compatible.add('worker');
-    compatible.add('client');
-  }
 
   return {
     dbRoles,

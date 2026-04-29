@@ -4,6 +4,12 @@ const ArticulosController = require('../controllers/articulos.controller');
 const { authMiddleware } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roles');
 
+const {
+  SUBCLASIFICACIONES_POR_GRUPO,
+  normalizeGrupoPrincipal,
+  normalizeSubclasificacion,
+} = require('../lib/articuloValidation');
+
 const router = express.Router();
 
 const validateBody = (schema) => {
@@ -15,23 +21,6 @@ const validateBody = (schema) => {
       return next(error);
     }
   };
-};
-
-const SUBCLASIFICACIONES_POR_GRUPO = {
-  equipo: new Set(['epp', 'medicion_ensayos']),
-  herramienta: new Set(['manual', 'electrica_cable', 'inalambrica_bateria']),
-};
-
-const normalizeGrupoPrincipal = (value) => {
-  if (value === undefined) return undefined;
-
-  return String(value || '').trim().toLowerCase();
-};
-
-const normalizeSubclasificacion = (value) => {
-  if (value === undefined) return undefined;
-
-  return String(value || '').trim().toLowerCase();
 };
 
 const validateGrupoSubclasificacionCreate = (value, helpers) => {
@@ -155,14 +144,14 @@ router.get('/:id', authMiddleware, ArticulosController.getById);
 router.post(
   '/',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateBody(articuloCreateSchema),
   ArticulosController.create
 );
 router.put(
   '/:id',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateBody(articuloUpdateSchema),
   ArticulosController.update
 );

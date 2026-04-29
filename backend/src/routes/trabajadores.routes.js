@@ -25,7 +25,6 @@ const uuid = Joi.string()
 
 const trabajadorCreateSchema = Joi.object({
   persona_id: uuid,
-  usuario_id: uuid.allow(null),
   rut: rutValidator,
   nombres: Joi.string().trim().min(2).max(150),
   apellidos: Joi.string().trim().min(2).max(150),
@@ -39,7 +38,6 @@ const trabajadorCreateSchema = Joi.object({
 
 const trabajadorUpdateSchema = Joi.object({
   persona_id: uuid,
-  usuario_id: uuid.allow(null),
   rut: rutValidator,
   nombres: Joi.string().trim().min(2).max(150),
   apellidos: Joi.string().trim().min(2).max(150),
@@ -58,14 +56,14 @@ router.get('/:id', authMiddleware, TrabajadoresController.getById);
 router.post(
   '/',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateBody(trabajadorCreateSchema),
   TrabajadoresController.create
 );
 router.put(
   '/:id',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateBody(trabajadorUpdateSchema),
   TrabajadoresController.update
 );

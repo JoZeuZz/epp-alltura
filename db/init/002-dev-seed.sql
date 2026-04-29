@@ -2,7 +2,7 @@
 -- Seed de desarrollo integral para flujo de Equipos/Herramientas.
 -- Este archivo esta pensado para entorno local y es idempotente.
 --
--- Dataset: 13 usuarios, 8 trabajadores, 6 ubicaciones, 3 proveedores,
+-- Dataset: 5 usuarios de sistema, 8 trabajadores, 6 ubicaciones, 3 proveedores,
 -- 15 taladros, 11 arneses, 150 guantes, 9 entregas, 3 devoluciones,
 -- 2 egresos y ~60 movimientos de trazabilidad.
 --
@@ -27,7 +27,7 @@ BEGIN
   INSERT INTO persona (id, rut, nombres, apellidos, telefono, email, estado)
   VALUES
     ('00000000-0000-0000-0000-000000000101', '11.111.111-1', 'Admin',      'Demo',    '+56911111111', 'admin.dev@alltura.local',       'activo'),
-    ('00000000-0000-0000-0000-000000000102', '22.222.222-2', 'Bodega',     'Demo',    '+56922222222', 'bodega.dev@alltura.local',      'activo'),
+    ('00000000-0000-0000-0000-000000000102', '22.222.222-2', 'Operaciones','Demo',    '+56922222222', 'operaciones.dev@alltura.local', 'activo'),
     ('00000000-0000-0000-0000-000000000103', '33.333.333-3', 'Supervisor', 'Demo',    '+56933333333', 'supervisor.dev@alltura.local',  'activo'),
     ('00000000-0000-0000-0000-000000000104', '44.444.444-4', 'Juan',       'Herrera', '+56944444444', 'juan.herrera@alltura.local',    'activo'),
     ('00000000-0000-0000-0000-000000000105', '55.555.555-5', 'Maria',      'Rojas',   '+56955555555', 'maria.rojas@alltura.local',     'activo'),
@@ -37,49 +37,33 @@ BEGIN
     ('00000000-0000-0000-0000-000000000109', '99.999.999-9', 'Luis',       'Munoz',   '+56999999999', 'luis.munoz@alltura.local',      'activo'),
     ('00000000-0000-0000-0000-000000000110', '10.101.010-1', 'Rosa',       'Diaz',    '+56910101010', 'rosa.diaz@alltura.local',       'activo'),
     ('00000000-0000-0000-0000-000000000111', '12.121.212-1', 'Felipe',     'Castro',  '+56912121212', 'felipe.castro@alltura.local',   'activo'),
-    ('00000000-0000-0000-0000-000000000112', '13.131.313-1', 'Bodeguero2', 'Demo',    '+56913131313', 'bodeguero2.dev@alltura.local',  'activo'),
+    ('00000000-0000-0000-0000-000000000112', '13.131.313-1', 'Coordinador','Demo',    '+56913131313', 'coordinador.dev@alltura.local', 'activo'),
     ('00000000-0000-0000-0000-000000000113', '14.141.414-1', 'Auditor',    'Demo',    '+56914141414', 'auditor.dev@alltura.local',     'activo')
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
-  -- 2) USUARIOS (13) — todos con Dev12345!
+  -- 2) USUARIOS (5) — solo admin/supervisor, todos con Dev12345!
   -- ============================================================
 
   INSERT INTO usuario (id, persona_id, creado_por_admin_id, email_login, password_hash, estado)
   VALUES
     ('00000000-0000-0000-0000-000000001001', '00000000-0000-0000-0000-000000000101', NULL,                                      'admin.dev@alltura.local',      crypt('Dev12345!', gen_salt('bf', 10)), 'activo'),
-    ('00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000000102', '00000000-0000-0000-0000-000000001001', 'bodega.dev@alltura.local',     crypt('Dev12345!', gen_salt('bf', 10)), 'activo'),
+    ('00000000-0000-0000-0000-000000001002', '00000000-0000-0000-0000-000000000102', '00000000-0000-0000-0000-000000001001', 'operaciones.dev@alltura.local', crypt('Dev12345!', gen_salt('bf', 10)), 'activo'),
     ('00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-000000001001', 'supervisor.dev@alltura.local', crypt('Dev12345!', gen_salt('bf', 10)), 'activo'),
-    ('00000000-0000-0000-0000-000000001004', '00000000-0000-0000-0000-000000000104', '00000000-0000-0000-0000-000000001001', 'juan.herrera@alltura.local',   crypt('Dev12345!', gen_salt('bf', 10)), 'activo'),
-    ('00000000-0000-0000-0000-000000001005', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000001001', 'maria.rojas@alltura.local',    crypt('Dev12345!', gen_salt('bf', 10)), 'activo'),
-    ('00000000-0000-0000-0000-000000001006', '00000000-0000-0000-0000-000000000106', '00000000-0000-0000-0000-000000001001', 'carlos.vega@alltura.local',    crypt('Dev12345!', gen_salt('bf', 10)), 'activo'),
-    ('00000000-0000-0000-0000-000000001007', '00000000-0000-0000-0000-000000000107', '00000000-0000-0000-0000-000000001001', 'ana.torres@alltura.local',     crypt('Dev12345!', gen_salt('bf', 10)), 'activo'),
-    ('00000000-0000-0000-0000-000000001008', '00000000-0000-0000-0000-000000000108', '00000000-0000-0000-0000-000000001001', 'pedro.soto@alltura.local',     crypt('Dev12345!', gen_salt('bf', 10)), 'activo'),
-    ('00000000-0000-0000-0000-000000001009', '00000000-0000-0000-0000-000000000109', '00000000-0000-0000-0000-000000001001', 'luis.munoz@alltura.local',     crypt('Dev12345!', gen_salt('bf', 10)), 'activo'),
-    ('00000000-0000-0000-0000-000000001010', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000001001', 'rosa.diaz@alltura.local',      crypt('Dev12345!', gen_salt('bf', 10)), 'activo'),
-    ('00000000-0000-0000-0000-000000001011', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000001001', 'felipe.castro@alltura.local',  crypt('Dev12345!', gen_salt('bf', 10)), 'activo'),
-    ('00000000-0000-0000-0000-000000001012', '00000000-0000-0000-0000-000000000112', '00000000-0000-0000-0000-000000001001', 'bodeguero2.dev@alltura.local', crypt('Dev12345!', gen_salt('bf', 10)), 'activo'),
+    ('00000000-0000-0000-0000-000000001012', '00000000-0000-0000-0000-000000000112', '00000000-0000-0000-0000-000000001001', 'coordinador.dev@alltura.local', crypt('Dev12345!', gen_salt('bf', 10)), 'activo'),
     ('00000000-0000-0000-0000-000000001013', '00000000-0000-0000-0000-000000000113', '00000000-0000-0000-0000-000000001001', 'auditor.dev@alltura.local',    crypt('Dev12345!', gen_salt('bf', 10)), 'activo')
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
-  -- 3) ROLES: admin(1), bodega(2), supervisor(2), trabajador(8)
+  -- 3) ROLES: admin(1), supervisor(4)
   -- ============================================================
 
   INSERT INTO usuario_rol (usuario_id, rol_id)
   SELECT u.id, r.id FROM (VALUES
     ('00000000-0000-0000-0000-000000001001', 'admin'),
-    ('00000000-0000-0000-0000-000000001002', 'bodega'),
+    ('00000000-0000-0000-0000-000000001002', 'supervisor'),
     ('00000000-0000-0000-0000-000000001003', 'supervisor'),
-    ('00000000-0000-0000-0000-000000001004', 'trabajador'),
-    ('00000000-0000-0000-0000-000000001005', 'trabajador'),
-    ('00000000-0000-0000-0000-000000001006', 'trabajador'),
-    ('00000000-0000-0000-0000-000000001007', 'trabajador'),
-    ('00000000-0000-0000-0000-000000001008', 'trabajador'),
-    ('00000000-0000-0000-0000-000000001009', 'trabajador'),
-    ('00000000-0000-0000-0000-000000001010', 'trabajador'),
-    ('00000000-0000-0000-0000-000000001011', 'trabajador'),
-    ('00000000-0000-0000-0000-000000001012', 'bodega'),
+    ('00000000-0000-0000-0000-000000001012', 'supervisor'),
     ('00000000-0000-0000-0000-000000001013', 'supervisor')
   ) AS v(uid, rname)
   JOIN usuario u ON u.id = v.uid::uuid
@@ -90,16 +74,16 @@ BEGIN
   -- 4) TRABAJADORES (8)
   -- ============================================================
 
-  INSERT INTO trabajador (id, persona_id, usuario_id, cargo, fecha_ingreso, estado)
+  INSERT INTO trabajador (id, persona_id, cargo, fecha_ingreso, estado)
   VALUES
-    ('00000000-0000-0000-0000-000000002001', '00000000-0000-0000-0000-000000000104', '00000000-0000-0000-0000-000000001004', 'Maestro primera',     NOW() - INTERVAL '400 days', 'activo'),
-    ('00000000-0000-0000-0000-000000002002', '00000000-0000-0000-0000-000000000105', '00000000-0000-0000-0000-000000001005', 'Ayudante',            NOW() - INTERVAL '350 days', 'activo'),
-    ('00000000-0000-0000-0000-000000002003', '00000000-0000-0000-0000-000000000106', '00000000-0000-0000-0000-000000001006', 'Operador grua',       NOW() - INTERVAL '300 days', 'activo'),
-    ('00000000-0000-0000-0000-000000002004', '00000000-0000-0000-0000-000000000107', '00000000-0000-0000-0000-000000001007', 'Jefa cuadrilla',      NOW() - INTERVAL '280 days', 'activo'),
-    ('00000000-0000-0000-0000-000000002005', '00000000-0000-0000-0000-000000000108', '00000000-0000-0000-0000-000000001008', 'Soldador',            NOW() - INTERVAL '260 days', 'activo'),
-    ('00000000-0000-0000-0000-000000002006', '00000000-0000-0000-0000-000000000109', '00000000-0000-0000-0000-000000001009', 'Capataz',             NOW() - INTERVAL '240 days', 'activo'),
-    ('00000000-0000-0000-0000-000000002007', '00000000-0000-0000-0000-000000000110', '00000000-0000-0000-0000-000000001010', 'Rigger',              NOW() - INTERVAL '200 days', 'activo'),
-    ('00000000-0000-0000-0000-000000002008', '00000000-0000-0000-0000-000000000111', '00000000-0000-0000-0000-000000001011', 'Ayudante electrico',  NOW() - INTERVAL '180 days', 'activo')
+    ('00000000-0000-0000-0000-000000002001', '00000000-0000-0000-0000-000000000104', 'Maestro primera',     NOW() - INTERVAL '400 days', 'activo'),
+    ('00000000-0000-0000-0000-000000002002', '00000000-0000-0000-0000-000000000105', 'Ayudante',            NOW() - INTERVAL '350 days', 'activo'),
+    ('00000000-0000-0000-0000-000000002003', '00000000-0000-0000-0000-000000000106', 'Operador grua',       NOW() - INTERVAL '300 days', 'activo'),
+    ('00000000-0000-0000-0000-000000002004', '00000000-0000-0000-0000-000000000107', 'Jefa cuadrilla',      NOW() - INTERVAL '280 days', 'activo'),
+    ('00000000-0000-0000-0000-000000002005', '00000000-0000-0000-0000-000000000108', 'Soldador',            NOW() - INTERVAL '260 days', 'activo'),
+    ('00000000-0000-0000-0000-000000002006', '00000000-0000-0000-0000-000000000109', 'Capataz',             NOW() - INTERVAL '240 days', 'activo'),
+    ('00000000-0000-0000-0000-000000002007', '00000000-0000-0000-0000-000000000110', 'Rigger',              NOW() - INTERVAL '200 days', 'activo'),
+    ('00000000-0000-0000-0000-000000002008', '00000000-0000-0000-0000-000000000111', 'Ayudante electrico',  NOW() - INTERVAL '180 days', 'activo')
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
@@ -482,5 +466,5 @@ BEGIN
     ('00000000-0000-0000-0000-00000000b052', '00000000-0000-0000-0000-000000006007', NOW()-INTERVAL '34 days', 'mantencion', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003006', '00000000-0000-0000-0000-000000001001', NULL, NULL, NULL, 'TAL-007 enviado a mantencion preventiva por admin.')
   ON CONFLICT (id) DO NOTHING;
 
-  RAISE NOTICE '002-dev-seed.sql aplicado: dataset completo — 13 usuarios, 8 trabajadores, 27 activos (5 estados), 9 entregas, 3 devoluciones, 2 egresos, ~60 movimientos.';
+  RAISE NOTICE '002-dev-seed.sql aplicado: dataset completo — 5 usuarios, 8 trabajadores, 27 activos (5 estados), 9 entregas, 3 devoluciones, 2 egresos, ~60 movimientos.';
 END $$;

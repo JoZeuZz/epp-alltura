@@ -14,4 +14,3 @@ export { useNotifications } from './useNotifications';
 export { useAuth } from './useAuth';
 export { useNotification } from './useNotification';
 export { useTour } from './useTour';
-export { useConfirmation } from './useConfirmation';

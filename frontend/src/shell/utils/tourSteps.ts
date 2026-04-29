@@ -1,4 +1,4 @@
-export type TourRole = 'admin' | 'supervisor' | 'bodega' | 'worker';
+export type TourRole = 'admin' | 'supervisor';
 
 export interface TourStep {
   id: string;
@@ -123,72 +123,21 @@ export const onboardingStepsByRole: Record<TourRole, TourStep[]> = {
       mobilePlacement: 'bottom',
     },
     {
+      id: 'supervisor-operaciones',
+      role: 'supervisor',
+      route: '/supervisor/operaciones',
+      title: 'Operación diaria',
+      body: 'Gestiona entregas, firmas, devoluciones y stock desde una vista operativa.',
+      placement: 'center',
+      mobilePlacement: 'bottom',
+    },
+    {
       id: 'supervisor-tour-launcher',
       role: 'supervisor',
       route: '*',
       selector: '[data-tour="tour-launcher"]',
       title: 'Guía contextual',
       body: 'Puedes reabrir la ayuda operativa cuando la necesites.',
-      placement: 'top',
-      mobilePlacement: 'top',
-    },
-  ],
-  bodega: [
-    {
-      id: 'bodega-dashboard',
-      role: 'bodega',
-      route: '/bodega/dashboard',
-      title: 'Operación de bodega',
-      body: 'Desde aquí gestionas entregas, firmas, devoluciones y stock.',
-      placement: 'center',
-      mobilePlacement: 'bottom',
-    },
-    {
-      id: 'bodega-operaciones',
-      role: 'bodega',
-      route: '/bodega/operaciones',
-      title: 'Entregas y devoluciones',
-      body: 'Crea borradores y confirma flujos diarios de entrega y devolución.',
-      placement: 'center',
-      mobilePlacement: 'bottom',
-    },
-    {
-      id: 'bodega-tour-launcher',
-      role: 'bodega',
-      route: '*',
-      selector: '[data-tour="tour-launcher"]',
-      title: 'Guía contextual',
-      body: 'Accede a una guía rápida para cada pantalla operativa.',
-      placement: 'top',
-      mobilePlacement: 'top',
-    },
-  ],
-  worker: [
-    {
-      id: 'worker-dashboard',
-      role: 'worker',
-      route: '/worker/dashboard',
-      title: 'Mis equipos y herramientas',
-      body: 'Consulta lo que tienes asignado y lo que debes confirmar.',
-      placement: 'center',
-      mobilePlacement: 'bottom',
-    },
-    {
-      id: 'worker-signatures',
-      role: 'worker',
-      route: '/worker/firmas',
-      title: 'Confirmar recepción',
-      body: 'Completa la confirmación de recepción por dispositivo o con código cuando corresponda.',
-      placement: 'center',
-      mobilePlacement: 'bottom',
-    },
-    {
-      id: 'worker-tour-launcher',
-      role: 'worker',
-      route: '*',
-      selector: '[data-tour="tour-launcher"]',
-      title: 'Guía contextual',
-      body: 'Puedes reabrir esta guía en cualquier momento.',
       placement: 'top',
       mobilePlacement: 'top',
     },
@@ -294,6 +243,14 @@ export const contextualStepsByRole: Record<TourRole, TourStep[]> = {
   ],
   supervisor: [
     {
+      id: 'supervisor-operations-context',
+      role: 'supervisor',
+      route: '/supervisor/operaciones',
+      title: 'Flujo operativo',
+      body: 'Este módulo concentra creación y confirmación de entregas/devoluciones.',
+      placement: 'center',
+    },
+    {
       id: 'supervisor-dashboard-context',
       role: 'supervisor',
       route: '/supervisor/dashboard',
@@ -302,28 +259,6 @@ export const contextualStepsByRole: Record<TourRole, TourStep[]> = {
       placement: 'center',
     },
     ...sharedContextSteps('supervisor'),
-  ],
-  bodega: [
-    {
-      id: 'bodega-operations-context',
-      role: 'bodega',
-      route: '/bodega/operaciones',
-      title: 'Flujo operativo',
-      body: 'Este módulo concentra creación y confirmación de entregas/devoluciones.',
-      placement: 'center',
-    },
-    ...sharedContextSteps('bodega'),
-  ],
-  worker: [
-    {
-      id: 'worker-signatures-context',
-      role: 'worker',
-      route: '/worker/firmas',
-      title: 'Recepción y firma',
-      body: 'Revisa pendientes y firma con trazabilidad legal completa.',
-      placement: 'center',
-    },
-    ...sharedContextSteps('worker'),
   ],
 };
 

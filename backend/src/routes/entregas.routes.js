@@ -133,12 +133,12 @@ const deshacerEntregaSchema = Joi.object({
   motivo: Joi.string().trim().min(5).max(1000).required(),
 });
 
-router.get('/', authMiddleware, checkRole(['admin', 'supervisor', 'bodega']), EntregasController.list);
+router.get('/', authMiddleware, checkRole(['admin', 'supervisor']), EntregasController.list);
 
 router.get(
   '/templates',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   EntregasController.listTemplates
 );
 
@@ -153,7 +153,7 @@ router.post(
 router.get(
   '/templates/:templateId',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   EntregasController.getTemplateById
 );
 
@@ -175,7 +175,7 @@ router.delete(
 router.get(
   '/templates/:templateId/preview',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateQuery(templatePreviewQuerySchema),
   EntregasController.previewTemplate
 );
@@ -183,7 +183,7 @@ router.get(
 router.post(
   '/templates/:templateId/create-draft',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateBody(createFromTemplateSchema),
   EntregasController.createFromTemplate
 );
@@ -191,7 +191,7 @@ router.post(
 router.post(
   '/templates/:templateId/create-draft-batch',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateBody(createBatchFromTemplateSchema),
   EntregasController.createBatchFromTemplate
 );
@@ -199,22 +199,22 @@ router.post(
 router.get(
   '/:id/acta',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   EntregasController.getActa
 );
 
-router.get('/:id', authMiddleware, checkRole(['admin', 'supervisor', 'bodega']), EntregasController.getById);
+router.get('/:id', authMiddleware, checkRole(['admin', 'supervisor']), EntregasController.getById);
 router.post(
   '/',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateBody(createEntregaSchema),
   EntregasController.create
 );
 router.post(
   '/:id/confirm',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   EntregasController.confirm
 );
 

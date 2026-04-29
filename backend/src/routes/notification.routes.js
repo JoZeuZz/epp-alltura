@@ -3,7 +3,7 @@ const Joi = require('joi');
 const { authMiddleware } = require('../middleware/auth');
 const { isAdmin } = require('../middleware/roles');
 const NotificationController = require('../controllers/notification.controller');
-const { pushSubscription } = require('../validation');
+const { pushSubscription } = require('../lib/validation');
 
 const router = express.Router();
 

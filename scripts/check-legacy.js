@@ -16,9 +16,19 @@ const FORBIDDEN_PATTERNS = [
   '/admin/projects',
   '/admin/assets',
   '/client/',
+  '/worker/',
+  '/bodega/',
   '/supervisor/project/',
   '/dashboard/cubic-meters',
   '/dashboard/project/',
+  "role === 'bodega'",
+  "role === 'worker'",
+  "role === 'trabajador'",
+  "role === 'client'",
+  "role: 'bodega'",
+  "role: 'worker'",
+  "role: 'trabajador'",
+  "role: 'client'",
 ];
 
 const collectSourceFiles = (dir, fileList = []) => {

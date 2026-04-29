@@ -5,7 +5,7 @@ export interface User {
   first_name: string;
   last_name: string;
   email: string;
-  role: 'admin' | 'supervisor' | 'bodega' | 'worker' | 'trabajador';
+  role: 'admin' | 'supervisor';
   password?: string;
   created_at: string;
   rut?: string;
@@ -29,19 +29,13 @@ export interface Persona {
 }
 
 export interface Trabajador extends Persona {
-  /** UUID del registro en tabla trabajador */
-  trabajador_id: string;
-  usuario_id?: string;
   cargo?: string;
   fecha_ingreso?: string;
-  /** Email asociado al login de usuario (si tiene cuenta) */
-  email_login?: string;
 }
 
 export interface Ubicacion {
   id: string;
   nombre: string;
-  descripcion?: string;
   tipo?: string;
   estado?: 'activo' | 'inactivo';
   activo: boolean;
@@ -75,7 +69,6 @@ export interface Articulo {
   marca: string;
   modelo: string;
   unidad_medida?: string;
-  requiere_talla?: boolean;
   estado?: 'activo' | 'inactivo';
   /** URL servida por /api/image-proxy */
   imagen_url?: string;
@@ -131,8 +124,6 @@ export interface Entrega {
   tipo: EntregaTipo;
   estado: EntregaEstado;
   nota_destino?: string;
-  created_at?: string;
-  updated_at?: string;
   creado_en?: string;
   confirmada_en?: string;
   firmado_en?: string;
@@ -215,8 +206,6 @@ export interface Devolucion {
   supervisor_id?: string;
   estado: 'borrador' | 'pendiente_firma' | 'confirmada' | 'anulada';
   notas?: string;
-  created_at?: string;
-  updated_at?: string;
   creado_en?: string;
   confirmada_en?: string;
   /** Campos JOIN */

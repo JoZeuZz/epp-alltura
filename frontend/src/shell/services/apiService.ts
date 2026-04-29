@@ -58,10 +58,10 @@ function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
  * Obtiene usuarios filtrados por rol (compatibilidad de administración MER).
  */
 export const getUsersByRole = (
-  role: 'admin' | 'supervisor' | 'bodega' | 'worker' | 'trabajador' | 'client'
+  role: 'admin' | 'supervisor'
 ) => get(`/users?role=${role}`);
 
-export type UserRole = 'admin' | 'supervisor' | 'bodega' | 'worker' | 'trabajador' | 'client';
+export type UserRole = 'admin' | 'supervisor';
 
 export interface UsersQueryParams {
   role?: UserRole;
@@ -1019,7 +1019,6 @@ export interface TrabajadorCustodiaRow {
 export interface TrabajadorProfileResponse {
   id: string;
   persona_id: string;
-  usuario_id?: string;
   rut: string;
   nombres: string;
   apellidos: string;

@@ -4,7 +4,7 @@ const AuthController = require('../controllers/auth.controller');
 const { authMiddleware } = require('../middleware/auth');
 const { passwordValidationMiddleware } = require('../middleware/passwordPolicy');
 const rateLimit = require('express-rate-limit');
-const { email, password, personName, rut, phoneNumber, userRole } = require('../validation');
+const { email, password, personName, rut, phoneNumber, userRole } = require('../lib/validation');
 
 /**
  * AuthRoutes
