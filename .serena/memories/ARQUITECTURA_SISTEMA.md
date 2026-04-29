@@ -1,8 +1,10 @@
 # Arquitectura del sistema (consolidado)
 
-## Estado vigente
+## Estado vigente (actualizado 2026-04-28)
 - Monorepo con backend Express 5 + frontend React 19/Vite + PostgreSQL + Redis.
-- Dominio operativo principal: EPP/Herramientas (inventario, entregas, devoluciones, firmas, trazabilidad).
+- Dominio operativo principal: EPP/Herramientas (inventario por categoría, entregas, devoluciones, firmas, trazabilidad, inspecciones, documentos).
+- Roles autenticables: solo `admin` y `supervisor` (sin `bodega`/`worker`).
+- Capa shell frontend: `frontend/src/shell/` contiene componentes, contextos, layouts y servicios base en transición de consolidación (actualmente `shell/index.ts` vacío).
 
 ## Capas backend
 - Rutas -> Controladores -> Servicios -> DB/lib.
@@ -15,8 +17,11 @@
 - API axios central con refresh interceptor (coexiste `fetchAPI` para loaders en router).
 
 ## Datos
-- SQL versionado en `db/init/001..004` con constraints e índices de integridad.
-- Reglas de movimiento y estados reforzadas por migraciones SQL y validaciones de servicio.
+- SQL consolidado en `db/init/001-init.sql` (idempotente, fusión de migraciones 001-013) + `002-dev-seed.sql`.
+- Nuevas tablas: `articulo_especialidad`, `inspeccion_activo`, `documento*`, `notifications`, `push_subscriptions`.
+- `articulo.categoria`: clasificación por tipo EPP (`epp`, `medicion_ensayos`, `manual`, `electrica_cable`, `inalambrica_bateria`).
+- `ubicacion.tipo`: `bodega` | `planta` | `proyecto` | `taller_mantencion`.
+- Reglas de movimiento y estados reforzadas por SQL y validaciones de servicio.
 
 ## Referencias canónicas
 - Estado técnico validado: `REPO_ACTUAL_2026_03_16`.

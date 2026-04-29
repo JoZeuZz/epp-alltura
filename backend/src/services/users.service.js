@@ -43,7 +43,7 @@ const normalizeRut = (rut) => {
 
 const buildTokenPayloadUser = (user) => {
   const dbRoles = normalizeDbRoles(user.roles_db || user.roles || user.role_db || user.role);
-  const primaryDbRole = toDbRole(user.role_db || dbRoles[0] || 'trabajador');
+  const primaryDbRole = toDbRole(user.role_db) || dbRoles[0] || null;
   const { compatibleRoles } = buildCompatibleRoles(dbRoles);
 
   return {
@@ -75,7 +75,7 @@ const signAccessToken = (user) =>
 
 const mapUsuarioRecord = (row) => {
   const dbRoles = normalizeDbRoles(row.roles || row.role_db);
-  const primaryDbRole = toDbRole(row.role_db || dbRoles[0] || 'trabajador');
+  const primaryDbRole = toDbRole(row.role_db) || dbRoles[0] || null;
   const { compatibleRoles } = buildCompatibleRoles(dbRoles);
 
   return {
@@ -92,8 +92,6 @@ const mapUsuarioRecord = (row) => {
     phone_number: row.phone_number || null,
     profile_picture_url: row.profile_picture_url || null,
     estado: row.estado,
-    trabajador_id: row.trabajador_id || null,
-    cargo: row.cargo || null,
     created_at: row.created_at,
     client_id: null,
   };
@@ -114,16 +112,13 @@ const getUserByIdRaw = async (userId) => {
       p.rut,
       p.telefono AS phone_number,
       p.foto_url AS profile_picture_url,
-      t.id AS trabajador_id,
-      t.cargo,
       ARRAY_REMOVE(ARRAY_AGG(r.nombre), NULL) AS roles
     FROM usuario u
     LEFT JOIN persona p ON p.id = u.persona_id
-    LEFT JOIN trabajador t ON t.usuario_id = u.id
     LEFT JOIN usuario_rol ur ON ur.usuario_id = u.id
     LEFT JOIN rol r ON r.id = ur.rol_id
     WHERE u.id = $1
-    GROUP BY u.id, p.id, t.id
+    GROUP BY u.id, p.id
     LIMIT 1
     `,
     [userId]
@@ -148,23 +143,7 @@ const getRootAdminId = async (client) => {
   return rows[0]?.id || null;
 };
 
-const getDeleteAssignmentSummary = async (client, targetUserId, trabajadorId) => {
-  let activeCustodies = 0;
-
-  if (trabajadorId) {
-    const custodyResult = await client.query(
-      `
-      SELECT COUNT(*)::int AS total
-      FROM custodia_activo
-      WHERE trabajador_id = $1
-        AND estado = 'activa'
-        AND hasta_en IS NULL
-      `,
-      [trabajadorId]
-    );
-    activeCustodies = custodyResult.rows[0]?.total || 0;
-  }
-
+const getDeleteAssignmentSummary = async (client, targetUserId) => {
   const activityResult = await client.query(
     `
     SELECT
@@ -195,7 +174,6 @@ const getDeleteAssignmentSummary = async (client, targetUserId, trabajadorId) =>
   const auditorias = activity.auditorias || 0;
 
   return {
-    activeCustodies,
     entregas,
     devoluciones,
     compras,
@@ -207,7 +185,6 @@ const getDeleteAssignmentSummary = async (client, targetUserId, trabajadorId) =>
     firmas_token: firmasToken,
     auditorias,
     hasAssignments:
-      activeCustodies > 0 ||
       entregas > 0 ||
       devoluciones > 0 ||
       compras > 0 ||
@@ -219,39 +196,6 @@ const getDeleteAssignmentSummary = async (client, targetUserId, trabajadorId) =>
       firmasToken > 0 ||
       auditorias > 0,
   };
-};
-
-const ensureWorkerRecord = async (client, usuarioId, personaId, shouldBeActive) => {
-  const workerResult = await client.query(
-    `
-    SELECT id
-    FROM trabajador
-    WHERE usuario_id = $1
-    LIMIT 1
-    FOR UPDATE
-    `,
-    [usuarioId]
-  );
-
-  if (shouldBeActive) {
-    if (!workerResult.rows.length) {
-      await client.query(
-        `
-        INSERT INTO trabajador (persona_id, usuario_id, estado)
-        VALUES ($1, $2, 'activo')
-        `,
-        [personaId, usuarioId]
-      );
-      return;
-    }
-
-    await client.query('UPDATE trabajador SET estado = $2 WHERE id = $1', [workerResult.rows[0].id, 'activo']);
-    return;
-  }
-
-  if (workerResult.rows.length) {
-    await client.query('UPDATE trabajador SET estado = $2 WHERE id = $1', [workerResult.rows[0].id, 'inactivo']);
-  }
 };
 
 class UserService {
@@ -391,26 +335,18 @@ class UserService {
         p.rut,
         p.telefono AS phone_number,
         p.foto_url AS profile_picture_url,
-        t.id AS trabajador_id,
-        t.cargo,
         ARRAY_REMOVE(ARRAY_AGG(r.nombre), NULL) AS roles
       FROM usuario u
       LEFT JOIN persona p ON p.id = u.persona_id
-      LEFT JOIN trabajador t ON t.usuario_id = u.id
       LEFT JOIN usuario_rol ur ON ur.usuario_id = u.id
       LEFT JOIN rol r ON r.id = ur.rol_id
       ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
-      GROUP BY u.id, p.id, t.id
+      GROUP BY u.id, p.id
       ORDER BY p.nombres ASC NULLS LAST, p.apellidos ASC NULLS LAST, u.email_login ASC
     `;
 
     const { rows } = await db.query(query, values);
     return rows.map(mapUsuarioRecord);
-  }
-
-  static async getUsersByClientId(_clientId) {
-    logger.warn('Endpoint /users/by-client legacy invoked. Returning trabajadores as compatibility response.');
-    return this.getAllUsers({ role: 'trabajador' });
   }
 
   static async createUser(userData) {
@@ -420,6 +356,10 @@ class UserService {
     const phoneNumber = String(userData.phone_number || userData.telefono || '').trim();
     const rut = normalizeRut(userData.rut);
     const roleName = toDbRole(userData.role || 'supervisor');
+
+    if (!roleName) {
+      throw buildError('Role is not valid', 400, 'ROLE_INVALID');
+    }
 
     if (!email) {
       throw buildError('Email is required', 400, 'EMAIL_REQUIRED');
@@ -489,8 +429,6 @@ class UserService {
         [usuarioId, role.id]
       );
 
-      await ensureWorkerRecord(client, usuarioId, personaId, roleName === 'trabajador');
-
       await client.query('COMMIT');
 
       return this.getUserById(usuarioId);
@@ -542,6 +480,9 @@ class UserService {
     }
 
     const nextRoleName = updateData.role ? toDbRole(updateData.role) : null;
+    if (updateData.role && !nextRoleName) {
+      throw buildError('Role is not valid', 400, 'ROLE_INVALID');
+    }
     let role = null;
     if (nextRoleName) {
       role = await RolModel.findByNombre(nextRoleName);
@@ -608,9 +549,6 @@ class UserService {
         );
       }
 
-      const shouldBeWorker = role ? role.nombre === 'trabajador' : normalizeDbRoles(existing.roles).includes('trabajador');
-      await ensureWorkerRecord(client, userId, existing.persona_id, shouldBeWorker);
-
       await client.query('COMMIT');
 
       return this.getUserById(userId);
@@ -647,12 +585,11 @@ class UserService {
     try {
       await client.query('BEGIN');
 
-      const assignmentSummary = await getDeleteAssignmentSummary(client, userId, existing.trabajador_id);
+      const assignmentSummary = await getDeleteAssignmentSummary(client, userId);
 
       if (assignmentSummary.hasAssignments) {
         await client.query('UPDATE usuario SET estado = $2 WHERE id = $1', [userId, 'inactivo']);
         await client.query('UPDATE persona SET estado = $2 WHERE id = $1', [existing.persona_id, 'inactivo']);
-        await client.query('UPDATE trabajador SET estado = $2 WHERE usuario_id = $1', [userId, 'inactivo']);
 
         await client.query('COMMIT');
 
@@ -693,7 +630,6 @@ class UserService {
         }
       }
 
-      await client.query('DELETE FROM trabajador WHERE usuario_id = $1', [userId]);
       await client.query('DELETE FROM usuario_rol WHERE usuario_id = $1', [userId]);
       await client.query('DELETE FROM usuario WHERE id = $1', [userId]);
 

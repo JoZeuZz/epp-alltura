@@ -48,7 +48,6 @@ CREATE TABLE IF NOT EXISTS usuario (
 CREATE TABLE IF NOT EXISTS trabajador (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   persona_id UUID NOT NULL UNIQUE REFERENCES persona(id) ON DELETE CASCADE,
-  usuario_id UUID UNIQUE REFERENCES usuario(id) ON DELETE SET NULL,
   cargo VARCHAR(120),
   fecha_ingreso TIMESTAMPTZ,
   fecha_salida TIMESTAMPTZ,
@@ -59,7 +58,7 @@ CREATE TABLE IF NOT EXISTS trabajador (
 
 CREATE TABLE IF NOT EXISTS rol (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  nombre VARCHAR(30) NOT NULL UNIQUE CHECK (nombre IN ('admin', 'supervisor', 'bodega', 'trabajador')),
+  nombre VARCHAR(30) NOT NULL UNIQUE CHECK (nombre IN ('admin', 'supervisor')),
   descripcion TEXT
 );
 
@@ -69,6 +68,17 @@ CREATE TABLE IF NOT EXISTS usuario_rol (
   creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (usuario_id, rol_id)
 );
+
+DELETE FROM usuario_rol ur
+USING rol r
+WHERE ur.rol_id = r.id
+  AND r.nombre NOT IN ('admin', 'supervisor');
+
+DELETE FROM rol
+WHERE nombre NOT IN ('admin', 'supervisor');
+
+ALTER TABLE rol DROP CONSTRAINT IF EXISTS rol_nombre_check;
+ALTER TABLE rol ADD CONSTRAINT rol_nombre_check CHECK (nombre IN ('admin', 'supervisor'));
 
 -- ============================================================
 -- CATALOGS
@@ -108,15 +118,12 @@ CREATE TABLE IF NOT EXISTS proveedor (
 
 CREATE TABLE IF NOT EXISTS articulo (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('equipo', 'herramienta')),
   grupo_principal VARCHAR(20) NOT NULL DEFAULT 'herramienta' CHECK (grupo_principal IN ('equipo', 'herramienta')),
   nombre VARCHAR(150) NOT NULL,
   marca VARCHAR(120),
   modelo VARCHAR(120),
-  categoria VARCHAR(120) CHECK (categoria IN ('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria')),
   subclasificacion VARCHAR(120) NOT NULL CHECK (subclasificacion IN ('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria')),
   tracking_mode VARCHAR(20) NOT NULL CHECK (tracking_mode IN ('serial', 'lote')),
-  retorno_mode VARCHAR(20) NOT NULL CHECK (retorno_mode IN ('retornable')),
   nivel_control VARCHAR(20) NOT NULL CHECK (nivel_control IN ('alto', 'medio', 'bajo', 'fuera_scope')),
   requiere_vencimiento BOOLEAN NOT NULL DEFAULT FALSE,
   unidad_medida VARCHAR(50) NOT NULL,
@@ -128,79 +135,6 @@ CREATE TABLE IF NOT EXISTS articulo (
   )
 );
 
--- Compatibilidad idempotente para bases previas al catálogo V2.
-ALTER TABLE articulo
-  ADD COLUMN IF NOT EXISTS grupo_principal VARCHAR(20),
-  ADD COLUMN IF NOT EXISTS subclasificacion VARCHAR(120);
-
-ALTER TABLE articulo DROP CONSTRAINT IF EXISTS articulo_tipo_check;
-ALTER TABLE articulo DROP CONSTRAINT IF EXISTS articulo_grupo_principal_check;
-ALTER TABLE articulo DROP CONSTRAINT IF EXISTS articulo_categoria_check;
-ALTER TABLE articulo DROP CONSTRAINT IF EXISTS articulo_subclasificacion_check;
-ALTER TABLE articulo DROP CONSTRAINT IF EXISTS articulo_retorno_mode_check;
-ALTER TABLE articulo DROP CONSTRAINT IF EXISTS chk_articulo_grupo_subclasificacion;
-
-UPDATE articulo
-SET tipo = CASE
-  WHEN lower(tipo) = 'herramienta' THEN 'herramienta'
-  ELSE 'equipo'
-END;
-
-UPDATE articulo
-SET grupo_principal = CASE
-  WHEN lower(tipo) = 'herramienta' THEN 'herramienta'
-  WHEN lower(COALESCE(grupo_principal, '')) = 'herramienta' THEN 'herramienta'
-  ELSE 'equipo'
-END;
-
-UPDATE articulo
-SET subclasificacion = CASE
-  WHEN lower(COALESCE(subclasificacion, '')) IN ('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria')
-    THEN lower(subclasificacion)
-  WHEN lower(COALESCE(categoria, '')) IN ('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria')
-    THEN lower(categoria)
-  WHEN lower(tipo) = 'herramienta' THEN 'manual'
-  ELSE 'epp'
-END;
-
-UPDATE articulo
-SET categoria = subclasificacion
-WHERE categoria IS NULL
-  OR lower(COALESCE(categoria, '')) NOT IN ('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria');
-
-UPDATE articulo
-SET retorno_mode = 'retornable';
-
-ALTER TABLE articulo ALTER COLUMN grupo_principal SET DEFAULT 'herramienta';
-ALTER TABLE articulo ALTER COLUMN grupo_principal SET NOT NULL;
-ALTER TABLE articulo ALTER COLUMN subclasificacion SET NOT NULL;
-
-ALTER TABLE articulo
-  ADD CONSTRAINT articulo_tipo_check
-    CHECK (tipo IN ('equipo', 'herramienta'));
-
-ALTER TABLE articulo
-  ADD CONSTRAINT articulo_grupo_principal_check
-    CHECK (grupo_principal IN ('equipo', 'herramienta'));
-
-ALTER TABLE articulo
-  ADD CONSTRAINT articulo_categoria_check
-    CHECK (categoria IN ('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria'));
-
-ALTER TABLE articulo
-  ADD CONSTRAINT articulo_subclasificacion_check
-    CHECK (subclasificacion IN ('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria'));
-
-ALTER TABLE articulo
-  ADD CONSTRAINT articulo_retorno_mode_check
-    CHECK (retorno_mode IN ('retornable'));
-
-ALTER TABLE articulo
-  ADD CONSTRAINT chk_articulo_grupo_subclasificacion
-    CHECK (
-      (grupo_principal = 'equipo' AND subclasificacion IN ('epp', 'medicion_ensayos'))
-      OR (grupo_principal = 'herramienta' AND subclasificacion IN ('manual', 'electrica_cable', 'inalambrica_bateria'))
-    );
 
 CREATE TABLE IF NOT EXISTS articulo_especialidad (
   articulo_id UUID NOT NULL REFERENCES articulo(id) ON DELETE CASCADE,
@@ -564,7 +498,6 @@ CREATE INDEX IF NOT EXISTS idx_usuario_email_login ON usuario(email_login);
 CREATE INDEX IF NOT EXISTS idx_usuario_estado ON usuario(estado);
 CREATE INDEX IF NOT EXISTS idx_usuario_creado_por_admin_id ON usuario(creado_por_admin_id) WHERE creado_por_admin_id IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_trabajador_usuario_id ON trabajador(usuario_id);
 CREATE INDEX IF NOT EXISTS idx_trabajador_estado ON trabajador(estado);
 
 -- Catalogs
@@ -715,7 +648,5 @@ END $$;
 INSERT INTO rol (nombre, descripcion)
 VALUES
   ('admin', 'Administracion global del sistema'),
-  ('supervisor', 'Supervision operacional'),
-  ('bodega', 'Gestion de inventario, entrega y devolucion'),
-  ('trabajador', 'Colaborador receptor de herramientas y EPP')
+  ('supervisor', 'Supervision operacional y gestion de inventario, entrega y devolucion')
 ON CONFLICT (nombre) DO NOTHING;

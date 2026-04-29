@@ -135,14 +135,14 @@ describe('AuthService', () => {
       expect(redisClient.incrementFailedLogin).toHaveBeenCalledWith('127.0.0.1');
     });
 
-    it('returns tokens and normalized user payload on valid login', async () => {
+    it('returns tokens and silently drops unrecognized roles on login', async () => {
       const user = {
         id: 'u-1',
         email_login: 'u@alltura.cl',
         nombres: 'Juan',
         apellidos: 'Perez',
         estado: 'activo',
-        roles: ['supervisor', 'bodega'],
+        roles: ['supervisor', 'unknown_legacy'],
         comparePassword: jest.fn().mockResolvedValue(true),
       };
 
@@ -165,12 +165,13 @@ describe('AuthService', () => {
       expect(result).toMatchObject({
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
-        user: {
-          id: 'u-1',
-          email: 'u@alltura.cl',
-          role: 'supervisor',
-          roles: ['supervisor', 'bodega'],
-        },
+          user: {
+            id: 'u-1',
+            email: 'u@alltura.cl',
+            role: 'supervisor',
+            roles: ['supervisor'],
+            roles_db: ['supervisor'],
+          },
       });
     });
   });

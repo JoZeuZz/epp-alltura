@@ -83,27 +83,14 @@ class FirmasService {
 
       if (actor) {
         const actorRoles = new Set(Array.isArray(actor.roles) ? actor.roles : [actor.role]);
-        const isPrivileged =
-          actorRoles.has('admin') || actorRoles.has('supervisor') || actorRoles.has('bodega');
+        const isPrivileged = actorRoles.has('admin') || actorRoles.has('supervisor');
 
         if (!isPrivileged) {
-          const workerResult = await client.query(
-            `
-            SELECT id
-            FROM trabajador
-            WHERE usuario_id = $1
-            LIMIT 1
-            `,
-            [actor.id]
+          throw buildError(
+            'No tienes permisos para firmar esta entrega',
+            403,
+            'DELIVERY_WORKER_FORBIDDEN'
           );
-
-          if (!workerResult.rows.length || workerResult.rows[0].id !== expectedSignerWorkerId) {
-            throw buildError(
-              'No tienes permisos para firmar esta entrega',
-              403,
-              'DELIVERY_WORKER_FORBIDDEN'
-            );
-          }
         }
       }
 
@@ -475,7 +462,7 @@ class FirmasService {
         ed.condicion_salida,
         ed.notas,
         a.nombre AS articulo_nombre,
-        a.tipo AS articulo_tipo,
+        a.grupo_principal AS articulo_tipo,
         ac.codigo AS activo_codigo
       FROM entrega_detalle ed
       INNER JOIN articulo a ON a.id = ed.articulo_id
@@ -490,52 +477,6 @@ class FirmasService {
       ...tokenInfo,
       estado_token: estadoToken,
       detalles: detallesResult.rows,
-    };
-  }
-
-  static async getPendingDeliveriesForUser(userId) {
-    const trabajadorResult = await db.query(
-      `
-      SELECT id
-      FROM trabajador
-      WHERE usuario_id = $1
-      LIMIT 1
-      `,
-      [userId]
-    );
-
-    if (!trabajadorResult.rows.length) {
-      return {
-        trabajador_id: null,
-        entregas: [],
-      };
-    }
-
-    const trabajadorId = trabajadorResult.rows[0].id;
-
-    const entregasResult = await db.query(
-      `
-      SELECT
-        e.*,
-        COUNT(d.id)::int AS cantidad_items,
-        COALESCE(SUM(d.cantidad), 0) AS cantidad_total
-      FROM entrega e
-      INNER JOIN entrega_detalle d ON d.entrega_id = e.id
-      LEFT JOIN firma_entrega f ON f.entrega_id = e.id
-      WHERE (
-        e.trabajador_id = $1
-      )
-        AND e.estado IN ('borrador', 'pendiente_firma')
-        AND f.id IS NULL
-      GROUP BY e.id
-      ORDER BY e.creado_en DESC
-      `,
-      [trabajadorId]
-    );
-
-    return {
-      trabajador_id: trabajadorId,
-      entregas: entregasResult.rows,
     };
   }
 

@@ -87,35 +87,28 @@ const ensureSignatureInput = (req, _res, next) => {
 router.get(
   '/',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   DevolucionesController.list
-);
-
-router.get(
-  '/mis-custodias/activos',
-  authMiddleware,
-  checkRole(['trabajador', 'worker', 'client']),
-  DevolucionesController.getMyCustodias
 );
 
 router.get(
   '/activos-elegibles',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   DevolucionesController.getEligibleAssets
 );
 
 router.get(
   '/:id',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   DevolucionesController.getById
 );
 
 router.post(
   '/',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateBody(createDevolucionSchema),
   DevolucionesController.create
 );
@@ -123,14 +116,14 @@ router.post(
 router.post(
   '/:id/confirm',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   DevolucionesController.confirm
 );
 
 router.post(
   '/:id/firmar-dispositivo',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   optionalSignatureUpload,
   validateImageMagic,
   validateBody(signatureSchema),

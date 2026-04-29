@@ -94,14 +94,14 @@ router.get('/:id', authMiddleware, UbicacionesController.getById);
 router.post(
   '/',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateBody(ubicacionCreateSchema),
   UbicacionesController.create
 );
 router.put(
   '/:id',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateBody(ubicacionUpdateSchema),
   UbicacionesController.update
 );

@@ -36,16 +36,7 @@ let buildTestApp = () => {
 
 jest.mock('../../middleware/auth', () => ({
   authMiddleware: (req, _res, next) => {
-    const actor = String(req.headers['x-test-actor'] || 'bodega').toLowerCase();
-
-    if (actor === 'trabajador' || actor === 'worker') {
-      req.user = {
-        id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
-        role: 'worker',
-        roles: ['worker', 'trabajador', 'client'],
-      };
-      return next();
-    }
+    const actor = String(req.headers['x-test-actor'] || 'supervisor').toLowerCase();
 
     if (actor === 'admin') {
       req.user = {
@@ -56,10 +47,19 @@ jest.mock('../../middleware/auth', () => ({
       return next();
     }
 
+    if (actor === 'trabajador' || actor === 'worker' || actor === 'client') {
+      req.user = {
+        id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
+        role: 'worker',
+        roles: ['worker', 'trabajador', 'client'],
+      };
+      return next();
+    }
+
     req.user = {
       id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
-      role: 'bodega',
-      roles: ['bodega'],
+      role: 'supervisor',
+      roles: ['supervisor'],
     };
     return next();
   },
@@ -70,10 +70,7 @@ jest.mock('../../middleware/auth', () => ({
 
 jest.mock('../../middleware/roles', () => {
   const normalizeRole = (role) => {
-    if (role === 'worker' || role === 'client') {
-      return 'trabajador';
-    }
-    return role;
+    return role === 'admin' || role === 'supervisor' ? role : null;
   };
 
   const checkRole = (requiredRoles) => {
@@ -151,15 +148,14 @@ const findRoleId = async (roleName) => {
 };
 
 const seedBaseData = async () => {
-  const rolBodega = await findRoleId('bodega');
-  const rolTrabajador = await findRoleId('trabajador');
+  const rolSupervisor = await findRoleId('supervisor');
   const rolAdmin = await findRoleId('admin');
 
   await db.query(
     `
     INSERT INTO persona (id, rut, nombres, apellidos, email, estado)
     VALUES
-      ($1, '11.111.111-1', 'Bodega', 'Tester', 'bodega@test.local', 'activo'),
+      ($1, '11.111.111-1', 'Supervisor', 'Tester', 'supervisor@test.local', 'activo'),
       ($2, '22.222.222-2', 'Trabajador', 'Tester', 'trabajador@test.local', 'activo'),
       ($3, '33.333.333-3', 'Admin', 'Tester', 'admin@test.local', 'activo')
     `,
@@ -170,15 +166,12 @@ const seedBaseData = async () => {
     `
     INSERT INTO usuario (id, persona_id, email_login, password_hash, estado)
     VALUES
-      ($1, $2, 'bodega@test.local', 'hash', 'activo'),
-      ($3, $4, 'trabajador@test.local', 'hash', 'activo'),
-      ($5, $6, 'admin@test.local', 'hash', 'activo')
+      ($1, $2, 'supervisor@test.local', 'hash', 'activo'),
+      ($3, $4, 'admin@test.local', 'hash', 'activo')
     `,
     [
       IDS.bodegaUserId,
       IDS.bodegaPersonaId,
-      IDS.trabajadorUserId,
-      IDS.trabajadorPersonaId,
       IDS.adminUserId,
       IDS.adminPersonaId,
     ]
@@ -189,18 +182,17 @@ const seedBaseData = async () => {
     INSERT INTO usuario_rol (usuario_id, rol_id)
     VALUES
       ($1, $2),
-      ($3, $4),
-      ($5, $6)
+      ($3, $4)
     `,
-    [IDS.bodegaUserId, rolBodega, IDS.trabajadorUserId, rolTrabajador, IDS.adminUserId, rolAdmin]
+    [IDS.bodegaUserId, rolSupervisor, IDS.adminUserId, rolAdmin]
   );
 
   await db.query(
     `
-    INSERT INTO trabajador (id, persona_id, usuario_id, cargo, estado)
-    VALUES ($1, $2, $3, 'Operario', 'activo')
+    INSERT INTO trabajador (id, persona_id, cargo, estado)
+    VALUES ($1, $2, 'Operario', 'activo')
     `,
-    [IDS.trabajadorId, IDS.trabajadorPersonaId, IDS.trabajadorUserId]
+    [IDS.trabajadorId, IDS.trabajadorPersonaId]
   );
 
   await db.query(
@@ -237,7 +229,7 @@ const seedBaseData = async () => {
 const createDeliveryDraft = async (app) => {
   const response = await request(app)
     .post('/api/entregas')
-    .set('x-test-actor', 'bodega')
+    .set('x-test-actor', 'supervisor')
     .send({
       trabajador_id: IDS.trabajadorId,
       ubicacion_origen_id: IDS.ubicacionOrigenId,
@@ -259,7 +251,7 @@ const createDeliveryDraft = async (app) => {
 const signDelivery = async (app, entregaId) => {
   const response = await request(app)
     .post(`/api/firmas/entregas/${entregaId}/firmar-dispositivo`)
-    .set('x-test-actor', 'bodega')
+    .set('x-test-actor', 'supervisor')
     .send({
       firma_imagen_url: 'https://example.com/signatures/firma.png',
       texto_aceptacion: 'Acepto recepción para la entrega de prueba de acta PDF.',
@@ -291,7 +283,7 @@ maybeDescribe('Entrega acta PDF and anexos integration', () => {
 
     const firstCall = await request(app)
       .get(`/api/entregas/${entrega.id}/acta`)
-      .set('x-test-actor', 'bodega');
+      .set('x-test-actor', 'supervisor');
 
     expect(firstCall.status).toBe(200);
     expect(firstCall.body.data.tipo).toBe('acta_entrega');
@@ -299,7 +291,7 @@ maybeDescribe('Entrega acta PDF and anexos integration', () => {
 
     const secondCall = await request(app)
       .get(`/api/entregas/${entrega.id}/acta`)
-      .set('x-test-actor', 'bodega');
+      .set('x-test-actor', 'supervisor');
 
     expect(secondCall.status).toBe(200);
     expect(secondCall.body.data.documento_id).toBe(firstCall.body.data.documento_id);
@@ -335,7 +327,7 @@ maybeDescribe('Entrega acta PDF and anexos integration', () => {
     const validPdf = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF', 'utf8');
     const createAnexoResponse = await request(app)
       .post('/api/documentos/anexos')
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .field('entidad_tipo', 'entrega')
       .field('entidad_id', entrega.id)
       .field('tipo', 'informe')
@@ -349,7 +341,7 @@ maybeDescribe('Entrega acta PDF and anexos integration', () => {
 
     const badMimeResponse = await request(app)
       .post('/api/documentos/anexos')
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .field('entidad_tipo', 'entrega')
       .field('entidad_id', entrega.id)
       .field('tipo', 'informe')
@@ -367,7 +359,7 @@ maybeDescribe('Entrega acta PDF and anexos integration', () => {
 
     const largeFileResponse = await request(app)
       .post('/api/documentos/anexos')
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .field('entidad_tipo', 'entrega')
       .field('entidad_id', entrega.id)
       .field('tipo', 'informe')

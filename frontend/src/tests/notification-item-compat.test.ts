@@ -28,12 +28,17 @@ describe('notificationItemCompat', () => {
   });
 
   it('keeps allowed EPP links', () => {
-    expect(resolveNotificationItemNavigationLink('/bodega/operaciones')).toBe(
-      '/bodega/operaciones'
+    expect(resolveNotificationItemNavigationLink('/supervisor/operaciones')).toBe(
+      '/supervisor/operaciones'
     );
     expect(resolveNotificationItemNavigationLink('/admin/trabajadores?perfil=123')).toBe(
       '/admin/trabajadores?perfil=123'
     );
+  });
+
+  it('rejects legacy authenticated bodega and worker links', () => {
+    expect(resolveNotificationItemNavigationLink('/bodega/operaciones')).toBe('/notifications');
+    expect(resolveNotificationItemNavigationLink('/worker/dashboard')).toBe('/notifications');
   });
 
   it('builds full presentation object preserving navigation fallback', () => {

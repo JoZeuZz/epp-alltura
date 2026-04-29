@@ -45,7 +45,7 @@ const ensureDocumentFile = (req, _res, next) => {
 router.post(
   '/anexos',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   documentUpload.single('archivo'),
   validateDocumentMagic,
   validateBody(createAnexoSchema),

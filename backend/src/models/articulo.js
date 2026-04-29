@@ -1,77 +1,11 @@
 const db = require('../db');
 const { buildSetClause, normalizePagination } = require('./modelUtils');
-
-const GRUPOS_VALIDOS = new Set(['equipo', 'herramienta']);
-
-const SUBCLASIFICACIONES_POR_GRUPO = {
-  equipo: new Set(['epp', 'medicion_ensayos']),
-  herramienta: new Set(['manual', 'electrica_cable', 'inalambrica_bateria']),
-};
-
-const ESPECIALIDADES_VALIDAS = new Set([
-  'oocc',
-  'ooee',
-  'equipos',
-  'trabajos_verticales_lineas_de_vida',
-]);
-
-const SUBCLASIFICACIONES_NO_SERIALES = new Set(['epp']);
-
-const normalizeKey = (value) => String(value || '').trim().toLowerCase();
-
-const normalizeGrupoPrincipal = (value) => {
-  if (value === undefined) return undefined;
-
-  const normalized = normalizeKey(value);
-  return GRUPOS_VALIDOS.has(normalized) ? normalized : null;
-};
-
-const normalizeSubclasificacion = (value, grupoPrincipal) => {
-  if (value === undefined) return undefined;
-
-  const normalized = normalizeKey(value);
-
-  if (!normalized) {
-    return null;
-  }
-
-  if (!grupoPrincipal) {
-    const allowedInAnyGroup = Object.values(SUBCLASIFICACIONES_POR_GRUPO).some((set) =>
-      set.has(normalized)
-    );
-    return allowedInAnyGroup ? normalized : null;
-  }
-
-  const allowedForGroup = SUBCLASIFICACIONES_POR_GRUPO[grupoPrincipal];
-  return allowedForGroup && allowedForGroup.has(normalized) ? normalized : null;
-};
-
-const normalizeEspecialidades = (value) => {
-  if (!Array.isArray(value)) {
-    return undefined;
-  }
-
-  const seen = new Set();
-  const normalized = [];
-
-  for (const item of value) {
-    const key = normalizeKey(item);
-    if (!key || !ESPECIALIDADES_VALIDAS.has(key) || seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    normalized.push(key);
-  }
-
-  return normalized;
-};
-
-const resolveTrackingMode = (subclasificacion) => {
-  if (!subclasificacion) {
-    return 'serial';
-  }
-  return SUBCLASIFICACIONES_NO_SERIALES.has(subclasificacion) ? 'lote' : 'serial';
-};
+const {
+  normalizeGrupoPrincipal,
+  normalizeSubclasificacion,
+  normalizeEspecialidades,
+  resolveTrackingMode,
+} = require('../lib/articuloValidation');
 
 class ArticuloModel {
   constructor(data) {
@@ -133,30 +67,25 @@ class ArticuloModel {
       const { rows } = await client.query(
         `
         INSERT INTO articulo (
-          tipo,
           grupo_principal,
           nombre,
           marca,
           modelo,
-          categoria,
           subclasificacion,
           tracking_mode,
-          retorno_mode,
           nivel_control,
           requiere_vencimiento,
           unidad_medida,
           estado
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'retornable', $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING id
         `,
         [
           grupoPrincipal,
-          grupoPrincipal,
           fields.nombre,
           String(fields.marca || '').trim(),
           String(fields.modelo || '').trim(),
-          subclasificacion,
           subclasificacion,
           trackingMode,
           fields.nivel_control,
@@ -375,7 +304,6 @@ class ArticuloModel {
       : undefined;
 
     const updateFields = {
-      tipo: grupoPrincipal,
       grupo_principal: grupoPrincipal,
       nombre: fields.nombre,
       marca: Object.prototype.hasOwnProperty.call(fields, 'marca')
@@ -384,15 +312,10 @@ class ArticuloModel {
       modelo: Object.prototype.hasOwnProperty.call(fields, 'modelo')
         ? String(fields.modelo || '').trim()
         : undefined,
-      categoria: subclasificacion,
       subclasificacion,
       tracking_mode:
         hasGrupoPrincipalUpdate || hasSubclasificacionUpdate
           ? resolveTrackingMode(subclasificacion)
-          : undefined,
-      retorno_mode:
-        hasGrupoPrincipalUpdate || hasSubclasificacionUpdate
-          ? 'retornable'
           : undefined,
       nivel_control: fields.nivel_control,
       requiere_vencimiento: fields.requiere_vencimiento,

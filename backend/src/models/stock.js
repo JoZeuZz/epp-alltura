@@ -55,7 +55,7 @@ class StockModel {
       SELECT
         s.*,
         a.nombre AS articulo_nombre,
-        a.tipo AS articulo_tipo
+        a.grupo_principal AS articulo_tipo
       FROM stock s
       INNER JOIN articulo a ON a.id = s.articulo_id
       WHERE s.ubicacion_id = $1

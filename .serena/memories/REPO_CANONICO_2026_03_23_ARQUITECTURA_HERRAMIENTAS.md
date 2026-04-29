@@ -6,12 +6,11 @@
 - Patrón backend: rutas -> controladores -> servicios -> DB; envelope de respuesta en la mayoría de endpoints.
 - Middleware crítico en backend: helmet -> cors -> hpp -> headers/csp -> requestId -> compression -> parsers -> sanitizeStrict(/api) -> logger -> rutas -> error handlers.
 
-## Rutas por rol vigentes
-- Admin: /admin/dashboard, /admin/trazabilidad, /admin/inventario/*, /admin/users, /admin/trabajadores, /admin/ubicaciones, /admin/entregas, /admin/devoluciones.
-- Supervisor: /supervisor/dashboard, /supervisor/trazabilidad.
-- Bodega: /bodega/dashboard, /bodega/operaciones, /bodega/devoluciones.
-- Worker: /worker/dashboard, /worker/firmas.
-- Ruta retirada: /admin/auditoria.
+## Rutas por rol vigentes (actualizado 2026-04-28)
+- Admin: /admin/dashboard, /admin/inventario/*, /admin/users, /admin/trabajadores, /admin/ubicaciones, /admin/bodegas, /admin/proyectos, /admin/entregas, /admin/devoluciones.
+- Supervisor: /supervisor/dashboard, /supervisor/operaciones.
+- ELIMINADAS: /bodega/*, /worker/*, /admin/trazabilidad, /admin/auditoria.
+- Inventario admin subrutas: /articulos, /stock, /movimientos, /ingresos, /egresos, /activos, /epp, /equipos, /herramientas.
 
 ## Inventario y trazabilidad
 - Stock escalable: /inventario/stock-summary + /inventario/stock-paged + /inventario/activos-paged (cursor por offset codificado en base64url).

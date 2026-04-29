@@ -36,16 +36,7 @@ let buildTestApp = () => {
 
 jest.mock('../../middleware/auth', () => ({
   authMiddleware: (req, _res, next) => {
-    const actor = String(req.headers['x-test-actor'] || 'bodega').toLowerCase();
-
-    if (actor === 'trabajador' || actor === 'worker') {
-      req.user = {
-        id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
-        role: 'worker',
-        roles: ['worker', 'trabajador', 'client'],
-      };
-      return next();
-    }
+    const actor = String(req.headers['x-test-actor'] || 'supervisor').toLowerCase();
 
     if (actor === 'admin') {
       req.user = {
@@ -56,10 +47,19 @@ jest.mock('../../middleware/auth', () => ({
       return next();
     }
 
+    if (actor === 'unprivileged') {
+      req.user = {
+        id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
+        role: 'none',
+        roles: [],
+      };
+      return next();
+    }
+
     req.user = {
       id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
-      role: 'bodega',
-      roles: ['bodega'],
+      role: 'supervisor',
+      roles: ['supervisor'],
     };
     return next();
   },
@@ -70,10 +70,7 @@ jest.mock('../../middleware/auth', () => ({
 
 jest.mock('../../middleware/roles', () => {
   const normalizeRole = (role) => {
-    if (role === 'worker' || role === 'client') {
-      return 'trabajador';
-    }
-    return role;
+    return role === 'admin' || role === 'supervisor' ? role : null;
   };
 
   const checkRole = (requiredRoles) => {
@@ -153,15 +150,14 @@ const findRoleId = async (roleName) => {
 };
 
 const seedBaseData = async () => {
-  const rolBodega = await findRoleId('bodega');
-  const rolTrabajador = await findRoleId('trabajador');
+  const rolSupervisor = await findRoleId('supervisor');
   const rolAdmin = await findRoleId('admin');
 
   await db.query(
     `
     INSERT INTO persona (id, rut, nombres, apellidos, email, estado)
     VALUES
-      ($1, '11.111.111-1', 'Bodega', 'Tester', 'bodega@test.local', 'activo'),
+      ($1, '11.111.111-1', 'Supervisor', 'Tester', 'supervisor@test.local', 'activo'),
       ($2, '22.222.222-2', 'Trabajador', 'Tester', 'trabajador@test.local', 'activo'),
       ($3, '33.333.333-3', 'Admin', 'Tester', 'admin@test.local', 'activo')
     `,
@@ -172,15 +168,12 @@ const seedBaseData = async () => {
     `
     INSERT INTO usuario (id, persona_id, email_login, password_hash, estado)
     VALUES
-      ($1, $2, 'bodega@test.local', 'hash', 'activo'),
-      ($3, $4, 'trabajador@test.local', 'hash', 'activo'),
-      ($5, $6, 'admin@test.local', 'hash', 'activo')
+      ($1, $2, 'supervisor@test.local', 'hash', 'activo'),
+      ($3, $4, 'admin@test.local', 'hash', 'activo')
     `,
     [
       IDS.bodegaUserId,
       IDS.bodegaPersonaId,
-      IDS.trabajadorUserId,
-      IDS.trabajadorPersonaId,
       IDS.adminUserId,
       IDS.adminPersonaId,
     ]
@@ -191,18 +184,17 @@ const seedBaseData = async () => {
     INSERT INTO usuario_rol (usuario_id, rol_id)
     VALUES
       ($1, $2),
-      ($3, $4),
-      ($5, $6)
+      ($3, $4)
     `,
-    [IDS.bodegaUserId, rolBodega, IDS.trabajadorUserId, rolTrabajador, IDS.adminUserId, rolAdmin]
+    [IDS.bodegaUserId, rolSupervisor, IDS.adminUserId, rolAdmin]
   );
 
   await db.query(
     `
-    INSERT INTO trabajador (id, persona_id, usuario_id, cargo, estado)
-    VALUES ($1, $2, $3, 'Operario', 'activo')
+    INSERT INTO trabajador (id, persona_id, cargo, estado)
+    VALUES ($1, $2, 'Operario', 'activo')
     `,
-    [IDS.trabajadorId, IDS.trabajadorPersonaId, IDS.trabajadorUserId]
+    [IDS.trabajadorId, IDS.trabajadorPersonaId]
   );
 
   await db.query(
@@ -241,7 +233,7 @@ const seedBaseData = async () => {
 const createPurchase = async (app, serialCodes = ['SER-0001']) => {
   const compraResponse = await request(app)
     .post('/api/compras')
-    .set('x-test-actor', 'bodega')
+    .set('x-test-actor', 'supervisor')
     .send({
       documento_compra: {
         proveedor_id: IDS.proveedorId,
@@ -287,7 +279,7 @@ const createDeliveryWithItems = async (app, serialAssetIds, cantidad = 2) => {
 
   const entregaResponse = await request(app)
     .post('/api/entregas')
-    .set('x-test-actor', 'bodega')
+    .set('x-test-actor', 'supervisor')
     .send({
       trabajador_id: IDS.trabajadorId,
       ubicacion_origen_id: IDS.ubicacionOrigenId,
@@ -304,7 +296,7 @@ const createDeliveryWithItems = async (app, serialAssetIds, cantidad = 2) => {
   return entregaResponse.body.data;
 };
 
-const signDeliveryInDevice = async (app, entregaId, actor = 'bodega') => {
+const signDeliveryInDevice = async (app, entregaId, actor = 'supervisor') => {
   const response = await request(app)
     .post(`/api/firmas/entregas/${entregaId}/firmar-dispositivo`)
     .set('x-test-actor', actor)
@@ -317,7 +309,7 @@ const signDeliveryInDevice = async (app, entregaId, actor = 'bodega') => {
   return response.body.data;
 };
 
-const signReturnInDevice = async (app, devolucionId, actor = 'bodega') => {
+const signReturnInDevice = async (app, devolucionId, actor = 'supervisor') => {
   const response = await request(app)
     .post(`/api/devoluciones/${devolucionId}/firmar-dispositivo`)
     .set('x-test-actor', actor)
@@ -354,11 +346,11 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
     const serialAssetId = serialDetail.activos[0].id;
 
     const entrega = await createDeliveryWithItems(app, [serialAssetId], 0);
-    await signDeliveryInDevice(app, entrega.id, 'trabajador');
+    await signDeliveryInDevice(app, entrega.id, 'supervisor');
 
     const confirmEntregaResponse = await request(app)
       .post(`/api/entregas/${entrega.id}/confirm`)
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send();
 
     if (confirmEntregaResponse.status !== 200) {
@@ -370,7 +362,7 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
 
     const devolucionDraftResponse = await request(app)
       .post('/api/devoluciones')
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send({
         trabajador_id: IDS.trabajadorId,
         ubicacion_recepcion_id: IDS.ubicacionRecepcionId,
@@ -387,11 +379,11 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
     expect(devolucionDraftResponse.status).toBe(201);
 
     const devolucionId = devolucionDraftResponse.body.data.id;
-    await signReturnInDevice(app, devolucionId, 'bodega');
+    await signReturnInDevice(app, devolucionId, 'supervisor');
 
     const confirmDevolucionResponse = await request(app)
       .post(`/api/devoluciones/${devolucionId}/confirm`)
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send();
 
     expect(confirmDevolucionResponse.status).toBe(200);
@@ -435,7 +427,7 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
 
     const response = await request(app)
       .post(`/api/entregas/${entrega.id}/confirm`)
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send();
 
     expect(response.status).toBe(400);
@@ -449,18 +441,18 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
     const serialAssetId = serialDetail.activos[0].id;
 
     const entrega = await createDeliveryWithItems(app, [serialAssetId], 0);
-    await signDeliveryInDevice(app, entrega.id, 'trabajador');
+    await signDeliveryInDevice(app, entrega.id, 'supervisor');
 
     const confirmEntregaResponse = await request(app)
       .post(`/api/entregas/${entrega.id}/confirm`)
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send();
 
     expect(confirmEntregaResponse.status).toBe(200);
 
     const devolucionDraftResponse = await request(app)
       .post('/api/devoluciones')
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send({
         trabajador_id: IDS.trabajadorId,
         ubicacion_recepcion_id: IDS.ubicacionRecepcionId,
@@ -478,7 +470,7 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
 
     const response = await request(app)
       .post(`/api/devoluciones/${devolucionDraftResponse.body.data.id}/confirm`)
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send();
 
     expect(response.status).toBe(400);
@@ -492,11 +484,11 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
     const serialAssetId = serialDetail.activos[0].id;
 
     const entrega = await createDeliveryWithItems(app, [serialAssetId], 0);
-    await signDeliveryInDevice(app, entrega.id, 'trabajador');
+    await signDeliveryInDevice(app, entrega.id, 'supervisor');
 
     const confirmEntregaResponse = await request(app)
       .post(`/api/entregas/${entrega.id}/confirm`)
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send();
 
     expect(confirmEntregaResponse.status).toBe(200);
@@ -528,7 +520,7 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
 
     const availableAssetsResponse = await request(app)
       .get('/api/inventario/activos-disponibles')
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .query({
         articulo_id: IDS.articuloSerialId,
         ubicacion_id: IDS.ubicacionOrigenId,
@@ -542,18 +534,18 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
     expect(foundAvailable).toBe(true);
 
     const entrega = await createDeliveryWithItems(app, [serialAssetId], 0);
-    await signDeliveryInDevice(app, entrega.id, 'trabajador');
+    await signDeliveryInDevice(app, entrega.id, 'supervisor');
 
     const confirmEntregaResponse = await request(app)
       .post(`/api/entregas/${entrega.id}/confirm`)
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send();
 
     expect(confirmEntregaResponse.status).toBe(200);
 
     const eligibleReturnResponse = await request(app)
       .get('/api/devoluciones/activos-elegibles')
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .query({
         trabajador_id: IDS.trabajadorId,
         articulo_id: IDS.articuloSerialId,
@@ -574,7 +566,7 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
 
     const tokenResponse = await request(app)
       .post(`/api/firmas/entregas/${entrega.id}/token`)
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send({ expira_minutos: 60 });
 
     expect(tokenResponse.status).toBe(201);
@@ -622,11 +614,11 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
     const assetIds = serialDetail.activos.map((item) => item.id);
 
     const entrega = await createDeliveryWithItems(app, assetIds, 0);
-    await signDeliveryInDevice(app, entrega.id, 'trabajador');
+    await signDeliveryInDevice(app, entrega.id, 'supervisor');
 
     const confirmEntregaResponse = await request(app)
       .post(`/api/entregas/${entrega.id}/confirm`)
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send();
 
     if (confirmEntregaResponse.status !== 200) {
@@ -644,7 +636,7 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
 
     const devolucionDraftResponse = await request(app)
       .post('/api/devoluciones')
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send({
         trabajador_id: IDS.trabajadorId,
         ubicacion_recepcion_id: IDS.ubicacionRecepcionId,
@@ -658,11 +650,11 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
 
     expect(devolucionDraftResponse.status).toBe(201);
     const devolucionId = devolucionDraftResponse.body.data.id;
-    await signReturnInDevice(app, devolucionId, 'bodega');
+    await signReturnInDevice(app, devolucionId, 'supervisor');
 
     const confirmDevolucionResponse = await request(app)
       .post(`/api/devoluciones/${devolucionId}/confirm`)
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send();
 
     expect(confirmDevolucionResponse.status).toBe(200);
@@ -755,11 +747,11 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
     const serialAssetId = serialDetail.activos[0].id;
 
     const entrega = await createDeliveryWithItems(app, [serialAssetId], 0);
-    await signDeliveryInDevice(app, entrega.id, 'trabajador');
+    await signDeliveryInDevice(app, entrega.id, 'supervisor');
 
     const confirmEntregaResponse = await request(app)
       .post(`/api/entregas/${entrega.id}/confirm`)
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send();
 
     expect(confirmEntregaResponse.status).toBe(200);
@@ -802,77 +794,18 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
     expect(serialVisible).toBe(true);
   });
 
-  it('exposes active custodias for worker and removes them after confirmed return', async () => {
-    const compra = await createPurchase(app, ['SER-CUST-01']);
-    const serialDetail = compra.detalles.find((item) => item.articulo_id === IDS.articuloSerialId);
-    const serialAssetId = serialDetail.activos[0].id;
-
-    const entrega = await createDeliveryWithItems(app, [serialAssetId], 0);
-    await signDeliveryInDevice(app, entrega.id, 'trabajador');
-
-    const confirmEntregaResponse = await request(app)
-      .post(`/api/entregas/${entrega.id}/confirm`)
-      .set('x-test-actor', 'bodega')
-      .send();
-
-    expect(confirmEntregaResponse.status).toBe(200);
-
-    const custodiasBeforeResponse = await request(app)
+  it('does not expose removed authenticated worker custody endpoint', async () => {
+    const response = await request(app)
       .get('/api/devoluciones/mis-custodias/activos')
-      .set('x-test-actor', 'trabajador');
+      .set('x-test-actor', 'supervisor');
 
-    expect(custodiasBeforeResponse.status).toBe(200);
-    expect(custodiasBeforeResponse.body.data.trabajador_id).toBe(IDS.trabajadorId);
-    expect(Array.isArray(custodiasBeforeResponse.body.data.custodias)).toBe(true);
-    const hasCustodyBefore = custodiasBeforeResponse.body.data.custodias.some(
-      (row) => row.activo_id === serialAssetId
-    );
-    expect(hasCustodyBefore).toBe(true);
-
-    const devolucionDraftResponse = await request(app)
-      .post('/api/devoluciones')
-      .set('x-test-actor', 'bodega')
-      .send({
-        trabajador_id: IDS.trabajadorId,
-        ubicacion_recepcion_id: IDS.ubicacionRecepcionId,
-        detalles: [
-          {
-            activo_ids: [serialAssetId],
-            cantidad: 1,
-            condicion_entrada: 'ok',
-            disposicion: 'devuelto',
-          },
-        ],
-      });
-
-    expect(devolucionDraftResponse.status).toBe(201);
-
-    const devolucionId = devolucionDraftResponse.body.data.id;
-    await signReturnInDevice(app, devolucionId, 'bodega');
-
-    const confirmDevolucionResponse = await request(app)
-      .post(`/api/devoluciones/${devolucionId}/confirm`)
-      .set('x-test-actor', 'bodega')
-      .send();
-
-    expect(confirmDevolucionResponse.status).toBe(200);
-
-    const custodiasAfterResponse = await request(app)
-      .get('/api/devoluciones/mis-custodias/activos')
-      .set('x-test-actor', 'trabajador');
-
-    expect(custodiasAfterResponse.status).toBe(200);
-    expect(custodiasAfterResponse.body.data.trabajador_id).toBe(IDS.trabajadorId);
-    const hasCustodyAfter = custodiasAfterResponse.body.data.custodias.some(
-      (row) => row.activo_id === serialAssetId
-    );
-    expect(hasCustodyAfter).toBe(false);
+    expect(response.status).toBe(404);
   });
 
   it('rejects draft devolucion when detalle references non-serial article without activo_ids', async () => {
     const response = await request(app)
       .post('/api/devoluciones')
-      .set('x-test-actor', 'bodega')
+      .set('x-test-actor', 'supervisor')
       .send({
         trabajador_id: IDS.trabajadorId,
         ubicacion_recepcion_id: IDS.ubicacionRecepcionId,
@@ -895,7 +828,7 @@ maybeDescribe('Flujo operativo integration with real DB', () => {
   it('requires trabajador_id when listing eligible assets for return', async () => {
     const response = await request(app)
       .get('/api/devoluciones/activos-elegibles')
-      .set('x-test-actor', 'bodega');
+      .set('x-test-actor', 'supervisor');
 
     expect(response.status).toBe(400);
     expect(response.body.success).toBe(false);

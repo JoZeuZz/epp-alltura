@@ -169,13 +169,13 @@ router.get('/tokens/:token', FirmasController.getTokenInfo);
 router.post(
   '/events/deliveries/token',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega', 'trabajador', 'worker', 'client']),
+  checkRole(['admin', 'supervisor']),
   FirmasController.generateDeliveryStreamToken
 );
 router.get(
   '/events/deliveries',
   authFromStreamToken,
-  checkRole(['admin', 'supervisor', 'bodega', 'trabajador', 'worker', 'client']),
+  checkRole(['admin', 'supervisor']),
   FirmasController.streamDeliverySignatureEvents
 );
 router.post(
@@ -188,17 +188,10 @@ router.post(
   FirmasController.consumeToken
 );
 
-router.get(
-  '/pendientes/me',
-  authMiddleware,
-  checkRole(['trabajador', 'worker', 'client']),
-  FirmasController.getMyPending
-);
-
 router.post(
   '/entregas/:entregaId/token',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateBody(tokenGenerationSchema),
   FirmasController.generateToken
 );
@@ -206,7 +199,7 @@ router.post(
 router.post(
   '/entregas/:entregaId/firmar-dispositivo',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega', 'trabajador', 'worker', 'client']),
+  checkRole(['admin', 'supervisor']),
   optionalSignatureUpload,
   validateImageMagic,
   normalizeSignaturePayload,

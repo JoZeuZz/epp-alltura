@@ -6,15 +6,15 @@ const DashboardController = require('../controllers/dashboard.controller');
 
 router.use(authMiddleware);
 
-router.get('/summary', checkRole(['admin', 'supervisor', 'bodega']), DashboardController.getSummary);
+router.get('/summary', checkRole(['admin', 'supervisor']), DashboardController.getSummary);
 router.get(
   '/indicadores-operativos',
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   DashboardController.getOperationalIndicators
 );
 router.get(
   '/ubicaciones/:ubicacionId/resumen',
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   DashboardController.getLocationSummary
 );
 

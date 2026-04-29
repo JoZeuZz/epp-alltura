@@ -181,19 +181,6 @@ class FirmasController {
       return next(error);
     }
   }
-
-  static async getMyPending(req, res, next) {
-    try {
-      const data = await FirmasService.getPendingDeliveriesForUser(req.user.id);
-      return sendSuccess(res, {
-        message: 'Entregas pendientes de firma obtenidas correctamente',
-        data,
-      });
-    } catch (error) {
-      logger.error('Error getting pending deliveries for user:', error);
-      return next(error);
-    }
-  }
 }
 
 module.exports = FirmasController;

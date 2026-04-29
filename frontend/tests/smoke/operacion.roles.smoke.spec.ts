@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-type Role = 'admin' | 'bodega' | 'worker';
+type Role = 'admin' | 'supervisor';
 
 const envelope = (data: unknown) => ({
   success: true,
@@ -13,9 +13,7 @@ const buildUser = (role: Role) => ({
   id:
     role === 'admin'
       ? 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1'
-      : role === 'bodega'
-        ? 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
-        : 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',
+      : 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1',
   email: `${role}@test.local`,
   first_name: role,
   last_name: 'smoke',
@@ -57,11 +55,7 @@ const setupApiMocks = async (page: Page) => {
     if (path === '/api/auth/login' && method === 'POST') {
       const payload = request.postDataJSON() as { email?: string };
       const email = String(payload?.email || '').toLowerCase();
-      const role: Role = email.includes('admin')
-        ? 'admin'
-        : email.includes('worker') || email.includes('trabajador')
-          ? 'worker'
-          : 'bodega';
+      const role: Role = email.includes('admin') ? 'admin' : 'supervisor';
 
       return json(
         envelope({
@@ -273,39 +267,6 @@ const setupApiMocks = async (page: Page) => {
       return json(envelope([{ id: 'proveedor-1', nombre: 'Proveedor Test' }]));
     }
 
-    if (path === '/api/firmas/pendientes/me') {
-      return json(
-        envelope({
-          trabajador_id: 'trabajador-1',
-          entregas: [
-            {
-              id: 'entrega-1',
-              tipo: 'entrega',
-              estado: 'pendiente_firma',
-              cantidad_items: 2,
-            },
-          ],
-        })
-      );
-    }
-
-    if (path === '/api/devoluciones/mis-custodias/activos') {
-      return json(
-        envelope({
-          trabajador_id: 'trabajador-1',
-          custodias: [
-            {
-              id: 'custodia-1',
-              activo_codigo: 'ACT-001',
-              articulo_nombre: 'Taladro',
-              ubicacion_destino_nombre: 'Faena Norte',
-              desde_en: new Date().toISOString(),
-            },
-          ],
-        })
-      );
-    }
-
     if (path.startsWith('/api/firmas/')) {
       return json(envelope({ id: 'firma-1' }));
     }
@@ -328,8 +289,6 @@ const setupRoleSession = async (page: Page, role: Role) => {
     const tourKeys = [
       'tour:admin:v2',
       'tour:supervisor:v2',
-      'tour:bodega:v2',
-      'tour:worker:v2',
     ];
 
     for (const key of tourKeys) {
@@ -358,19 +317,19 @@ test('admin herramientas page smoke', async ({ page }) => {
   await expect(page.getByText('Taladro')).toBeVisible();
 });
 
-test('bodega dashboard smoke', async ({ page }) => {
-  await setupRoleSession(page, 'bodega');
-  await page.goto('/bodega/dashboard');
+test('supervisor operations smoke', async ({ page }) => {
+  await setupRoleSession(page, 'supervisor');
+  await page.goto('/supervisor/operaciones');
 
-  await expect(page.getByRole('heading', { name: /Bodega Operativa/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Operación Supervisora/i })).toBeVisible();
   await expect(page.getByText('Solo se permiten activos serializados en este flujo.')).toBeVisible();
   await expect(page.getByTestId('delivery-create-submit')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Registrar firma local' })).toBeVisible();
 });
 
-test('bodega create return draft smoke', async ({ page }) => {
-  await setupRoleSession(page, 'bodega');
-  await page.goto('/bodega/dashboard');
+test('supervisor create return draft smoke', async ({ page }) => {
+  await setupRoleSession(page, 'supervisor');
+  await page.goto('/supervisor/operaciones');
 
   const returnSection = page
     .locator('section')
@@ -393,29 +352,21 @@ test('ui visible mantiene naming operativo', async ({ page }) => {
   await expect(page.getByText(/EPP Control/i)).toHaveCount(0);
 });
 
-test('trabajador dashboard smoke', async ({ page }) => {
-  await setupRoleSession(page, 'worker');
-  await page.goto('/worker/firmas');
-
-  await expect(page.getByRole('heading', { name: /Mis Equipos y Herramientas/i })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Confirmar recepción' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Confirmar con código' })).toBeVisible();
-});
-
-test('bodega login and create delivery draft smoke', async ({ page }) => {
+test('supervisor login and create delivery draft smoke', async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem('tour:bodega:v2', 'skipped');
+    localStorage.setItem('tour:supervisor:v2', 'skipped');
   });
 
   await setupApiMocks(page);
 
   await page.goto('/login');
-  await page.fill('#email', 'bodega@test.local');
+  await page.fill('#email', 'supervisor@test.local');
   await page.fill('#password', 'Dev12345!');
   await page.getByRole('button', { name: 'Login' }).click();
 
-  await expect(page).toHaveURL(/\/bodega\/dashboard/);
-  await expect(page.getByRole('heading', { name: /Bodega Operativa/i })).toBeVisible();
+  await expect(page).toHaveURL(/\/supervisor\/dashboard/);
+  await page.goto('/supervisor/operaciones');
+  await expect(page.getByRole('heading', { name: /Operación Supervisora/i })).toBeVisible();
 
   await page.getByTestId('delivery-worker-select').selectOption('trabajador-1');
   await page.getByTestId('delivery-origin-select').selectOption('ubicacion-1');

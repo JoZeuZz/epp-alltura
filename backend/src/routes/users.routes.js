@@ -11,21 +11,14 @@ const {
   personName,
   rut,
   phoneNumber,
-} = require('../validation');
+} = require('../lib/validation');
 
 const uuid = Joi.string()
   .trim()
   .pattern(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)
   .messages({ 'string.pattern.base': '{{#label}} must be a valid GUID' });
 
-const roleSchema = Joi.string().valid(
-  'admin',
-  'supervisor',
-  'bodega',
-  'trabajador',
-  'worker',
-  'client'
-);
+const roleSchema = Joi.string().valid('admin', 'supervisor');
 
 const selfUpdateUserSchema = Joi.object({
   first_name: personName,
@@ -100,10 +93,6 @@ const userIdParamSchema = Joi.object({
   id: uuid.required(),
 });
 
-const clientIdParamSchema = Joi.object({
-  clientId: Joi.string().trim().min(1).max(128).required(),
-});
-
 router.get('/me', authMiddleware, UserController.getOwnProfile);
 
 router.put('/me', authMiddleware, validateBody(selfUpdateUserSchema), UserController.updateOwnProfile);
@@ -117,14 +106,6 @@ router.post(
 );
 
 router.get('/', authMiddleware, isAdmin, UserController.getAllUsers);
-
-router.get(
-  '/by-client/:clientId',
-  authMiddleware,
-  isAdmin,
-  validateParam(clientIdParamSchema),
-  UserController.getUsersByClientId
-);
 
 router.get('/:id', authMiddleware, isAdmin, validateParam(userIdParamSchema), UserController.getUserById);
 

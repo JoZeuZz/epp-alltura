@@ -44,7 +44,7 @@ class AuthService {
   static buildUserResponse(user) {
     const dbRoles = normalizeDbRoles(user.roles || user.role);
     const { compatibleRoles } = buildCompatibleRoles(dbRoles);
-    const dbPrimaryRole = toDbRole(user.role || dbRoles[0] || 'trabajador');
+    const dbPrimaryRole = toDbRole(user.role) || dbRoles[0] || null;
     const primaryRole = toExternalRole(dbPrimaryRole);
 
     return {
@@ -94,6 +94,12 @@ class AuthService {
 
     if (!rut) {
       const error = new Error('RUT is required.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (!roleName) {
+      const error = new Error('Role is not valid.');
       error.statusCode = 400;
       throw error;
     }

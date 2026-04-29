@@ -41,63 +41,8 @@ const checkRole = (roles) => {
 };
 
 const isAdmin = checkRole(['admin']);
-const isSupervisor = checkRole(['supervisor']);
-const isBodega = checkRole(['bodega']);
-const isTrabajador = checkRole(['trabajador']);
-const isAdminOrSupervisor = checkRole(['admin', 'supervisor']);
-
-// Alias de compatibilidad temporal con naming legacy
-const isClient = checkRole(['trabajador']);
-const requireRole = (role) => checkRole([role]);
-
-const checkOwnership = (resourceUserIdField = 'creado_por_usuario_id') => {
-  return (req, _res, next) => {
-    req.ownershipField = resourceUserIdField;
-    next();
-  };
-};
-
-const verifySupervisorOwnership = (resource) => {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json(buildErrorResponse('No autenticado.', ['UNAUTHENTICATED']));
-    }
-
-    const roles = req.user.roles || req.user.role;
-    if (hasAnyRequiredRole(roles, ['admin', 'bodega'])) {
-      return next();
-    }
-
-    if (
-      hasAnyRequiredRole(roles, ['supervisor']) &&
-      resource &&
-      req.ownershipField &&
-      resource[req.ownershipField] === req.user.id
-    ) {
-      return next();
-    }
-
-    return res
-      .status(403)
-      .json(buildErrorResponse('No tienes permisos para operar sobre este recurso.', ['FORBIDDEN']));
-  };
-};
-
-// Stubs de compatibilidad para rutas legacy. En EPP el control se hará por entidad real.
-const checkProjectAccess = (_req, _res, next) => next();
-const checkAssetAccess = (_req, _res, next) => next();
 
 module.exports = {
   isAdmin,
-  isSupervisor,
-  isBodega,
-  isTrabajador,
-  isClient,
-  requireRole,
   checkRole,
-  isAdminOrSupervisor,
-  checkOwnership,
-  verifySupervisorOwnership,
-  checkProjectAccess,
-  checkAssetAccess,
 };

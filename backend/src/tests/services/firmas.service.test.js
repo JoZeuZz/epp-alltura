@@ -14,7 +14,7 @@ describe('FirmasService', () => {
   });
 
   describe('createSignatureInDevice', () => {
-    it('enforces worker ownership validation for non-privileged users', async () => {
+    it('enforces ownership validation for non-privileged users', async () => {
       const mockClient = {
         query: jest
           .fn()
@@ -54,8 +54,8 @@ describe('FirmasService', () => {
           },
           {
             id: 'user-1',
-            role: 'worker',
-            roles: ['worker'],
+            role: 'none',
+            roles: [],
           }
         )
       ).rejects.toThrow('No tienes permisos para firmar esta entrega');

@@ -1,6 +1,6 @@
 jest.mock('../../middleware/auth', () => ({
   authMiddleware: (req, _res, next) => {
-    const actor = String(req.headers['x-test-actor'] || 'bodega').toLowerCase();
+    const actor = String(req.headers['x-test-actor'] || 'supervisor').toLowerCase();
 
     if (actor === 'admin') {
       req.user = {
@@ -11,19 +11,19 @@ jest.mock('../../middleware/auth', () => ({
       return next();
     }
 
-    if (actor === 'worker' || actor === 'trabajador') {
+    if (actor === 'unprivileged') {
       req.user = {
-        id: 'user-worker-1',
-        role: 'worker',
-        roles: ['worker', 'trabajador'],
+        id: 'user-unprivileged-1',
+        role: 'none',
+        roles: [],
       };
       return next();
     }
 
     req.user = {
-      id: 'user-bodega-1',
-      role: 'bodega',
-      roles: ['bodega'],
+      id: 'user-supervisor-1',
+      role: 'supervisor',
+      roles: ['supervisor'],
     };
     return next();
   },
@@ -31,10 +31,7 @@ jest.mock('../../middleware/auth', () => ({
 
 jest.mock('../../middleware/roles', () => {
   const normalizeRole = (role) => {
-    if (role === 'worker' || role === 'client') {
-      return 'trabajador';
-    }
-    return role;
+    return role === 'admin' || role === 'supervisor' ? role : null;
   };
 
   const checkRole = (requiredRoles) => {
@@ -394,12 +391,12 @@ describe('Operación API Route Integration', () => {
     expect(JSON.stringify(response.body.errors || [])).toMatch(/tipo_motivo|consumo/i);
   });
 
-  it('returns 403 when worker tries to create egreso', async () => {
+  it('returns 403 when unprivileged actor tries to create egreso', async () => {
     const app = buildApp();
 
     const response = await request(app)
       .post('/api/inventario/egresos')
-      .set('x-test-actor', 'worker')
+      .set('x-test-actor', 'unprivileged')
       .send({
         tipo_motivo: 'baja',
         notas: 'Intento sin permisos',

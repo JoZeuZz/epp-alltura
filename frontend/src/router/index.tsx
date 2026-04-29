@@ -8,16 +8,9 @@ import { clearStoredTokens, refreshAccessToken } from '../services/authRefresh';
 import { isHttpAuthError, loaderHttpClient } from '../services/httpClient';
 
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
-const AdminInventoryLayout = lazy(
-  () => import('../pages/admin/inventory/AdminInventoryLayout')
-);
-const AdminInventoryArticlesPage = lazy(
-  () => import('../pages/admin/inventory/AdminInventoryArticlesPage')
-);
 const UsersPage = lazy(() => import('../pages/admin/UsersPage'));
 const SupervisorDashboard = lazy(() => import('../pages/supervisor/SupervisorDashboard'));
-const WarehouseDashboard = lazy(() => import('../pages/bodega/WarehouseDashboard'));
-const WorkerDashboard = lazy(() => import('../pages/worker/WorkerDashboard'));
+const SupervisorOperationsPage = lazy(() => import('../pages/supervisor/SupervisorOperationsPage'));
 const ProfilePage = lazy(() => import('../pages/ProfilePage'));
 const NotificationsPage = lazy(() => import('../pages/NotificationsPage'));
 const UnauthorizedPage = lazy(() => import('../pages/UnauthorizedPage'));
@@ -31,17 +24,19 @@ const AdminInventoryEquiposPage = lazy(() => import('../pages/admin/inventory/Ad
 const AdminInventoryHerramientasPage = lazy(
   () => import('../pages/admin/inventory/AdminInventoryHerramientasPage')
 );
+const AdminInventoryArticlesPage = lazy(
+  () => import('../pages/admin/inventory/AdminInventoryArticlesPage')
+);
 const AdminProyectosPage = lazy(() => import('../pages/admin/AdminProyectosPage'));
 const AdminBodegasPage = lazy(() => import('../pages/admin/AdminBodegasPage'));
 
-type RouteRole = 'admin' | 'supervisor' | 'bodega' | 'worker';
+type RouteRole = 'admin' | 'supervisor';
 
 function normalizeRole(role?: string | null): RouteRole | '' {
   if (!role) return '';
   const value = String(role).toLowerCase();
 
-  if (value === 'trabajador' || value === 'worker' || value === 'client') return 'worker';
-  if (value === 'admin' || value === 'supervisor' || value === 'bodega') {
+  if (value === 'admin' || value === 'supervisor') {
     return value;
   }
 
@@ -139,10 +134,6 @@ const roleDefaultRoute = (role: User['role']) => {
       return '/admin/dashboard';
     case 'supervisor':
       return '/supervisor/dashboard';
-    case 'bodega':
-      return '/bodega/dashboard';
-    case 'worker':
-      return '/worker/dashboard';
     default:
       return '/login';
   }
@@ -208,8 +199,8 @@ async function supervisorDashboardLoader() {
   };
 }
 
-async function warehouseDashboardLoader() {
-  const { user } = (await requireRole(['bodega', 'admin', 'supervisor'])()) as { user: User };
+async function supervisorOperationsLoader() {
+  const { user } = (await requireRole(['admin', 'supervisor'])()) as { user: User };
 
   const [trabajadores, ubicaciones, articulos, entregas, devoluciones, stock, proveedores] = await Promise.all([
     loaderGetOrThrow('/trabajadores'),
@@ -235,21 +226,6 @@ async function warehouseDashboardLoader() {
 
 async function adminTrabajadoresLoader() {
   return requireRole(['admin'])();
-}
-
-async function workerDashboardLoader() {
-  const { user } = (await requireRole(['worker'])()) as { user: User };
-
-  const [pendientesFirma, custodiasActivas] = await Promise.all([
-    loaderGetOrThrow('/firmas/pendientes/me'),
-    loaderGetOrThrow('/devoluciones/mis-custodias/activos'),
-  ]);
-
-  return {
-    user,
-    pendientesFirma,
-    custodiasActivas,
-  };
 }
 
 export const router = createBrowserRouter([
@@ -315,12 +291,12 @@ export const router = createBrowserRouter([
       },
       {
         path: 'admin/entregas',
-        loader: requireRole(['admin', 'supervisor', 'bodega']),
+        loader: requireRole(['admin', 'supervisor']),
         element: <AdminEntregasPage />,
       },
       {
         path: 'admin/devoluciones',
-        loader: requireRole(['admin', 'supervisor', 'bodega']),
+        loader: requireRole(['admin', 'supervisor']),
         element: <AdminDevolucionesPage />,
       },
       {
@@ -343,63 +319,9 @@ export const router = createBrowserRouter([
         element: <AdminInventoryHerramientasPage />,
       },
       {
-        path: 'admin/inventario/legacy',
-        loader: requireRole(['admin']),
-        element: <AdminInventoryLayout />,
-        children: [
-          {
-            index: true,
-            loader: () => redirect('/admin/inventario/herramientas'),
-          },
-          {
-            path: 'articulos',
-            element: <AdminInventoryArticlesPage />,
-          },
-          {
-            path: 'stock',
-            loader: () => redirect('/admin/inventario/herramientas'),
-          },
-          {
-            path: 'movimientos',
-            loader: () => redirect('/admin/inventario/herramientas'),
-          },
-          {
-            path: 'ingresos',
-            loader: () => redirect('/admin/inventario/herramientas'),
-          },
-          {
-            path: 'egresos',
-            loader: () => redirect('/admin/inventario/herramientas'),
-          },
-          {
-            path: 'activos',
-            loader: () => redirect('/admin/inventario/herramientas'),
-          },
-        ],
-      },
-      {
         path: 'admin/inventario/articulos',
-        loader: () => redirect('/admin/inventario/herramientas'),
-      },
-      {
-        path: 'admin/inventario/stock',
-        loader: () => redirect('/admin/inventario/herramientas'),
-      },
-      {
-        path: 'admin/inventario/movimientos',
-        loader: () => redirect('/admin/inventario/herramientas'),
-      },
-      {
-        path: 'admin/inventario/ingresos',
-        loader: () => redirect('/admin/inventario/herramientas'),
-      },
-      {
-        path: 'admin/inventario/egresos',
-        loader: () => redirect('/admin/inventario/herramientas'),
-      },
-      {
-        path: 'admin/inventario/activos',
-        loader: () => redirect('/admin/inventario/herramientas'),
+        loader: requireRole(['admin']),
+        element: <AdminInventoryArticlesPage />,
       },
       {
         path: 'supervisor/dashboard',
@@ -412,29 +334,14 @@ export const router = createBrowserRouter([
         element: <SupervisorDashboard key="supervisor-trazabilidad" />,
       },
       {
-        path: 'bodega/dashboard',
-        loader: warehouseDashboardLoader,
-        element: <WarehouseDashboard key="bodega-dashboard" />,
+        path: 'supervisor/operaciones',
+        loader: supervisorOperationsLoader,
+        element: <SupervisorOperationsPage key="supervisor-operaciones" />,
       },
       {
-        path: 'bodega/operaciones',
-        loader: warehouseDashboardLoader,
-        element: <WarehouseDashboard key="bodega-operaciones" />,
-      },
-      {
-        path: 'bodega/devoluciones',
-        loader: requireRole(['admin', 'supervisor', 'bodega']),
+        path: 'supervisor/devoluciones',
+        loader: requireRole(['admin', 'supervisor']),
         element: <AdminDevolucionesPage />,
-      },
-      {
-        path: 'worker/dashboard',
-        loader: workerDashboardLoader,
-        element: <WorkerDashboard key="worker-dashboard" />,
-      },
-      {
-        path: 'worker/firmas',
-        loader: workerDashboardLoader,
-        element: <WorkerDashboard key="worker-firmas" />,
       },
       {
         path: 'notifications',

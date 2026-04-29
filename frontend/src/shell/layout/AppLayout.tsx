@@ -39,11 +39,8 @@ const ChevronRightIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 const toTourRole = (role?: string | null): TourRole | null => {
   const normalizedRole = String(role || '').toLowerCase();
-  if (normalizedRole === 'admin' || normalizedRole === 'supervisor' || normalizedRole === 'bodega') {
+  if (normalizedRole === 'admin' || normalizedRole === 'supervisor') {
     return normalizedRole;
-  }
-  if (normalizedRole === 'worker' || normalizedRole === 'trabajador' || normalizedRole === 'client') {
-    return 'worker';
   }
   return null;
 };
@@ -53,10 +50,6 @@ const getRoleLabel = (role?: string | null) => {
 
   if (normalizedRole === 'admin') return 'Administrador';
   if (normalizedRole === 'supervisor') return 'Supervisor';
-  if (normalizedRole === 'bodega') return 'Bodega';
-  if (normalizedRole === 'worker' || normalizedRole === 'trabajador' || normalizedRole === 'client') {
-    return 'Trabajador';
-  }
 
   return 'Usuario';
 };
@@ -259,33 +252,18 @@ const AppLayout = () => {
         </svg>
         <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Dashboard Supervisor</span>
       </NavLink>
-    </Fragment>
-  );
-
-  const bodegaLinks = (
-    <Fragment>
       <NavLink
-        to="/bodega/dashboard"
+        to="/supervisor/operaciones"
         onClick={handleLinkClick}
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
         <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7L4 7m16 5H4m16 5H4" />
         </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Bodega Operativa</span>
-      </NavLink>
-      <NavLink
-        to="/bodega/operaciones"
-        onClick={handleLinkClick}
-        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
-      >
-        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
         <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Operación Diaria</span>
       </NavLink>
       <NavLink
-        to="/bodega/devoluciones"
+        to="/supervisor/devoluciones"
         onClick={handleLinkClick}
         className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
       >
@@ -293,46 +271,6 @@ const AppLayout = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
         <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Devoluciones</span>
-      </NavLink>
-    </Fragment>
-  );
-
-  const workerLinks = (
-    <Fragment>
-      <NavLink
-        to="/worker/dashboard"
-        onClick={handleLinkClick}
-        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
-      >
-        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 12c2.761 0 5-2.239 5-5S14.761 2 12 2 7 4.239 7 7s2.239 5 5 5zM4 22c0-4.418 3.582-8 8-8s8 3.582 8 8" />
-        </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Mis Equipos</span>
-      </NavLink>
-      <NavLink
-        to="/worker/firmas"
-        onClick={handleLinkClick}
-        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
-      >
-        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5h2m-1-3v6m9 4v9a1 1 0 01-1 1H4a1 1 0 01-1-1v-9m18 0l-9-5-9 5" />
-        </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Confirmar Recepción</span>
-      </NavLink>
-    </Fragment>
-  );
-
-  const clientLinks = (
-    <Fragment>
-      <NavLink
-        to="/worker/dashboard"
-        onClick={handleLinkClick}
-        className={({ isActive }) => (isActive ? activeLinkClass : linkClass)}
-      >
-        <svg className={`w-5 h-5 ${isSidebarOpen ? 'mr-3' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-        </svg>
-        <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Mis Equipos</span>
       </NavLink>
     </Fragment>
   );
@@ -392,11 +330,7 @@ const AppLayout = () => {
                 ? adminLinks
                 : user?.role === 'supervisor'
                   ? supervisorLinks
-                  : user?.role === 'bodega'
-                    ? bodegaLinks
-                    : user?.role === 'worker' || user?.role === 'trabajador' || user?.role === 'client'
-                      ? workerLinks
-                      : clientLinks}
+                  : null}
             </div>
           </nav>
           
@@ -410,7 +344,7 @@ const AppLayout = () => {
                   window.clearTimeout(guideTimeoutRef.current);
                 }
                 const contextualSteps = getContextualStepsForRoute(
-                  currentTourRole || 'worker',
+                  currentTourRole || 'supervisor',
                   location.pathname
                 );
                 if (contextualSteps.length === 0) {

@@ -824,52 +824,6 @@ class DevolucionesService {
     }
   }
 
-  static async getActiveCustodiasForUser(userId) {
-    const trabajadorResult = await db.query(
-      `
-      SELECT id
-      FROM trabajador
-      WHERE usuario_id = $1
-      LIMIT 1
-      `,
-      [userId]
-    );
-
-    if (!trabajadorResult.rows.length) {
-      return {
-        trabajador_id: null,
-        custodias: [],
-      };
-    }
-
-    const trabajadorId = trabajadorResult.rows[0].id;
-    const custodiasResult = await db.query(
-      `
-      SELECT
-        c.*,
-        a.codigo AS activo_codigo,
-        a.nro_serie AS activo_nro_serie,
-        ar.nombre AS articulo_nombre,
-        ar.tipo AS articulo_tipo,
-        u.nombre AS ubicacion_destino_nombre
-      FROM custodia_activo c
-      INNER JOIN activo a ON a.id = c.activo_id
-      INNER JOIN articulo ar ON ar.id = a.articulo_id
-      INNER JOIN ubicacion u ON u.id = c.ubicacion_destino_id
-      WHERE c.trabajador_id = $1
-        AND c.estado = 'activa'
-        AND c.hasta_en IS NULL
-      ORDER BY c.desde_en DESC
-      `,
-      [trabajadorId]
-    );
-
-    return {
-      trabajador_id: trabajadorId,
-      custodias: custodiasResult.rows,
-    };
-  }
-
   static async getEligibleAssets(filters = {}) {
     const trabajadorId = String(filters.trabajador_id || '').trim();
     if (!trabajadorId) {

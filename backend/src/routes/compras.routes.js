@@ -74,12 +74,12 @@ const createCompraSchema = Joi.object({
   'any.custom': '{{#message}}',
 });
 
-router.get('/', authMiddleware, checkRole(['admin', 'supervisor', 'bodega']), ComprasController.list);
-router.get('/:id', authMiddleware, checkRole(['admin', 'supervisor', 'bodega']), ComprasController.getById);
+router.get('/', authMiddleware, checkRole(['admin', 'supervisor']), ComprasController.list);
+router.get('/:id', authMiddleware, checkRole(['admin', 'supervisor']), ComprasController.getById);
 router.post(
   '/',
   authMiddleware,
-  checkRole(['admin', 'supervisor', 'bodega']),
+  checkRole(['admin', 'supervisor']),
   validateBody(createCompraSchema),
   ComprasController.create
 );

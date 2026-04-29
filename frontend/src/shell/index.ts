@@ -56,6 +56,7 @@ export * from './services/authRefresh';
 export * from './services/httpClient';
 export * from './services/notificationService';
 export * from './services/performanceService';
+export { frontendLogger } from './services/frontendLogger';
 
 // Shell utils
 export * from './utils/tourSteps';

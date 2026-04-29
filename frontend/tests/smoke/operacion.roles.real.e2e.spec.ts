@@ -1,15 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 
-type Role = 'admin' | 'bodega';
+type Role = 'admin' | 'supervisor';
 
 const credentialsByRole: Record<Role, { email?: string; password?: string }> = {
   admin: {
     email: process.env.PLAYWRIGHT_ADMIN_EMAIL,
     password: process.env.PLAYWRIGHT_ADMIN_PASSWORD,
   },
-  bodega: {
-    email: process.env.PLAYWRIGHT_BODEGA_EMAIL,
-    password: process.env.PLAYWRIGHT_BODEGA_PASSWORD,
+  supervisor: {
+    email: process.env.PLAYWRIGHT_SUPERVISOR_EMAIL,
+    password: process.env.PLAYWRIGHT_SUPERVISOR_PASSWORD,
   },
 };
 
@@ -57,16 +57,16 @@ test.describe('Operación real smoke by role', () => {
     await expect(page.getByRole('heading', { name: 'Registrar Egreso' })).toBeVisible();
   });
 
-  test('bodega can open devolucion section and see visual asset selector', async ({ page }) => {
-    test.skip(!hasCredentials('bodega'), 'Missing PLAYWRIGHT_BODEGA_EMAIL/PASSWORD');
+  test('supervisor can open operaciones section and see visual asset selector', async ({ page }) => {
+    test.skip(!hasCredentials('supervisor'), 'Missing PLAYWRIGHT_SUPERVISOR_EMAIL/PASSWORD');
 
-    await loginAs(page, 'bodega');
+    await loginAs(page, 'supervisor');
 
-    await page.goto('/bodega/dashboard');
-    await expect(page.getByRole('heading', { name: /Bodega Operativa/i })).toBeVisible();
+    await page.goto('/supervisor/operaciones');
+    await expect(page.getByRole('heading', { name: /Operación Supervisora/i })).toBeVisible();
 
     await expect(page.getByRole('heading', { name: /Registrar devolución/i })).toBeVisible();
     await expect(page.getByText('Seleccionar activo').first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Crear devolución' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Crear borrador' }).last()).toBeVisible();
   });
 });

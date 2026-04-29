@@ -48,10 +48,6 @@ const LoginPage: React.FC = () => {
               navigate('/admin/dashboard', { replace: true });
             } else if (role === 'supervisor') {
               navigate('/supervisor/dashboard', { replace: true });
-            } else if (role === 'bodega') {
-              navigate('/bodega/dashboard', { replace: true });
-            } else if (role === 'worker' || role === 'trabajador' || role === 'client') {
-              navigate('/worker/dashboard', { replace: true });
             } else {
               navigate('/', { replace: true });
             }

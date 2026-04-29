@@ -10,7 +10,7 @@ import type { UserCreatePayload, UserRole, UserUpdatePayload } from '../../servi
 import { formatNameParts } from '../../utils/name';
 
 type UserStatus = 'activo' | 'inactivo' | 'bloqueado';
-type FilterRole = 'all' | 'admin' | 'supervisor' | 'bodega' | 'worker';
+type FilterRole = 'all' | 'admin' | 'supervisor';
 
 interface UserRecord extends User {
   estado?: UserStatus;
@@ -40,8 +40,6 @@ type UserFormErrors = Partial<Record<keyof UserFormValues, string>>;
 const ROLE_OPTIONS: Array<{ value: UserRole; label: string }> = [
   { value: 'admin', label: 'Administrador' },
   { value: 'supervisor', label: 'Supervisor' },
-  { value: 'bodega', label: 'Bodega' },
-  { value: 'worker', label: 'Trabajador' },
 ];
 
 const STATUS_OPTIONS: Array<{ value: UserStatus; label: string }> = [
@@ -77,19 +75,18 @@ const getDisplayRut = (value?: string | null): string => {
   return normalized;
 };
 
-const normalizeRole = (role?: string | null): Exclude<FilterRole, 'all'> => {
-  if (role === 'admin' || role === 'supervisor' || role === 'bodega') {
+const normalizeRole = (role?: string | null): Exclude<FilterRole, 'all'> | null => {
+  if (role === 'admin' || role === 'supervisor') {
     return role;
   }
-  return 'worker';
+  return null;
 };
 
 const formatRoleLabel = (role?: string | null): string => {
   const normalizedRole = normalizeRole(role);
   if (normalizedRole === 'admin') return 'Administrador';
   if (normalizedRole === 'supervisor') return 'Supervisor';
-  if (normalizedRole === 'bodega') return 'Bodega';
-  return 'Trabajador';
+  return 'Sin rol válido';
 };
 
 const formatStatusLabel = (status?: string | null): string => {
@@ -108,8 +105,7 @@ const roleBadgeClasses = (role?: string | null): string => {
   const normalizedRole = normalizeRole(role);
   if (normalizedRole === 'admin') return 'bg-red-100 text-red-700';
   if (normalizedRole === 'supervisor') return 'bg-blue-100 text-blue-700';
-  if (normalizedRole === 'bodega') return 'bg-indigo-100 text-indigo-700';
-  return 'bg-emerald-100 text-emerald-700';
+  return 'bg-gray-100 text-gray-700';
 };
 
 const buildFormFromUser = (user: UserRecord): UserFormValues => ({
@@ -118,7 +114,7 @@ const buildFormFromUser = (user: UserRecord): UserFormValues => ({
   email: user.email || '',
   password: '',
   confirmPassword: '',
-  role: normalizeRole(user.role),
+  role: normalizeRole(user.role) || 'supervisor',
   estado: user.estado || 'activo',
   rut: getDisplayRut(user.rut),
   phone_number: user.phone_number || '',
@@ -221,10 +217,12 @@ const UsersPage: React.FC = () => {
       (acc, user) => {
         const normalizedRole = normalizeRole(user.role);
         acc.total += 1;
-        acc[normalizedRole] += 1;
+        if (normalizedRole) {
+          acc[normalizedRole] += 1;
+        }
         return acc;
       },
-      { total: 0, admin: 0, supervisor: 0, bodega: 0, worker: 0 }
+      { total: 0, admin: 0, supervisor: 0 }
     );
   }, [users]);
 
@@ -437,7 +435,7 @@ const UsersPage: React.FC = () => {
         </button>
       </section>
 
-      <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <button
           type="button"
           onClick={() => setRoleFilter('all')}
@@ -470,28 +468,6 @@ const UsersPage: React.FC = () => {
           <p className="text-xs uppercase opacity-80">Supervisor</p>
           <p className="text-xl font-bold">{userCounters.supervisor}</p>
         </button>
-        <button
-          type="button"
-          onClick={() => setRoleFilter('bodega')}
-          className={`rounded-lg p-3 text-left border transition-colors ${
-            roleFilter === 'bodega' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-gray-200'
-          }`}
-        >
-          <p className="text-xs uppercase opacity-80">Bodega</p>
-          <p className="text-xl font-bold">{userCounters.bodega}</p>
-        </button>
-        <button
-          type="button"
-          onClick={() => setRoleFilter('worker')}
-          className={`rounded-lg p-3 text-left border transition-colors ${
-            roleFilter === 'worker'
-              ? 'bg-emerald-600 text-white border-emerald-600'
-              : 'bg-white border-gray-200'
-          }`}
-        >
-          <p className="text-xs uppercase opacity-80">Trabajador</p>
-          <p className="text-xl font-bold">{userCounters.worker}</p>
-        </button>
       </section>
 
       <section className="bg-white rounded-lg shadow-md p-4 sm:p-5">
@@ -511,8 +487,6 @@ const UsersPage: React.FC = () => {
             <option value="all">Todos los roles</option>
             <option value="admin">Administrador</option>
             <option value="supervisor">Supervisor</option>
-            <option value="bodega">Bodega</option>
-            <option value="worker">Trabajador</option>
           </select>
           <select
             className="border rounded-md p-2"

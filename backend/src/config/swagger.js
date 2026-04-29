@@ -434,31 +434,6 @@ const swaggerSpec = {
         },
       },
     },
-    '/api/firmas/pendientes/me': {
-      get: {
-        tags: ['Firmas'],
-        summary: 'Obtener entregas pendientes de firma del usuario autenticado',
-        security: [{ bearerAuth: [] }],
-        responses: {
-          200: {
-            description: 'Entregas pendientes obtenidas',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ApiSuccess' },
-              },
-            },
-          },
-          401: {
-            description: 'No autenticado',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ApiError' },
-              },
-            },
-          },
-        },
-      },
-    },
     '/api/firmas/entregas/{entregaId}/firmar-dispositivo': {
       post: {
         tags: ['Firmas'],

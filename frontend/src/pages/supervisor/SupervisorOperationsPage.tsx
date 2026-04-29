@@ -10,7 +10,7 @@ import ReturnAssetSelector from '../../components/forms/ReturnAssetSelector';
 import { parseQuantityInteger } from '../../utils/quantity';
 import { useDeliverySignatureEvents } from '../../hooks/useDeliverySignatureEvents';
 
-interface WarehouseLoaderData {
+interface SupervisorOperationsLoaderData {
   trabajadores?: any[];
   ubicaciones?: any[];
   articulos?: any[];
@@ -75,8 +75,8 @@ const isTokenStillValid = (expiraEn?: string): boolean => {
   return Number.isFinite(timestamp) && timestamp > Date.now();
 };
 
-const WarehouseDashboard: React.FC = () => {
-  const loader = useLoaderData() as WarehouseLoaderData;
+const SupervisorOperationsPage: React.FC = () => {
+  const loader = useLoaderData() as SupervisorOperationsLoaderData;
   const location = useLocation();
 
   const [trabajadores] = useState<any[]>(loader.trabajadores || []);
@@ -563,7 +563,7 @@ const WarehouseDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Bodega Operativa</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Operación Supervisora</h1>
         <p className="text-neutral-gray mt-1">
           {section === 'dashboard' && 'Gestiona ingresos de inventario y consulta stock disponible.'}
           {section === 'operaciones' && 'Registra entregas y devoluciones, y confirma recepciones pendientes.'}
@@ -1215,4 +1215,4 @@ const WarehouseDashboard: React.FC = () => {
   );
 };
 
-export default WarehouseDashboard;
+export default SupervisorOperationsPage;

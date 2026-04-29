@@ -123,11 +123,10 @@ describe('UserService.deleteUser', () => {
     db.query.mockResolvedValueOnce({
       rows: [
         {
-          id: 'user-worker',
-          persona_id: 'persona-worker',
-          trabajador_id: 'trabajador-1',
+          id: 'user-supervisor',
+          persona_id: 'persona-supervisor',
           creado_por_admin_id: null,
-          roles: ['trabajador'],
+          roles: ['supervisor'],
         },
       ],
     });
@@ -136,28 +135,27 @@ describe('UserService.deleteUser', () => {
       query: jest
         .fn()
         .mockResolvedValueOnce(undefined)
-        .mockResolvedValueOnce({ rows: [{ total: 1 }] })
-        .mockResolvedValueOnce({ rows: [{ entregas: 0, devoluciones: 0, compras: 0 }] })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [] })
-        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [{ entregas: 1, devoluciones: 0, compras: 0 }] })
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce(undefined)
         .mockResolvedValueOnce(undefined),
       release: jest.fn(),
     };
 
     db.pool.connect.mockResolvedValue(mockClient);
 
-    const result = await UserService.deleteUser('user-worker', {
+    const result = await UserService.deleteUser('user-supervisor', {
       id: 'admin-1',
       role_db: 'admin',
     });
 
     expect(result).toMatchObject({
-      id: 'user-worker',
+      id: 'user-supervisor',
       action: 'deactivated',
       reason: 'has_assignments',
       estado: 'inactivo',
     });
+    expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('trabajador'))).toBe(false);
   });
 
   it('elimina físicamente cuando no tiene asignaciones', async () => {
@@ -201,5 +199,6 @@ describe('UserService.deleteUser', () => {
       estado: 'eliminado',
       persona_deleted: true,
     });
+    expect(mockClient.query.mock.calls.some(([sql]) => String(sql).includes('DELETE FROM trabajador'))).toBe(false);
   });
 });

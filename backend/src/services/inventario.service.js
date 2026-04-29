@@ -141,7 +141,7 @@ class InventarioService {
         s.cantidad_reservada,
         s.actualizado_en,
         a.nombre AS articulo_nombre,
-        a.tipo AS articulo_tipo,
+        a.grupo_principal AS articulo_tipo,
         a.unidad_medida,
         u.nombre AS ubicacion_nombre,
         u.tipo AS ubicacion_tipo
