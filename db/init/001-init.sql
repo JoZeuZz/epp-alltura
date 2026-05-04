@@ -201,8 +201,11 @@ CREATE TABLE IF NOT EXISTS activo (
   ubicacion_actual_id UUID NOT NULL REFERENCES ubicacion(id),
   fecha_compra TIMESTAMPTZ,
   fecha_vencimiento TIMESTAMPTZ,
+  foto_url TEXT,
   creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE activo ADD COLUMN IF NOT EXISTS foto_url TEXT;
 
 CREATE TABLE IF NOT EXISTS stock (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -508,7 +511,6 @@ CREATE INDEX IF NOT EXISTS idx_ubicacion_planta_padre_id ON ubicacion(planta_pad
 CREATE INDEX IF NOT EXISTS idx_ubicacion_inicio_operacion ON ubicacion(fecha_inicio_operacion);
 CREATE INDEX IF NOT EXISTS idx_ubicacion_cierre_operacion ON ubicacion(fecha_cierre_operacion);
 
-CREATE INDEX IF NOT EXISTS idx_articulo_tipo ON articulo(tipo);
 CREATE INDEX IF NOT EXISTS idx_articulo_grupo_principal ON articulo(grupo_principal);
 CREATE INDEX IF NOT EXISTS idx_articulo_tracking_mode ON articulo(tracking_mode);
 CREATE INDEX IF NOT EXISTS idx_articulo_estado ON articulo(estado);

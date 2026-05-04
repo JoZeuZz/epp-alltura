@@ -20,6 +20,48 @@ Optimize for maintainability, clarity, minimal changes and low token usage.
 - For large tasks, first produce a concise plan and wait for approval unless the user explicitly asks to implement immediately.
 - At the end of each phase, summarize only changed files, decisions, verification commands and pending work.
 
+## MCP usage policy
+
+Available MCPs may include Serena and Context7.
+
+Use MCP tools only when they reduce context usage or improve accuracy.
+
+### Serena
+
+Use Serena for:
+- symbol-aware navigation
+- locating definitions and references
+- understanding project structure without broad file scans
+- recording durable project decisions after meaningful changes
+
+Do not use Serena for:
+- trivial single-file edits
+- simple grep-like searches where `rg` is enough
+- storing noisy implementation details
+
+When recording memory, keep it short and limited to:
+- architecture decisions
+- role/auth decisions
+- migration decisions
+- recurring project gotchas
+
+### Context7
+
+Use Context7 only when external library documentation is needed.
+
+Good uses:
+- checking current API usage for React, Vite, Express, Tailwind or validation libraries
+- verifying unfamiliar library behavior
+- resolving version-specific implementation details
+
+Do not use Context7 for:
+- understanding this repository's own code
+- generic JavaScript or TypeScript questions
+- tasks that can be solved from existing local files
+- every implementation step by default
+
+Prefer local repository inspection first. Prefer CLI tools such as `rg`, `find`, package scripts and local docs before MCP calls when they are sufficient.
+
 ## Repository scope
 
 Work only inside this repository unless explicitly instructed otherwise.
@@ -147,4 +189,11 @@ Suggested patterns:
 npm run build 2>&1 | tail -120
 npm test 2>&1 | tail -120
 npm run lint 2>&1 | tail -120
-rg "bodega|supervisor|trabajador|admin|administrador" .
+rg "bodega|supervisor|trabajador|admin|administrador" . \
+  --glob '!node_modules' \
+  --glob '!dist' \
+  --glob '!build' \
+  --glob '!coverage' \
+  --glob '!logs' \
+  --glob '!*.min.*'
+```
