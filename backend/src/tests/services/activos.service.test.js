@@ -133,4 +133,87 @@ describe('ActivosService', () => {
       expect(client.release).toHaveBeenCalled();
     });
   });
+
+  describe('devolver', () => {
+    const activoId = 'activo-uuid-1';
+    const userId = 'user-uuid-1';
+    const payload = {
+      trabajador_id: 'trabajador-uuid-1',
+      ubicacion_recepcion_id: 'ubic-recepcion-uuid',
+      condicion_entrada: 'ok',
+      disposicion: 'devuelto',
+      notas: null,
+      firma_imagen_url: 'https://example.com/firma.png',
+    };
+
+    it('rechaza si el activo no existe', async () => {
+      const client = makeClient([
+        undefined,
+        { rows: [] },
+        undefined,
+      ]);
+      db.pool.connect.mockResolvedValue(client);
+
+      await expect(ActivosService.devolver(activoId, payload, userId))
+        .rejects.toMatchObject({ message: 'Activo no encontrado', statusCode: 404 });
+
+      expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+      expect(client.release).toHaveBeenCalled();
+    });
+
+    it('rechaza si el activo no está en estado asignado', async () => {
+      const client = makeClient([
+        undefined,
+        { rows: [{ id: activoId, estado: 'en_stock', ubicacion_actual_id: 'ubic-a', articulo_id: 'art-1' }] },
+        undefined,
+      ]);
+      db.pool.connect.mockResolvedValue(client);
+
+      await expect(ActivosService.devolver(activoId, payload, userId))
+        .rejects.toMatchObject({ message: 'El activo no está en estado asignado', statusCode: 409 });
+    });
+
+    it('rechaza si no existe custodia activa para el trabajador', async () => {
+      const client = makeClient([
+        undefined,
+        { rows: [{ id: activoId, estado: 'asignado', ubicacion_actual_id: 'ubic-a', articulo_id: 'art-1' }] },
+        { rows: [] },
+        undefined,
+      ]);
+      db.pool.connect.mockResolvedValue(client);
+
+      await expect(ActivosService.devolver(activoId, payload, userId))
+        .rejects.toMatchObject({ message: 'No existe custodia activa para este activo y trabajador', statusCode: 409 });
+    });
+
+    it('crea devolucion, cierra custodia e inserta movimiento en una sola TX', async () => {
+      const client = makeClient([
+        undefined,
+        { rows: [{ id: activoId, estado: 'asignado', ubicacion_actual_id: 'ubic-a', articulo_id: 'art-1' }] },
+        { rows: [{ id: 'custodia-uuid-1', entrega_id: 'entrega-uuid-1' }] },
+        { rows: [{ id: 'devolucion-uuid-1' }] },
+        { rows: [] },
+        { rows: [] },
+        { rows: [] },
+        { rows: [] },
+        { rows: [{ id: 'movimiento-uuid-1' }] },
+        undefined,
+      ]);
+      db.pool.connect.mockResolvedValue(client);
+
+      const result = await ActivosService.devolver(activoId, payload, userId);
+
+      expect(result).toEqual({
+        activo_id: activoId,
+        devolucion_id: 'devolucion-uuid-1',
+        custodia_id: 'custodia-uuid-1',
+        movimiento_id: 'movimiento-uuid-1',
+        estado: 'confirmada',
+      });
+      expect(writeAuditEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ entidadTipo: 'activo', accion: 'devolver' })
+      );
+      expect(client.query).toHaveBeenCalledWith('COMMIT');
+    });
+  });
 });
