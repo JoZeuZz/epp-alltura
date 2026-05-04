@@ -69,7 +69,6 @@ const buildLoaderError = (endpoint: string, error: unknown) => {
   return loaderError;
 };
 
-
 async function loaderGetOrThrow<T>(endpoint: string): Promise<T> {
   try {
     return await loaderHttpClient.get<T>(endpoint);
