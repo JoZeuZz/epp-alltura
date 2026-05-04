@@ -13,6 +13,7 @@ class ActivoModel {
     this.ubicacion_actual_id = data.ubicacion_actual_id;
     this.fecha_compra = data.fecha_compra;
     this.fecha_vencimiento = data.fecha_vencimiento;
+    this.foto_url = data.foto_url;
     this.creado_en = data.creado_en;
   }
 
@@ -21,9 +22,9 @@ class ActivoModel {
       `
       INSERT INTO activo (
         articulo_id, compra_detalle_id, nro_serie, codigo, valor, estado,
-        ubicacion_actual_id, fecha_compra, fecha_vencimiento
+        ubicacion_actual_id, fecha_compra, fecha_vencimiento, foto_url
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
       `,
       [
@@ -36,6 +37,7 @@ class ActivoModel {
         fields.ubicacion_actual_id,
         fields.fecha_compra || null,
         fields.fecha_vencimiento || null,
+        fields.foto_url || null,
       ]
     );
 
@@ -108,6 +110,7 @@ class ActivoModel {
       ubicacion_actual_id: fields.ubicacion_actual_id,
       fecha_compra: fields.fecha_compra,
       fecha_vencimiento: fields.fecha_vencimiento,
+      foto_url: fields.foto_url,
     });
 
     if (!clause) {

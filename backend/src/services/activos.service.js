@@ -1,19 +1,10 @@
-// backend/src/services/activos.service.js
 const crypto = require('crypto');
 const db = require('../db');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
-const EntregasService = require('./entregas.service');
-const DevolucionesService = require('./devoluciones.service');
 
-const buildError = (message, statusCode = 400, code = null) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  if (code) error.code = code;
-  return error;
+const ROUTE_RULES = {
+  entrega: { origen: 'bodega', destino: 'planta' },
 };
-
-const hashValue = (value) =>
-  crypto.createHash('sha256').update(String(value), 'utf8').digest('hex');
 
 const CUSTODIA_STATE_BY_DISPOSICION = {
   devuelto: 'devuelta',
@@ -36,7 +27,100 @@ const MOV_ACTIVO_TYPE_BY_DISPOSICION = {
   mantencion: 'mantencion',
 };
 
+const buildError = (message, statusCode = 400, code = null) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  if (code) error.code = code;
+  return error;
+};
+
+const hashValue = (value) =>
+  crypto.createHash('sha256').update(String(value), 'utf8').digest('hex');
+
 class ActivosService {
+  static async _validateWorkerActive(client, trabajadorId) {
+    const { rows } = await client.query(
+      `SELECT t.id, t.estado, p.estado AS persona_estado
+       FROM trabajador t
+       INNER JOIN persona p ON p.id = t.persona_id
+       WHERE t.id = $1
+       LIMIT 1`,
+      [trabajadorId]
+    );
+
+    if (!rows.length) {
+      throw buildError('Trabajador no encontrado', 400);
+    }
+
+    const worker = rows[0];
+    if (worker.estado !== 'activo' || worker.persona_estado !== 'activo') {
+      throw buildError('El trabajador debe estar activo para recibir movimientos', 400);
+    }
+  }
+
+  static async _validateMovementRoute(client, { tipo, ubicacion_origen_id, ubicacion_destino_id }) {
+    const rule = ROUTE_RULES[tipo];
+    if (!rule) {
+      throw buildError(`Tipo de movimiento no soportado: ${tipo}`, 400);
+    }
+
+    if (ubicacion_origen_id === ubicacion_destino_id) {
+      throw buildError('La ubicación de origen y destino deben ser diferentes', 400);
+    }
+
+    const { rows } = await client.query(
+      `SELECT id, tipo, estado FROM ubicacion WHERE id = ANY($1::uuid[])`,
+      [[ubicacion_origen_id, ubicacion_destino_id]]
+    );
+
+    const locationMap = new Map(rows.map((r) => [r.id, r]));
+    const origen = locationMap.get(ubicacion_origen_id);
+    const destino = locationMap.get(ubicacion_destino_id);
+
+    if (!origen) throw buildError('La ubicación de origen no existe', 400);
+    if (!destino) throw buildError('La ubicación de destino no existe', 400);
+    if (origen.estado !== 'activo' || destino.estado !== 'activo') {
+      throw buildError('Las ubicaciones de origen y destino deben estar activas', 400);
+    }
+    if (origen.tipo !== rule.origen || destino.tipo !== rule.destino) {
+      throw buildError(
+        `Ruta inválida para "${tipo}": se requiere ${rule.origen} → ${rule.destino}`,
+        400
+      );
+    }
+  }
+
+  static async _validateReceivingLocation(client, ubicacionId) {
+    const { rows } = await client.query(
+      `SELECT id, estado, fecha_inicio_operacion, fecha_cierre_operacion
+       FROM ubicacion WHERE id = $1 LIMIT 1`,
+      [ubicacionId]
+    );
+
+    if (!rows.length) {
+      throw buildError('Ubicación de recepción no encontrada', 400, 'LOCATION_NOT_FOUND');
+    }
+
+    const loc = rows[0];
+    if (loc.estado !== 'activo') {
+      throw buildError('La ubicación de recepción debe estar activa', 400, 'LOCATION_NOT_ACTIVE');
+    }
+
+    const now = Date.now();
+    if (loc.fecha_inicio_operacion) {
+      const startAt = new Date(loc.fecha_inicio_operacion).getTime();
+      if (Number.isFinite(startAt) && startAt > now) {
+        throw buildError('La ubicación de recepción aún no inicia su vigencia operativa', 400, 'LOCATION_NOT_YET_OPERATIONAL');
+      }
+    }
+    if (loc.fecha_cierre_operacion) {
+      const closedAt = new Date(loc.fecha_cierre_operacion).getTime();
+      if (Number.isFinite(closedAt) && closedAt <= now) {
+        throw buildError('La ubicación de recepción está fuera de vigencia operativa', 400, 'LOCATION_CLOSED');
+      }
+    }
+  }
+
   static async entregar(activoId, payload, userId) {
     const firmaImagenUrl = String(payload.firma_imagen_url || '').trim();
     if (!firmaImagenUrl) {
@@ -62,8 +146,8 @@ class ActivosService {
         throw buildError('El activo no está en la ubicación de origen indicada', 409, 'ASSET_WRONG_LOCATION');
       }
 
-      await EntregasService.validateWorkerActive(client, payload.trabajador_id);
-      await EntregasService.validateMovementRoute(client, {
+      await ActivosService._validateWorkerActive(client, payload.trabajador_id);
+      await ActivosService._validateMovementRoute(client, {
         tipo: 'entrega',
         ubicacion_origen_id: payload.ubicacion_origen_id,
         ubicacion_destino_id: payload.ubicacion_destino_id,
@@ -184,7 +268,7 @@ class ActivosService {
         throw buildError('El activo no está en estado asignado', 409, 'ASSET_NOT_ASSIGNED');
       }
 
-      await DevolucionesService.validateReceivingLocationOperational(client, payload.ubicacion_recepcion_id);
+      await ActivosService._validateReceivingLocation(client, payload.ubicacion_recepcion_id);
 
       const custodiaResult = await client.query(
         `SELECT * FROM custodia_activo

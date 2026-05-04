@@ -1,8 +1,6 @@
 // backend/src/tests/services/activos.service.test.js
 const ActivosService = require('../../services/activos.service');
 const db = require('../../db');
-const EntregasService = require('../../services/entregas.service');
-const DevolucionesService = require('../../services/devoluciones.service');
 const { writeAuditEvent } = require('../../lib/auditoriaDb');
 
 jest.mock('../../db', () => ({
@@ -11,15 +9,6 @@ jest.mock('../../db', () => ({
 
 jest.mock('../../lib/auditoriaDb', () => ({
   writeAuditEvent: jest.fn().mockResolvedValue(undefined),
-}));
-
-jest.mock('../../services/entregas.service', () => ({
-  validateWorkerActive: jest.fn().mockResolvedValue(undefined),
-  validateMovementRoute: jest.fn().mockResolvedValue(undefined),
-}));
-
-jest.mock('../../services/devoluciones.service', () => ({
-  validateReceivingLocationOperational: jest.fn().mockResolvedValue(undefined),
 }));
 
 const makeClient = (queryResponses) => {
@@ -49,6 +38,12 @@ describe('ActivosService', () => {
       fecha_devolucion_esperada: null,
       firma_imagen_url: 'https://example.com/firma.png',
     };
+
+    const trabajadorRow = { rows: [{ id: 'trabajador-uuid-1', estado: 'activo', persona_estado: 'activo' }] };
+    const ubicacionesRows = { rows: [
+      { id: 'ubic-origen-uuid', tipo: 'bodega', estado: 'activo' },
+      { id: 'ubic-destino-uuid', tipo: 'planta', estado: 'activo' },
+    ]};
 
     it('rechaza si el activo no existe', async () => {
       const client = makeClient([
@@ -91,10 +86,12 @@ describe('ActivosService', () => {
 
     it('rechaza si ya existe una custodia activa', async () => {
       const client = makeClient([
-        undefined,
-        { rows: [{ id: activoId, estado: 'en_stock', ubicacion_actual_id: 'ubic-origen-uuid', articulo_id: 'art-1' }] },
-        { rows: [{ id: 'custodia-existente' }] },
-        undefined,
+        undefined,                                                                                                // BEGIN
+        { rows: [{ id: activoId, estado: 'en_stock', ubicacion_actual_id: 'ubic-origen-uuid', articulo_id: 'art-1' }] }, // SELECT activo
+        trabajadorRow,                                                                                           // _validateWorkerActive
+        ubicacionesRows,                                                                                         // _validateMovementRoute
+        { rows: [{ id: 'custodia-existente' }] },                                                               // SELECT custodia (found)
+        undefined,                                                                                               // ROLLBACK
       ]);
       db.pool.connect.mockResolvedValue(client);
 
@@ -104,16 +101,18 @@ describe('ActivosService', () => {
 
     it('crea entrega, custodia y movimiento en una sola TX y retorna IDs', async () => {
       const client = makeClient([
-        undefined,
-        { rows: [{ id: activoId, estado: 'en_stock', ubicacion_actual_id: 'ubic-origen-uuid', articulo_id: 'art-1' }] },
-        { rows: [] },
-        { rows: [{ id: 'entrega-uuid-1' }] },
-        { rows: [] },
-        { rows: [] },
-        { rows: [] },
-        { rows: [{ id: 'custodia-uuid-1' }] },
-        { rows: [{ id: 'movimiento-uuid-1' }] },
-        undefined,
+        undefined,                                                                                                // BEGIN
+        { rows: [{ id: activoId, estado: 'en_stock', ubicacion_actual_id: 'ubic-origen-uuid', articulo_id: 'art-1' }] }, // SELECT activo
+        trabajadorRow,                                                                                           // _validateWorkerActive
+        ubicacionesRows,                                                                                         // _validateMovementRoute
+        { rows: [] },                                                                                            // SELECT custodia (not found)
+        { rows: [{ id: 'entrega-uuid-1' }] },                                                                   // INSERT entrega
+        { rows: [] },                                                                                            // INSERT entrega_detalle
+        { rows: [] },                                                                                            // INSERT firma_entrega
+        { rows: [] },                                                                                            // UPDATE activo
+        { rows: [{ id: 'custodia-uuid-1' }] },                                                                  // INSERT custodia_activo
+        { rows: [{ id: 'movimiento-uuid-1' }] },                                                                // INSERT movimiento_activo
+        undefined,                                                                                               // COMMIT
       ]);
       db.pool.connect.mockResolvedValue(client);
 
@@ -146,6 +145,8 @@ describe('ActivosService', () => {
       firma_imagen_url: 'https://example.com/firma.png',
     };
 
+    const ubicacionRecepcionRow = { rows: [{ id: 'ubic-recepcion-uuid', estado: 'activo', fecha_inicio_operacion: null, fecha_cierre_operacion: null }] };
+
     it('rechaza si el activo no existe', async () => {
       const client = makeClient([
         undefined,
@@ -177,7 +178,7 @@ describe('ActivosService', () => {
       const client = makeClient([
         undefined,                                                                                                 // BEGIN
         { rows: [{ id: activoId, estado: 'asignado', ubicacion_actual_id: 'ubic-a', articulo_id: 'art-1' }] },   // SELECT activo
-        // validateReceivingLocationOperational es module-mock — no llama client.query
+        ubicacionRecepcionRow,                                                                                     // _validateReceivingLocation
         { rows: [] },                                                                                              // SELECT custodia_activo — not found
         undefined,                                                                                                 // ROLLBACK
       ]);
@@ -189,16 +190,17 @@ describe('ActivosService', () => {
 
     it('crea devolucion, cierra custodia e inserta movimiento en una sola TX', async () => {
       const client = makeClient([
-        undefined,
-        { rows: [{ id: activoId, estado: 'asignado', ubicacion_actual_id: 'ubic-a', articulo_id: 'art-1' }] },
-        { rows: [{ id: 'custodia-uuid-1', entrega_id: 'entrega-uuid-1' }] },
-        { rows: [{ id: 'devolucion-uuid-1' }] },
-        { rows: [] },
-        { rows: [] },
-        { rows: [] },
-        { rows: [] },
-        { rows: [{ id: 'movimiento-uuid-1' }] },
-        undefined,
+        undefined,                                                                                                 // BEGIN
+        { rows: [{ id: activoId, estado: 'asignado', ubicacion_actual_id: 'ubic-a', articulo_id: 'art-1' }] },   // SELECT activo
+        ubicacionRecepcionRow,                                                                                     // _validateReceivingLocation
+        { rows: [{ id: 'custodia-uuid-1', entrega_id: 'entrega-uuid-1' }] },                                     // SELECT custodia
+        { rows: [{ id: 'devolucion-uuid-1' }] },                                                                  // INSERT devolucion
+        { rows: [] },                                                                                              // INSERT devolucion_detalle
+        { rows: [] },                                                                                              // INSERT firma_devolucion
+        { rows: [] },                                                                                              // UPDATE custodia_activo
+        { rows: [] },                                                                                              // UPDATE activo
+        { rows: [{ id: 'movimiento-uuid-1' }] },                                                                  // INSERT movimiento_activo
+        undefined,                                                                                                 // COMMIT
       ]);
       db.pool.connect.mockResolvedValue(client);
 
