@@ -17,8 +17,6 @@ const UnauthorizedPage = lazy(() => import('../pages/UnauthorizedPage'));
 const NotFoundPage = lazy(() => import('../pages/NotFoundPage'));
 const PublicSignPage = lazy(() => import('../pages/PublicSignPage'));
 const AdminTrabajadoresPage = lazy(() => import('../pages/admin/AdminTrabajadoresPage'));
-const AdminEntregasPage = lazy(() => import('../pages/admin/AdminEntregasPage'));
-const AdminDevolucionesPage = lazy(() => import('../pages/admin/AdminDevolucionesPage'));
 const AdminInventoryEppPage = lazy(() => import('../pages/admin/inventory/AdminInventoryEppPage'));
 const AdminInventoryEquiposPage = lazy(() => import('../pages/admin/inventory/AdminInventoryEquiposPage'));
 const AdminInventoryHerramientasPage = lazy(
@@ -289,16 +287,6 @@ export const router = createBrowserRouter([
         element: <AdminBodegasPage />,
       },
       {
-        path: 'admin/entregas',
-        loader: requireRole(['admin', 'supervisor']),
-        element: <AdminEntregasPage />,
-      },
-      {
-        path: 'admin/devoluciones',
-        loader: requireRole(['admin', 'supervisor']),
-        element: <AdminDevolucionesPage />,
-      },
-      {
         path: 'admin/inventario',
         loader: () => redirect('/admin/inventario/herramientas'),
       },
@@ -336,11 +324,6 @@ export const router = createBrowserRouter([
         path: 'supervisor/operaciones',
         loader: supervisorOperationsLoader,
         element: <SupervisorOperationsPage key="supervisor-operaciones" />,
-      },
-      {
-        path: 'supervisor/devoluciones',
-        loader: requireRole(['admin', 'supervisor']),
-        element: <AdminDevolucionesPage />,
       },
       {
         path: 'notifications',
