@@ -175,10 +175,11 @@ describe('ActivosService', () => {
 
     it('rechaza si no existe custodia activa para el trabajador', async () => {
       const client = makeClient([
-        undefined,
-        { rows: [{ id: activoId, estado: 'asignado', ubicacion_actual_id: 'ubic-a', articulo_id: 'art-1' }] },
-        { rows: [] },
-        undefined,
+        undefined,                                                                                                 // BEGIN
+        { rows: [{ id: activoId, estado: 'asignado', ubicacion_actual_id: 'ubic-a', articulo_id: 'art-1' }] },   // SELECT activo
+        // validateReceivingLocationOperational es module-mock — no llama client.query
+        { rows: [] },                                                                                              // SELECT custodia_activo — not found
+        undefined,                                                                                                 // ROLLBACK
       ]);
       db.pool.connect.mockResolvedValue(client);
 
