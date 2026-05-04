@@ -3,28 +3,6 @@ const crypto = require('crypto');
 const db = require('../db');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
 const EntregasService = require('./entregas.service');
-const DevolucionesService = require('./devoluciones.service');
-
-const CUSTODIA_STATE_BY_DISPOSICION = {
-  devuelto: 'devuelta',
-  perdido: 'perdida',
-  baja: 'baja',
-  mantencion: 'mantencion',
-};
-
-const ACTIVO_STATE_BY_DISPOSICION = {
-  devuelto: 'en_stock',
-  perdido: 'perdido',
-  baja: 'dado_de_baja',
-  mantencion: 'mantencion',
-};
-
-const MOV_ACTIVO_TYPE_BY_DISPOSICION = {
-  devuelto: 'devolucion',
-  perdido: 'ajuste',
-  baja: 'baja',
-  mantencion: 'mantencion',
-};
 
 const buildError = (message, statusCode = 400, code = null) => {
   const error = new Error(message);
@@ -38,12 +16,17 @@ const hashValue = (value) =>
 
 class ActivosService {
   static async entregar(activoId, payload, userId) {
+    const firmaImagenUrl = String(payload.firma_imagen_url || '').trim();
+    if (!firmaImagenUrl) {
+      throw buildError('La firma es obligatoria', 400, 'SIGNATURE_REQUIRED');
+    }
+
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
 
       const activoResult = await client.query(
-        `SELECT * FROM activo WHERE id = $1 FOR UPDATE`,
+        `SELECT id, estado, ubicacion_actual_id, articulo_id FROM activo WHERE id = $1 FOR UPDATE`,
         [activoId]
       );
       if (!activoResult.rows.length) {
@@ -101,7 +84,7 @@ class ActivosService {
         `INSERT INTO firma_entrega (
           entrega_id, trabajador_id, metodo, texto_aceptacion, texto_hash, firma_imagen_url
         ) VALUES ($1, $2, 'en_dispositivo', $3, $4, $5)`,
-        [entregaId, payload.trabajador_id, textoFirma, hashValue(textoFirma), payload.firma_imagen_url]
+        [entregaId, payload.trabajador_id, textoFirma, hashValue(textoFirma), firmaImagenUrl]
       );
 
       await client.query(
