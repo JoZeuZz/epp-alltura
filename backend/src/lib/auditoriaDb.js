@@ -6,7 +6,7 @@ const buildError = (message) => {
   return error;
 };
 
-const allowedActions = new Set(['crear', 'actualizar', 'eliminar', 'firmar', 'devolver', 'ajustar']);
+const allowedActions = new Set(['crear', 'actualizar', 'eliminar', 'firmar', 'entregar', 'devolver', 'ajustar']);
 
 const writeAuditEvent = async ({
   client,
