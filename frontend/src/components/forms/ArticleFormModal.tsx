@@ -46,7 +46,8 @@ const INITIAL_FORM: ArticleFormValues = {
 };
 
 const SUBCLASIFICACIONES_BY_GRUPO: Record<ArticuloGrupoPrincipal, ArticuloSubclasificacion[]> = {
-  equipo: ['epp', 'medicion_ensayos'],
+  epp: ['epp'],
+  equipo: ['medicion_ensayos'],
   herramienta: ['manual', 'electrica_cable', 'inalambrica_bateria'],
 };
 
@@ -67,7 +68,10 @@ const ESPECIALIDAD_SET = new Set<ArticuloEspecialidad>([
 
 const normalizeGrupoPrincipal = (value?: string | null): ArticuloGrupoPrincipal => {
   const normalized = String(value || '').trim().toLowerCase();
-  if (normalized === 'equipo' || normalized === 'epp') {
+  if (normalized === 'epp') {
+    return 'epp';
+  }
+  if (normalized === 'equipo') {
     return 'equipo';
   }
   return 'herramienta';
@@ -281,7 +285,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           <p className="text-sm text-gray-500">
             {isEditMode
               ? 'Modifica la configuración del artículo para inventario y trazabilidad.'
-              : 'Crea equipos y herramientas para que queden disponibles en ingresos y stock.'}
+              : 'Crea EPP, equipos y herramientas para que queden disponibles en ingresos y stock.'}
           </p>
         </div>
 
@@ -306,6 +310,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
                 handleFieldChange('grupo_principal', event.target.value as ArticuloGrupoPrincipal)
               }
             >
+              <option value="epp">EPP</option>
               <option value="equipo">Equipo</option>
               <option value="herramienta">Herramienta</option>
             </select>

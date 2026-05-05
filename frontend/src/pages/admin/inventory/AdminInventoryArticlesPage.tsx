@@ -45,7 +45,8 @@ const statusBadgeClasses = (status?: string | null): string => {
 };
 
 const grupoLabel = (value?: string | null): string => {
-  if (value === 'equipo' || value === 'epp') return 'Equipo';
+  if (value === 'epp') return 'EPP';
+  if (value === 'equipo') return 'Equipo';
   return 'Herramienta';
 };
 
@@ -79,8 +80,8 @@ interface ArticleActionState {
 const CONFIG_BY_SCOPE: Record<InventoryArticleManagerScope, Required<InventoryArticleManagerConfig>> = {
   all: {
     scope: 'all',
-    title: 'Catálogo de Equipos y Herramientas',
-    description: 'Administra equipos y herramientas disponibles para ingresos y operación.',
+    title: 'Catálogo de EPP, Equipos y Herramientas',
+    description: 'Administra EPP, equipos y herramientas disponibles para ingresos y operación.',
   },
   epp: {
     scope: 'epp',
@@ -103,7 +104,7 @@ const resolveInitialFilters = (
   scope: InventoryArticleManagerScope
 ): Pick<ArticuloQueryParams, 'grupo_principal' | 'subclasificacion'> => {
   if (scope === 'epp') {
-    return { grupo_principal: 'equipo', subclasificacion: 'epp' };
+    return { grupo_principal: 'epp', subclasificacion: undefined };
   }
   if (scope === 'equipos') {
     return { grupo_principal: 'equipo', subclasificacion: undefined };
@@ -416,6 +417,7 @@ const AdminInventoryArticlesPage: React.FC<InventoryArticleManagerConfig> = ({
           disabled={scope !== 'all'}
         >
           <option value="">Todos los grupos</option>
+          <option value="epp">EPP</option>
           <option value="equipo">Equipo</option>
           <option value="herramienta">Herramienta</option>
         </select>

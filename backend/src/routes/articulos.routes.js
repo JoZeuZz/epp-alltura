@@ -78,7 +78,7 @@ const especialidadSchema = Joi.string()
   .valid('oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida');
 
 const articuloCreateSchema = Joi.object({
-  grupo_principal: Joi.string().trim().lowercase().valid('equipo', 'herramienta').required(),
+  grupo_principal: Joi.string().trim().lowercase().valid('epp', 'equipo', 'herramienta').required(),
   subclasificacion: Joi.string()
     .trim()
     .lowercase()
@@ -109,7 +109,7 @@ const articuloCreateSchema = Joi.object({
   });
 
 const articuloUpdateSchema = Joi.object({
-  grupo_principal: Joi.string().trim().lowercase().valid('equipo', 'herramienta'),
+  grupo_principal: Joi.string().trim().lowercase().valid('epp', 'equipo', 'herramienta'),
   subclasificacion: Joi.string()
     .trim()
     .lowercase()

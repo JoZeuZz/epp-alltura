@@ -55,7 +55,7 @@ export interface Proveedor {
 
 export interface Articulo {
   id: string;
-  grupo_principal: 'equipo' | 'herramienta';
+  grupo_principal: 'epp' | 'equipo' | 'herramienta';
   subclasificacion:
     | 'epp'
     | 'medicion_ensayos'
@@ -147,7 +147,7 @@ export interface EntregaDetalle {
   notas?: string;
   /** Campos JOIN */
   articulo_nombre?: string;
-  articulo_tipo?: 'equipo' | 'herramienta' | 'activo';
+  articulo_tipo?: 'epp' | 'equipo' | 'herramienta' | 'activo';
   activo_codigo?: string;
 }
 

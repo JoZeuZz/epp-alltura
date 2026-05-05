@@ -1,0 +1,323 @@
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import Modal from '../Modal';
+import { useGet } from '../../hooks';
+import { devolverActivo } from '../../services/apiService';
+
+interface UbicacionOption {
+  id: string;
+  nombre: string;
+}
+
+interface Props {
+  activoId: string;
+  trabajadorId: string;
+  trabajadorNombre: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+const CONDICION_LABELS = {
+  ok: 'Bueno',
+  usado: 'Usado',
+  danado: 'Dañado',
+  perdido: 'Perdido',
+} as const;
+
+const DISPOSICION_LABELS = {
+  devuelto: 'Devuelto al stock',
+  perdido: 'Perdido',
+  baja: 'Dar de baja',
+  mantencion: 'Enviar a mantención',
+} as const;
+
+const DevolucionActivoModal: React.FC<Props> = ({
+  activoId,
+  trabajadorId,
+  trabajadorNombre,
+  onClose,
+  onSuccess,
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const signatureCanvasId = useId();
+  const signatureHelpId = useId();
+  const isDrawing = useRef(false);
+  const lastPos = useRef<{ x: number; y: number } | null>(null);
+
+  const [ubicacionId, setUbicacionId] = useState('');
+  const [condicion, setCondicion] = useState<'ok' | 'usado' | 'danado' | 'perdido'>('ok');
+  const [disposicion, setDisposicion] = useState<'devuelto' | 'perdido' | 'baja' | 'mantencion'>('devuelto');
+  const [notas, setNotas] = useState('');
+  const [hasFirma, setHasFirma] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const { data: ubicaciones = [] } = useGet<UbicacionOption[]>(
+    ['ubicaciones'],
+    '/ubicaciones',
+  );
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+    }
+  }, []);
+
+  const getPos = (
+    e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
+    canvas: HTMLCanvasElement
+  ): { x: number; y: number } => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ('touches' in e && e.touches.length > 0) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    const me = e as React.MouseEvent<HTMLCanvasElement>;
+    return {
+      x: (me.clientX - rect.left) * scaleX,
+      y: (me.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startDraw = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      isDrawing.current = true;
+      lastPos.current = getPos(e, canvas);
+    },
+    []
+  );
+
+  const draw = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      if (!isDrawing.current) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const pos = getPos(e, canvas);
+      if (lastPos.current) {
+        ctx.beginPath();
+        ctx.moveTo(lastPos.current.x, lastPos.current.y);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.strokeStyle = '#1a1a2e';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+        setHasFirma(true);
+      }
+      lastPos.current = pos;
+    },
+    []
+  );
+
+  const endDraw = useCallback(() => {
+    isDrawing.current = false;
+    lastPos.current = null;
+  }, []);
+
+  const clearCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setHasFirma(false);
+  };
+
+  const mutation = useMutation({
+    mutationFn: (firmaBase64: string) =>
+      devolverActivo(activoId, {
+        trabajador_id: trabajadorId,
+        ubicacion_recepcion_id: ubicacionId,
+        condicion_entrada: condicion,
+        disposicion,
+        notas: notas.trim() || null,
+        firma_imagen_url: firmaBase64,
+      }),
+    onSuccess: () => {
+      toast.success('Devolución registrada correctamente.');
+      onSuccess();
+    },
+    onError: (error: unknown) => {
+      const e = error as { response?: { data?: { message?: string } }; message?: string };
+      const msg = e?.response?.data?.message ?? e?.message ?? 'No se pudo registrar la devolución.';
+      toast.error(msg);
+    },
+  });
+
+  const handleConfirmar = () => {
+    setFormError(null);
+    if (!ubicacionId) {
+      setFormError('Selecciona una ubicación de recepción.');
+      return;
+    }
+    if (!hasFirma) {
+      setFormError('Debes firmar antes de confirmar.');
+      return;
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const firmaBase64 = canvas.toDataURL('image/png');
+    mutation.mutate(firmaBase64);
+  };
+
+  return (
+    <Modal isOpen onClose={onClose} title="Registrar devolución">
+      <div className="space-y-4">
+        {/* Trabajador locked */}
+        <div>
+          <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Trabajador</p>
+          <p className="text-sm font-medium text-gray-800 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+            {trabajadorNombre}
+          </p>
+        </div>
+
+        {/* Ubicación recepción */}
+        <div>
+          <label className="block text-xs uppercase tracking-wide text-gray-500 mb-1">
+            Ubicación de recepción <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={ubicacionId}
+            onChange={(e) => setUbicacionId(e.target.value)}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
+          >
+            <option value="">Seleccionar ubicación...</option>
+            {ubicaciones.map((u) => (
+              <option key={u.id} value={u.id}>{u.nombre}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Condición de entrada */}
+        <div>
+          <label className="block text-xs uppercase tracking-wide text-gray-500 mb-1">
+            Condición de entrada <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={condicion}
+            onChange={(e) => setCondicion(e.target.value as typeof condicion)}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
+          >
+            {Object.entries(CONDICION_LABELS).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Disposición */}
+        <div>
+          <label className="block text-xs uppercase tracking-wide text-gray-500 mb-1">
+            Disposición <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={disposicion}
+            onChange={(e) => setDisposicion(e.target.value as typeof disposicion)}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
+          >
+            {Object.entries(DISPOSICION_LABELS).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Notas */}
+        <div>
+          <label className="block text-xs uppercase tracking-wide text-gray-500 mb-1">Notas</label>
+          <textarea
+            value={notas}
+            onChange={(e) => setNotas(e.target.value)}
+            maxLength={1000}
+            rows={2}
+            placeholder="Observaciones opcionales..."
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-blue resize-none"
+          />
+        </div>
+
+        {/* Pad de firma */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label htmlFor={signatureCanvasId} className="text-xs uppercase tracking-wide text-gray-500">
+              Firma del trabajador <span className="text-red-500">*</span>
+            </label>
+            <button
+              type="button"
+              onClick={clearCanvas}
+              className="text-xs text-gray-500 hover:text-red-500 underline transition-colors"
+            >
+              Limpiar
+            </button>
+          </div>
+          <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden bg-white relative">
+            <canvas
+              id={signatureCanvasId}
+              ref={canvasRef}
+              width={600}
+              height={180}
+              className="w-full touch-none cursor-crosshair"
+              style={{ touchAction: 'none' }}
+              onMouseDown={startDraw}
+              onMouseMove={draw}
+              onMouseUp={endDraw}
+              onMouseLeave={endDraw}
+              onTouchStart={startDraw}
+              onTouchMove={draw}
+              onTouchEnd={endDraw}
+              aria-required="true"
+              aria-describedby={signatureHelpId}
+            />
+            {!hasFirma && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <p className="text-gray-300 text-sm select-none">Firme aquí</p>
+              </div>
+            )}
+          </div>
+          <p id={signatureHelpId} className="mt-1 text-xs text-gray-500">
+            Use el dedo o el ratón para firmar.
+          </p>
+        </div>
+
+        {/* Error */}
+        {formError && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700" role="alert">
+            {formError}
+          </div>
+        )}
+
+        {/* Acciones */}
+        <div className="flex gap-3 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={mutation.isPending}
+            className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirmar}
+            disabled={mutation.isPending}
+            className="flex-1 py-2 px-4 bg-primary-blue text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {mutation.isPending ? 'Registrando...' : 'Confirmar devolución'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+export default DevolucionActivoModal;

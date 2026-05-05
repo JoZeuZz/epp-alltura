@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS proveedor (
 
 CREATE TABLE IF NOT EXISTS articulo (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  grupo_principal VARCHAR(20) NOT NULL DEFAULT 'herramienta' CHECK (grupo_principal IN ('equipo', 'herramienta')),
+  grupo_principal VARCHAR(20) NOT NULL DEFAULT 'herramienta' CHECK (grupo_principal IN ('epp', 'equipo', 'herramienta')),
   nombre VARCHAR(150) NOT NULL,
   marca VARCHAR(120),
   modelo VARCHAR(120),
@@ -130,7 +130,8 @@ CREATE TABLE IF NOT EXISTS articulo (
   estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo')),
   creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT chk_articulo_grupo_subclasificacion CHECK (
-    (grupo_principal = 'equipo' AND subclasificacion IN ('epp', 'medicion_ensayos'))
+    (grupo_principal = 'epp' AND subclasificacion = 'epp')
+    OR (grupo_principal = 'equipo' AND subclasificacion IN ('medicion_ensayos'))
     OR (grupo_principal = 'herramienta' AND subclasificacion IN ('manual', 'electrica_cable', 'inalambrica_bateria'))
   )
 );

@@ -220,7 +220,7 @@ class TrabajadoresService {
         a.estado AS activo_estado,
         ar.id AS articulo_id,
         ar.nombre AS articulo_nombre,
-        ar.tipo AS articulo_tipo,
+        ar.grupo_principal AS articulo_tipo,
         u.nombre AS ubicacion_nombre,
         GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - ca.desde_en)) / 86400))::int AS dias_en_custodia,
         CASE

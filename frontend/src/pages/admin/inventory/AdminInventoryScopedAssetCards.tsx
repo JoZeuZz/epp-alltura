@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
-import { ToolDetailsModal, ToolGrid } from '../../../components/tools';
+import { ToolGrid } from '../../../components/tools';
+import ActivoProfileModal from '../../../components/forms/ActivoProfileModal';
 import { useGet } from '../../../hooks';
 import {
   getInventoryActivosPaged,
@@ -295,14 +296,13 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
         </div>
       )}
 
-      <ToolDetailsModal
-        isOpen={Boolean(selectedAsset)}
-        tool={selectedAsset}
-        onClose={() => setSelectedAsset(null)}
-        onRefresh={() => {
-          void refetch();
-        }}
-      />
+      {selectedAsset && (
+        <ActivoProfileModal
+          activoId={String(selectedAsset.id)}
+          onClose={() => setSelectedAsset(null)}
+          onRefresh={() => { void refetch(); }}
+        />
+      )}
     </div>
   );
 };

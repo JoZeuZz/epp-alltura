@@ -96,7 +96,7 @@ export const updateUser = <T = unknown>({ id, ...payload }: UserUpdatePayload) =
   put<T>(`/users/${id}`, payload);
 export const deactivateUser = <T = unknown>(id: string) => del<T>(`/users/${id}`);
 
-export type ArticuloGrupoPrincipal = 'equipo' | 'herramienta';
+export type ArticuloGrupoPrincipal = 'epp' | 'equipo' | 'herramienta';
 export type ArticuloSubclasificacion =
   | 'epp'
   | 'medicion_ensayos'
@@ -470,11 +470,21 @@ export interface ActivoCustodiaEntry {
   dias_en_custodia?: number | null;
 }
 
+export interface DevolverActivoPayload {
+  trabajador_id: string;
+  ubicacion_recepcion_id: string;
+  condicion_entrada: 'ok' | 'usado' | 'danado' | 'perdido';
+  disposicion: 'devuelto' | 'perdido' | 'baja' | 'mantencion';
+  notas?: string | null;
+  firma_imagen_url: string;
+}
+
 export interface ActivoProfileResponse {
   id: string;
   codigo: string;
   nro_serie?: string | null;
   estado: string;
+  foto_url?: string | null;
   ubicacion_actual_id?: string | null;
   ubicacion_nombre?: string | null;
   fecha_compra?: string | null;
@@ -527,6 +537,9 @@ export const reubicarActivo = (id: string, payload: ReubicarActivoPayload) =>
 
 export const editarActivo = (id: string, payload: EditarActivoPayload) =>
   patch<{ id: string; valor: number | null; fecha_vencimiento: string | null }>(`/inventario/activos/${id}`, payload);
+
+export const devolverActivo = (id: string, payload: DevolverActivoPayload) =>
+  post<{ id: string }>(`/activos/${id}/devolver`, payload);
 
 export const getInventoryAvailableAssets = (params: InventoryAvailableAssetQueryParams) =>
   get<InventoryAvailableAssetRow[]>('/inventario/activos-disponibles', params);
