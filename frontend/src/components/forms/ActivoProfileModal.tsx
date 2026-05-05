@@ -1,14 +1,27 @@
-import React, { useId, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useId, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import Modal from '../Modal';
+import CambiarEstadoActivoModal from './CambiarEstadoActivoModal';
+import ReubicarActivoModal from './ReubicarActivoModal';
+import EditarActivoModal from './EditarActivoModal';
+import EntregaCreateModal from './EntregaCreateModal';
+import DevolucionActivoModal from './DevolucionActivoModal';
+import { useGet } from '../../hooks';
 import {
+  createEntrega,
   getActivoProfile,
   type ActivoCustodiaEntry,
-  type ActivoProfileResponse,
   type ActivoTimelineEntry,
+  type ActivoProfileResponse,
+  type EntregaCreatePayload,
+  type EntregaTemplate,
+  type InventoryActivoDetailRow,
 } from '../../services/apiService';
 import { formatCLP } from '../../utils/currency';
 import { getToolStatusBadgeClasses, getToolStatusLabel } from '../../utils/toolPresentation';
+
+type SubModal = 'entregar' | 'devolver' | 'estado' | 'reubicar' | 'editar' | null;
 
 const MOV_ICONS: Record<string, string> = {
   entrada: '📥',
@@ -53,19 +66,181 @@ const formatDateTime = (dateStr: string | null | undefined) => {
 interface Props {
   activoId: string;
   onClose: () => void;
-  onCambiarEstado?: () => void;
-  onReubicar?: () => void;
-  onEditar?: () => void;
+  onRefresh?: () => void;
 }
 
-const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onCambiarEstado, onReubicar, onEditar }) => {
+const toActivoRow = (profile: ActivoProfileResponse): InventoryActivoDetailRow => ({
+  id: profile.id,
+  codigo: profile.codigo,
+  nro_serie: profile.nro_serie ?? null,
+  articulo_id: profile.articulo_id,
+  articulo_nombre: profile.articulo_nombre,
+  ubicacion_id: profile.ubicacion_actual_id ?? null,
+  ubicacion_nombre: profile.ubicacion_nombre ?? null,
+  estado: profile.estado,
+  valor: profile.valor ?? null,
+  fecha_vencimiento: profile.fecha_vencimiento ?? null,
+  custodia_id: profile.custodia_activa?.id ?? null,
+  custodia_estado: profile.custodia_activa?.estado ?? null,
+  custodio_trabajador_id: profile.custodia_activa?.trabajador_id ?? null,
+  custodio_nombres: profile.custodia_activa?.custodio_nombres ?? null,
+  custodio_apellidos: profile.custodia_activa?.custodio_apellidos ?? null,
+  custodia_ubicacion_id: profile.custodia_activa?.ubicacion_destino_id ?? null,
+  custodia_ubicacion_nombre: profile.custodia_activa?.custodia_ubicacion_nombre ?? null,
+  fecha_devolucion_esperada: null,
+  semaforo_devolucion: null,
+});
+
+const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) => {
+  const queryClient = useQueryClient();
   const [showMoreDetails, setShowMoreDetails] = useState(false);
+  const [subModal, setSubModal] = useState<SubModal>(null);
   const detailsPanelId = useId();
+
   const { data: profile, isLoading, error } = useQuery<ActivoProfileResponse>({
     queryKey: ['activo-profile', activoId],
     queryFn: () => getActivoProfile(activoId),
     enabled: !!activoId,
   });
+
+  const { data: trabajadores = [] } = useGet<{
+    id: string;
+    persona_id: string;
+    nombres: string;
+    apellidos: string;
+    rut: string;
+    cargo?: string | null;
+  }[]>(
+    ['activo-profile-modal', 'trabajadores'],
+    '/trabajadores',
+    undefined,
+    { enabled: !!activoId }
+  );
+  const { data: ubicaciones = [] } = useGet<{
+    id: string;
+    nombre: string;
+    tipo?: 'bodega' | 'planta' | 'proyecto' | 'taller_mantencion';
+  }[]>(
+    ['activo-profile-modal', 'ubicaciones'],
+    '/ubicaciones',
+    undefined,
+    { enabled: !!activoId }
+  );
+  const { data: articulos = [] } = useGet<{
+    id: string;
+    nombre: string;
+    tracking_mode: 'serial' | 'lote';
+  }[]>(
+    ['activo-profile-modal', 'articulos'],
+    '/articulos',
+    undefined,
+    { enabled: !!activoId }
+  );
+  const { data: entregaTemplates = [] } = useGet<EntregaTemplate[]>(
+    ['activo-profile-modal', 'entrega-templates'],
+    '/entregas/templates',
+    { estado: 'activo' },
+    { enabled: !!activoId }
+  );
+
+  const activoRow = useMemo(
+    () => (profile ? toActivoRow(profile) : null),
+    [profile]
+  );
+
+  const entregaMutation = useMutation({
+    mutationFn: (payload: EntregaCreatePayload) => createEntrega(payload),
+    onSuccess: () => {
+      toast.success('Entrega creada correctamente.');
+      void queryClient.invalidateQueries({ queryKey: ['activo-profile', activoId] });
+      onRefresh?.();
+      setSubModal(null);
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(e?.response?.data?.message ?? e?.message ?? 'No se pudo crear la entrega.');
+    },
+  });
+
+  const handleSubmodalSuccess = () => {
+    void queryClient.invalidateQueries({ queryKey: ['activo-profile', activoId] });
+    onRefresh?.();
+    setSubModal(null);
+  };
+
+  if (subModal && profile && activoRow) {
+    if (subModal === 'entregar') {
+      const code = profile.codigo;
+      const name = profile.articulo_nombre;
+      const value = profile.valor != null ? formatCLP(profile.valor) : '—';
+      return (
+        <EntregaCreateModal
+          isOpen
+          onClose={() => setSubModal(null)}
+          onSubmit={async (payload) => {
+            await entregaMutation.mutateAsync(payload);
+          }}
+          isSubmitting={entregaMutation.isPending}
+          trabajadores={trabajadores}
+          ubicaciones={ubicaciones}
+          articulos={articulos}
+          templates={entregaTemplates}
+          initialActivoId={profile.id}
+          initialArticuloId={profile.articulo_id}
+          lockActivoSelection
+          initialActivoCode={code}
+          initialActivoName={name}
+          initialActivoValue={value}
+          onSuccess={() => setSubModal(null)}
+        />
+      );
+    }
+    if (subModal === 'devolver' && profile.custodia_activa) {
+      const custodio = profile.custodia_activa;
+      const nombre = `${custodio.custodio_nombres} ${custodio.custodio_apellidos}`;
+      return (
+        <DevolucionActivoModal
+          activoId={profile.id}
+          trabajadorId={custodio.trabajador_id}
+          trabajadorNombre={nombre}
+          onClose={() => setSubModal(null)}
+          onSuccess={handleSubmodalSuccess}
+        />
+      );
+    }
+    if (subModal === 'estado') {
+      return (
+        <CambiarEstadoActivoModal
+          activo={activoRow}
+          onClose={() => setSubModal(null)}
+          onSuccess={handleSubmodalSuccess}
+        />
+      );
+    }
+    if (subModal === 'reubicar') {
+      return (
+        <ReubicarActivoModal
+          activo={activoRow}
+          onClose={() => setSubModal(null)}
+          onSuccess={handleSubmodalSuccess}
+        />
+      );
+    }
+    if (subModal === 'editar') {
+      return (
+        <EditarActivoModal
+          activo={activoRow}
+          onClose={() => setSubModal(null)}
+          onSuccess={handleSubmodalSuccess}
+        />
+      );
+    }
+  }
+
+  const canEntregar = profile ? profile.estado !== 'asignado' : false;
+  const canDevolver = profile ? profile.custodia_activa != null : false;
+  const canCambiarEstado = profile ? profile.estado !== 'asignado' : false;
+  const canReubicar = profile ? profile.estado === 'en_stock' : false;
 
   return (
     <Modal isOpen onClose={onClose} title="Perfil del activo">
@@ -81,7 +256,15 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onCambiarEstad
         <div className="space-y-6">
           {/* Header */}
           <div className="space-y-4">
+            {/* Mobile */}
             <div className="sm:hidden space-y-3">
+              {profile.foto_url && (
+                <img
+                  src={profile.foto_url}
+                  alt={profile.articulo_nombre}
+                  className="w-24 h-24 object-cover rounded-lg border border-gray-200"
+                />
+              )}
               <div className="grid grid-cols-3 gap-2">
                 <MobileSummaryItem label="Estado">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getToolStatusBadgeClasses(profile.estado)}`}>
@@ -101,12 +284,6 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onCambiarEstad
                   </span>
                 </MobileSummaryItem>
               </div>
-              <ActionButtons
-                estado={profile.estado}
-                onCambiarEstado={onCambiarEstado}
-                onReubicar={onReubicar}
-                onEditar={onEditar}
-              />
 
               <button
                 type="button"
@@ -118,33 +295,23 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onCambiarEstad
                 {showMoreDetails ? 'Ocultar detalles' : 'Ver más detalles'}
               </button>
               <div id={detailsPanelId} className={`${showMoreDetails ? 'block' : 'hidden'} bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm text-gray-700 space-y-1`}>
-                <p>
-                  Artículo: <strong>{profile.articulo_nombre}</strong>
-                </p>
-                <p>
-                  Fecha relevante:{' '}
-                  <strong>
-                    {formatDate(profile.custodia_activa?.desde_en ?? profile.compra?.fecha_compra)}
-                  </strong>
-                </p>
-                <p>
-                  Ubicación extendida:{' '}
-                  <strong>
-                    {profile.custodia_activa?.custodia_ubicacion_nombre ?? profile.ubicacion_nombre ?? '—'}
-                  </strong>
-                </p>
-                <p>
-                  Código: <strong>{profile.codigo}</strong>
-                </p>
-                {profile.nro_serie && (
-                  <p>
-                    Serie: <strong>{profile.nro_serie}</strong>
-                  </p>
-                )}
+                <p>Artículo: <strong>{profile.articulo_nombre}</strong></p>
+                <p>Fecha relevante: <strong>{formatDate(profile.custodia_activa?.desde_en ?? profile.compra?.fecha_compra)}</strong></p>
+                <p>Ubicación: <strong>{profile.custodia_activa?.custodia_ubicacion_nombre ?? profile.ubicacion_nombre ?? '—'}</strong></p>
+                <p>Código: <strong>{profile.codigo}</strong></p>
+                {profile.nro_serie && <p>Serie: <strong>{profile.nro_serie}</strong></p>}
               </div>
             </div>
 
+            {/* Desktop */}
             <div className="hidden sm:flex flex-col sm:flex-row sm:items-start gap-4">
+              {profile.foto_url && (
+                <img
+                  src={profile.foto_url}
+                  alt={profile.articulo_nombre}
+                  className="w-24 h-24 object-cover rounded-lg border border-gray-200 flex-shrink-0"
+                />
+              )}
               <div className="flex-1 space-y-1">
                 <h3 className="text-lg font-bold text-gray-900">{profile.articulo_nombre}</h3>
                 <div className="flex flex-wrap gap-2 text-sm text-gray-600">
@@ -161,12 +328,6 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onCambiarEstad
                     </span>
                   )}
                 </div>
-                <ActionButtons
-                  estado={profile.estado}
-                  onCambiarEstado={onCambiarEstado}
-                  onReubicar={onReubicar}
-                  onEditar={onEditar}
-                />
               </div>
               <div className="flex flex-wrap gap-3 text-center">
                 <StatBox label="Entregas" value={profile.estadisticas.total_entregas} />
@@ -175,6 +336,43 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onCambiarEstad
               </div>
             </div>
           </div>
+
+          {/* Acciones */}
+          <section className="space-y-2" aria-label="Acciones del activo">
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Acciones</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <ActionButton
+                label="Entregar"
+                tone="primary"
+                disabled={!canEntregar}
+                reason={!canEntregar ? 'Solo se puede entregar cuando el activo está disponible.' : undefined}
+                onClick={() => setSubModal('entregar')}
+              />
+              <ActionButton
+                label="Devolver"
+                tone="primary"
+                disabled={!canDevolver}
+                reason={!canDevolver ? 'La devolución aplica cuando existe custodia activa.' : undefined}
+                onClick={() => setSubModal('devolver')}
+              />
+              <ActionButton
+                label="Cambiar estado"
+                disabled={!canCambiarEstado}
+                reason={!canCambiarEstado ? 'Para activos asignados el estado se resuelve desde devolución.' : undefined}
+                onClick={() => setSubModal('estado')}
+              />
+              <ActionButton
+                label="Reubicar"
+                disabled={!canReubicar}
+                reason={!canReubicar ? 'La reubicación directa solo aplica para activos en stock.' : undefined}
+                onClick={() => setSubModal('reubicar')}
+              />
+              <ActionButton
+                label="Editar"
+                onClick={() => setSubModal('editar')}
+              />
+            </div>
+          </section>
 
           {/* Custodia activa */}
           {profile.custodia_activa && (
@@ -281,43 +479,29 @@ const MobileSummaryItem: React.FC<{ label: string; children: React.ReactNode }> 
   </div>
 );
 
-const ActionButtons: React.FC<{
-  estado: string;
-  onCambiarEstado?: () => void;
-  onReubicar?: () => void;
-  onEditar?: () => void;
-}> = ({ estado, onCambiarEstado, onReubicar, onEditar }) => {
-  if (!onCambiarEstado && !onReubicar && !onEditar) return null;
-
-  return (
-    <div className="flex flex-wrap gap-2 mt-2">
-      {onCambiarEstado && estado !== 'asignado' && (
-        <button
-          onClick={onCambiarEstado}
-          className="px-2.5 py-1 text-xs font-medium rounded-md bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors"
-        >
-          Cambiar estado
-        </button>
-      )}
-      {onReubicar && estado === 'en_stock' && (
-        <button
-          onClick={onReubicar}
-          className="px-2.5 py-1 text-xs font-medium rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-colors"
-        >
-          Reubicar
-        </button>
-      )}
-      {onEditar && (
-        <button
-          onClick={onEditar}
-          className="px-2.5 py-1 text-xs font-medium rounded-md bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors"
-        >
-          Editar
-        </button>
-      )}
-    </div>
-  );
-};
+const ActionButton: React.FC<{
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  reason?: string;
+  tone?: 'primary' | 'neutral';
+}> = ({ label, onClick, disabled = false, reason, tone = 'neutral' }) => (
+  <div className="space-y-0.5">
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={`w-full text-left px-3 py-2 rounded-md border text-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-blue focus-visible:ring-offset-2 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed ${
+        tone === 'primary'
+          ? 'border-primary-blue bg-primary-blue text-white hover:bg-blue-700 disabled:border-gray-200 disabled:bg-gray-50'
+          : 'border-gray-200 text-gray-700 bg-white hover:bg-gray-50'
+      }`}
+    >
+      {label}
+    </button>
+    {disabled && reason && <p className="text-xs text-gray-400 leading-tight">{reason}</p>}
+  </div>
+);
 
 const TimelineItem: React.FC<{ entry: ActivoTimelineEntry }> = ({ entry }) => (
   <li className="relative pl-10">
@@ -331,9 +515,7 @@ const TimelineItem: React.FC<{ entry: ActivoTimelineEntry }> = ({ entry }) => (
       </div>
       <div className="text-xs text-gray-500 mt-0.5 space-y-0.5">
         {(entry.ubicacion_origen_nombre || entry.ubicacion_destino_nombre) && (
-          <p>
-            {entry.ubicacion_origen_nombre ?? '?'} → {entry.ubicacion_destino_nombre ?? '?'}
-          </p>
+          <p>{entry.ubicacion_origen_nombre ?? '?'} → {entry.ubicacion_destino_nombre ?? '?'}</p>
         )}
         {entry.notas && <p className="italic">{entry.notas}</p>}
         {entry.responsable_email && <p>Por: {entry.responsable_email}</p>}
@@ -352,9 +534,7 @@ const CUSTODIA_ESTADO_CLASSES: Record<string, string> = {
 
 const CustodiaRow: React.FC<{ custodia: ActivoCustodiaEntry }> = ({ custodia }) => (
   <tr className="border-b last:border-b-0">
-    <td className="py-2 px-2 font-medium">
-      {custodia.custodio_nombres} {custodia.custodio_apellidos}
-    </td>
+    <td className="py-2 px-2 font-medium">{custodia.custodio_nombres} {custodia.custodio_apellidos}</td>
     <td className="py-2 px-2">{custodia.custodia_ubicacion_nombre ?? '—'}</td>
     <td className="py-2 px-2">{formatDate(custodia.desde_en)}</td>
     <td className="py-2 px-2">{custodia.hasta_en ? formatDate(custodia.hasta_en) : 'Activa'}</td>

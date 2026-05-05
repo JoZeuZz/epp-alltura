@@ -1,9 +1,10 @@
 'use strict';
 
-const GRUPOS_VALIDOS = new Set(['equipo', 'herramienta']);
+const GRUPOS_VALIDOS = new Set(['epp', 'equipo', 'herramienta']);
 
 const SUBCLASIFICACIONES_POR_GRUPO = {
-  equipo: new Set(['epp', 'medicion_ensayos']),
+  epp: new Set(['epp']),
+  equipo: new Set(['medicion_ensayos']),
   herramienta: new Set(['manual', 'electrica_cable', 'inalambrica_bateria']),
 };
 

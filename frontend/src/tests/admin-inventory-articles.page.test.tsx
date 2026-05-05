@@ -80,7 +80,7 @@ describe('AdminInventoryArticlesPage', () => {
             {
               id: 'article-1',
               nombre: 'Guantes dieléctricos',
-              grupo_principal: 'equipo',
+              grupo_principal: 'epp',
               subclasificacion: 'epp',
               especialidades: ['ooee'],
               tracking_mode: 'serial',
@@ -112,14 +112,14 @@ describe('AdminInventoryArticlesPage', () => {
   it('renderiza catálogo de artículos', () => {
     renderPage();
 
-    expect(screen.getByText('Catálogo de Equipos y Herramientas')).toBeInTheDocument();
+    expect(screen.getByText('Catálogo de EPP, Equipos y Herramientas')).toBeInTheDocument();
     expect(screen.getByText('Guantes dieléctricos')).toBeInTheDocument();
   });
 
   it('muestra copy operativo sin etiquetas legacy visibles', () => {
     renderPage();
 
-    expect(screen.getByText('Catálogo de Equipos y Herramientas')).toBeInTheDocument();
+    expect(screen.getByText('Catálogo de EPP, Equipos y Herramientas')).toBeInTheDocument();
     expect(screen.queryByText(/EPP Control/i)).not.toBeInTheDocument();
   });
 
@@ -146,7 +146,7 @@ describe('AdminInventoryArticlesPage', () => {
     );
   });
 
-  it('crea un equipo con subclasificación compatible y especialidades seleccionadas', async () => {
+  it('crea un EPP con subclasificación compatible y especialidades seleccionadas', async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -156,7 +156,7 @@ describe('AdminInventoryArticlesPage', () => {
     const modal = modalTitle.closest('form') as HTMLFormElement;
 
     const groupSelect = within(modal).getByDisplayValue('Herramienta');
-    await user.selectOptions(groupSelect, 'equipo');
+    await user.selectOptions(groupSelect, 'epp');
 
     const specialtyOOCC = within(modal).getByRole('checkbox', { name: 'OOCC' });
     const specialtyOOEE = within(modal).getByRole('checkbox', { name: 'OOEE' });
@@ -172,7 +172,7 @@ describe('AdminInventoryArticlesPage', () => {
 
     expect(createArticuloMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        grupo_principal: 'equipo',
+        grupo_principal: 'epp',
         subclasificacion: 'epp',
         especialidades: ['ooee'],
         nombre: 'Arnés Pro',
@@ -189,8 +189,7 @@ describe('AdminInventoryArticlesPage', () => {
       expect.anything(),
       '/articulos',
       expect.objectContaining({
-        grupo_principal: 'equipo',
-        subclasificacion: 'epp',
+        grupo_principal: 'epp',
       }),
       expect.anything()
     );
@@ -265,7 +264,7 @@ describe('AdminInventoryArticlesPage', () => {
     const modalTitle = await screen.findByRole('heading', { name: 'Editar Artículo' });
     const modal = modalTitle.closest('form') as HTMLFormElement;
 
-    const groupSelect = within(modal).getByDisplayValue('Equipo');
+    const groupSelect = within(modal).getByDisplayValue('EPP');
     await user.selectOptions(groupSelect, 'herramienta');
 
     const subclasificacionSelect = within(modal).getByDisplayValue('Manual');

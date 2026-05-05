@@ -110,8 +110,8 @@ BEGIN
   INSERT INTO articulo (id, grupo_principal, nombre, marca, modelo, subclasificacion, tracking_mode, nivel_control, requiere_vencimiento, unidad_medida, estado)
   VALUES
     ('00000000-0000-0000-0000-000000000401', 'herramienta', 'Taladro Industrial',     'Bosch',     'GSB-16',     'electrica_cable',   'serial', 'alto', FALSE, 'unidad', 'activo'),
-    ('00000000-0000-0000-0000-000000000402', 'equipo',      'Arnes de Seguridad',     '3M',        'Protecta X', 'epp',               'serial', 'alto', TRUE,  'unidad', 'activo'),
-    ('00000000-0000-0000-0000-000000000403', 'equipo',      'Guante de cabritilla',   'SegurPlus', 'GC-01',      'epp',               'lote',   'bajo', FALSE, 'par',    'activo'),
+    ('00000000-0000-0000-0000-000000000402', 'epp',         'Arnes de Seguridad',     '3M',        'Protecta X', 'epp',               'serial', 'alto', TRUE,  'unidad', 'activo'),
+    ('00000000-0000-0000-0000-000000000403', 'epp',         'Guante de cabritilla',   'SegurPlus', 'GC-01',      'epp',               'lote',   'bajo', FALSE, 'par',    'activo'),
     ('00000000-0000-0000-0000-000000000404', 'equipo',      'Medidor Laser Distancia','Fluke',     '424D',       'medicion_ensayos',  'serial', 'alto', FALSE, 'unidad', 'activo')
   ON CONFLICT (id) DO NOTHING;
 

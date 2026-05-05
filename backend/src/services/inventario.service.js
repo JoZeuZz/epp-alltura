@@ -84,15 +84,15 @@ const buildScopedAssetTypeCondition = (value, nextParamIndex) => {
 
   if (normalized === 'epp') {
     return {
-      condition: `ar.subclasificacion = $${nextParamIndex}`,
+      condition: `ar.grupo_principal = $${nextParamIndex}`,
       value: 'epp',
     };
   }
 
   if (normalized === 'equipos' || normalized === 'equipo') {
     return {
-      condition: `(ar.grupo_principal = $${nextParamIndex} AND ar.subclasificacion <> $${nextParamIndex + 1})`,
-      value: ['equipo', 'epp'],
+      condition: `ar.grupo_principal = $${nextParamIndex}`,
+      value: 'equipo',
     };
   }
 
@@ -587,7 +587,7 @@ class InventarioService {
         a.creado_en,
         ar.id AS articulo_id,
         ar.nombre AS articulo_nombre,
-        ar.tipo AS articulo_tipo,
+        ar.grupo_principal AS articulo_tipo,
         u.id AS ubicacion_id,
         u.nombre AS ubicacion_nombre,
         u.tipo AS ubicacion_tipo,
@@ -699,7 +699,7 @@ class InventarioService {
         a.creado_en,
         ar.id AS articulo_id,
         ar.nombre AS articulo_nombre,
-        ar.tipo AS articulo_tipo,
+        ar.grupo_principal AS articulo_tipo,
         u.id AS ubicacion_id,
         u.nombre AS ubicacion_nombre,
         u.tipo AS ubicacion_tipo,
@@ -917,7 +917,7 @@ class InventarioService {
     const activoResult = await db.query(
       `
       SELECT
-        ac.id, ac.codigo, ac.nro_serie, ac.estado,
+        ac.id, ac.codigo, ac.nro_serie, ac.estado, ac.foto_url,
         ac.ubicacion_actual_id, ac.fecha_compra, ac.fecha_vencimiento, ac.valor,
         ac.creado_en,
         a.id AS articulo_id, a.nombre AS articulo_nombre,

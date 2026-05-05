@@ -117,7 +117,7 @@ describe('Articulos API Route Integration', () => {
   it('crea un artículo con contrato V2 grupo/subclasificación/especialidades', async () => {
     ArticulosService.create.mockResolvedValue({
       id: 'articulo-v2-1',
-      grupo_principal: 'equipo',
+        grupo_principal: 'epp',
       subclasificacion: 'epp',
       especialidades: ['ooee'],
       nombre: 'Arnés dieléctrico',
@@ -126,7 +126,7 @@ describe('Articulos API Route Integration', () => {
 
     const app = buildApp();
     const payload = {
-      grupo_principal: 'equipo',
+        grupo_principal: 'epp',
       subclasificacion: 'epp',
       especialidades: ['ooee'],
       nombre: 'Arnés dieléctrico',
@@ -241,7 +241,7 @@ describe('Articulos API Route Integration', () => {
     const response = await request(app)
       .post('/api/articulos')
       .send({
-        grupo_principal: 'equipo',
+        grupo_principal: 'epp',
         subclasificacion: 'epp',
         especialidades: ['ooee', 'marcador_invalido'],
         nombre: 'Artículo inválido',
