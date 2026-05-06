@@ -108,7 +108,7 @@ class ComprasService {
                 'codigo', ac.codigo,
                 'nro_serie', ac.nro_serie,
                 'estado', ac.estado,
-                'ubicacion_actual_id', ac.ubicacion_actual_id,
+                'bodega_actual_id', ac.bodega_actual_id,
                 'fecha_vencimiento', ac.fecha_vencimiento
               )
             ),
@@ -163,26 +163,22 @@ class ComprasService {
         const qty = toQuantity(detalle.cantidad);
         const cost = toCost(detalle.costo_unitario);
 
-        if (!detalle.ubicacion_id) {
+        if (!detalle.bodega_id) {
           throw buildError(
-            'Cada detalle de compra debe incluir ubicacion_id para ingreso de inventario',
+            'Cada detalle de compra debe incluir bodega_id para ingreso de inventario',
             400,
             'LOCATION_REQUIRED'
           );
         }
 
-        const ubicacionResult = await client.query(
-          `
-          SELECT id
-          FROM ubicacion
-          WHERE id = $1
-          `,
-          [detalle.ubicacion_id]
+        const bodegaResult = await client.query(
+          `SELECT id FROM bodegas WHERE id = $1`,
+          [detalle.bodega_id]
         );
 
-        if (!ubicacionResult.rows.length) {
+        if (!bodegaResult.rows.length) {
           throw buildError(
-            `Ubicación ${detalle.ubicacion_id} no encontrada`,
+            `Bodega ${detalle.bodega_id} no encontrada`,
             400,
             'LOCATION_NOT_FOUND'
           );
@@ -361,7 +357,7 @@ class ComprasService {
           codigo,
           valor,
           estado,
-          ubicacion_actual_id,
+          bodega_actual_id,
           fecha_compra,
           fecha_vencimiento
         )
@@ -374,7 +370,7 @@ class ComprasService {
           activo.nro_serie || null,
           codigo,
           activo.valor || null,
-          context.detalle.ubicacion_id,
+          context.detalle.bodega_id,
           context.purchaseDate,
           activo.fecha_vencimiento || null,
         ]
@@ -385,8 +381,8 @@ class ComprasService {
         INSERT INTO movimiento_activo (
           activo_id,
           tipo,
-          ubicacion_origen_id,
-          ubicacion_destino_id,
+          bodega_origen_id,
+          bodega_destino_id,
           responsable_usuario_id,
           notas
         )
@@ -394,7 +390,7 @@ class ComprasService {
         `,
         [
           assetResult.rows[0].id,
-          context.detalle.ubicacion_id,
+          context.detalle.bodega_id,
           context.userId,
           `Ingreso por compra ${context.compraId}`,
         ]
@@ -406,19 +402,19 @@ class ComprasService {
     await client.query(
       `
       INSERT INTO stock (
-        ubicacion_id,
+        bodega_id,
         articulo_id,
         lote_id,
         cantidad_disponible,
         cantidad_reservada
       )
       VALUES ($1, $2, NULL, $3, 0)
-      ON CONFLICT (ubicacion_id, articulo_id) WHERE lote_id IS NULL
+      ON CONFLICT (bodega_id, articulo_id) WHERE lote_id IS NULL
       DO UPDATE SET
         cantidad_disponible = stock.cantidad_disponible + EXCLUDED.cantidad_disponible,
         actualizado_en = NOW()
       `,
-      [context.detalle.ubicacion_id, context.articulo.id, context.qty]
+      [context.detalle.bodega_id, context.articulo.id, context.qty]
     );
 
     await client.query(
@@ -427,8 +423,8 @@ class ComprasService {
         articulo_id,
         lote_id,
         tipo,
-        ubicacion_origen_id,
-        ubicacion_destino_id,
+        bodega_origen_id,
+        bodega_destino_id,
         cantidad,
         responsable_usuario_id,
         compra_id,
@@ -439,7 +435,7 @@ class ComprasService {
       [
         context.articulo.id,
         null,
-        context.detalle.ubicacion_id,
+        context.detalle.bodega_id,
         context.qty,
         context.userId,
         context.compraId,
@@ -472,7 +468,7 @@ class ComprasService {
         SELECT
           ms.articulo_id,
           ms.lote_id,
-          ms.ubicacion_destino_id AS ubicacion_id,
+          ms.bodega_destino_id AS bodega_id,
           ms.cantidad
         FROM movimiento_stock ms
         WHERE ms.compra_id = $1
@@ -492,10 +488,10 @@ class ComprasService {
             FROM stock
             WHERE articulo_id = $1
               AND lote_id = $2
-              AND ubicacion_id = $3
+              AND bodega_id = $3
             FOR UPDATE
             `,
-            [mov.articulo_id, mov.lote_id, mov.ubicacion_id]
+            [mov.articulo_id, mov.lote_id, mov.bodega_id]
           );
         } else {
           stockResult = await client.query(
@@ -504,10 +500,10 @@ class ComprasService {
             FROM stock
             WHERE articulo_id = $1
               AND lote_id IS NULL
-              AND ubicacion_id = $2
+              AND bodega_id = $2
             FOR UPDATE
             `,
-            [mov.articulo_id, mov.ubicacion_id]
+            [mov.articulo_id, mov.bodega_id]
           );
         }
 
@@ -532,9 +528,9 @@ class ComprasService {
               actualizado_en = NOW()
             WHERE articulo_id = $2
               AND lote_id = $3
-              AND ubicacion_id = $4
+              AND bodega_id = $4
             `,
-            [mov.cantidad, mov.articulo_id, mov.lote_id, mov.ubicacion_id]
+            [mov.cantidad, mov.articulo_id, mov.lote_id, mov.bodega_id]
           );
         } else {
           await client.query(
@@ -545,9 +541,9 @@ class ComprasService {
               actualizado_en = NOW()
             WHERE articulo_id = $2
               AND lote_id IS NULL
-              AND ubicacion_id = $3
+              AND bodega_id = $3
             `,
-            [mov.cantidad, mov.articulo_id, mov.ubicacion_id]
+            [mov.cantidad, mov.articulo_id, mov.bodega_id]
           );
         }
 
@@ -557,8 +553,8 @@ class ComprasService {
             articulo_id,
             lote_id,
             tipo,
-            ubicacion_origen_id,
-            ubicacion_destino_id,
+            bodega_origen_id,
+            bodega_destino_id,
             cantidad,
             responsable_usuario_id,
             compra_id,
@@ -569,7 +565,7 @@ class ComprasService {
           [
             mov.articulo_id,
             mov.lote_id,
-            mov.ubicacion_id,
+            mov.bodega_id,
             mov.cantidad,
             actorUserId,
             id,
