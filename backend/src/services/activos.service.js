@@ -2,10 +2,6 @@ const crypto = require('crypto');
 const db = require('../db');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
 
-const ROUTE_RULES = {
-  entrega: { origen: 'bodega', destino: 'planta' },
-};
-
 const CUSTODIA_STATE_BY_DISPOSICION = {
   devuelto: 'devuelta',
   perdido: 'perdida',
@@ -48,76 +44,40 @@ class ActivosService {
       [trabajadorId]
     );
 
-    if (!rows.length) {
-      throw buildError('Trabajador no encontrado', 400);
-    }
-
+    if (!rows.length) throw buildError('Trabajador no encontrado', 400);
     const worker = rows[0];
     if (worker.estado !== 'activo' || worker.persona_estado !== 'activo') {
       throw buildError('El trabajador debe estar activo para recibir movimientos', 400);
     }
   }
 
-  static async _validateMovementRoute(client, { tipo, ubicacion_origen_id, ubicacion_destino_id }) {
-    const rule = ROUTE_RULES[tipo];
-    if (!rule) {
-      throw buildError(`Tipo de movimiento no soportado: ${tipo}`, 400);
+  static async _validateEntregaRoute(client, { bodega_origen_id, proyecto_destino_id }) {
+    if (bodega_origen_id === proyecto_destino_id) {
+      throw buildError('La bodega de origen y el proyecto de destino deben ser diferentes', 400);
     }
 
-    if (ubicacion_origen_id === ubicacion_destino_id) {
-      throw buildError('La ubicación de origen y destino deben ser diferentes', 400);
-    }
+    const [bodegaResult, proyectoResult] = await Promise.all([
+      client.query(`SELECT id, estado FROM bodegas WHERE id = $1`, [bodega_origen_id]),
+      client.query(`SELECT id, estado FROM proyectos WHERE id = $1`, [proyecto_destino_id]),
+    ]);
 
-    const { rows } = await client.query(
-      `SELECT id, tipo, estado FROM ubicacion WHERE id = ANY($1::uuid[])`,
-      [[ubicacion_origen_id, ubicacion_destino_id]]
-    );
-
-    const locationMap = new Map(rows.map((r) => [r.id, r]));
-    const origen = locationMap.get(ubicacion_origen_id);
-    const destino = locationMap.get(ubicacion_destino_id);
-
-    if (!origen) throw buildError('La ubicación de origen no existe', 400);
-    if (!destino) throw buildError('La ubicación de destino no existe', 400);
-    if (origen.estado !== 'activo' || destino.estado !== 'activo') {
-      throw buildError('Las ubicaciones de origen y destino deben estar activas', 400);
-    }
-    if (origen.tipo !== rule.origen || destino.tipo !== rule.destino) {
-      throw buildError(
-        `Ruta inválida para "${tipo}": se requiere ${rule.origen} → ${rule.destino}`,
-        400
-      );
-    }
+    if (!bodegaResult.rows.length) throw buildError('La bodega de origen no existe', 400);
+    if (!proyectoResult.rows.length) throw buildError('El proyecto de destino no existe', 400);
+    if (bodegaResult.rows[0].estado !== 'activo') throw buildError('La bodega de origen debe estar activa', 400);
+    if (proyectoResult.rows[0].estado === 'inactivo') throw buildError('El proyecto de destino no puede estar inactivo', 400);
   }
 
-  static async _validateReceivingLocation(client, ubicacionId) {
+  static async _validateReceivingBodega(client, bodegaId) {
     const { rows } = await client.query(
-      `SELECT id, estado, fecha_inicio_operacion, fecha_cierre_operacion
-       FROM ubicacion WHERE id = $1 LIMIT 1`,
-      [ubicacionId]
+      `SELECT id, estado FROM bodegas WHERE id = $1 LIMIT 1`,
+      [bodegaId]
     );
 
     if (!rows.length) {
-      throw buildError('Ubicación de recepción no encontrada', 400, 'LOCATION_NOT_FOUND');
+      throw buildError('Bodega de recepción no encontrada', 400, 'BODEGA_NOT_FOUND');
     }
-
-    const loc = rows[0];
-    if (loc.estado !== 'activo') {
-      throw buildError('La ubicación de recepción debe estar activa', 400, 'LOCATION_NOT_ACTIVE');
-    }
-
-    const now = Date.now();
-    if (loc.fecha_inicio_operacion) {
-      const startAt = new Date(loc.fecha_inicio_operacion).getTime();
-      if (Number.isFinite(startAt) && startAt > now) {
-        throw buildError('La ubicación de recepción aún no inicia su vigencia operativa', 400, 'LOCATION_NOT_YET_OPERATIONAL');
-      }
-    }
-    if (loc.fecha_cierre_operacion) {
-      const closedAt = new Date(loc.fecha_cierre_operacion).getTime();
-      if (Number.isFinite(closedAt) && closedAt <= now) {
-        throw buildError('La ubicación de recepción está fuera de vigencia operativa', 400, 'LOCATION_CLOSED');
-      }
+    if (rows[0].estado !== 'activo') {
+      throw buildError('La bodega de recepción debe estar activa', 400, 'BODEGA_NOT_ACTIVE');
     }
   }
 
@@ -132,25 +92,23 @@ class ActivosService {
       await client.query('BEGIN');
 
       const activoResult = await client.query(
-        `SELECT id, estado, ubicacion_actual_id, articulo_id FROM activo WHERE id = $1 FOR UPDATE`,
+        `SELECT id, estado, bodega_actual_id, articulo_id FROM activo WHERE id = $1 FOR UPDATE`,
         [activoId]
       );
-      if (!activoResult.rows.length) {
-        throw buildError('Activo no encontrado', 404, 'ASSET_NOT_FOUND');
-      }
+      if (!activoResult.rows.length) throw buildError('Activo no encontrado', 404, 'ASSET_NOT_FOUND');
       const activo = activoResult.rows[0];
+
       if (activo.estado !== 'en_stock') {
         throw buildError('El activo no está disponible para entrega', 409, 'ASSET_NOT_AVAILABLE');
       }
-      if (activo.ubicacion_actual_id !== payload.ubicacion_origen_id) {
-        throw buildError('El activo no está en la ubicación de origen indicada', 409, 'ASSET_WRONG_LOCATION');
+      if (activo.bodega_actual_id !== payload.bodega_origen_id) {
+        throw buildError('El activo no está en la bodega de origen indicada', 409, 'ASSET_WRONG_LOCATION');
       }
 
       await ActivosService._validateWorkerActive(client, payload.trabajador_id);
-      await ActivosService._validateMovementRoute(client, {
-        tipo: 'entrega',
-        ubicacion_origen_id: payload.ubicacion_origen_id,
-        ubicacion_destino_id: payload.ubicacion_destino_id,
+      await ActivosService._validateEntregaRoute(client, {
+        bodega_origen_id: payload.bodega_origen_id,
+        proyecto_destino_id: payload.proyecto_destino_id,
       });
 
       const custodiaCheck = await client.query(
@@ -163,15 +121,15 @@ class ActivosService {
 
       const entregaResult = await client.query(
         `INSERT INTO entrega (
-          creado_por_usuario_id, trabajador_id, ubicacion_origen_id, ubicacion_destino_id,
+          creado_por_usuario_id, trabajador_id, bodega_origen_id, proyecto_destino_id,
           tipo, estado, nota_destino, fecha_devolucion_esperada, confirmada_en
         ) VALUES ($1, $2, $3, $4, 'entrega', 'confirmada', $5, $6, NOW())
         RETURNING id`,
         [
           userId,
           payload.trabajador_id,
-          payload.ubicacion_origen_id,
-          payload.ubicacion_destino_id,
+          payload.bodega_origen_id,
+          payload.proyecto_destino_id,
           payload.notas || null,
           payload.fecha_devolucion_esperada || null,
         ]
@@ -194,19 +152,19 @@ class ActivosService {
       );
 
       await client.query(
-        `UPDATE activo SET estado = 'asignado', ubicacion_actual_id = $1 WHERE id = $2`,
-        [payload.ubicacion_destino_id, activoId]
+        `UPDATE activo SET estado = 'asignado', bodega_actual_id = NULL, proyecto_actual_id = $1 WHERE id = $2`,
+        [payload.proyecto_destino_id, activoId]
       );
 
       const custodiaResult = await client.query(
         `INSERT INTO custodia_activo (
-          activo_id, trabajador_id, ubicacion_destino_id, entrega_id, estado, fecha_devolucion_esperada
+          activo_id, trabajador_id, proyecto_id, entrega_id, estado, fecha_devolucion_esperada
         ) VALUES ($1, $2, $3, $4, 'activa', $5)
         RETURNING id`,
         [
           activoId,
           payload.trabajador_id,
-          payload.ubicacion_destino_id,
+          payload.proyecto_destino_id,
           entregaId,
           payload.fecha_devolucion_esperada || null,
         ]
@@ -215,11 +173,11 @@ class ActivosService {
 
       const movimientoResult = await client.query(
         `INSERT INTO movimiento_activo (
-          activo_id, tipo, ubicacion_origen_id, ubicacion_destino_id,
+          activo_id, tipo, bodega_origen_id, proyecto_destino_id,
           responsable_usuario_id, entrega_id, notas
         ) VALUES ($1, 'entrega', $2, $3, $4, $5, $6)
         RETURNING id`,
-        [activoId, payload.ubicacion_origen_id, payload.ubicacion_destino_id, userId, entregaId, payload.notas || null]
+        [activoId, payload.bodega_origen_id, payload.proyecto_destino_id, userId, entregaId, payload.notas || null]
       );
       const movimientoId = movimientoResult.rows[0].id;
 
@@ -232,7 +190,7 @@ class ActivosService {
         diff: {
           entrega_id: entregaId,
           trabajador_id: payload.trabajador_id,
-          ubicacion_destino_id: payload.ubicacion_destino_id,
+          proyecto_destino_id: payload.proyecto_destino_id,
         },
       });
 
@@ -257,18 +215,17 @@ class ActivosService {
       await client.query('BEGIN');
 
       const activoResult = await client.query(
-        `SELECT id, estado, ubicacion_actual_id, articulo_id FROM activo WHERE id = $1 FOR UPDATE`,
+        `SELECT id, estado, proyecto_actual_id, articulo_id FROM activo WHERE id = $1 FOR UPDATE`,
         [activoId]
       );
-      if (!activoResult.rows.length) {
-        throw buildError('Activo no encontrado', 404, 'ASSET_NOT_FOUND');
-      }
+      if (!activoResult.rows.length) throw buildError('Activo no encontrado', 404, 'ASSET_NOT_FOUND');
       const activo = activoResult.rows[0];
+
       if (activo.estado !== 'asignado') {
         throw buildError('El activo no está en estado asignado', 409, 'ASSET_NOT_ASSIGNED');
       }
 
-      await ActivosService._validateReceivingLocation(client, payload.ubicacion_recepcion_id);
+      await ActivosService._validateReceivingBodega(client, payload.bodega_recepcion_id);
 
       const custodiaResult = await client.query(
         `SELECT * FROM custodia_activo
@@ -284,10 +241,10 @@ class ActivosService {
 
       const devolucionResult = await client.query(
         `INSERT INTO devolucion (
-          trabajador_id, recibido_por_usuario_id, ubicacion_recepcion_id, estado, confirmada_en, notas
+          trabajador_id, recibido_por_usuario_id, bodega_recepcion_id, estado, confirmada_en, notas
         ) VALUES ($1, $2, $3, 'confirmada', NOW(), $4)
         RETURNING id`,
-        [payload.trabajador_id, userId, payload.ubicacion_recepcion_id, payload.notas || null]
+        [payload.trabajador_id, userId, payload.bodega_recepcion_id, payload.notas || null]
       );
       const devolucionId = devolucionResult.rows[0].id;
 
@@ -312,25 +269,30 @@ class ActivosService {
         [CUSTODIA_STATE_BY_DISPOSICION[disposition], custodia.id]
       );
 
-      const destinationLocation = ['devuelto', 'mantencion'].includes(disposition)
-        ? payload.ubicacion_recepcion_id
-        : null;
-      await client.query(
-        `UPDATE activo SET estado = $1, ubicacion_actual_id = COALESCE($2, ubicacion_actual_id) WHERE id = $3`,
-        [ACTIVO_STATE_BY_DISPOSICION[disposition], destinationLocation, activoId]
-      );
+      const returnsToStock = ['devuelto', 'mantencion'].includes(disposition);
+      if (returnsToStock) {
+        await client.query(
+          `UPDATE activo SET estado = $1, bodega_actual_id = $2, proyecto_actual_id = NULL WHERE id = $3`,
+          [ACTIVO_STATE_BY_DISPOSICION[disposition], payload.bodega_recepcion_id, activoId]
+        );
+      } else {
+        await client.query(
+          `UPDATE activo SET estado = $1 WHERE id = $2`,
+          [ACTIVO_STATE_BY_DISPOSICION[disposition], activoId]
+        );
+      }
 
       const movimientoResult = await client.query(
         `INSERT INTO movimiento_activo (
-          activo_id, tipo, ubicacion_origen_id, ubicacion_destino_id,
+          activo_id, tipo, proyecto_origen_id, bodega_destino_id,
           responsable_usuario_id, devolucion_id, notas
         ) VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING id`,
         [
           activoId,
           MOV_ACTIVO_TYPE_BY_DISPOSICION[disposition],
-          activo.ubicacion_actual_id,
-          destinationLocation,
+          activo.proyecto_actual_id,
+          returnsToStock ? payload.bodega_recepcion_id : null,
           userId,
           devolucionId,
           payload.notas || null,
