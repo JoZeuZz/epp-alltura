@@ -199,9 +199,9 @@ async function supervisorDashboardLoader() {
 async function supervisorOperationsLoader() {
   const { user } = (await requireRole(['admin', 'supervisor'])()) as { user: User };
 
-  const [trabajadores, ubicaciones, articulos, entregas, devoluciones, stock, proveedores] = await Promise.all([
+  const [trabajadores, bodegas, articulos, entregas, devoluciones, stock, proveedores] = await Promise.all([
     loaderGetOrThrow('/trabajadores'),
-    loaderGetOrThrow('/ubicaciones'),
+    loaderGetOrThrow('/bodegas'),
     loaderGetOrThrow('/articulos'),
     loaderGetOrThrow('/entregas'),
     loaderGetOrThrow('/devoluciones'),
@@ -212,7 +212,7 @@ async function supervisorOperationsLoader() {
   return {
     user,
     trabajadores,
-    ubicaciones,
+    bodegas,
     articulos,
     entregas,
     devoluciones,
