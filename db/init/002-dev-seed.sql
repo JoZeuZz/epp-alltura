@@ -2,9 +2,9 @@
 -- Seed de desarrollo integral para flujo de Equipos/Herramientas.
 -- Este archivo esta pensado para entorno local y es idempotente.
 --
--- Dataset: 2 usuarios de sistema, 8 trabajadores, 6 ubicaciones, 3 proveedores,
--- 15 taladros, 11 arneses, 150 guantes, 9 entregas, 3 devoluciones,
--- 2 egresos y ~60 movimientos de trazabilidad.
+-- Dataset: 2 usuarios de sistema, 8 trabajadores, 3 bodegas, 3 proyectos,
+-- 3 proveedores, 15 taladros, 11 arneses, 150 guantes, 9 entregas,
+-- 3 devoluciones, 2 egresos y ~60 movimientos de trazabilidad.
 --
 -- Cubre los 5 estados de activo: en_stock, asignado,
 -- mantencion, dado_de_baja, perdido.
@@ -78,18 +78,21 @@ BEGIN
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
-  -- 5) UBICACIONES (6)
+  -- 5) BODEGAS (3) y PROYECTOS (3)
   -- ============================================================
 
-  INSERT INTO ubicacion (id, nombre, tipo, ubicacion_subtipo, cliente, direccion, estado, fecha_inicio_operacion)
+  INSERT INTO bodegas (id, nombre, direccion, descripcion, estado)
   VALUES
-    ('00000000-0000-0000-0000-000000003001', 'Bodega Central',          'bodega',            'fija',        NULL,                'Camino Industrial 100',     'activo', NOW() - INTERVAL '2 years'),
-    -- Compat legacy: se conserva para pruebas históricas y trazabilidad, no como flujo operativo principal.
-    ('00000000-0000-0000-0000-000000003002', 'Bodega Transitoria Sur',  'bodega',            'transitoria', NULL,                'Ruta 68 KM 12',            'activo', NOW() - INTERVAL '6 months'),
-    ('00000000-0000-0000-0000-000000003003', 'Faena Norte',             'planta',            NULL,          'Minera Norte SpA',  'Ruta 5 Norte KM 1000',     'activo', NOW() - INTERVAL '18 months'),
-    ('00000000-0000-0000-0000-000000003004', 'Faena Sur',               'planta',            NULL,          'Constructora Sur',  'Ruta 5 Sur KM 500',        'activo', NOW() - INTERVAL '12 months'),
-    ('00000000-0000-0000-0000-000000003005', 'Proyecto Minero Andes',   'proyecto',          NULL,          'Minera Andes SA',   'Camino Minera Andes s/n',  'activo', NOW() - INTERVAL '8 months'),
-    ('00000000-0000-0000-0000-000000003006', 'Taller Mantencion',       'taller_mantencion', NULL,          NULL,                'Av. Talleres 45',          'activo', NOW() - INTERVAL '2 years')
+    ('00000000-0000-0000-0000-000000003001', 'Bodega Central',         'Camino Industrial 100', NULL,                    'activo'),
+    ('00000000-0000-0000-0000-000000003002', 'Bodega Transitoria Sur', 'Ruta 68 KM 12',         NULL,                    'activo'),
+    ('00000000-0000-0000-0000-000000003006', 'Taller Mantencion',      'Av. Talleres 45',        'Bodega de mantencion', 'activo')
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO proyectos (id, nombre, descripcion, cliente, presupuesto_clp, estado, fecha_inicio, fecha_fin)
+  VALUES
+    ('00000000-0000-0000-0000-000000003003', 'Faena Norte',           NULL, 'Minera Norte SpA',  NULL, 'activo',    (NOW() - INTERVAL '18 months')::DATE, NULL),
+    ('00000000-0000-0000-0000-000000003004', 'Faena Sur',             NULL, 'Constructora Sur',  NULL, 'activo',    (NOW() - INTERVAL '12 months')::DATE, NULL),
+    ('00000000-0000-0000-0000-000000003005', 'Proyecto Minero Andes', NULL, 'Minera Andes SA',   NULL, 'activo',    (NOW() - INTERVAL '8 months')::DATE,  NULL)
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
@@ -147,63 +150,63 @@ BEGIN
   -- 9) ACTIVOS SERIALIZADOS: 15 taladros + 11 arneses + 1 medidor = 27
   --
   --  Estado final planificado:
-  --  TAL-001 asignado   Faena Norte        (custodia Juan)
-  --  TAL-002 asignado   Faena Norte        (custodia Carlos)
-  --  TAL-003 en_stock   Bodega Central     (devuelto D1)
-  --  TAL-004 en_stock   Bodega Central     (nunca entregado)
-  --  TAL-005 en_stock   Bodega Central     (borrador E9)
-  --  TAL-006 en_stock   Bodega Transit.    (reubicado)
-  --  TAL-007 mantencion Taller Mant.       (admin directo)
-  --  TAL-008 dado_baja  Bodega Central     (egreso baja)
-  --  TAL-009 perdido    Faena Sur          (devolucion D3)
-  --  TAL-010 asignado   Faena Sur          (entrega E6 confirmada)
-  --  TAL-011 asignado   Faena Sur          (custodia Pedro)
-  --  TAL-012 en_stock   Bodega Central     (devuelto D2)
-  --  TAL-013 en_stock   Faena Norte        (ingreso directo)
-  --  TAL-014 asignado   Proyecto Minero    (custodia Luis)
-  --  TAL-015 en_stock   Bodega Central     (nunca entregado)
-  --  ARN-001 asignado   Faena Norte        (custodia Juan)
-  --  ARN-002 asignado   Faena Sur          (custodia Ana)
-  --  ARN-003 en_stock   Bodega Central     (devuelto D2)
-  --  ARN-004 en_stock   Bodega Central     (nunca entregado)
-  --  ARN-005 mantencion Taller Mant.       (devolucion D3)
-  --  ARN-006 dado_baja  Bodega Central     (devolucion D3)
-  --  ARN-007 en_stock   Bodega Central     (nunca entregado)
-  --  ARN-008 asignado   Proyecto Minero    (custodia Felipe)
-  --  ARN-009 perdido    Faena Sur          (devolucion D3)
-  --  ARN-010 en_stock   Bodega Transit.    (reubicado)
-  --  ARN-011 en_stock   Bodega Central     (nunca entregado)
+  --  TAL-001 asignado   Proyecto Faena Norte   (custodia Juan)
+  --  TAL-002 asignado   Proyecto Faena Norte   (custodia Carlos)
+  --  TAL-003 en_stock   Bodega Central         (devuelto D1)
+  --  TAL-004 en_stock   Bodega Central         (nunca entregado)
+  --  TAL-005 en_stock   Bodega Central         (borrador E9)
+  --  TAL-006 en_stock   Bodega Transit.        (reubicado)
+  --  TAL-007 mantencion Bodega Taller          (admin directo)
+  --  TAL-008 dado_baja  Bodega Central         (egreso baja)
+  --  TAL-009 perdido    Proyecto Faena Sur     (devolucion D3)
+  --  TAL-010 asignado   Proyecto Faena Sur     (entrega E6 confirmada)
+  --  TAL-011 asignado   Proyecto Faena Sur     (custodia Pedro)
+  --  TAL-012 en_stock   Bodega Central         (devuelto D2)
+  --  TAL-013 en_stock   Proyecto Faena Norte   (ingreso directo)
+  --  TAL-014 asignado   Proyecto Minero Andes  (custodia Luis)
+  --  TAL-015 en_stock   Bodega Central         (nunca entregado)
+  --  ARN-001 asignado   Proyecto Faena Norte   (custodia Juan)
+  --  ARN-002 asignado   Proyecto Faena Sur     (custodia Ana)
+  --  ARN-003 en_stock   Bodega Central         (devuelto D2)
+  --  ARN-004 en_stock   Bodega Central         (nunca entregado)
+  --  ARN-005 mantencion Bodega Taller          (devolucion D3)
+  --  ARN-006 dado_baja  Bodega Central         (devolucion D3)
+  --  ARN-007 en_stock   Bodega Central         (nunca entregado)
+  --  ARN-008 asignado   Proyecto Minero Andes  (custodia Felipe)
+  --  ARN-009 perdido    Proyecto Faena Sur     (devolucion D3)
+  --  ARN-010 en_stock   Bodega Transit.        (reubicado)
+  --  ARN-011 en_stock   Bodega Central         (nunca entregado)
   -- ============================================================
 
-  INSERT INTO activo (id, articulo_id, compra_detalle_id, nro_serie, codigo, valor, estado, ubicacion_actual_id, fecha_compra, fecha_vencimiento) VALUES
-    ('00000000-0000-0000-0000-000000006001', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-001', 'TAL-001', 130000, 'asignado',      '00000000-0000-0000-0000-000000003003', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006002', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-002', 'TAL-002', 130000, 'asignado',      '00000000-0000-0000-0000-000000003003', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006003', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-003', 'TAL-003', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006004', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-004', 'TAL-004', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006005', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-005', 'TAL-005', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006006', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-006', 'TAL-006', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003002', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006007', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-007', 'TAL-007', 130000, 'mantencion',    '00000000-0000-0000-0000-000000003006', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006008', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-008', 'TAL-008', 130000, 'dado_de_baja',  '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006009', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-009', 'TAL-009', 130000, 'perdido',       '00000000-0000-0000-0000-000000003004', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006010', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-010', 'TAL-010', 130000, 'asignado',      '00000000-0000-0000-0000-000000003004', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006011', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-011', 'TAL-011', 130000, 'asignado',      '00000000-0000-0000-0000-000000003004', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006012', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-012', 'TAL-012', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006013', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-013', 'TAL-013', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003003', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006014', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-014', 'TAL-014', 130000, 'asignado',      '00000000-0000-0000-0000-000000003005', NOW()-INTERVAL '60 days', NULL),
-    ('00000000-0000-0000-0000-000000006015', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-015', 'TAL-015', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '60 days', NULL),
+  INSERT INTO activo (id, articulo_id, compra_detalle_id, nro_serie, codigo, valor, estado, bodega_actual_id, proyecto_actual_id, fecha_compra, fecha_vencimiento) VALUES
+    ('00000000-0000-0000-0000-000000006001', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-001', 'TAL-001', 130000, 'asignado',      NULL,                                    '00000000-0000-0000-0000-000000003003', NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006002', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-002', 'TAL-002', 130000, 'asignado',      NULL,                                    '00000000-0000-0000-0000-000000003003', NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006003', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-003', 'TAL-003', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NULL,                                    NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006004', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-004', 'TAL-004', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NULL,                                    NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006005', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-005', 'TAL-005', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NULL,                                    NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006006', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-006', 'TAL-006', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003002', NULL,                                    NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006007', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-007', 'TAL-007', 130000, 'mantencion',    '00000000-0000-0000-0000-000000003006', NULL,                                    NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006008', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-008', 'TAL-008', 130000, 'dado_de_baja',  '00000000-0000-0000-0000-000000003001', NULL,                                    NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006009', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-009', 'TAL-009', 130000, 'perdido',       NULL,                                    '00000000-0000-0000-0000-000000003004', NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006010', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-010', 'TAL-010', 130000, 'asignado',      NULL,                                    '00000000-0000-0000-0000-000000003004', NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006011', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-011', 'TAL-011', 130000, 'asignado',      NULL,                                    '00000000-0000-0000-0000-000000003004', NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006012', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-012', 'TAL-012', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NULL,                                    NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006013', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-013', 'TAL-013', 130000, 'en_stock',      NULL,                                    '00000000-0000-0000-0000-000000003003', NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006014', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-014', 'TAL-014', 130000, 'asignado',      NULL,                                    '00000000-0000-0000-0000-000000003005', NOW()-INTERVAL '60 days', NULL),
+    ('00000000-0000-0000-0000-000000006015', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000005201', 'SER-TAL-015', 'TAL-015', 130000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NULL,                                    NOW()-INTERVAL '60 days', NULL),
     -- arneses (requiere vencimiento)
-    ('00000000-0000-0000-0000-000000006101', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-001', 'ARN-001', 95000, 'asignado',      '00000000-0000-0000-0000-000000003003', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
-    ('00000000-0000-0000-0000-000000006102', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-002', 'ARN-002', 95000, 'asignado',      '00000000-0000-0000-0000-000000003004', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
-    ('00000000-0000-0000-0000-000000006103', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-003', 'ARN-003', 95000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
-    ('00000000-0000-0000-0000-000000006104', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-004', 'ARN-004', 95000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
-    ('00000000-0000-0000-0000-000000006105', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-005', 'ARN-005', 95000, 'mantencion',    '00000000-0000-0000-0000-000000003006', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
-    ('00000000-0000-0000-0000-000000006106', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-006', 'ARN-006', 95000, 'dado_de_baja',  '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
-    ('00000000-0000-0000-0000-000000006107', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-007', 'ARN-007', 95000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
-    ('00000000-0000-0000-0000-000000006108', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-008', 'ARN-008', 95000, 'asignado',      '00000000-0000-0000-0000-000000003005', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
-    ('00000000-0000-0000-0000-000000006109', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-009', 'ARN-009', 95000, 'perdido',       '00000000-0000-0000-0000-000000003004', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
-    ('00000000-0000-0000-0000-000000006110', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-010', 'ARN-010', 95000, 'en_stock',      '00000000-0000-0000-0000-000000003002', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
-    ('00000000-0000-0000-0000-000000006111', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-011', 'ARN-011', 95000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
-    ('00000000-0000-0000-0000-000000006201', '00000000-0000-0000-0000-000000000404', NULL,                                      'SER-MED-001', 'MED-001', 480000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NOW()-INTERVAL '20 days', NULL)
+    ('00000000-0000-0000-0000-000000006101', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-001', 'ARN-001', 95000, 'asignado',      NULL,                                    '00000000-0000-0000-0000-000000003003', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
+    ('00000000-0000-0000-0000-000000006102', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-002', 'ARN-002', 95000, 'asignado',      NULL,                                    '00000000-0000-0000-0000-000000003004', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
+    ('00000000-0000-0000-0000-000000006103', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-003', 'ARN-003', 95000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NULL,                                    NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
+    ('00000000-0000-0000-0000-000000006104', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-004', 'ARN-004', 95000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NULL,                                    NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
+    ('00000000-0000-0000-0000-000000006105', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-005', 'ARN-005', 95000, 'mantencion',    '00000000-0000-0000-0000-000000003006', NULL,                                    NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
+    ('00000000-0000-0000-0000-000000006106', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-006', 'ARN-006', 95000, 'dado_de_baja',  '00000000-0000-0000-0000-000000003001', NULL,                                    NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
+    ('00000000-0000-0000-0000-000000006107', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-007', 'ARN-007', 95000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NULL,                                    NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
+    ('00000000-0000-0000-0000-000000006108', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-008', 'ARN-008', 95000, 'asignado',      NULL,                                    '00000000-0000-0000-0000-000000003005', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
+    ('00000000-0000-0000-0000-000000006109', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-009', 'ARN-009', 95000, 'perdido',       NULL,                                    '00000000-0000-0000-0000-000000003004', NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
+    ('00000000-0000-0000-0000-000000006110', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-010', 'ARN-010', 95000, 'en_stock',      '00000000-0000-0000-0000-000000003002', NULL,                                    NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
+    ('00000000-0000-0000-0000-000000006111', '00000000-0000-0000-0000-000000000402', '00000000-0000-0000-0000-000000005202', 'SER-ARN-011', 'ARN-011', 95000, 'en_stock',      '00000000-0000-0000-0000-000000003001', NULL,                                    NOW()-INTERVAL '45 days', NOW()+INTERVAL '10 months'),
+    ('00000000-0000-0000-0000-000000006201', '00000000-0000-0000-0000-000000000404', NULL,                                      'SER-MED-001', 'MED-001', 480000, 'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NOW()-INTERVAL '20 days', NULL)
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
@@ -211,24 +214,24 @@ BEGIN
   -- Balance: 150 ingreso - 35 entregas - 35 egresos = 80 pares
   -- ============================================================
 
-  INSERT INTO stock (id, ubicacion_id, articulo_id, lote_id, cantidad_disponible, cantidad_reservada) VALUES
+  INSERT INTO stock (id, bodega_id, articulo_id, lote_id, cantidad_disponible, cantidad_reservada) VALUES
     ('00000000-0000-0000-0000-000000007001', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000000403', NULL, 80, 0)
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
   -- 11) ENTREGAS (9)
-  --  E1 confirmada  Juan    TAL-001+ARN-001+10guantes  → Faena Norte
-  --  E2 confirmada  Carlos  TAL-002                    → Faena Norte
-  --  E3 confirmada  Maria   TAL-003                    → Faena Norte
-  --  E4 confirmada  Ana     TAL-012+ARN-002+ARN-003    → Faena Sur
-  --  E5 confirmada  Pedro   TAL-011+TAL-009+ARN-005+ARN-006+ARN-009+15guantes → Faena Sur
-  --  E6 confirmada  Rosa    TAL-010                    → Faena Sur
-  --  E7 confirmada  Luis    TAL-014+10guantes          → Proyecto Minero
-  --  E8 confirmada  Felipe  ARN-008                    → Proyecto Minero
-  --  E9 borrador    Ana     TAL-005 (sin firma)        → Faena Sur
+  --  E1 confirmada  Juan    TAL-001+ARN-001+10guantes  → Proyecto Faena Norte
+  --  E2 confirmada  Carlos  TAL-002                    → Proyecto Faena Norte
+  --  E3 confirmada  Maria   TAL-003                    → Proyecto Faena Norte
+  --  E4 confirmada  Ana     TAL-012+ARN-002+ARN-003    → Proyecto Faena Sur
+  --  E5 confirmada  Pedro   TAL-011+TAL-009+ARN-005+ARN-006+ARN-009+15guantes → Proyecto Faena Sur
+  --  E6 confirmada  Rosa    TAL-010                    → Proyecto Faena Sur
+  --  E7 confirmada  Luis    TAL-014+10guantes          → Proyecto Minero Andes
+  --  E8 confirmada  Felipe  ARN-008                    → Proyecto Minero Andes
+  --  E9 borrador    Ana     TAL-005 (sin firma)        → Proyecto Faena Sur
   -- ============================================================
 
-  INSERT INTO entrega (id, creado_por_usuario_id, trabajador_id, ubicacion_origen_id, ubicacion_destino_id, tipo, estado, nota_destino, creado_en, confirmada_en) VALUES
+  INSERT INTO entrega (id, creado_por_usuario_id, trabajador_id, bodega_origen_id, proyecto_destino_id, tipo, estado, nota_destino, creado_en, confirmada_en) VALUES
     ('00000000-0000-0000-0000-000000008001', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000002001', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', 'entrega', 'confirmada', 'Entrega taladro + arnes + guantes a Juan para faena.',         NOW()-INTERVAL '30 days', NOW()-INTERVAL '30 days'),
     ('00000000-0000-0000-0000-000000008002', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000002003', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', 'entrega', 'confirmada', 'Entrega taladro a Carlos para obra norte.',                    NOW()-INTERVAL '28 days', NOW()-INTERVAL '28 days'),
     ('00000000-0000-0000-0000-000000008003', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000002002', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', 'entrega', 'confirmada', 'Entrega taladro a Maria para tarea puntual.',                  NOW()-INTERVAL '25 days', NOW()-INTERVAL '25 days'),
@@ -294,7 +297,7 @@ BEGIN
   -- 14) CUSTODIAS (14): 7 activas + 7 cerradas
   -- ============================================================
 
-  INSERT INTO custodia_activo (id, activo_id, trabajador_id, ubicacion_destino_id, entrega_id, desde_en, hasta_en, estado) VALUES
+  INSERT INTO custodia_activo (id, activo_id, trabajador_id, proyecto_id, entrega_id, desde_en, hasta_en, estado) VALUES
     -- activas (8)
     ('00000000-0000-0000-0000-000000008301', '00000000-0000-0000-0000-000000006001', '00000000-0000-0000-0000-000000002001', '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000008001', NOW()-INTERVAL '30 days', NULL,                      'activa'),
     ('00000000-0000-0000-0000-000000008302', '00000000-0000-0000-0000-000000006101', '00000000-0000-0000-0000-000000002001', '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000008001', NOW()-INTERVAL '30 days', NULL,                      'activa'),
@@ -321,7 +324,7 @@ BEGIN
   --  D3: Pedro   → TAL-009 perdido, ARN-005 mantencion, ARN-006 baja, ARN-009 perdido
   -- ============================================================
 
-  INSERT INTO devolucion (id, trabajador_id, recibido_por_usuario_id, ubicacion_recepcion_id, estado, creado_en, confirmada_en, notas) VALUES
+  INSERT INTO devolucion (id, trabajador_id, recibido_por_usuario_id, bodega_recepcion_id, estado, creado_en, confirmada_en, notas) VALUES
     ('00000000-0000-0000-0000-000000009001', '00000000-0000-0000-0000-000000002002', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000003001', 'confirmada', NOW()-INTERVAL '18 days', NOW()-INTERVAL '18 days', 'Devolucion taladro de Maria tras tarea puntual.'),
     ('00000000-0000-0000-0000-000000009002', '00000000-0000-0000-0000-000000002004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000003001', 'confirmada', NOW()-INTERVAL '14 days', NOW()-INTERVAL '14 days', 'Devolucion parcial de Ana: taladro + arnes.'),
     ('00000000-0000-0000-0000-000000009003', '00000000-0000-0000-0000-000000002005', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000003001', 'confirmada', NOW()-INTERVAL '11 days', NOW()-INTERVAL '11 days', 'Devolucion Pedro: 1 perdido, 1 mantencion, 1 baja, 1 perdido.')
@@ -362,7 +365,7 @@ BEGIN
     ('00000000-0000-0000-0000-000000009302', '00000000-0000-0000-0000-000000001003', 'salida', NOW()-INTERVAL '5 days', 'Salida operativa programada de guantes para cuadrilla.')
   ON CONFLICT (id) DO NOTHING;
 
-  INSERT INTO egreso_detalle (id, egreso_id, articulo_id, ubicacion_id, lote_id, cantidad, notas, activo_id) VALUES
+  INSERT INTO egreso_detalle (id, egreso_id, articulo_id, bodega_id, lote_id, cantidad, notas, activo_id) VALUES
     ('00000000-0000-0000-0000-000000009401', '00000000-0000-0000-0000-000000009301', '00000000-0000-0000-0000-000000000401', '00000000-0000-0000-0000-000000003001', NULL, 1,  'Taladro TAL-008 dado de baja por falla mecanica.', '00000000-0000-0000-0000-000000006008'),
     ('00000000-0000-0000-0000-000000009402', '00000000-0000-0000-0000-000000009301', '00000000-0000-0000-0000-000000000403', '00000000-0000-0000-0000-000000003001', NULL, 10, 'Guantes danados dados de baja.',                    NULL),
     ('00000000-0000-0000-0000-000000009403', '00000000-0000-0000-0000-000000009302', '00000000-0000-0000-0000-000000000403', '00000000-0000-0000-0000-000000003001', NULL, 25, 'Salida operativa de guantes.',                      NULL)
@@ -372,15 +375,15 @@ BEGIN
   -- 19) MOVIMIENTOS STOCK (8)
   -- ============================================================
 
-  INSERT INTO movimiento_stock (id, articulo_id, lote_id, fecha_movimiento, tipo, ubicacion_origen_id, ubicacion_destino_id, cantidad, responsable_usuario_id, compra_id, entrega_id, devolucion_id, egreso_id, notas) VALUES
-    ('00000000-0000-0000-0000-00000000a001', '00000000-0000-0000-0000-000000000401', NULL, NOW()-INTERVAL '60 days', 'entrada',  NULL,                                    '00000000-0000-0000-0000-000000003001', 15,  '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000005101', NULL, NULL, NULL, 'Ingreso 15 taladros por compra.'),
-    ('00000000-0000-0000-0000-00000000a002', '00000000-0000-0000-0000-000000000402', NULL, NOW()-INTERVAL '45 days', 'entrada',  NULL,                                    '00000000-0000-0000-0000-000000003001', 11,  '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000005102', NULL, NULL, NULL, 'Ingreso 11 arneses por compra.'),
-    ('00000000-0000-0000-0000-00000000a003', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '45 days', 'entrada',  NULL,                                    '00000000-0000-0000-0000-000000003001', 150, '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000005102', NULL, NULL, NULL, 'Ingreso 150 pares guantes por compra.'),
-    ('00000000-0000-0000-0000-00000000a004', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '30 days', 'entrega',  '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', 10,  '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000008001', NULL, NULL, 'Salida guantes E1 a Juan.'),
-    ('00000000-0000-0000-0000-00000000a005', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '20 days', 'entrega',  '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', 15,  '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Salida guantes E5 a Pedro.'),
-    ('00000000-0000-0000-0000-00000000a006', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '15 days', 'entrega',  '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003005', 10,  '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000008007', NULL, NULL, 'Salida guantes E7 a Luis.'),
-    ('00000000-0000-0000-0000-00000000a007', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '8 days',  'baja',     '00000000-0000-0000-0000-000000003001', NULL,                                    10,  '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, '00000000-0000-0000-0000-000000009301', 'Baja guantes danados EG1.'),
-    ('00000000-0000-0000-0000-00000000a008', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '5 days',  'salida',   '00000000-0000-0000-0000-000000003001', NULL,                                    25,  '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, '00000000-0000-0000-0000-000000009302', 'Salida operativa guantes EG2.')
+  INSERT INTO movimiento_stock (id, articulo_id, lote_id, fecha_movimiento, tipo, bodega_origen_id, proyecto_origen_id, bodega_destino_id, proyecto_destino_id, cantidad, responsable_usuario_id, compra_id, entrega_id, devolucion_id, egreso_id, notas) VALUES
+    ('00000000-0000-0000-0000-00000000a001', '00000000-0000-0000-0000-000000000401', NULL, NOW()-INTERVAL '60 days', 'entrada',  NULL,                                    NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    15,  '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000005101', NULL, NULL, NULL, 'Ingreso 15 taladros por compra.'),
+    ('00000000-0000-0000-0000-00000000a002', '00000000-0000-0000-0000-000000000402', NULL, NOW()-INTERVAL '45 days', 'entrada',  NULL,                                    NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    11,  '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000005102', NULL, NULL, NULL, 'Ingreso 11 arneses por compra.'),
+    ('00000000-0000-0000-0000-00000000a003', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '45 days', 'entrada',  NULL,                                    NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    150, '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000005102', NULL, NULL, NULL, 'Ingreso 150 pares guantes por compra.'),
+    ('00000000-0000-0000-0000-00000000a004', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '30 days', 'entrega',  '00000000-0000-0000-0000-000000003001', NULL, NULL,                                    '00000000-0000-0000-0000-000000003003', 10,  '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000008001', NULL, NULL, 'Salida guantes E1 a Juan.'),
+    ('00000000-0000-0000-0000-00000000a005', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '20 days', 'entrega',  '00000000-0000-0000-0000-000000003001', NULL, NULL,                                    '00000000-0000-0000-0000-000000003004', 15,  '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Salida guantes E5 a Pedro.'),
+    ('00000000-0000-0000-0000-00000000a006', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '15 days', 'entrega',  '00000000-0000-0000-0000-000000003001', NULL, NULL,                                    '00000000-0000-0000-0000-000000003005', 10,  '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000008007', NULL, NULL, 'Salida guantes E7 a Luis.'),
+    ('00000000-0000-0000-0000-00000000a007', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '8 days',  'baja',     '00000000-0000-0000-0000-000000003001', NULL, NULL,                                    NULL,                                    10,  '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, '00000000-0000-0000-0000-000000009301', 'Baja guantes danados EG1.'),
+    ('00000000-0000-0000-0000-00000000a008', '00000000-0000-0000-0000-000000000403', NULL, NOW()-INTERVAL '5 days',  'salida',   '00000000-0000-0000-0000-000000003001', NULL, NULL,                                    NULL,                                    25,  '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, '00000000-0000-0000-0000-000000009302', 'Salida operativa guantes EG2.')
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
@@ -393,69 +396,69 @@ BEGIN
   -- b050-b052: reubicaciones y mantencion admin
   -- ============================================================
 
-  INSERT INTO movimiento_activo (id, activo_id, fecha_movimiento, tipo, ubicacion_origen_id, ubicacion_destino_id, responsable_usuario_id, entrega_id, devolucion_id, egreso_id, notas) VALUES
-    -- ENTRADAS taladros (60 dias atras, todos a Bodega Central excepto TAL-013 a Faena Norte)
-    ('00000000-0000-0000-0000-00000000b001', '00000000-0000-0000-0000-000000006001', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-001'),
-    ('00000000-0000-0000-0000-00000000b002', '00000000-0000-0000-0000-000000006002', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-002'),
-    ('00000000-0000-0000-0000-00000000b003', '00000000-0000-0000-0000-000000006003', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-003'),
-    ('00000000-0000-0000-0000-00000000b004', '00000000-0000-0000-0000-000000006004', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-004'),
-    ('00000000-0000-0000-0000-00000000b005', '00000000-0000-0000-0000-000000006005', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-005'),
-    ('00000000-0000-0000-0000-00000000b006', '00000000-0000-0000-0000-000000006006', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-006'),
-    ('00000000-0000-0000-0000-00000000b007', '00000000-0000-0000-0000-000000006007', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-007'),
-    ('00000000-0000-0000-0000-00000000b008', '00000000-0000-0000-0000-000000006008', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-008'),
-    ('00000000-0000-0000-0000-00000000b009', '00000000-0000-0000-0000-000000006009', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-009'),
-    ('00000000-0000-0000-0000-00000000b010', '00000000-0000-0000-0000-000000006010', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-010'),
-    ('00000000-0000-0000-0000-00000000b011', '00000000-0000-0000-0000-000000006011', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-011'),
-    ('00000000-0000-0000-0000-00000000b012', '00000000-0000-0000-0000-000000006012', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-012'),
-    ('00000000-0000-0000-0000-00000000b013', '00000000-0000-0000-0000-000000006013', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-013 directo a Faena Norte'),
-    ('00000000-0000-0000-0000-00000000b014', '00000000-0000-0000-0000-000000006014', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-014'),
-    ('00000000-0000-0000-0000-00000000b015', '00000000-0000-0000-0000-000000006015', NOW()-INTERVAL '60 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-015'),
+  INSERT INTO movimiento_activo (id, activo_id, fecha_movimiento, tipo, bodega_origen_id, proyecto_origen_id, bodega_destino_id, proyecto_destino_id, responsable_usuario_id, entrega_id, devolucion_id, egreso_id, notas) VALUES
+    -- ENTRADAS taladros (60 dias atras, todos a Bodega Central excepto TAL-013 a Proyecto Faena Norte)
+    ('00000000-0000-0000-0000-00000000b001', '00000000-0000-0000-0000-000000006001', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-001'),
+    ('00000000-0000-0000-0000-00000000b002', '00000000-0000-0000-0000-000000006002', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-002'),
+    ('00000000-0000-0000-0000-00000000b003', '00000000-0000-0000-0000-000000006003', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-003'),
+    ('00000000-0000-0000-0000-00000000b004', '00000000-0000-0000-0000-000000006004', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-004'),
+    ('00000000-0000-0000-0000-00000000b005', '00000000-0000-0000-0000-000000006005', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-005'),
+    ('00000000-0000-0000-0000-00000000b006', '00000000-0000-0000-0000-000000006006', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-006'),
+    ('00000000-0000-0000-0000-00000000b007', '00000000-0000-0000-0000-000000006007', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-007'),
+    ('00000000-0000-0000-0000-00000000b008', '00000000-0000-0000-0000-000000006008', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-008'),
+    ('00000000-0000-0000-0000-00000000b009', '00000000-0000-0000-0000-000000006009', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-009'),
+    ('00000000-0000-0000-0000-00000000b010', '00000000-0000-0000-0000-000000006010', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-010'),
+    ('00000000-0000-0000-0000-00000000b011', '00000000-0000-0000-0000-000000006011', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-011'),
+    ('00000000-0000-0000-0000-00000000b012', '00000000-0000-0000-0000-000000006012', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-012'),
+    ('00000000-0000-0000-0000-00000000b013', '00000000-0000-0000-0000-000000006013', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, NULL,                                    '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-013 directo a Proyecto Faena Norte'),
+    ('00000000-0000-0000-0000-00000000b014', '00000000-0000-0000-0000-000000006014', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-014'),
+    ('00000000-0000-0000-0000-00000000b015', '00000000-0000-0000-0000-000000006015', NOW()-INTERVAL '60 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso TAL-015'),
     -- ENTRADAS arneses (45 dias atras, todos a Bodega Central)
-    ('00000000-0000-0000-0000-00000000b016', '00000000-0000-0000-0000-000000006101', NOW()-INTERVAL '45 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-001'),
-    ('00000000-0000-0000-0000-00000000b017', '00000000-0000-0000-0000-000000006102', NOW()-INTERVAL '45 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-002'),
-    ('00000000-0000-0000-0000-00000000b018', '00000000-0000-0000-0000-000000006103', NOW()-INTERVAL '45 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-003'),
-    ('00000000-0000-0000-0000-00000000b019', '00000000-0000-0000-0000-000000006104', NOW()-INTERVAL '45 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-004'),
-    ('00000000-0000-0000-0000-00000000b020', '00000000-0000-0000-0000-000000006105', NOW()-INTERVAL '45 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-005'),
-    ('00000000-0000-0000-0000-00000000b021', '00000000-0000-0000-0000-000000006106', NOW()-INTERVAL '45 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-006'),
-    ('00000000-0000-0000-0000-00000000b022', '00000000-0000-0000-0000-000000006107', NOW()-INTERVAL '45 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-007'),
-    ('00000000-0000-0000-0000-00000000b023', '00000000-0000-0000-0000-000000006108', NOW()-INTERVAL '45 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-008'),
-    ('00000000-0000-0000-0000-00000000b024', '00000000-0000-0000-0000-000000006109', NOW()-INTERVAL '45 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-009'),
-    ('00000000-0000-0000-0000-00000000b025', '00000000-0000-0000-0000-000000006110', NOW()-INTERVAL '45 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-010'),
-    ('00000000-0000-0000-0000-00000000b026', '00000000-0000-0000-0000-000000006111', NOW()-INTERVAL '45 days', 'entrada', NULL, '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-011'),
+    ('00000000-0000-0000-0000-00000000b016', '00000000-0000-0000-0000-000000006101', NOW()-INTERVAL '45 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-001'),
+    ('00000000-0000-0000-0000-00000000b017', '00000000-0000-0000-0000-000000006102', NOW()-INTERVAL '45 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-002'),
+    ('00000000-0000-0000-0000-00000000b018', '00000000-0000-0000-0000-000000006103', NOW()-INTERVAL '45 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-003'),
+    ('00000000-0000-0000-0000-00000000b019', '00000000-0000-0000-0000-000000006104', NOW()-INTERVAL '45 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-004'),
+    ('00000000-0000-0000-0000-00000000b020', '00000000-0000-0000-0000-000000006105', NOW()-INTERVAL '45 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-005'),
+    ('00000000-0000-0000-0000-00000000b021', '00000000-0000-0000-0000-000000006106', NOW()-INTERVAL '45 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-006'),
+    ('00000000-0000-0000-0000-00000000b022', '00000000-0000-0000-0000-000000006107', NOW()-INTERVAL '45 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-007'),
+    ('00000000-0000-0000-0000-00000000b023', '00000000-0000-0000-0000-000000006108', NOW()-INTERVAL '45 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-008'),
+    ('00000000-0000-0000-0000-00000000b024', '00000000-0000-0000-0000-000000006109', NOW()-INTERVAL '45 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-009'),
+    ('00000000-0000-0000-0000-00000000b025', '00000000-0000-0000-0000-000000006110', NOW()-INTERVAL '45 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-010'),
+    ('00000000-0000-0000-0000-00000000b026', '00000000-0000-0000-0000-000000006111', NOW()-INTERVAL '45 days', 'entrada', NULL, NULL, '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Ingreso ARN-011'),
     -- ENTREGAS activos (por entrega confirmada)
-    ('00000000-0000-0000-0000-00000000b027', '00000000-0000-0000-0000-000000006001', NOW()-INTERVAL '30 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008001', NULL, NULL, 'Entrega TAL-001 a Juan.'),
-    ('00000000-0000-0000-0000-00000000b028', '00000000-0000-0000-0000-000000006101', NOW()-INTERVAL '30 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008001', NULL, NULL, 'Entrega ARN-001 a Juan.'),
-    ('00000000-0000-0000-0000-00000000b029', '00000000-0000-0000-0000-000000006002', NOW()-INTERVAL '28 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008002', NULL, NULL, 'Entrega TAL-002 a Carlos.'),
-    ('00000000-0000-0000-0000-00000000b030', '00000000-0000-0000-0000-000000006003', NOW()-INTERVAL '25 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008003', NULL, NULL, 'Entrega TAL-003 a Maria.'),
-    ('00000000-0000-0000-0000-00000000b031', '00000000-0000-0000-0000-000000006012', NOW()-INTERVAL '22 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008004', NULL, NULL, 'Entrega TAL-012 a Ana.'),
-    ('00000000-0000-0000-0000-00000000b032', '00000000-0000-0000-0000-000000006102', NOW()-INTERVAL '22 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008004', NULL, NULL, 'Entrega ARN-002 a Ana.'),
-    ('00000000-0000-0000-0000-00000000b033', '00000000-0000-0000-0000-000000006103', NOW()-INTERVAL '22 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008004', NULL, NULL, 'Entrega ARN-003 a Ana.'),
-    ('00000000-0000-0000-0000-00000000b034', '00000000-0000-0000-0000-000000006011', NOW()-INTERVAL '20 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Entrega TAL-011 a Pedro.'),
-    ('00000000-0000-0000-0000-00000000b035', '00000000-0000-0000-0000-000000006009', NOW()-INTERVAL '20 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Entrega TAL-009 a Pedro.'),
-    ('00000000-0000-0000-0000-00000000b036', '00000000-0000-0000-0000-000000006105', NOW()-INTERVAL '20 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Entrega ARN-005 a Pedro.'),
-    ('00000000-0000-0000-0000-00000000b037', '00000000-0000-0000-0000-000000006106', NOW()-INTERVAL '20 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Entrega ARN-006 a Pedro.'),
-    ('00000000-0000-0000-0000-00000000b038', '00000000-0000-0000-0000-000000006109', NOW()-INTERVAL '20 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Entrega ARN-009 a Pedro.'),
+    ('00000000-0000-0000-0000-00000000b027', '00000000-0000-0000-0000-000000006001', NOW()-INTERVAL '30 days', 'entrega', '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008001', NULL, NULL, 'Entrega TAL-001 a Juan.'),
+    ('00000000-0000-0000-0000-00000000b028', '00000000-0000-0000-0000-000000006101', NOW()-INTERVAL '30 days', 'entrega', '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008001', NULL, NULL, 'Entrega ARN-001 a Juan.'),
+    ('00000000-0000-0000-0000-00000000b029', '00000000-0000-0000-0000-000000006002', NOW()-INTERVAL '28 days', 'entrega', '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008002', NULL, NULL, 'Entrega TAL-002 a Carlos.'),
+    ('00000000-0000-0000-0000-00000000b030', '00000000-0000-0000-0000-000000006003', NOW()-INTERVAL '25 days', 'entrega', '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008003', NULL, NULL, 'Entrega TAL-003 a Maria.'),
+    ('00000000-0000-0000-0000-00000000b031', '00000000-0000-0000-0000-000000006012', NOW()-INTERVAL '22 days', 'entrega', '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008004', NULL, NULL, 'Entrega TAL-012 a Ana.'),
+    ('00000000-0000-0000-0000-00000000b032', '00000000-0000-0000-0000-000000006102', NOW()-INTERVAL '22 days', 'entrega', '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008004', NULL, NULL, 'Entrega ARN-002 a Ana.'),
+    ('00000000-0000-0000-0000-00000000b033', '00000000-0000-0000-0000-000000006103', NOW()-INTERVAL '22 days', 'entrega', '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008004', NULL, NULL, 'Entrega ARN-003 a Ana.'),
+    ('00000000-0000-0000-0000-00000000b034', '00000000-0000-0000-0000-000000006011', NOW()-INTERVAL '20 days', 'entrega', '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Entrega TAL-011 a Pedro.'),
+    ('00000000-0000-0000-0000-00000000b035', '00000000-0000-0000-0000-000000006009', NOW()-INTERVAL '20 days', 'entrega', '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Entrega TAL-009 a Pedro.'),
+    ('00000000-0000-0000-0000-00000000b036', '00000000-0000-0000-0000-000000006105', NOW()-INTERVAL '20 days', 'entrega', '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Entrega ARN-005 a Pedro.'),
+    ('00000000-0000-0000-0000-00000000b037', '00000000-0000-0000-0000-000000006106', NOW()-INTERVAL '20 days', 'entrega', '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Entrega ARN-006 a Pedro.'),
+    ('00000000-0000-0000-0000-00000000b038', '00000000-0000-0000-0000-000000006109', NOW()-INTERVAL '20 days', 'entrega', '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008005', NULL, NULL, 'Entrega ARN-009 a Pedro.'),
     -- E6: entrega TAL-010 a Rosa
-    ('00000000-0000-0000-0000-00000000b039', '00000000-0000-0000-0000-000000006010', NOW()-INTERVAL '10 days', 'entrega',  '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008006', NULL, NULL, 'Entrega TAL-010 a Rosa.'),
+    ('00000000-0000-0000-0000-00000000b039', '00000000-0000-0000-0000-000000006010', NOW()-INTERVAL '10 days', 'entrega',  '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008006', NULL, NULL, 'Entrega TAL-010 a Rosa.'),
     -- E7+E8: entregas a proyecto minero
-    ('00000000-0000-0000-0000-00000000b040', '00000000-0000-0000-0000-000000006014', NOW()-INTERVAL '15 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003005', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008007', NULL, NULL, 'Entrega TAL-014 a Luis.'),
-    ('00000000-0000-0000-0000-00000000b041', '00000000-0000-0000-0000-000000006108', NOW()-INTERVAL '12 days', 'entrega', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003005', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008008', NULL, NULL, 'Entrega ARN-008 a Felipe.'),
+    ('00000000-0000-0000-0000-00000000b040', '00000000-0000-0000-0000-000000006014', NOW()-INTERVAL '15 days', 'entrega', '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003005', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008007', NULL, NULL, 'Entrega TAL-014 a Luis.'),
+    ('00000000-0000-0000-0000-00000000b041', '00000000-0000-0000-0000-000000006108', NOW()-INTERVAL '12 days', 'entrega', '00000000-0000-0000-0000-000000003001', NULL, NULL, '00000000-0000-0000-0000-000000003005', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000008008', NULL, NULL, 'Entrega ARN-008 a Felipe.'),
     -- DEVOLUCIONES
-    ('00000000-0000-0000-0000-00000000b042', '00000000-0000-0000-0000-000000006003', NOW()-INTERVAL '18 days', 'devolucion', '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000009001', NULL, 'Devolucion TAL-003 ok.'),
-    ('00000000-0000-0000-0000-00000000b043', '00000000-0000-0000-0000-000000006012', NOW()-INTERVAL '14 days', 'devolucion', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000009002', NULL, 'Devolucion TAL-012 ok.'),
-    ('00000000-0000-0000-0000-00000000b044', '00000000-0000-0000-0000-000000006103', NOW()-INTERVAL '14 days', 'devolucion', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000009002', NULL, 'Devolucion ARN-003 ok.'),
-    ('00000000-0000-0000-0000-00000000b045', '00000000-0000-0000-0000-000000006009', NOW()-INTERVAL '11 days', 'ajuste',     '00000000-0000-0000-0000-000000003004', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000009003', NULL, 'TAL-009 reportado perdido.'),
-    ('00000000-0000-0000-0000-00000000b046', '00000000-0000-0000-0000-000000006105', NOW()-INTERVAL '11 days', 'mantencion', '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000003006', '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000009003', NULL, 'ARN-005 danado, enviado a taller.'),
-    ('00000000-0000-0000-0000-00000000b047', '00000000-0000-0000-0000-000000006106', NOW()-INTERVAL '11 days', 'baja',       '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000009003', NULL, 'ARN-006 irrecuperable, dado de baja.'),
-    ('00000000-0000-0000-0000-00000000b048', '00000000-0000-0000-0000-000000006109', NOW()-INTERVAL '11 days', 'ajuste',     '00000000-0000-0000-0000-000000003004', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000009003', NULL, 'ARN-009 reportado perdido.'),
+    ('00000000-0000-0000-0000-00000000b042', '00000000-0000-0000-0000-000000006003', NOW()-INTERVAL '18 days', 'devolucion', NULL, '00000000-0000-0000-0000-000000003003', '00000000-0000-0000-0000-000000003001', NULL, '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000009001', NULL, 'Devolucion TAL-003 ok.'),
+    ('00000000-0000-0000-0000-00000000b043', '00000000-0000-0000-0000-000000006012', NOW()-INTERVAL '14 days', 'devolucion', NULL, '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000003001', NULL, '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000009002', NULL, 'Devolucion TAL-012 ok.'),
+    ('00000000-0000-0000-0000-00000000b044', '00000000-0000-0000-0000-000000006103', NOW()-INTERVAL '14 days', 'devolucion', NULL, '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000003001', NULL, '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000009002', NULL, 'Devolucion ARN-003 ok.'),
+    ('00000000-0000-0000-0000-00000000b045', '00000000-0000-0000-0000-000000006009', NOW()-INTERVAL '11 days', 'ajuste',     NULL, '00000000-0000-0000-0000-000000003004', NULL,                                    NULL, '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000009003', NULL, 'TAL-009 reportado perdido.'),
+    ('00000000-0000-0000-0000-00000000b046', '00000000-0000-0000-0000-000000006105', NOW()-INTERVAL '11 days', 'mantencion', NULL, '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000003006', NULL, '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000009003', NULL, 'ARN-005 danado, enviado a taller.'),
+    ('00000000-0000-0000-0000-00000000b047', '00000000-0000-0000-0000-000000006106', NOW()-INTERVAL '11 days', 'baja',       NULL, '00000000-0000-0000-0000-000000003004', '00000000-0000-0000-0000-000000003001', NULL, '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000009003', NULL, 'ARN-006 irrecuperable, dado de baja.'),
+    ('00000000-0000-0000-0000-00000000b048', '00000000-0000-0000-0000-000000006109', NOW()-INTERVAL '11 days', 'ajuste',     NULL, '00000000-0000-0000-0000-000000003004', NULL,                                    NULL, '00000000-0000-0000-0000-000000001003', NULL, '00000000-0000-0000-0000-000000009003', NULL, 'ARN-009 reportado perdido.'),
     -- BAJA EGRESO
-    ('00000000-0000-0000-0000-00000000b049', '00000000-0000-0000-0000-000000006008', NOW()-INTERVAL '8 days',  'baja',       '00000000-0000-0000-0000-000000003001', NULL,                                    '00000000-0000-0000-0000-000000001003', NULL, NULL, '00000000-0000-0000-0000-000000009301', 'TAL-008 dado de baja por falla.'),
+    ('00000000-0000-0000-0000-00000000b049', '00000000-0000-0000-0000-000000006008', NOW()-INTERVAL '8 days',  'baja',       '00000000-0000-0000-0000-000000003001', NULL, NULL, NULL, '00000000-0000-0000-0000-000000001003', NULL, NULL, '00000000-0000-0000-0000-000000009301', 'TAL-008 dado de baja por falla.'),
     -- REUBICACIONES
-    ('00000000-0000-0000-0000-00000000b050', '00000000-0000-0000-0000-000000006006', NOW()-INTERVAL '35 days', 'ajuste',     '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003002', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Reubicacion TAL-006 a Bodega Transitoria.'),
-    ('00000000-0000-0000-0000-00000000b051', '00000000-0000-0000-0000-000000006110', NOW()-INTERVAL '35 days', 'ajuste',     '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003002', '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Reubicacion ARN-010 a Bodega Transitoria.'),
+    ('00000000-0000-0000-0000-00000000b050', '00000000-0000-0000-0000-000000006006', NOW()-INTERVAL '35 days', 'ajuste',     '00000000-0000-0000-0000-000000003001', NULL, '00000000-0000-0000-0000-000000003002', NULL, '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Reubicacion TAL-006 a Bodega Transitoria.'),
+    ('00000000-0000-0000-0000-00000000b051', '00000000-0000-0000-0000-000000006110', NOW()-INTERVAL '35 days', 'ajuste',     '00000000-0000-0000-0000-000000003001', NULL, '00000000-0000-0000-0000-000000003002', NULL, '00000000-0000-0000-0000-000000001003', NULL, NULL, NULL, 'Reubicacion ARN-010 a Bodega Transitoria.'),
     -- MANTENCION ADMIN DIRECTA
-    ('00000000-0000-0000-0000-00000000b052', '00000000-0000-0000-0000-000000006007', NOW()-INTERVAL '34 days', 'mantencion', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003006', '00000000-0000-0000-0000-000000001001', NULL, NULL, NULL, 'TAL-007 enviado a mantencion preventiva por admin.')
+    ('00000000-0000-0000-0000-00000000b052', '00000000-0000-0000-0000-000000006007', NOW()-INTERVAL '34 days', 'mantencion', '00000000-0000-0000-0000-000000003001', NULL, '00000000-0000-0000-0000-000000003006', NULL, '00000000-0000-0000-0000-000000001001', NULL, NULL, NULL, 'TAL-007 enviado a mantencion preventiva por admin.')
   ON CONFLICT (id) DO NOTHING;
 
-  RAISE NOTICE '002-dev-seed.sql aplicado: dataset completo — 2 usuarios (admin+supervisor), 8 trabajadores, 27 activos (5 estados), 9 entregas, 3 devoluciones, 2 egresos, ~60 movimientos.';
+  RAISE NOTICE '002-dev-seed.sql aplicado: dataset completo — 2 usuarios (admin+supervisor), 8 trabajadores, 3 bodegas, 3 proyectos, 27 activos (5 estados), 9 entregas, 3 devoluciones, 2 egresos, ~60 movimientos.';
 END $$;

@@ -195,11 +195,6 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
 
   return (
     <div className="space-y-4">
-      <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-        <h2 className="text-2xl sm:text-3xl font-bold text-dark-blue">{copy.managerTitle}</h2>
-        <p className="text-neutral-gray mt-1 text-sm sm:text-base">{copy.managerDescription}</p>
-      </section>
-
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label={`KPIs de ${scope}`}>
         <KpiCard label={copy.totalLabel} value={String(kpis.total)} />
         <KpiCard label="Disponibles" value={String(kpis.available)} accent="text-green-600" />
