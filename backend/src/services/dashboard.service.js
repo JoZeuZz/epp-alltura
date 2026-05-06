@@ -72,12 +72,14 @@ class DashboardService {
           ms.tipo,
           ms.cantidad,
           a.nombre AS articulo_nombre,
-          uo.nombre AS ubicacion_origen_nombre,
-          ud.nombre AS ubicacion_destino_nombre
+          COALESCE(bo.nombre, po.nombre) AS ubicacion_origen_nombre,
+          COALESCE(bd.nombre, pd.nombre) AS ubicacion_destino_nombre
         FROM movimiento_stock ms
         INNER JOIN articulo a ON a.id = ms.articulo_id
-        LEFT JOIN ubicacion uo ON uo.id = ms.ubicacion_origen_id
-        LEFT JOIN ubicacion ud ON ud.id = ms.ubicacion_destino_id
+        LEFT JOIN bodegas bo ON bo.id = ms.bodega_origen_id
+        LEFT JOIN proyectos po ON po.id = ms.proyecto_origen_id
+        LEFT JOIN bodegas bd ON bd.id = ms.bodega_destino_id
+        LEFT JOIN proyectos pd ON pd.id = ms.proyecto_destino_id
         ORDER BY ms.fecha_movimiento DESC
         LIMIT 8
         `
@@ -91,13 +93,15 @@ class DashboardService {
           ma.tipo,
           a.codigo AS activo_codigo,
           ar.nombre AS articulo_nombre,
-          uo.nombre AS ubicacion_origen_nombre,
-          ud.nombre AS ubicacion_destino_nombre
+          COALESCE(bo.nombre, po.nombre) AS ubicacion_origen_nombre,
+          COALESCE(bd.nombre, pd.nombre) AS ubicacion_destino_nombre
         FROM movimiento_activo ma
         INNER JOIN activo a ON a.id = ma.activo_id
         INNER JOIN articulo ar ON ar.id = a.articulo_id
-        LEFT JOIN ubicacion uo ON uo.id = ma.ubicacion_origen_id
-        LEFT JOIN ubicacion ud ON ud.id = ma.ubicacion_destino_id
+        LEFT JOIN bodegas bo ON bo.id = ma.bodega_origen_id
+        LEFT JOIN proyectos po ON po.id = ma.proyecto_origen_id
+        LEFT JOIN bodegas bd ON bd.id = ma.bodega_destino_id
+        LEFT JOIN proyectos pd ON pd.id = ma.proyecto_destino_id
         ORDER BY ma.fecha_movimiento DESC
         LIMIT 8
         `
@@ -204,14 +208,9 @@ class DashboardService {
       ),
       db.query(
         `
-        SELECT
-          COUNT(*)::int AS total,
-          COUNT(*) FILTER (
-            WHERE tipo = 'bodega'
-              AND COALESCE(ubicacion_subtipo, 'fija') = 'fija'
-              AND fecha_cierre_operacion IS NULL
-          )::int AS bodegas_activas
-        FROM ubicacion
+        SELECT COUNT(*)::int AS bodegas_activas
+        FROM bodegas
+        WHERE estado = 'activo'
         `
       ),
       db.query(
@@ -253,7 +252,7 @@ class DashboardService {
         cantidad_30d: Number(noSerializados.cantidad_no_serializados_30d || 0),
       },
       ubicaciones: {
-        total: ubicaciones.total || 0,
+        total: ubicaciones.bodegas_activas || 0,
         bodegas_activas: ubicaciones.bodegas_activas || 0,
       },
       firmas: {
@@ -271,7 +270,7 @@ class DashboardService {
           COALESCE(SUM(cantidad_disponible), 0) AS total_disponible,
           COALESCE(SUM(cantidad_reservada), 0) AS total_reservado
         FROM stock
-        WHERE ubicacion_id = $1
+        WHERE bodega_id = $1
         `,
         [ubicacionId]
       ),
@@ -283,7 +282,7 @@ class DashboardService {
           COUNT(*) FILTER (WHERE estado = 'asignado')::int AS asignado,
           COUNT(*) FILTER (WHERE estado = 'mantencion')::int AS mantencion
         FROM activo
-        WHERE ubicacion_actual_id = $1
+        WHERE bodega_actual_id = $1
         `,
         [ubicacionId]
       ),
@@ -294,15 +293,14 @@ class DashboardService {
           COUNT(*) FILTER (WHERE estado = 'pendiente_firma')::int AS pendientes_firma,
           COUNT(*) FILTER (WHERE estado = 'confirmada')::int AS confirmadas
         FROM entrega
-        WHERE ubicacion_origen_id = $1
-           OR ubicacion_destino_id = $1
+        WHERE bodega_origen_id = $1
         `,
         [ubicacionId]
       ),
     ]);
 
     return {
-      ubicacion_id: ubicacionId,
+      bodega_id: ubicacionId,
       stock: {
         registros_stock: stockResult.rows[0].registros_stock || 0,
         total_disponible: Number(stockResult.rows[0].total_disponible || 0),
