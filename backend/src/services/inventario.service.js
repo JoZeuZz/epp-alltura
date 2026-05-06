@@ -117,9 +117,9 @@ class InventarioService {
     const values = [];
     const conditions = [];
 
-    if (filters.ubicacion_id) {
-      values.push(filters.ubicacion_id);
-      conditions.push(`s.ubicacion_id = $${values.length}`);
+    if (filters.bodega_id) {
+      values.push(filters.bodega_id);
+      conditions.push(`s.bodega_id = $${values.length}`);
     }
 
     if (filters.articulo_id) {
@@ -135,7 +135,7 @@ class InventarioService {
     let query = `
       SELECT
         s.id,
-        s.ubicacion_id,
+        s.bodega_id,
         s.articulo_id,
         s.cantidad_disponible,
         s.cantidad_reservada,
@@ -143,11 +143,10 @@ class InventarioService {
         a.nombre AS articulo_nombre,
         a.grupo_principal AS articulo_tipo,
         a.unidad_medida,
-        u.nombre AS ubicacion_nombre,
-        u.tipo AS ubicacion_tipo
+        b.nombre AS bodega_nombre
       FROM stock s
       INNER JOIN articulo a ON a.id = s.articulo_id
-      INNER JOIN ubicacion u ON u.id = s.ubicacion_id
+      INNER JOIN bodegas b ON b.id = s.bodega_id
       WHERE s.lote_id IS NULL
     `;
 
@@ -155,7 +154,7 @@ class InventarioService {
       query += ` AND ${conditions.join(' AND ')}`;
     }
 
-    query += ' ORDER BY a.nombre ASC, u.nombre ASC';
+    query += ' ORDER BY a.nombre ASC, b.nombre ASC';
 
     const hasLimit = filters.limit !== undefined && filters.limit !== null && filters.limit !== '';
     const hasOffset = filters.offset !== undefined && filters.offset !== null && filters.offset !== '';
@@ -191,10 +190,10 @@ class InventarioService {
       activoConditions.push(`ac.articulo_id = $${values.length}`);
     }
 
-    if (filters.ubicacion_id) {
-      values.push(filters.ubicacion_id);
-      stockConditions.push(`s.ubicacion_id = $${values.length}`);
-      activoConditions.push(`ac.ubicacion_actual_id = $${values.length}`);
+    if (filters.bodega_id) {
+      values.push(filters.bodega_id);
+      stockConditions.push(`s.bodega_id = $${values.length}`);
+      activoConditions.push(`ac.bodega_actual_id = $${values.length}`);
     }
 
     if (filters.search) {
@@ -214,7 +213,7 @@ class InventarioService {
       WITH source_rows AS (
         SELECT
           s.articulo_id,
-          s.ubicacion_id,
+          s.bodega_id AS ubicacion_id,
           COALESCE(s.cantidad_disponible, 0) AS disponible_total,
           COALESCE(s.cantidad_reservada, 0) AS reservada_total,
           1::int AS registros_count
@@ -225,7 +224,7 @@ class InventarioService {
 
         SELECT
           ac.articulo_id,
-          ac.ubicacion_actual_id AS ubicacion_id,
+          ac.bodega_actual_id AS ubicacion_id,
           COUNT(*)::numeric AS disponible_total,
           0::numeric AS reservada_total,
           COUNT(*)::int AS registros_count
@@ -234,7 +233,7 @@ class InventarioService {
         WHERE ac.estado = 'en_stock'
           AND ar.tracking_mode = 'serial'
           ${activoConditions.length ? `AND ${activoConditions.join(' AND ')}` : ''}
-        GROUP BY ac.articulo_id, ac.ubicacion_actual_id
+        GROUP BY ac.articulo_id, ac.bodega_actual_id
       )
       SELECT
         sr.articulo_id,
@@ -266,9 +265,9 @@ class InventarioService {
     const values = [];
     const conditions = [];
 
-    if (filters.ubicacion_id) {
-      values.push(filters.ubicacion_id);
-      conditions.push(`s.ubicacion_id = $${values.length}`);
+    if (filters.bodega_id) {
+      values.push(filters.bodega_id);
+      conditions.push(`s.bodega_id = $${values.length}`);
     }
 
     if (filters.articulo_id) {
@@ -293,17 +292,17 @@ class InventarioService {
       SELECT
         s.id,
         s.articulo_id,
-        s.ubicacion_id,
+        s.bodega_id,
         s.cantidad_disponible,
         s.cantidad_reservada,
         a.nombre AS articulo_nombre,
-        u.nombre AS ubicacion_nombre,
+        b.nombre AS bodega_nombre,
         lm.tipo AS ultimo_movimiento_tipo,
         lm.fecha_movimiento AS ultimo_movimiento_fecha,
         lm.responsable_email AS ultimo_movimiento_responsable
       FROM stock s
       INNER JOIN articulo a ON a.id = s.articulo_id
-      INNER JOIN ubicacion u ON u.id = s.ubicacion_id
+      INNER JOIN bodegas b ON b.id = s.bodega_id
       LEFT JOIN LATERAL (
         SELECT
           ms.tipo,
@@ -312,7 +311,7 @@ class InventarioService {
         FROM movimiento_stock ms
         INNER JOIN usuario us ON us.id = ms.responsable_usuario_id
         WHERE ms.articulo_id = s.articulo_id
-          AND (ms.ubicacion_origen_id = s.ubicacion_id OR ms.ubicacion_destino_id = s.ubicacion_id)
+          AND (ms.bodega_origen_id = s.bodega_id OR ms.bodega_destino_id = s.bodega_id)
         ORDER BY ms.fecha_movimiento DESC
         LIMIT 1
       ) lm ON TRUE
@@ -324,7 +323,7 @@ class InventarioService {
     }
 
     query += `
-      ORDER BY a.nombre ASC, u.nombre ASC, s.id ASC
+      ORDER BY a.nombre ASC, b.nombre ASC, s.id ASC
       LIMIT $${limitIndex} OFFSET $${offsetIndex}
     `;
 
@@ -390,8 +389,8 @@ class InventarioService {
       SELECT
         ms.*,
         a.nombre AS articulo_nombre,
-        uo.nombre AS ubicacion_origen_nombre,
-        ud.nombre AS ubicacion_destino_nombre,
+        bo.nombre AS bodega_origen_nombre,
+        bd.nombre AS bodega_destino_nombre,
         us.email_login AS responsable_email,
         CASE
           WHEN ms.compra_id IS NOT NULL THEN 'ingreso'
@@ -404,8 +403,8 @@ class InventarioService {
         COALESCE(ms.compra_id, ms.egreso_id, ms.entrega_id, ms.devolucion_id) AS referencia_origen_id
       FROM movimiento_stock ms
       INNER JOIN articulo a ON a.id = ms.articulo_id
-      LEFT JOIN ubicacion uo ON uo.id = ms.ubicacion_origen_id
-      LEFT JOIN ubicacion ud ON ud.id = ms.ubicacion_destino_id
+      LEFT JOIN bodegas bo ON bo.id = ms.bodega_origen_id
+      LEFT JOIN bodegas bd ON bd.id = ms.bodega_destino_id
       INNER JOIN usuario us ON us.id = ms.responsable_usuario_id
     `;
 
@@ -433,8 +432,8 @@ class InventarioService {
       'tipo',
       'articulo_nombre',
       'cantidad',
-      'ubicacion_origen',
-      'ubicacion_destino',
+      'bodega_origen',
+      'bodega_destino',
       'responsable_email',
       'compra_id',
       'egreso_id',
@@ -455,8 +454,8 @@ class InventarioService {
           csvEscape(row.tipo),
           csvEscape(row.articulo_nombre),
           csvEscape(row.cantidad),
-          csvEscape(row.ubicacion_origen_nombre),
-          csvEscape(row.ubicacion_destino_nombre),
+          csvEscape(row.bodega_origen_nombre),
+          csvEscape(row.bodega_destino_nombre),
           csvEscape(row.responsable_email),
           csvEscape(row.compra_id),
           csvEscape(row.egreso_id),
@@ -515,14 +514,16 @@ class InventarioService {
         a.codigo AS activo_codigo,
         a.nro_serie AS activo_nro_serie,
         ar.nombre AS articulo_nombre,
-        uo.nombre AS ubicacion_origen_nombre,
-        ud.nombre AS ubicacion_destino_nombre,
+        COALESCE(bo.nombre, po.nombre) AS origen_nombre,
+        COALESCE(bd.nombre, pd.nombre) AS destino_nombre,
         us.email_login AS responsable_email
       FROM movimiento_activo ma
       INNER JOIN activo a ON a.id = ma.activo_id
       INNER JOIN articulo ar ON ar.id = a.articulo_id
-      LEFT JOIN ubicacion uo ON uo.id = ma.ubicacion_origen_id
-      LEFT JOIN ubicacion ud ON ud.id = ma.ubicacion_destino_id
+      LEFT JOIN bodegas bo ON bo.id = ma.bodega_origen_id
+      LEFT JOIN proyectos po ON po.id = ma.proyecto_origen_id
+      LEFT JOIN bodegas bd ON bd.id = ma.bodega_destino_id
+      LEFT JOIN proyectos pd ON pd.id = ma.proyecto_destino_id
       INNER JOIN usuario us ON us.id = ma.responsable_usuario_id
     `;
 
@@ -545,9 +546,9 @@ class InventarioService {
       conditions.push(`ar.id = $${values.length}`);
     }
 
-    if (filters.ubicacion_id) {
-      values.push(filters.ubicacion_id);
-      conditions.push(`a.ubicacion_actual_id = $${values.length}`);
+    if (filters.bodega_id) {
+      values.push(filters.bodega_id);
+      conditions.push(`a.bodega_actual_id = $${values.length}`);
     }
 
     if (filters.estado) {
@@ -588,40 +589,41 @@ class InventarioService {
         ar.id AS articulo_id,
         ar.nombre AS articulo_nombre,
         ar.grupo_principal AS articulo_tipo,
-        u.id AS ubicacion_id,
-        u.nombre AS ubicacion_nombre,
-        u.tipo AS ubicacion_tipo,
+        b.id AS bodega_id,
+        b.nombre AS bodega_nombre,
         ca.id AS custodia_id,
         ca.estado AS custodia_estado,
         ca.desde_en AS custodia_desde_en,
         tr.id AS custodio_trabajador_id,
         p.nombres AS custodio_nombres,
         p.apellidos AS custodio_apellidos,
-        ud.id AS custodia_ubicacion_id,
-        ud.nombre AS custodia_ubicacion_nombre,
+        proj.id AS custodia_proyecto_id,
+        proj.nombre AS custodia_proyecto_nombre,
         um.tipo AS ultimo_movimiento_tipo,
         um.fecha_movimiento AS ultimo_movimiento_fecha,
-        um.ubicacion_origen_nombre AS ultimo_movimiento_origen_nombre,
-        um.ubicacion_destino_nombre AS ultimo_movimiento_destino_nombre
+        um.origen_nombre AS ultimo_movimiento_origen_nombre,
+        um.destino_nombre AS ultimo_movimiento_destino_nombre
       FROM activo a
       INNER JOIN articulo ar ON ar.id = a.articulo_id
-      LEFT JOIN ubicacion u ON u.id = a.ubicacion_actual_id
+      LEFT JOIN bodegas b ON b.id = a.bodega_actual_id
       LEFT JOIN custodia_activo ca
         ON ca.activo_id = a.id
        AND ca.estado = 'activa'
        AND ca.hasta_en IS NULL
       LEFT JOIN trabajador tr ON tr.id = ca.trabajador_id
       LEFT JOIN persona p ON p.id = tr.persona_id
-      LEFT JOIN ubicacion ud ON ud.id = ca.ubicacion_destino_id
+      LEFT JOIN proyectos proj ON proj.id = ca.proyecto_id
       LEFT JOIN LATERAL (
         SELECT
           ma.tipo,
           ma.fecha_movimiento,
-          uo.nombre AS ubicacion_origen_nombre,
-          ux.nombre AS ubicacion_destino_nombre
+          COALESCE(uo.nombre, po.nombre) AS origen_nombre,
+          COALESCE(ux.nombre, px.nombre) AS destino_nombre
         FROM movimiento_activo ma
-        LEFT JOIN ubicacion uo ON uo.id = ma.ubicacion_origen_id
-        LEFT JOIN ubicacion ux ON ux.id = ma.ubicacion_destino_id
+        LEFT JOIN bodegas uo ON uo.id = ma.bodega_origen_id
+        LEFT JOIN proyectos po ON po.id = ma.proyecto_origen_id
+        LEFT JOIN bodegas ux ON ux.id = ma.bodega_destino_id
+        LEFT JOIN proyectos px ON px.id = ma.proyecto_destino_id
         WHERE ma.activo_id = a.id
         ORDER BY ma.fecha_movimiento DESC
         LIMIT 1
@@ -648,9 +650,9 @@ class InventarioService {
       conditions.push(`ar.id = $${values.length}`);
     }
 
-    if (filters.ubicacion_id) {
-      values.push(filters.ubicacion_id);
-      conditions.push(`a.ubicacion_actual_id = $${values.length}`);
+    if (filters.bodega_id) {
+      values.push(filters.bodega_id);
+      conditions.push(`a.bodega_actual_id = $${values.length}`);
     }
 
     if (filters.estado && !onlyDelivered) {
@@ -700,9 +702,8 @@ class InventarioService {
         ar.id AS articulo_id,
         ar.nombre AS articulo_nombre,
         ar.grupo_principal AS articulo_tipo,
-        u.id AS ubicacion_id,
-        u.nombre AS ubicacion_nombre,
-        u.tipo AS ubicacion_tipo,
+        b.id AS bodega_id,
+        b.nombre AS bodega_nombre,
         ca.id AS custodia_id,
         ca.estado AS custodia_estado,
         ca.desde_en AS custodia_desde_en,
@@ -710,8 +711,8 @@ class InventarioService {
         tr.id AS custodio_trabajador_id,
         p.nombres AS custodio_nombres,
         p.apellidos AS custodio_apellidos,
-        ud.id AS custodia_ubicacion_id,
-        ud.nombre AS custodia_ubicacion_nombre,
+        proj.id AS custodia_proyecto_id,
+        proj.nombre AS custodia_proyecto_nombre,
         le.entrega_id AS ultima_entrega_id,
         le.entrega_confirmada_en,
         ld.devolucion_id AS ultima_devolucion_id,
@@ -735,18 +736,18 @@ class InventarioService {
         END AS dias_restantes_devolucion,
         um.tipo AS ultimo_movimiento_tipo,
         um.fecha_movimiento AS ultimo_movimiento_fecha,
-        um.ubicacion_origen_nombre AS ultimo_movimiento_origen_nombre,
-        um.ubicacion_destino_nombre AS ultimo_movimiento_destino_nombre
+        um.origen_nombre AS ultimo_movimiento_origen_nombre,
+        um.destino_nombre AS ultimo_movimiento_destino_nombre
       FROM activo a
       INNER JOIN articulo ar ON ar.id = a.articulo_id
-      LEFT JOIN ubicacion u ON u.id = a.ubicacion_actual_id
+      LEFT JOIN bodegas b ON b.id = a.bodega_actual_id
       LEFT JOIN custodia_activo ca
         ON ca.activo_id = a.id
        AND ca.estado = 'activa'
        AND ca.hasta_en IS NULL
       LEFT JOIN trabajador tr ON tr.id = ca.trabajador_id
       LEFT JOIN persona p ON p.id = tr.persona_id
-      LEFT JOIN ubicacion ud ON ud.id = ca.ubicacion_destino_id
+      LEFT JOIN proyectos proj ON proj.id = ca.proyecto_id
       LEFT JOIN LATERAL (
         SELECT
           e.id AS entrega_id,
@@ -773,11 +774,13 @@ class InventarioService {
         SELECT
           ma.tipo,
           ma.fecha_movimiento,
-          uo.nombre AS ubicacion_origen_nombre,
-          ux.nombre AS ubicacion_destino_nombre
+          COALESCE(uo.nombre, po.nombre) AS origen_nombre,
+          COALESCE(ux.nombre, px.nombre) AS destino_nombre
         FROM movimiento_activo ma
-        LEFT JOIN ubicacion uo ON uo.id = ma.ubicacion_origen_id
-        LEFT JOIN ubicacion ux ON ux.id = ma.ubicacion_destino_id
+        LEFT JOIN bodegas uo ON uo.id = ma.bodega_origen_id
+        LEFT JOIN proyectos po ON po.id = ma.proyecto_origen_id
+        LEFT JOIN bodegas ux ON ux.id = ma.bodega_destino_id
+        LEFT JOIN proyectos px ON px.id = ma.proyecto_destino_id
         WHERE ma.activo_id = a.id
         ORDER BY ma.fecha_movimiento DESC
         LIMIT 1
@@ -806,18 +809,18 @@ class InventarioService {
 
   static async getActivosDisponibles(filters = {}) {
     const articuloId = String(filters.articulo_id || '').trim();
-    const ubicacionId = String(filters.ubicacion_id || '').trim();
+    const bodegaId = String(filters.bodega_id || '').trim();
 
-    if (!articuloId || !ubicacionId) {
-      const error = new Error('Debe enviar articulo_id y ubicacion_id para consultar activos disponibles.');
+    if (!articuloId || !bodegaId) {
+      const error = new Error('Debe enviar articulo_id y bodega_id para consultar activos disponibles.');
       error.statusCode = 400;
       throw error;
     }
 
-    const values = [articuloId, ubicacionId];
+    const values = [articuloId, bodegaId];
     const conditions = [
       'a.articulo_id = $1',
-      'a.ubicacion_actual_id = $2',
+      'a.bodega_actual_id = $2',
       "a.estado = 'en_stock'",
       "ar.tracking_mode = 'serial'",
     ];
@@ -838,11 +841,11 @@ class InventarioService {
         a.estado,
         a.articulo_id,
         ar.nombre AS articulo_nombre,
-        a.ubicacion_actual_id AS ubicacion_id,
-        u.nombre AS ubicacion_nombre
+        a.bodega_actual_id AS bodega_id,
+        b.nombre AS bodega_nombre
       FROM activo a
       INNER JOIN articulo ar ON ar.id = a.articulo_id
-      INNER JOIN ubicacion u ON u.id = a.ubicacion_actual_id
+      INNER JOIN bodegas b ON b.id = a.bodega_actual_id
       WHERE ${conditions.join(' AND ')}
       ORDER BY a.codigo ASC
       LIMIT $${values.length}
@@ -918,13 +921,13 @@ class InventarioService {
       `
       SELECT
         ac.id, ac.codigo, ac.nro_serie, ac.estado, ac.foto_url,
-        ac.ubicacion_actual_id, ac.fecha_compra, ac.fecha_vencimiento, ac.valor,
+        ac.bodega_actual_id, ac.proyecto_actual_id, ac.fecha_compra, ac.fecha_vencimiento, ac.valor,
         ac.creado_en,
         a.id AS articulo_id, a.nombre AS articulo_nombre,
-        u.nombre AS ubicacion_nombre
+        b.nombre AS bodega_nombre
       FROM activo ac
       INNER JOIN articulo a ON a.id = ac.articulo_id
-      LEFT JOIN ubicacion u ON u.id = ac.ubicacion_actual_id
+      LEFT JOIN bodegas b ON b.id = ac.bodega_actual_id
       WHERE ac.id = $1
       `,
       [activoId]
@@ -943,14 +946,14 @@ class InventarioService {
       `
       SELECT
         ca.id, ca.trabajador_id, ca.entrega_id,
-        ca.ubicacion_destino_id, ca.desde_en, ca.estado,
+        ca.proyecto_id, ca.desde_en, ca.estado,
         p.nombres AS custodio_nombres, p.apellidos AS custodio_apellidos,
-        ub.nombre AS custodia_ubicacion_nombre,
+        proj.nombre AS custodia_proyecto_nombre,
         EXTRACT(DAY FROM NOW() - ca.desde_en)::int AS dias_en_custodia
       FROM custodia_activo ca
       INNER JOIN trabajador t ON t.id = ca.trabajador_id
       INNER JOIN persona p ON p.id = t.persona_id
-      LEFT JOIN ubicacion ub ON ub.id = ca.ubicacion_destino_id
+      LEFT JOIN proyectos proj ON proj.id = ca.proyecto_id
       WHERE ca.activo_id = $1 AND ca.estado = 'activa'
       LIMIT 1
       `,
@@ -982,14 +985,16 @@ class InventarioService {
         ma.tipo,
         ma.fecha_movimiento,
         ma.notas,
-        uo.nombre AS ubicacion_origen_nombre,
-        ud.nombre AS ubicacion_destino_nombre,
+        COALESCE(bo.nombre, po.nombre) AS origen_nombre,
+        COALESCE(bd.nombre, pd.nombre) AS destino_nombre,
         ma.entrega_id,
         ma.devolucion_id,
         resp.email_login AS responsable_email
       FROM movimiento_activo ma
-      LEFT JOIN ubicacion uo ON uo.id = ma.ubicacion_origen_id
-      LEFT JOIN ubicacion ud ON ud.id = ma.ubicacion_destino_id
+      LEFT JOIN bodegas bo ON bo.id = ma.bodega_origen_id
+      LEFT JOIN proyectos po ON po.id = ma.proyecto_origen_id
+      LEFT JOIN bodegas bd ON bd.id = ma.bodega_destino_id
+      LEFT JOIN proyectos pd ON pd.id = ma.proyecto_destino_id
       LEFT JOIN usuario resp ON resp.id = ma.responsable_usuario_id
       WHERE ma.activo_id = $1
       ORDER BY ma.fecha_movimiento ASC
@@ -1002,9 +1007,9 @@ class InventarioService {
       `
       SELECT
         ca.id, ca.trabajador_id, ca.entrega_id,
-        ca.ubicacion_destino_id, ca.desde_en, ca.hasta_en, ca.estado,
+        ca.proyecto_id, ca.desde_en, ca.hasta_en, ca.estado,
         p.nombres AS custodio_nombres, p.apellidos AS custodio_apellidos,
-        ub.nombre AS custodia_ubicacion_nombre,
+        proj.nombre AS custodia_proyecto_nombre,
         CASE
           WHEN ca.hasta_en IS NOT NULL THEN EXTRACT(DAY FROM ca.hasta_en - ca.desde_en)::int
           ELSE EXTRACT(DAY FROM NOW() - ca.desde_en)::int
@@ -1012,7 +1017,7 @@ class InventarioService {
       FROM custodia_activo ca
       INNER JOIN trabajador t ON t.id = ca.trabajador_id
       INNER JOIN persona p ON p.id = t.persona_id
-      LEFT JOIN ubicacion ub ON ub.id = ca.ubicacion_destino_id
+      LEFT JOIN proyectos proj ON proj.id = ca.proyecto_id
       WHERE ca.activo_id = $1
       ORDER BY ca.desde_en ASC
       `,
@@ -1048,13 +1053,13 @@ class InventarioService {
   }
 
   // ── Cambiar estado de activo (transiciones directas admin) ──
-  static async cambiarEstadoActivo(activoId, { nuevo_estado, motivo, ubicacion_destino_id }, usuarioId) {
+  static async cambiarEstadoActivo(activoId, { nuevo_estado, motivo, bodega_destino_id }, usuarioId) {
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
 
       const activoResult = await client.query(
-        'SELECT id, estado, ubicacion_actual_id FROM activo WHERE id = $1 FOR UPDATE',
+        'SELECT id, estado, bodega_actual_id FROM activo WHERE id = $1 FOR UPDATE',
         [activoId]
       );
       if (!activoResult.rows.length) {
@@ -1085,31 +1090,31 @@ class InventarioService {
         );
       }
 
-      // Validar ubicación destino si corresponde
-      const nuevaUbicacion = transicion.cambia_ubicacion ? ubicacion_destino_id : activo.ubicacion_actual_id;
+      // Validar bodega destino si corresponde
+      const nuevaBodega = transicion.cambia_ubicacion ? bodega_destino_id : activo.bodega_actual_id;
       if (transicion.cambia_ubicacion) {
-        const ubResult = await client.query('SELECT id FROM ubicacion WHERE id = $1', [ubicacion_destino_id]);
+        const ubResult = await client.query('SELECT id FROM bodegas WHERE id = $1', [bodega_destino_id]);
         if (!ubResult.rows.length) {
-          throw buildError('Ubicación destino no encontrada', 404, 'UBICACION_NOT_FOUND');
+          throw buildError('Bodega destino no encontrada', 404, 'UBICACION_NOT_FOUND');
         }
       }
 
       // Actualizar activo
       await client.query(
-        'UPDATE activo SET estado = $1, ubicacion_actual_id = $2 WHERE id = $3',
-        [nuevo_estado, nuevaUbicacion, activoId]
+        'UPDATE activo SET estado = $1, bodega_actual_id = $2, proyecto_actual_id = NULL WHERE id = $3',
+        [nuevo_estado, nuevaBodega, activoId]
       );
 
       // Registrar movimiento
       await client.query(
         `INSERT INTO movimiento_activo
-          (activo_id, tipo, ubicacion_origen_id, ubicacion_destino_id, responsable_usuario_id, notas)
+          (activo_id, tipo, bodega_origen_id, bodega_destino_id, responsable_usuario_id, notas)
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [
           activoId,
           transicion.mov_tipo,
-          activo.ubicacion_actual_id,
-          nuevaUbicacion,
+          activo.bodega_actual_id,
+          nuevaBodega,
           usuarioId,
           motivo,
         ]
@@ -1117,7 +1122,7 @@ class InventarioService {
 
       await client.query('COMMIT');
 
-      return { id: activoId, estado: nuevo_estado, ubicacion_actual_id: nuevaUbicacion };
+      return { id: activoId, estado: nuevo_estado, bodega_actual_id: nuevaBodega };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -1127,13 +1132,13 @@ class InventarioService {
   }
 
   // ── Reubicar activo (movimiento directo entre ubicaciones) ──
-  static async reubicarActivo(activoId, { ubicacion_destino_id, motivo }, usuarioId) {
+  static async reubicarActivo(activoId, { bodega_destino_id, motivo }, usuarioId) {
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
 
       const activoResult = await client.query(
-        'SELECT id, estado, ubicacion_actual_id FROM activo WHERE id = $1 FOR UPDATE',
+        'SELECT id, estado, bodega_actual_id FROM activo WHERE id = $1 FOR UPDATE',
         [activoId]
       );
       if (!activoResult.rows.length) {
@@ -1149,9 +1154,9 @@ class InventarioService {
         );
       }
 
-      if (activo.ubicacion_actual_id === ubicacion_destino_id) {
+      if (activo.bodega_actual_id === bodega_destino_id) {
         throw buildError(
-          'La ubicación destino es igual a la ubicación actual',
+          'La bodega destino es igual a la bodega actual',
           422,
           'SAME_LOCATION'
         );
@@ -1170,26 +1175,26 @@ class InventarioService {
         );
       }
 
-      const ubResult = await client.query('SELECT id FROM ubicacion WHERE id = $1', [ubicacion_destino_id]);
+      const ubResult = await client.query('SELECT id FROM bodegas WHERE id = $1', [bodega_destino_id]);
       if (!ubResult.rows.length) {
-        throw buildError('Ubicación destino no encontrada', 404, 'UBICACION_NOT_FOUND');
+        throw buildError('Bodega destino no encontrada', 404, 'UBICACION_NOT_FOUND');
       }
 
       await client.query(
-        'UPDATE activo SET ubicacion_actual_id = $1 WHERE id = $2',
-        [ubicacion_destino_id, activoId]
+        'UPDATE activo SET bodega_actual_id = $1, proyecto_actual_id = NULL WHERE id = $2',
+        [bodega_destino_id, activoId]
       );
 
       await client.query(
         `INSERT INTO movimiento_activo
-          (activo_id, tipo, ubicacion_origen_id, ubicacion_destino_id, responsable_usuario_id, notas)
+          (activo_id, tipo, bodega_origen_id, bodega_destino_id, responsable_usuario_id, notas)
          VALUES ($1, 'ajuste', $2, $3, $4, $5)`,
-        [activoId, activo.ubicacion_actual_id, ubicacion_destino_id, usuarioId, motivo || null]
+        [activoId, activo.bodega_actual_id, bodega_destino_id, usuarioId, motivo || null]
       );
 
       await client.query('COMMIT');
 
-      return { id: activoId, ubicacion_actual_id: ubicacion_destino_id };
+      return { id: activoId, bodega_actual_id: bodega_destino_id };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
