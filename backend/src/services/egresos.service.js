@@ -68,7 +68,7 @@ class EgresosService {
 
           normalized.push({
             articulo_id: rawDetalle.articulo_id,
-            ubicacion_id: rawDetalle.ubicacion_id,
+            bodega_id: rawDetalle.bodega_id,
             activo_id: activoId,
             lote_id: null,
             cantidad: 1,
@@ -81,7 +81,7 @@ class EgresosService {
 
       normalized.push({
         articulo_id: rawDetalle.articulo_id,
-        ubicacion_id: rawDetalle.ubicacion_id,
+        bodega_id: rawDetalle.bodega_id,
         activo_id: null,
         lote_id: null,
         cantidad: rawDetalle.cantidad,
@@ -165,12 +165,12 @@ class EgresosService {
       SELECT
         ed.*,
         a.nombre AS articulo_nombre,
-        ub.nombre AS ubicacion_nombre,
+        b.nombre AS bodega_nombre,
         ac.codigo AS activo_codigo,
         ac.nro_serie AS activo_nro_serie
       FROM egreso_detalle ed
       INNER JOIN articulo a ON a.id = ed.articulo_id
-      INNER JOIN ubicacion ub ON ub.id = ed.ubicacion_id
+      INNER JOIN bodegas b ON b.id = ed.bodega_id
       LEFT JOIN activo ac ON ac.id = ed.activo_id
       WHERE ed.egreso_id = $1
       ORDER BY ed.id
@@ -197,7 +197,6 @@ class EgresosService {
     try {
       await client.query('BEGIN');
 
-      // 1. Insertar encabezado del egreso
       const egresoResult = await client.query(
         `
         INSERT INTO egreso (
@@ -216,20 +215,18 @@ class EgresosService {
       for (const detalle of detalles) {
         const qty = toQuantity(detalle.cantidad);
 
-        // 2. Validar ubicación
-        const ubicacionResult = await client.query(
-          `SELECT id FROM ubicacion WHERE id = $1`,
-          [detalle.ubicacion_id]
+        const bodegaResult = await client.query(
+          `SELECT id FROM bodegas WHERE id = $1`,
+          [detalle.bodega_id]
         );
-        if (!ubicacionResult.rows.length) {
+        if (!bodegaResult.rows.length) {
           throw buildError(
-            `Ubicación ${detalle.ubicacion_id} no encontrada`,
+            `Bodega ${detalle.bodega_id} no encontrada`,
             400,
             'LOCATION_NOT_FOUND'
           );
         }
 
-        // 3. Validar artículo
         const articuloResult = await client.query(
           `SELECT id, nombre, tracking_mode FROM articulo WHERE id = $1`,
           [detalle.articulo_id]
@@ -255,7 +252,7 @@ class EgresosService {
 
           const activoResult = await client.query(
             `
-            SELECT id, articulo_id, estado, ubicacion_actual_id
+            SELECT id, articulo_id, estado, bodega_actual_id
             FROM activo
             WHERE id = $1
             FOR UPDATE
@@ -284,9 +281,9 @@ class EgresosService {
             );
           }
 
-          if (activo.ubicacion_actual_id !== detalle.ubicacion_id) {
+          if (activo.bodega_actual_id !== detalle.bodega_id) {
             throw buildError(
-              `Activo ${detalle.activo_id} no pertenece a la ubicación indicada`,
+              `Activo ${detalle.activo_id} no pertenece a la bodega indicada`,
               409,
               'ASSET_LOCATION_MISMATCH'
             );
@@ -329,7 +326,7 @@ class EgresosService {
             INSERT INTO egreso_detalle (
               egreso_id,
               articulo_id,
-              ubicacion_id,
+              bodega_id,
               activo_id,
               lote_id,
               cantidad,
@@ -340,7 +337,7 @@ class EgresosService {
             [
               egresoId,
               detalle.articulo_id,
-              detalle.ubicacion_id,
+              detalle.bodega_id,
               detalle.activo_id,
               detalle.notas || null,
             ]
@@ -351,8 +348,8 @@ class EgresosService {
             INSERT INTO movimiento_activo (
               activo_id,
               tipo,
-              ubicacion_origen_id,
-              ubicacion_destino_id,
+              bodega_origen_id,
+              bodega_destino_id,
               responsable_usuario_id,
               egreso_id,
               notas
@@ -362,7 +359,7 @@ class EgresosService {
             [
               detalle.activo_id,
               movActivoType,
-              detalle.ubicacion_id,
+              detalle.bodega_id,
               userId,
               egresoId,
               detalle.notas || null,
@@ -380,20 +377,19 @@ class EgresosService {
           );
         }
 
-        // 4. Bloquear y verificar stock disponible
         const stockResult = await client.query(
           `
           SELECT id, cantidad_disponible
           FROM stock
-          WHERE articulo_id = $1 AND lote_id IS NULL AND ubicacion_id = $2
+          WHERE articulo_id = $1 AND lote_id IS NULL AND bodega_id = $2
           FOR UPDATE
           `,
-          [detalle.articulo_id, detalle.ubicacion_id]
+          [detalle.articulo_id, detalle.bodega_id]
         );
 
         if (!stockResult.rows.length) {
           throw buildError(
-            `No hay stock registrado para el artículo "${articulo.nombre}" en la ubicación indicada.`,
+            `No hay stock registrado para el artículo "${articulo.nombre}" en la bodega indicada.`,
             409,
             'STOCK_NOT_FOUND'
           );
@@ -408,23 +404,21 @@ class EgresosService {
           );
         }
 
-        // 5. Descontar stock
         await client.query(
           `
           UPDATE stock
           SET cantidad_disponible = cantidad_disponible - $1, actualizado_en = NOW()
-          WHERE articulo_id = $2 AND lote_id IS NULL AND ubicacion_id = $3
+          WHERE articulo_id = $2 AND lote_id IS NULL AND bodega_id = $3
           `,
-          [qty, detalle.articulo_id, detalle.ubicacion_id]
+          [qty, detalle.articulo_id, detalle.bodega_id]
         );
 
-        // 6. Registrar detalle del egreso
         await client.query(
           `
           INSERT INTO egreso_detalle (
             egreso_id,
             articulo_id,
-            ubicacion_id,
+            bodega_id,
             activo_id,
             lote_id,
             cantidad,
@@ -432,18 +426,17 @@ class EgresosService {
           )
           VALUES ($1, $2, $3, NULL, $4, $5, $6)
           `,
-          [egresoId, detalle.articulo_id, detalle.ubicacion_id, null, qty, detalle.notas || null]
+          [egresoId, detalle.articulo_id, detalle.bodega_id, null, qty, detalle.notas || null]
         );
 
-        // 7. Registrar movimiento de stock
         await client.query(
           `
           INSERT INTO movimiento_stock (
             articulo_id,
             lote_id,
             tipo,
-            ubicacion_origen_id,
-            ubicacion_destino_id,
+            bodega_origen_id,
+            bodega_destino_id,
             cantidad,
             responsable_usuario_id,
             egreso_id,
@@ -455,7 +448,7 @@ class EgresosService {
             detalle.articulo_id,
             null,
             payload.tipo_motivo,
-            detalle.ubicacion_id,
+            detalle.bodega_id,
             qty,
             userId,
             egresoId,
@@ -480,7 +473,6 @@ class EgresosService {
     try {
       await client.query('BEGIN');
 
-      // 1. Verificar que el egreso existe
       const egresoCheck = await client.query(
         `SELECT id, creado_por_usuario_id FROM egreso WHERE id = $1`,
         [id]
@@ -491,13 +483,12 @@ class EgresosService {
 
       const actorUserId = userId || egresoCheck.rows[0].creado_por_usuario_id;
 
-      // 2. Obtener movimientos de stock asociados a este egreso
       const movimientosResult = await client.query(
         `
         SELECT
           ms.articulo_id,
           ms.lote_id,
-          ms.ubicacion_origen_id AS ubicacion_id,
+          ms.bodega_origen_id AS bodega_id,
           ms.cantidad
         FROM movimiento_stock ms
         WHERE ms.egreso_id = $1
@@ -507,7 +498,7 @@ class EgresosService {
 
       const serialDetailsResult = await client.query(
         `
-        SELECT activo_id, ubicacion_id
+        SELECT activo_id, bodega_id
         FROM egreso_detalle
         WHERE egreso_id = $1
           AND activo_id IS NOT NULL
@@ -516,25 +507,24 @@ class EgresosService {
         [id]
       );
 
-      // 3. Revertir stock para cada movimiento
       for (const mov of movimientosResult.rows) {
         if (mov.lote_id) {
           await client.query(
             `
             UPDATE stock
             SET cantidad_disponible = cantidad_disponible + $1, actualizado_en = NOW()
-            WHERE articulo_id = $2 AND lote_id = $3 AND ubicacion_id = $4
+            WHERE articulo_id = $2 AND lote_id = $3 AND bodega_id = $4
             `,
-            [mov.cantidad, mov.articulo_id, mov.lote_id, mov.ubicacion_id]
+            [mov.cantidad, mov.articulo_id, mov.lote_id, mov.bodega_id]
           );
         } else {
           await client.query(
             `
             UPDATE stock
             SET cantidad_disponible = cantidad_disponible + $1, actualizado_en = NOW()
-            WHERE articulo_id = $2 AND lote_id IS NULL AND ubicacion_id = $3
+            WHERE articulo_id = $2 AND lote_id IS NULL AND bodega_id = $3
             `,
-            [mov.cantidad, mov.articulo_id, mov.ubicacion_id]
+            [mov.cantidad, mov.articulo_id, mov.bodega_id]
           );
         }
 
@@ -544,8 +534,8 @@ class EgresosService {
             articulo_id,
             lote_id,
             tipo,
-            ubicacion_origen_id,
-            ubicacion_destino_id,
+            bodega_origen_id,
+            bodega_destino_id,
             cantidad,
             responsable_usuario_id,
             egreso_id,
@@ -556,7 +546,7 @@ class EgresosService {
           [
             mov.articulo_id,
             mov.lote_id,
-            mov.ubicacion_id,
+            mov.bodega_id,
             mov.cantidad,
             actorUserId,
             id,
@@ -565,7 +555,6 @@ class EgresosService {
         );
       }
 
-      // 4. Revertir activos serializados
       for (const detalle of serialDetailsResult.rows) {
         await client.query(
           `
@@ -581,8 +570,8 @@ class EgresosService {
           INSERT INTO movimiento_activo (
             activo_id,
             tipo,
-            ubicacion_origen_id,
-            ubicacion_destino_id,
+            bodega_origen_id,
+            bodega_destino_id,
             responsable_usuario_id,
             egreso_id,
             notas
@@ -591,7 +580,7 @@ class EgresosService {
           `,
           [
             detalle.activo_id,
-            detalle.ubicacion_id,
+            detalle.bodega_id,
             actorUserId,
             id,
             `[reversion_egreso:${id}]`,
@@ -599,7 +588,6 @@ class EgresosService {
         );
       }
 
-      // 5. Eliminar egreso (cascade a egreso_detalle)
       await client.query(
         `DELETE FROM egreso WHERE id = $1`,
         [id]
