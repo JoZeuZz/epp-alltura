@@ -318,8 +318,8 @@ class FirmasService {
           ft.*,
           e.estado AS entrega_estado,
           e.trabajador_id AS entrega_trabajador_id,
-          e.ubicacion_origen_id,
-          e.ubicacion_destino_id
+          e.bodega_origen_id,
+          e.proyecto_destino_id
         FROM firma_token ft
         INNER JOIN entrega e ON e.id = ft.entrega_id
         WHERE ft.token_hash = $1
@@ -417,8 +417,8 @@ class FirmasService {
         e.estado AS entrega_estado,
         e.tipo AS entrega_tipo,
         e.nota_destino,
-        uo.nombre AS ubicacion_origen_nombre,
-        ud.nombre AS ubicacion_destino_nombre,
+        bo.nombre AS bodega_origen_nombre,
+        pd.nombre AS proyecto_destino_nombre,
         p.nombres,
         p.apellidos,
         p.rut,
@@ -429,8 +429,8 @@ class FirmasService {
       INNER JOIN trabajador t ON t.id = ft.trabajador_id
       INNER JOIN persona p ON p.id = t.persona_id
       LEFT JOIN firma_entrega fe ON fe.entrega_id = e.id
-      LEFT JOIN ubicacion uo ON uo.id = e.ubicacion_origen_id
-      LEFT JOIN ubicacion ud ON ud.id = e.ubicacion_destino_id
+      LEFT JOIN bodegas bo ON bo.id = e.bodega_origen_id
+      LEFT JOIN proyectos pd ON pd.id = e.proyecto_destino_id
       WHERE ft.token_hash = $1
       LIMIT 1
       `,
