@@ -215,7 +215,7 @@ const AppLayout = () => {
         <span className={!isSidebarOpen ? 'lg:hidden' : ''}>Usuarios del Sistema</span>
       </NavLink>
 
-      <p className={navSectionClass}>Ubicación</p>
+      <p className={navSectionClass}>Operaciones</p>
       <NavLink
         to="/admin/ubicacion/proyectos"
         onClick={handleLinkClick}
