@@ -84,27 +84,27 @@ ALTER TABLE rol ADD CONSTRAINT rol_nombre_check CHECK (nombre IN ('admin', 'supe
 -- CATALOGS
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS ubicacion (
+CREATE TABLE IF NOT EXISTS bodegas (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nombre VARCHAR(150) NOT NULL,
-  tipo VARCHAR(30) NOT NULL CHECK (tipo IN ('bodega', 'planta', 'proyecto', 'taller_mantencion')),
-  ubicacion_subtipo VARCHAR(20) CHECK (ubicacion_subtipo IN ('fija', 'transitoria')),
-  cliente VARCHAR(150),
   direccion TEXT,
+  descripcion TEXT,
   estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo')),
-  fecha_inicio_operacion TIMESTAMPTZ,
-  fecha_cierre_operacion TIMESTAMPTZ,
-  planta_padre_id UUID REFERENCES ubicacion(id) ON DELETE SET NULL,
   creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT chk_ubicacion_subtipo_bodega CHECK (
-    (tipo = 'bodega' AND ubicacion_subtipo IS NOT NULL)
-    OR (tipo <> 'bodega' AND ubicacion_subtipo IS NULL)
-  ),
-  CONSTRAINT chk_ubicacion_vigencia CHECK (
-    fecha_cierre_operacion IS NULL
-    OR fecha_inicio_operacion IS NULL
-    OR fecha_cierre_operacion >= fecha_inicio_operacion
-  )
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS proyectos (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nombre VARCHAR(150) NOT NULL,
+  descripcion TEXT,
+  cliente VARCHAR(150),
+  presupuesto_clp BIGINT,
+  estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo', 'finalizado')),
+  fecha_inicio DATE,
+  fecha_fin DATE,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS proveedor (
@@ -199,18 +199,23 @@ CREATE TABLE IF NOT EXISTS activo (
   codigo VARCHAR(120) NOT NULL UNIQUE,
   valor INTEGER,
   estado VARCHAR(30) NOT NULL DEFAULT 'en_stock' CHECK (estado IN ('en_stock', 'asignado', 'mantencion', 'dado_de_baja', 'perdido')),
-  ubicacion_actual_id UUID NOT NULL REFERENCES ubicacion(id),
+  bodega_actual_id UUID REFERENCES bodegas(id),
+  proyecto_actual_id UUID REFERENCES proyectos(id),
   fecha_compra TIMESTAMPTZ,
   fecha_vencimiento TIMESTAMPTZ,
   foto_url TEXT,
-  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT chk_activo_ubicacion_actual CHECK (
+    (bodega_actual_id IS NOT NULL AND proyecto_actual_id IS NULL)
+    OR (bodega_actual_id IS NULL AND proyecto_actual_id IS NOT NULL)
+  )
 );
 
 ALTER TABLE activo ADD COLUMN IF NOT EXISTS foto_url TEXT;
 
 CREATE TABLE IF NOT EXISTS stock (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  ubicacion_id UUID NOT NULL REFERENCES ubicacion(id),
+  bodega_id UUID NOT NULL REFERENCES bodegas(id),
   articulo_id UUID NOT NULL REFERENCES articulo(id),
   lote_id UUID REFERENCES lote(id) ON DELETE SET NULL,
   cantidad_disponible NUMERIC(14,4) NOT NULL DEFAULT 0 CHECK (cantidad_disponible >= 0),
@@ -220,12 +225,12 @@ CREATE TABLE IF NOT EXISTS stock (
   CONSTRAINT chk_stock_cantidad_reservada_entera CHECK (cantidad_reservada = trunc(cantidad_reservada))
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_ubicacion_articulo_lote
-  ON stock (ubicacion_id, articulo_id, lote_id)
+CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_bodega_articulo_lote
+  ON stock (bodega_id, articulo_id, lote_id)
   WHERE lote_id IS NOT NULL;
 
-CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_ubicacion_articulo_sin_lote
-  ON stock (ubicacion_id, articulo_id)
+CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_bodega_articulo_sin_lote
+  ON stock (bodega_id, articulo_id)
   WHERE lote_id IS NULL;
 
 -- ============================================================
@@ -236,8 +241,8 @@ CREATE TABLE IF NOT EXISTS entrega (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   creado_por_usuario_id UUID NOT NULL REFERENCES usuario(id),
   trabajador_id UUID NOT NULL REFERENCES trabajador(id),
-  ubicacion_origen_id UUID NOT NULL REFERENCES ubicacion(id),
-  ubicacion_destino_id UUID NOT NULL REFERENCES ubicacion(id),
+  bodega_origen_id UUID NOT NULL REFERENCES bodegas(id),
+  proyecto_destino_id UUID NOT NULL REFERENCES proyectos(id),
   tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrega')),
   estado VARCHAR(25) NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'pendiente_firma', 'confirmada', 'anulada', 'revertida_admin')),
   nota_destino TEXT,
@@ -296,7 +301,7 @@ CREATE TABLE IF NOT EXISTS custodia_activo (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   activo_id UUID NOT NULL REFERENCES activo(id),
   trabajador_id UUID NOT NULL REFERENCES trabajador(id),
-  ubicacion_destino_id UUID NOT NULL REFERENCES ubicacion(id),
+  proyecto_id UUID NOT NULL REFERENCES proyectos(id),
   entrega_id UUID NOT NULL REFERENCES entrega(id),
   desde_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   hasta_en TIMESTAMPTZ,
@@ -312,7 +317,7 @@ CREATE TABLE IF NOT EXISTS devolucion (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   trabajador_id UUID NOT NULL REFERENCES trabajador(id),
   recibido_por_usuario_id UUID NOT NULL REFERENCES usuario(id),
-  ubicacion_recepcion_id UUID NOT NULL REFERENCES ubicacion(id),
+  bodega_recepcion_id UUID NOT NULL REFERENCES bodegas(id),
   estado VARCHAR(20) NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'pendiente_firma', 'confirmada', 'anulada')),
   creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   confirmada_en TIMESTAMPTZ,
@@ -378,7 +383,7 @@ CREATE TABLE IF NOT EXISTS egreso_detalle (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   egreso_id UUID NOT NULL REFERENCES egreso(id) ON DELETE CASCADE,
   articulo_id UUID NOT NULL REFERENCES articulo(id),
-  ubicacion_id UUID NOT NULL REFERENCES ubicacion(id),
+  bodega_id UUID NOT NULL REFERENCES bodegas(id),
   lote_id UUID REFERENCES lote(id) ON DELETE SET NULL,
   cantidad NUMERIC(14,4) NOT NULL CHECK (cantidad > 0),
   notas TEXT,
@@ -396,8 +401,10 @@ CREATE TABLE IF NOT EXISTS movimiento_stock (
   lote_id UUID REFERENCES lote(id) ON DELETE SET NULL,
   fecha_movimiento TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrada', 'salida', 'ajuste', 'baja', 'consumo', 'entrega', 'devolucion')),
-  ubicacion_origen_id UUID REFERENCES ubicacion(id) ON DELETE SET NULL,
-  ubicacion_destino_id UUID REFERENCES ubicacion(id) ON DELETE SET NULL,
+  bodega_origen_id UUID REFERENCES bodegas(id) ON DELETE SET NULL,
+  proyecto_origen_id UUID REFERENCES proyectos(id) ON DELETE SET NULL,
+  bodega_destino_id UUID REFERENCES bodegas(id) ON DELETE SET NULL,
+  proyecto_destino_id UUID REFERENCES proyectos(id) ON DELETE SET NULL,
   cantidad NUMERIC(14,4) NOT NULL CHECK (cantidad > 0),
   responsable_usuario_id UUID NOT NULL REFERENCES usuario(id),
   compra_id UUID REFERENCES compra(id) ON DELETE SET NULL,
@@ -405,6 +412,8 @@ CREATE TABLE IF NOT EXISTS movimiento_stock (
   devolucion_id UUID REFERENCES devolucion(id) ON DELETE SET NULL,
   egreso_id UUID REFERENCES egreso(id) ON DELETE SET NULL,
   notas TEXT,
+  CONSTRAINT chk_ms_origen CHECK (bodega_origen_id IS NULL OR proyecto_origen_id IS NULL),
+  CONSTRAINT chk_ms_destino CHECK (bodega_destino_id IS NULL OR proyecto_destino_id IS NULL),
   CONSTRAINT chk_movimiento_stock_cantidad_entera CHECK (cantidad = trunc(cantidad))
 );
 
@@ -413,13 +422,17 @@ CREATE TABLE IF NOT EXISTS movimiento_activo (
   activo_id UUID NOT NULL REFERENCES activo(id),
   fecha_movimiento TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrada', 'salida', 'entrega', 'devolucion', 'ajuste', 'baja', 'mantencion')),
-  ubicacion_origen_id UUID REFERENCES ubicacion(id) ON DELETE SET NULL,
-  ubicacion_destino_id UUID REFERENCES ubicacion(id) ON DELETE SET NULL,
+  bodega_origen_id UUID REFERENCES bodegas(id) ON DELETE SET NULL,
+  proyecto_origen_id UUID REFERENCES proyectos(id) ON DELETE SET NULL,
+  bodega_destino_id UUID REFERENCES bodegas(id) ON DELETE SET NULL,
+  proyecto_destino_id UUID REFERENCES proyectos(id) ON DELETE SET NULL,
   responsable_usuario_id UUID NOT NULL REFERENCES usuario(id),
   entrega_id UUID REFERENCES entrega(id) ON DELETE SET NULL,
   devolucion_id UUID REFERENCES devolucion(id) ON DELETE SET NULL,
   egreso_id UUID REFERENCES egreso(id) ON DELETE SET NULL,
-  notas TEXT
+  notas TEXT,
+  CONSTRAINT chk_ma_origen CHECK (bodega_origen_id IS NULL OR proyecto_origen_id IS NULL),
+  CONSTRAINT chk_ma_destino CHECK (bodega_destino_id IS NULL OR proyecto_destino_id IS NULL)
 );
 
 -- ============================================================
@@ -505,12 +518,10 @@ CREATE INDEX IF NOT EXISTS idx_usuario_creado_por_admin_id ON usuario(creado_por
 CREATE INDEX IF NOT EXISTS idx_trabajador_estado ON trabajador(estado);
 
 -- Catalogs
-CREATE INDEX IF NOT EXISTS idx_ubicacion_tipo ON ubicacion(tipo);
-CREATE INDEX IF NOT EXISTS idx_ubicacion_estado ON ubicacion(estado);
-CREATE INDEX IF NOT EXISTS idx_ubicacion_subtipo ON ubicacion(ubicacion_subtipo);
-CREATE INDEX IF NOT EXISTS idx_ubicacion_planta_padre_id ON ubicacion(planta_padre_id);
-CREATE INDEX IF NOT EXISTS idx_ubicacion_inicio_operacion ON ubicacion(fecha_inicio_operacion);
-CREATE INDEX IF NOT EXISTS idx_ubicacion_cierre_operacion ON ubicacion(fecha_cierre_operacion);
+CREATE INDEX IF NOT EXISTS idx_bodegas_estado ON bodegas(estado);
+CREATE INDEX IF NOT EXISTS idx_proyectos_estado ON proyectos(estado);
+CREATE INDEX IF NOT EXISTS idx_proyectos_fecha_inicio ON proyectos(fecha_inicio);
+CREATE INDEX IF NOT EXISTS idx_proyectos_fecha_fin ON proyectos(fecha_fin);
 
 CREATE INDEX IF NOT EXISTS idx_articulo_grupo_principal ON articulo(grupo_principal);
 CREATE INDEX IF NOT EXISTS idx_articulo_tracking_mode ON articulo(tracking_mode);
@@ -533,7 +544,8 @@ CREATE INDEX IF NOT EXISTS idx_lote_fecha_vencimiento ON lote(fecha_vencimiento)
 
 CREATE INDEX IF NOT EXISTS idx_activo_articulo_id ON activo(articulo_id);
 CREATE INDEX IF NOT EXISTS idx_activo_compra_detalle_id ON activo(compra_detalle_id);
-CREATE INDEX IF NOT EXISTS idx_activo_ubicacion_actual_id ON activo(ubicacion_actual_id);
+CREATE INDEX IF NOT EXISTS idx_activo_bodega_actual_id ON activo(bodega_actual_id) WHERE bodega_actual_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_activo_proyecto_actual_id ON activo(proyecto_actual_id) WHERE proyecto_actual_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_activo_estado ON activo(estado);
 CREATE INDEX IF NOT EXISTS idx_activo_codigo ON activo(codigo);
 CREATE INDEX IF NOT EXISTS idx_activo_nro_serie ON activo(nro_serie);
@@ -640,6 +652,18 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_stock_actualizado_en') THEN
     CREATE TRIGGER trg_stock_actualizado_en
       BEFORE UPDATE ON stock
+      FOR EACH ROW EXECUTE FUNCTION set_actualizado_en();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_bodegas_actualizado_en') THEN
+    CREATE TRIGGER trg_bodegas_actualizado_en
+      BEFORE UPDATE ON bodegas
+      FOR EACH ROW EXECUTE FUNCTION set_actualizado_en();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_proyectos_actualizado_en') THEN
+    CREATE TRIGGER trg_proyectos_actualizado_en
+      BEFORE UPDATE ON proyectos
       FOR EACH ROW EXECUTE FUNCTION set_actualizado_en();
   END IF;
 END $$;
