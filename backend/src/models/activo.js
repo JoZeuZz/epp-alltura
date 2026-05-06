@@ -10,7 +10,8 @@ class ActivoModel {
     this.codigo = data.codigo;
     this.valor = data.valor;
     this.estado = data.estado;
-    this.ubicacion_actual_id = data.ubicacion_actual_id;
+    this.bodega_actual_id = data.bodega_actual_id;
+    this.proyecto_actual_id = data.proyecto_actual_id;
     this.fecha_compra = data.fecha_compra;
     this.fecha_vencimiento = data.fecha_vencimiento;
     this.foto_url = data.foto_url;
@@ -22,9 +23,9 @@ class ActivoModel {
       `
       INSERT INTO activo (
         articulo_id, compra_detalle_id, nro_serie, codigo, valor, estado,
-        ubicacion_actual_id, fecha_compra, fecha_vencimiento, foto_url
+        bodega_actual_id, proyecto_actual_id, fecha_compra, fecha_vencimiento, foto_url
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
       `,
       [
@@ -34,7 +35,8 @@ class ActivoModel {
         fields.codigo,
         fields.valor || null,
         fields.estado || 'en_stock',
-        fields.ubicacion_actual_id,
+        fields.bodega_actual_id || null,
+        fields.proyecto_actual_id || null,
         fields.fecha_compra || null,
         fields.fecha_vencimiento || null,
         fields.foto_url || null,
@@ -55,7 +57,7 @@ class ActivoModel {
   }
 
   static async findAll(filters = {}) {
-    const { estado, articulo_id, ubicacion_actual_id, search } = filters;
+    const { estado, articulo_id, bodega_actual_id, proyecto_actual_id, search } = filters;
     const { limit, offset } = normalizePagination(filters.limit, filters.offset);
 
     const conditions = [];
@@ -71,9 +73,14 @@ class ActivoModel {
       conditions.push(`a.articulo_id = $${values.length}`);
     }
 
-    if (ubicacion_actual_id) {
-      values.push(ubicacion_actual_id);
-      conditions.push(`a.ubicacion_actual_id = $${values.length}`);
+    if (bodega_actual_id) {
+      values.push(bodega_actual_id);
+      conditions.push(`a.bodega_actual_id = $${values.length}`);
+    }
+
+    if (proyecto_actual_id) {
+      values.push(proyecto_actual_id);
+      conditions.push(`a.proyecto_actual_id = $${values.length}`);
     }
 
     if (search) {
@@ -82,10 +89,13 @@ class ActivoModel {
     }
 
     let query = `
-      SELECT a.*, ar.nombre AS articulo_nombre, u.nombre AS ubicacion_nombre
+      SELECT a.*,
+        ar.nombre AS articulo_nombre,
+        COALESCE(b.nombre, p.nombre) AS ubicacion_nombre
       FROM activo a
       INNER JOIN articulo ar ON ar.id = a.articulo_id
-      INNER JOIN ubicacion u ON u.id = a.ubicacion_actual_id
+      LEFT JOIN bodegas b ON b.id = a.bodega_actual_id
+      LEFT JOIN proyectos p ON p.id = a.proyecto_actual_id
     `;
 
     if (conditions.length > 0) {
@@ -107,37 +117,23 @@ class ActivoModel {
       codigo: fields.codigo,
       valor: fields.valor,
       estado: fields.estado,
-      ubicacion_actual_id: fields.ubicacion_actual_id,
+      bodega_actual_id: fields.bodega_actual_id,
+      proyecto_actual_id: fields.proyecto_actual_id,
       fecha_compra: fields.fecha_compra,
       fecha_vencimiento: fields.fecha_vencimiento,
       foto_url: fields.foto_url,
     });
 
-    if (!clause) {
-      return ActivoModel.findById(id);
-    }
+    if (!clause) return ActivoModel.findById(id);
 
     values.push(id);
     const { rows } = await db.query(
       `UPDATE activo SET ${clause} WHERE id = $${values.length} RETURNING *`,
       values
     );
-
     return rows.length ? new ActivoModel(rows[0]) : null;
   }
 
-  static async moveToLocation(id, ubicacionDestinoId) {
-    const { rows } = await db.query(
-      `
-      UPDATE activo
-      SET ubicacion_actual_id = $1
-      WHERE id = $2
-      RETURNING *
-      `,
-      [ubicacionDestinoId, id]
-    );
-    return rows.length ? new ActivoModel(rows[0]) : null;
-  }
 }
 
 module.exports = ActivoModel;
