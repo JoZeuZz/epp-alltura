@@ -178,21 +178,21 @@ const DevolucionActivoModal: React.FC<Props> = ({
       <div className="space-y-4">
         {/* Trabajador locked */}
         <div>
-          <p className="text-xs uppercase tracking-wide text-gray-500 mb-1">Trabajador</p>
-          <p className="text-sm font-medium text-gray-800 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+          <p className="text-xs uppercase tracking-wide text-content-muted mb-1">Trabajador</p>
+          <p className="text-sm font-medium text-content-primary bg-surface-muted border border-edge rounded-md px-3 py-2">
             {trabajadorNombre}
           </p>
         </div>
 
         {/* Ubicación recepción */}
         <div>
-          <label className="block text-xs uppercase tracking-wide text-gray-500 mb-1">
-            Ubicación de recepción <span className="text-red-500">*</span>
+          <label className="block text-xs uppercase tracking-wide text-content-muted mb-1">
+            Ubicación de recepción <span className="text-danger">*</span>
           </label>
           <select
             value={ubicacionId}
             onChange={(e) => setUbicacionId(e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
+            className="w-full border border-edge-strong rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="">Seleccionar ubicación...</option>
             {bodegas.map((b) => (
@@ -203,13 +203,13 @@ const DevolucionActivoModal: React.FC<Props> = ({
 
         {/* Condición de entrada */}
         <div>
-          <label className="block text-xs uppercase tracking-wide text-gray-500 mb-1">
-            Condición de entrada <span className="text-red-500">*</span>
+          <label className="block text-xs uppercase tracking-wide text-content-muted mb-1">
+            Condición de entrada <span className="text-danger">*</span>
           </label>
           <select
             value={condicion}
             onChange={(e) => setCondicion(e.target.value as typeof condicion)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
+            className="w-full border border-edge-strong rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {Object.entries(CONDICION_LABELS).map(([val, label]) => (
               <option key={val} value={val}>{label}</option>
@@ -219,13 +219,13 @@ const DevolucionActivoModal: React.FC<Props> = ({
 
         {/* Disposición */}
         <div>
-          <label className="block text-xs uppercase tracking-wide text-gray-500 mb-1">
-            Disposición <span className="text-red-500">*</span>
+          <label className="block text-xs uppercase tracking-wide text-content-muted mb-1">
+            Disposición <span className="text-danger">*</span>
           </label>
           <select
             value={disposicion}
             onChange={(e) => setDisposicion(e.target.value as typeof disposicion)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
+            className="w-full border border-edge-strong rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {Object.entries(DISPOSICION_LABELS).map(([val, label]) => (
               <option key={val} value={val}>{label}</option>
@@ -235,32 +235,32 @@ const DevolucionActivoModal: React.FC<Props> = ({
 
         {/* Notas */}
         <div>
-          <label className="block text-xs uppercase tracking-wide text-gray-500 mb-1">Notas</label>
+          <label className="block text-xs uppercase tracking-wide text-content-muted mb-1">Notas</label>
           <textarea
             value={notas}
             onChange={(e) => setNotas(e.target.value)}
             maxLength={1000}
             rows={2}
             placeholder="Observaciones opcionales..."
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-blue resize-none"
+            className="w-full border border-edge-strong rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
           />
         </div>
 
         {/* Pad de firma */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label htmlFor={signatureCanvasId} className="text-xs uppercase tracking-wide text-gray-500">
-              Firma del trabajador <span className="text-red-500">*</span>
+            <label htmlFor={signatureCanvasId} className="text-xs uppercase tracking-wide text-content-muted">
+              Firma del trabajador <span className="text-danger">*</span>
             </label>
             <button
               type="button"
               onClick={clearCanvas}
-              className="text-xs text-gray-500 hover:text-red-500 underline transition-colors"
+              className="text-xs text-content-muted hover:text-danger underline transition-colors"
             >
               Limpiar
             </button>
           </div>
-          <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden bg-white relative">
+          <div className="border-2 border-dashed border-edge-strong rounded-lg overflow-hidden bg-surface relative">
             <canvas
               id={signatureCanvasId}
               ref={canvasRef}
@@ -284,14 +284,14 @@ const DevolucionActivoModal: React.FC<Props> = ({
               </div>
             )}
           </div>
-          <p id={signatureHelpId} className="mt-1 text-xs text-gray-500">
+          <p id={signatureHelpId} className="mt-1 text-xs text-content-muted">
             Use el dedo o el ratón para firmar.
           </p>
         </div>
 
         {/* Error */}
         {formError && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700" role="alert">
+          <div className="p-3 bg-danger-subtle border border-danger-border rounded-lg text-sm text-danger-text" role="alert">
             {formError}
           </div>
         )}
@@ -302,7 +302,7 @@ const DevolucionActivoModal: React.FC<Props> = ({
             type="button"
             onClick={onClose}
             disabled={mutation.isPending}
-            className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="flex-1 py-2 px-4 border border-edge-strong rounded-lg text-sm text-content-secondary hover:bg-surface-muted disabled:opacity-50 transition-colors"
           >
             Cancelar
           </button>
@@ -310,7 +310,7 @@ const DevolucionActivoModal: React.FC<Props> = ({
             type="button"
             onClick={handleConfirmar}
             disabled={mutation.isPending}
-            className="flex-1 py-2 px-4 bg-primary-blue text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 py-2 px-4 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {mutation.isPending ? 'Registrando...' : 'Confirmar devolución'}
           </button>

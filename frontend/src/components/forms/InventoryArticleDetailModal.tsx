@@ -174,17 +174,17 @@ const InventoryArticleDetailModal: React.FC<InventoryArticleDetailModalProps> = 
       <div className="space-y-4">
         <div>
           <h3 className="text-xl font-semibold text-dark-blue">{article.articulo_nombre}</h3>
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="text-sm text-content-secondary mt-1">
             Modo: <span className="font-medium">{isSerial ? 'Por unidad serial' : 'Por cantidad'}</span>
           </p>
           <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
-            <p className="text-gray-600">
+            <p className="text-content-secondary">
               Disponible total: <span className="font-medium">{formatQuantityInteger(article.disponible_total)}</span>
             </p>
-            <p className="text-gray-600">
+            <p className="text-content-secondary">
               Reservada total: <span className="font-medium">{formatQuantityInteger(article.reservada_total)}</span>
             </p>
-            <p className="text-gray-600">
+            <p className="text-content-secondary">
               Ubicaciones: <span className="font-medium">{formatQuantityInteger(article.ubicaciones_count)}</span>
             </p>
           </div>
@@ -192,7 +192,7 @@ const InventoryArticleDetailModal: React.FC<InventoryArticleDetailModalProps> = 
 
         {isSerial ? (
           <div className="space-y-3">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-content-secondary">
               Detalle por activo serializado con ubicación, custodio, fecha de custodia y estado actual.
             </p>
             <ResponsiveTable
@@ -208,19 +208,19 @@ const InventoryArticleDetailModal: React.FC<InventoryArticleDetailModalProps> = 
                   type="button"
                   onClick={onLoadMoreAssets}
                   disabled={isLoadingMoreAssets}
-                  className="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                  className="px-4 py-2 text-sm rounded-md border border-edge-strong text-content-secondary hover:bg-surface-muted disabled:opacity-60"
                 >
                   {isLoadingMoreAssets ? 'Cargando...' : 'Cargar más activos'}
                 </button>
               </div>
             )}
             {Boolean(assetError) && (
-              <p className="text-sm text-red-600">No se pudo cargar el detalle de activos. Reintenta en unos segundos.</p>
+              <p className="text-sm text-danger-text">No se pudo cargar el detalle de activos. Reintenta en unos segundos.</p>
             )}
           </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-content-secondary">
               Detalle por ubicación para artículos no serializados.
             </p>
             <ResponsiveTable
@@ -236,14 +236,14 @@ const InventoryArticleDetailModal: React.FC<InventoryArticleDetailModalProps> = 
                   type="button"
                   onClick={onLoadMoreStock}
                   disabled={isLoadingMoreStock}
-                  className="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                  className="px-4 py-2 text-sm rounded-md border border-edge-strong text-content-secondary hover:bg-surface-muted disabled:opacity-60"
                 >
                   {isLoadingMoreStock ? 'Cargando...' : 'Cargar más stock'}
                 </button>
               </div>
             )}
             {Boolean(stockError) && (
-              <p className="text-sm text-red-600">No se pudo cargar el detalle de stock. Reintenta en unos segundos.</p>
+              <p className="text-sm text-danger-text">No se pudo cargar el detalle de stock. Reintenta en unos segundos.</p>
             )}
           </div>
         )}

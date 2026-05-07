@@ -138,23 +138,23 @@ export default function NotificationBell({
 
   // Estilos dinamicos basados en la variante.
   const buttonClasses = variant === 'dark'
-    ? "relative p-2 text-white hover:text-gray-200 hover:bg-gray-700 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
-    : "relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500";
+    ? "relative p-2 text-white hover:text-gray-200 hover:bg-gray-700 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    : "relative p-2 text-content-secondary hover:text-content-primary hover:bg-surface-overlay rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 
   const renderNotificationList = () => {
     if (loading) {
       return (
         <div className="flex justify-center items-center py-8">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
         </div>
       );
     }
 
     if (previewNotifications.length === 0) {
       return (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-content-muted">
           <svg
-            className="w-12 h-12 mx-auto mb-2 text-gray-400"
+            className="w-12 h-12 mx-auto mb-2 text-content-disabled"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -173,7 +173,7 @@ export default function NotificationBell({
     }
 
     return (
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-edge-subtle">
         {previewNotifications.map((notification) => (
           <NotificationItem
             key={notification.id}
@@ -188,13 +188,13 @@ export default function NotificationBell({
   };
 
   const renderHeader = () => (
-    <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-gray-50 flex-shrink-0">
-      <h3 id={headingId} className="text-base font-semibold text-gray-900">Notificaciones</h3>
+    <div className="px-4 py-3 border-b border-edge flex items-center justify-between bg-surface-muted flex-shrink-0">
+      <h3 id={headingId} className="text-base font-semibold text-content-primary">Notificaciones</h3>
       <div className="flex items-center gap-2">
         {unreadCount > 0 && (
           <button
             onClick={handleMarkAllAsRead}
-            className="text-sm text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap"
+            className="text-sm text-primary hover:text-primary-dark font-medium whitespace-nowrap"
           >
             <span className="hidden sm:inline">Marcar todas como leídas</span>
             <span className="sm:hidden">Marcar</span>
@@ -204,7 +204,7 @@ export default function NotificationBell({
           <button
             ref={closeButtonRef}
             onClick={handleClose}
-            className="inline-flex items-center justify-center h-8 w-8 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-200"
+            className="inline-flex items-center justify-center h-8 w-8 rounded-md text-content-muted hover:text-content-secondary hover:bg-surface-overlay"
             aria-label="Cerrar notificaciones"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -243,7 +243,7 @@ export default function NotificationBell({
         </svg>
 
         {unreadCount > 0 && (
-          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full transform translate-x-1/2 -translate-y-1/2">
+          <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-danger rounded-full transform translate-x-1/2 -translate-y-1/2">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -254,15 +254,15 @@ export default function NotificationBell({
           id={panelId}
           role="menu"
           aria-labelledby={headingId}
-          className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden max-h-[32rem] flex flex-col"
+          className="absolute right-0 mt-2 w-96 bg-surface rounded-lg shadow-dropdown border border-edge z-50 overflow-hidden max-h-[32rem] flex flex-col"
         >
           {renderHeader()}
           <div className="flex-1 overflow-y-auto">{renderNotificationList()}</div>
           {previewNotifications.length > 0 && (
-            <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+            <div className="px-4 py-3 border-t border-edge bg-surface-muted flex-shrink-0">
               <button
                 onClick={handleViewAll}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium block text-center w-full"
+                className="text-sm text-primary hover:text-primary-dark font-medium block text-center w-full"
               >
                 Ver todas
               </button>
@@ -274,7 +274,7 @@ export default function NotificationBell({
       {isOpen && isMobile && (
         <>
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            className="fixed inset-0 bg-black/50 z-40"
             onClick={handleClose}
             aria-hidden="true"
           />
@@ -292,15 +292,15 @@ export default function NotificationBell({
               role="dialog"
               aria-modal="true"
               aria-labelledby={headingId}
-              className="fixed inset-0 z-50 bg-white flex flex-col"
+              className="fixed inset-0 z-50 bg-surface flex flex-col"
             >
               {renderHeader()}
               <div className="flex-1 overflow-y-auto">{renderNotificationList()}</div>
               {previewNotifications.length > 0 && (
-                <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+                <div className="px-4 py-3 border-t border-edge bg-surface-muted flex-shrink-0">
                   <button
                     onClick={handleViewAll}
-                    className="text-sm text-blue-600 hover:text-blue-800 font-medium block text-center w-full"
+                    className="text-sm text-primary hover:text-primary-dark font-medium block text-center w-full"
                   >
                     Ver todas
                   </button>

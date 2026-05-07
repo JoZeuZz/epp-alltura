@@ -59,18 +59,18 @@ const ReubicarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) =>
   return (
     <Modal isOpen onClose={onClose} title={`Reubicar — ${activo.codigo}`}>
       <div className="space-y-4">
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-content-secondary">
           Ubicación actual: <strong>{activo.ubicacion_nombre ?? activo.custodia_ubicacion_nombre ?? '—'}</strong>
         </p>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Nueva ubicación <span className="text-red-500">*</span>
+          <label className="block text-sm font-medium text-content-secondary mb-1">
+            Nueva ubicación <span className="text-danger">*</span>
           </label>
           <select
             value={ubicacionId}
             onChange={(e) => setUbicacionId(e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-md border border-edge-strong px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
           >
             <option value="">Seleccionar ubicación...</option>
             {(bodegas ?? [])
@@ -82,13 +82,13 @@ const ReubicarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) =>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Motivo (opcional)</label>
+          <label className="block text-sm font-medium text-content-secondary mb-1">Motivo (opcional)</label>
           <textarea
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
             placeholder="Describa el motivo de la reubicación..."
             rows={2}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-md border border-edge-strong px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
           />
         </div>
 
@@ -96,7 +96,7 @@ const ReubicarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) =>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+            className="px-4 py-2 text-sm text-content-secondary bg-surface-overlay rounded-md hover:bg-edge"
           >
             Cancelar
           </button>
@@ -104,7 +104,7 @@ const ReubicarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) =>
             type="button"
             onClick={() => mutation.mutate()}
             disabled={!canSubmit || mutation.isPending}
-            className="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 text-sm text-white bg-primary rounded-md hover:bg-primary-hover disabled:opacity-50"
           >
             {mutation.isPending ? 'Procesando...' : 'Confirmar reubicación'}
           </button>

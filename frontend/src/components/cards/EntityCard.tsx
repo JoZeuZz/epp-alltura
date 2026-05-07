@@ -40,8 +40,8 @@ const InfoRow: React.FC<{ field: InfoField }> = ({ field }) => {
   
   return (
     <div className={field.secondary ? 'text-sm' : ''}>
-      <span className="label-base text-gray-600">{field.label}: </span>
-      <span className={`body-base ${field.secondary ? 'text-gray-500' : 'text-gray-900'}`}>
+      <span className="label-base text-content-secondary">{field.label}: </span>
+      <span className={`body-base ${field.secondary ? 'text-content-muted' : 'text-content-primary'}`}>
         {value}
       </span>
     </div>
@@ -50,13 +50,13 @@ const InfoRow: React.FC<{ field: InfoField }> = ({ field }) => {
 
 const ActionButton: React.FC<{ action: CardAction }> = ({ action }) => {
   const baseClasses =
-    'px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-primary-blue focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed';
-  
+    'px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed';
+
   const variantClasses = {
-    primary: 'bg-primary-blue text-white hover:bg-blue-700',
-    secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
-    danger: 'bg-red-50 text-red-700 hover:bg-red-100',
-    success: 'bg-green-50 text-green-700 hover:bg-green-100',
+    primary: 'bg-primary text-white hover:bg-primary-hover',
+    secondary: 'bg-surface-overlay text-content-secondary hover:bg-edge',
+    danger: 'bg-danger-subtle text-danger-text hover:bg-danger-border',
+    success: 'bg-success-subtle text-success-text hover:bg-success-border',
   };
   
   const variant = action.variant || 'secondary';
@@ -109,9 +109,9 @@ export const EntityCard: React.FC<EntityCardProps> = ({
   onClick,
 }) => {
   const cardClasses = `
-    bg-white rounded-lg shadow-md p-4 
+    bg-surface rounded-lg shadow-card p-4
     transition-shadow
-    ${inactive ? 'opacity-60 bg-gray-50' : 'hover:shadow-lg'}
+    ${inactive ? 'opacity-60 bg-surface-muted' : 'hover:shadow-card-hover'}
     ${onClick ? 'cursor-pointer' : ''}
   `.trim();
   
@@ -127,7 +127,7 @@ export const EntityCard: React.FC<EntityCardProps> = ({
         <div className="flex-1">
           <h3 className="heading-4 text-dark-blue mb-1">{title}</h3>
           {subtitle && (
-            <p className="body-small text-gray-600">{subtitle}</p>
+            <p className="body-small text-content-secondary">{subtitle}</p>
           )}
         </div>
         {badge && (
@@ -148,7 +148,7 @@ export const EntityCard: React.FC<EntityCardProps> = ({
       
       {/* Acciones */}
       {visibleActions.length > 0 && (
-        <div className="pt-3 border-t border-gray-200">
+        <div className="pt-3 border-t border-edge">
           {shouldRenderGroupedActions ? (
             <div className="space-y-3">
               {ACTION_GROUPS.map((group) => {
@@ -156,8 +156,8 @@ export const EntityCard: React.FC<EntityCardProps> = ({
                 if (groupActions.length === 0) return null;
 
                 return (
-                  <div key={group.key} className="rounded-lg border border-gray-200 p-3 space-y-2">
-                    <h5 className="text-sm font-semibold text-gray-700">{group.title}</h5>
+                  <div key={group.key} className="rounded-lg border border-edge p-3 space-y-2">
+                    <h5 className="text-sm font-semibold text-content-secondary">{group.title}</h5>
                     <div className="flex flex-wrap gap-2">
                       {groupActions.map((action, index) => (
                         <ActionButton key={`${group.key}-${index}`} action={action} />

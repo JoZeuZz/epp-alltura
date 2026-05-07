@@ -14,7 +14,7 @@ export interface ToolGridProps {
 }
 
 const LoadingSkeletonCard: React.FC = () => (
-  <div className="bg-white rounded-lg shadow-md border border-gray-100 p-4 animate-pulse">
+  <div className="bg-surface rounded-lg shadow-card border border-edge-subtle p-4 animate-pulse">
     <div className="flex items-center justify-between mb-4">
       <div className="h-2.5 w-2.5 rounded-full bg-gray-200" />
       <div className="h-3 w-16 bg-gray-200 rounded" />
@@ -41,7 +41,7 @@ const ToolGrid: React.FC<ToolGridProps> = ({
   if (loading && tools.length === 0) {
     return (
       <div className={className} aria-live="polite">
-        <div className="flex items-center gap-2 text-sm text-gray-600 mb-3" role="status">
+        <div className="flex items-center gap-2 text-sm text-content-secondary mb-3" role="status">
           <Spinner size="h-5 w-5" />
           <span>Cargando herramientas...</span>
         </div>
@@ -56,9 +56,9 @@ const ToolGrid: React.FC<ToolGridProps> = ({
 
   if (!loading && tools.length === 0) {
     return (
-      <div className={`bg-white rounded-lg border border-gray-200 p-8 text-center ${className}`} aria-live="polite">
-        <p className="text-sm text-gray-700 font-medium">{emptyMessage}</p>
-        <p className="text-xs text-gray-500 mt-1">Prueba ajustando filtros o limpiando la búsqueda.</p>
+      <div className={`bg-surface rounded-lg border border-edge p-8 text-center ${className}`} aria-live="polite">
+        <p className="text-sm text-content-secondary font-medium">{emptyMessage}</p>
+        <p className="text-xs text-content-muted mt-1">Prueba ajustando filtros o limpiando la búsqueda.</p>
       </div>
     );
   }

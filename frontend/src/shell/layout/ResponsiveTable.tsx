@@ -119,7 +119,7 @@ export function ResponsiveTable<T = any>({
   };
 
   return (
-    <div className={`bg-white shadow-md rounded-lg overflow-hidden ${className}`}>
+    <div className={`bg-surface shadow-card rounded-lg overflow-hidden ${className}`}>
       <div className="overflow-x-auto scrollbar-thin">
         <table className="min-w-full leading-normal">
           {/* Caption para accesibilidad */}
@@ -133,8 +133,8 @@ export function ResponsiveTable<T = any>({
                   key={`header-${index}`}
                   scope="col"
                   className={`
-                    px-5 py-3 border-b-2 border-gray-200 bg-gray-100 
-                    text-xs font-semibold text-gray-600 uppercase tracking-wider
+                    px-5 py-3 border-b-2 border-edge bg-surface-muted
+                    text-xs font-semibold text-content-muted uppercase tracking-wider
                     ${getAlignClass(column.align)}
                     ${getVisibilityClass(column)}
                     ${column.className || ''}
@@ -153,15 +153,15 @@ export function ResponsiveTable<T = any>({
               <tr>
                 <td colSpan={columns.length} className="px-5 py-10 text-center">
                   <div className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-blue"></div>
-                    <span className="ml-3 text-gray-600">Cargando...</span>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-3 text-content-secondary">Cargando...</span>
                   </div>
                 </td>
               </tr>
             ) : data.length === 0 ? (
               // Estado vacío
               <tr>
-                <td colSpan={columns.length} className="px-5 py-10 text-center text-gray-600">
+                <td colSpan={columns.length} className="px-5 py-10 text-center text-content-secondary">
                   {emptyMessage}
                 </td>
               </tr>
@@ -178,7 +178,7 @@ export function ResponsiveTable<T = any>({
                     onClick={() => onRowClick?.(row, rowIndex)}
                     className={`
                       ${additionalRowClass}
-                      ${isClickable ? 'cursor-pointer hover:bg-gray-50 transition-colors' : ''}
+                      ${isClickable ? 'cursor-pointer hover:bg-surface-muted transition-colors' : ''}
                     `}
                   >
                     {columns.map((column, colIndex) => {
@@ -191,7 +191,7 @@ export function ResponsiveTable<T = any>({
                         <td
                           key={`cell-${rowIndex}-${colIndex}`}
                           className={`
-                            px-5 py-5 border-b border-gray-200 bg-white text-sm
+                            px-5 py-5 border-b border-edge bg-surface text-sm
                             ${getAlignClass(column.align)}
                             ${getVisibilityClass(column)}
                             ${column.className || ''}

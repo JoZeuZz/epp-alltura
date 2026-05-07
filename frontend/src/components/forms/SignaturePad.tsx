@@ -155,13 +155,13 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
   return (
     <div className={`space-y-2 ${className}`}>
       <div className="flex items-center justify-between">
-        <label htmlFor={canvasId} className="text-sm font-medium text-gray-700">
+        <label htmlFor={canvasId} className="text-sm font-medium text-content-secondary">
           {label}
-          {required && <span className="text-red-500"> *</span>}
+          {required && <span className="text-danger"> *</span>}
         </label>
         <button
           type="button"
-          className="text-xs px-2 py-1 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+          className="text-xs px-2 py-1 rounded border border-edge-strong text-content-secondary hover:bg-surface-muted disabled:opacity-50"
           onClick={clearCanvas}
           disabled={disabled}
         >
@@ -169,7 +169,7 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
         </button>
       </div>
 
-      <div className="rounded-lg border border-gray-300 bg-white overflow-hidden">
+      <div className="rounded-lg border border-edge-strong bg-surface overflow-hidden">
         <canvas
           id={canvasId}
           ref={canvasRef}
@@ -188,19 +188,19 @@ const SignaturePad: React.FC<SignaturePadProps> = ({
         />
       </div>
 
-      <p id={helpId} className="text-xs text-gray-500">
+      <p id={helpId} className="text-xs text-content-muted">
         Usa el dedo o el ratón para dibujar la firma en el área indicada.
       </p>
 
       {error && (
-        <p id={errorId} className="text-xs text-red-600" role="alert">
+        <p id={errorId} className="text-xs text-danger-text" role="alert">
           {error}
         </p>
       )}
 
       {showPreview && previewUrl && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-2">
-          <p className="text-xs text-gray-500 mb-1">Vista previa</p>
+        <div className="rounded-lg border border-edge bg-surface-muted p-2">
+          <p className="text-xs text-content-muted mb-1">Vista previa</p>
           <img src={previewUrl} alt="Vista previa de firma" className="w-full max-h-28 object-contain" />
         </div>
       )}

@@ -140,3 +140,6 @@ Antes de cerrar una implementacion, verifica y reporta:
 - Ante duda de implementacion, alinear primero con este archivo y con `FORMATO_MAESTRO_APP.md`.
 - Evitar crear patrones paralelos si ya existe una implementacion valida en el repo.
 - Priorizar consistencia del sistema sobre preferencias locales.
+
+## 10) Git
+- No incluir trailer `Co-authored-by: Copilot` en mensajes de commit.

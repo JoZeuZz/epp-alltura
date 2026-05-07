@@ -200,19 +200,19 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
       <form className="space-y-6" onSubmit={handleSubmit}>
         <div className="space-y-1">
           <h2 className="text-2xl font-bold text-dark-blue">Ingresar equipo/herramienta</h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-content-muted">
             Registra un ingreso manual o adjunta documento de respaldo de forma opcional.
           </p>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
-          <div className={`rounded-md px-3 py-2 ${step === 1 ? 'bg-primary-blue text-white' : 'bg-gray-100'}`}>
+        <div className="grid grid-cols-3 gap-2 text-xs font-semibold uppercase tracking-wider text-content-muted">
+          <div className={`rounded-md px-3 py-2 ${step === 1 ? 'bg-primary text-white' : 'bg-surface-overlay'}`}>
             1. Identificación
           </div>
-          <div className={`rounded-md px-3 py-2 ${step === 2 ? 'bg-primary-blue text-white' : 'bg-gray-100'}`}>
+          <div className={`rounded-md px-3 py-2 ${step === 2 ? 'bg-primary text-white' : 'bg-surface-overlay'}`}>
             2. Detalle
           </div>
-          <div className={`rounded-md px-3 py-2 ${step === 3 ? 'bg-primary-blue text-white' : 'bg-gray-100'}`}>
+          <div className={`rounded-md px-3 py-2 ${step === 3 ? 'bg-primary text-white' : 'bg-surface-overlay'}`}>
             3. Documento
           </div>
         </div>
@@ -220,7 +220,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
         {step === 1 ? (
           <section className="grid grid-cols-1 md:grid-cols-2 gap-3" data-tour="admin-inventory-ingress-step-1">
             <div className="md:col-span-2">
-              <label className="label-base text-gray-700">Artículo *</label>
+              <label className="label-base text-content-secondary">Artículo *</label>
               <select
                 className="w-full border rounded-md p-2"
                 value={form.articulo_id}
@@ -236,7 +236,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
             </div>
 
             <div>
-              <label className="label-base text-gray-700">Ubicación destino *</label>
+              <label className="label-base text-content-secondary">Ubicación destino *</label>
               <select
                 className="w-full border rounded-md p-2"
                 value={form.ubicacion_id}
@@ -252,7 +252,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
             </div>
 
             <div>
-              <label className="label-base text-gray-700">Fecha ingreso *</label>
+              <label className="label-base text-content-secondary">Fecha ingreso *</label>
               <input
                 type="date"
                 className="w-full border rounded-md p-2"
@@ -262,7 +262,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
             </div>
 
             <div className="md:col-span-2">
-              <label className="label-base text-gray-700">Notas</label>
+              <label className="label-base text-content-secondary">Notas</label>
               <textarea
                 className="w-full border rounded-md p-2 min-h-[84px]"
                 placeholder="Observaciones de ingreso"
@@ -282,15 +282,15 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
             {trackingMode === 'serial' ? (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="label-base text-gray-700">Código unitario *</label>
-                  <span className="text-xs font-medium text-blue-600 bg-blue-50 rounded-full px-2 py-0.5">
+                  <label className="label-base text-content-secondary">Código unitario *</label>
+                  <span className="text-xs font-medium text-primary bg-blue-50 rounded-full px-2 py-0.5">
                     {form.activos.filter((a) => a.codigo.trim()).length} unidad{form.activos.filter((a) => a.codigo.trim()).length !== 1 ? 'es' : ''}
                   </span>
                 </div>
                 <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
                   {form.activos.map((activo, index) => (
                     <div key={index} className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400 w-6 text-right shrink-0">{index + 1}.</span>
+                      <span className="text-xs text-content-disabled w-6 text-right shrink-0">{index + 1}.</span>
                       <input
                         className="flex-1 border rounded-md p-2 text-sm"
                         placeholder={`Ej: TAL-00${index + 1}`}
@@ -304,7 +304,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
                       {form.activos.length > 1 && (
                         <button
                           type="button"
-                          className="text-red-400 hover:text-red-600 text-lg px-1 shrink-0"
+                          className="text-red-400 hover:text-danger-text text-lg px-1 shrink-0"
                           title="Quitar unidad"
                           onClick={() => {
                             const updated = form.activos.filter((_, i) => i !== index);
@@ -319,7 +319,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
                 </div>
                 <button
                   type="button"
-                  className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                  className="text-sm text-primary hover:text-blue-800 font-medium flex items-center gap-1"
                   onClick={() => setField('activos', [...form.activos, { codigo: '' }])}
                 >
                   <span className="text-lg leading-none">+</span> Agregar unidad
@@ -328,7 +328,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="label-base text-gray-700">Cantidad *</label>
+                  <label className="label-base text-content-secondary">Cantidad *</label>
                   <input
                     type="number"
                     min={1}
@@ -342,7 +342,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
             )}
 
             <div>
-              <label className="label-base text-gray-700">Costo unitario CLP (opcional)</label>
+              <label className="label-base text-content-secondary">Costo unitario CLP (opcional)</label>
               <input
                 type="number"
                 min={0}
@@ -357,7 +357,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
 
         {step === 3 ? (
           <section className="space-y-3" data-tour="admin-inventory-ingress-step-3">
-            <label className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <label className="inline-flex items-center gap-2 text-sm font-semibold text-content-secondary">
               <input
                 type="checkbox"
                 checked={form.agregar_documento}
@@ -369,7 +369,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
             {form.agregar_documento ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="label-base text-gray-700">Proveedor *</label>
+                  <label className="label-base text-content-secondary">Proveedor *</label>
                   <select
                     className="w-full border rounded-md p-2"
                     value={form.proveedor_id}
@@ -385,7 +385,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="label-base text-gray-700">Tipo documento *</label>
+                  <label className="label-base text-content-secondary">Tipo documento *</label>
                   <select
                     className="w-full border rounded-md p-2"
                     value={form.documento_tipo}
@@ -400,7 +400,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="label-base text-gray-700">Número documento *</label>
+                  <label className="label-base text-content-secondary">Número documento *</label>
                   <input
                     className="w-full border rounded-md p-2"
                     value={form.documento_numero}
@@ -410,7 +410,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="label-base text-gray-700">Fecha documento *</label>
+                  <label className="label-base text-content-secondary">Fecha documento *</label>
                   <input
                     type="date"
                     className="w-full border rounded-md p-2"
@@ -420,32 +420,32 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="label-base text-gray-700">Archivo (PDF o imagen)</label>
+                  <label className="label-base text-content-secondary">Archivo (PDF o imagen)</label>
                   <input
                     type="file"
                     accept={fileAccept}
                     className="w-full border rounded-md p-2"
                     onChange={(event) => setField('documento_archivo', event.target.files?.[0] || null)}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-content-muted mt-1">
                     Puedes enviar metadata sin archivo, o adjuntar PDF/JPG/PNG/WEBP.
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="rounded-md border border-dashed border-gray-300 p-3 text-sm text-gray-600">
+              <div className="rounded-md border border-dashed border-edge-strong p-3 text-sm text-content-secondary">
                 Este ingreso quedará registrado como manual (sin factura/boleta/guía).
               </div>
             )}
           </section>
         ) : null}
 
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-danger-text">{error}</p> : null}
 
         <div className="flex items-center justify-between gap-3 pt-2">
           <button
             type="button"
-            className="px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-50 disabled:opacity-60"
+            className="px-4 py-2 rounded-md border border-edge-strong hover:bg-surface-muted disabled:opacity-60"
             onClick={handleBack}
             disabled={step === 1 || isSubmitting}
           >
@@ -455,7 +455,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
           {step < 3 ? (
             <button
               type="button"
-              className="px-4 py-2 rounded-md bg-primary-blue text-white hover:bg-blue-700 disabled:opacity-60"
+              className="px-4 py-2 rounded-md bg-primary text-white hover:bg-primary-hover disabled:opacity-60"
               onClick={handleNext}
               disabled={isSubmitting}
             >
@@ -464,7 +464,7 @@ const InventoryIngressModal: React.FC<InventoryIngressModalProps> = ({
           ) : (
             <button
               type="submit"
-              className="px-4 py-2 rounded-md bg-primary-blue text-white hover:bg-blue-700 disabled:opacity-60"
+              className="px-4 py-2 rounded-md bg-primary text-white hover:bg-primary-hover disabled:opacity-60"
               disabled={isSubmitting}
             >
               {isSubmitting ? 'Guardando...' : 'Registrar Ingreso'}

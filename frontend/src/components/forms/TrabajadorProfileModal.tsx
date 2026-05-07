@@ -19,11 +19,11 @@ const formatDate = (dateStr: string | null | undefined) => {
 const StatBox: React.FC<{ label: string; value: string | number; accent?: string }> = ({
   label,
   value,
-  accent = 'text-blue-600',
+  accent = 'text-primary',
 }) => (
-  <div className="bg-gray-50 rounded-lg p-3 text-center">
+  <div className="bg-surface-muted rounded-lg p-3 text-center">
     <p className={`text-xl font-bold ${accent}`}>{value}</p>
-    <p className="text-xs text-gray-500 mt-0.5">{label}</p>
+    <p className="text-xs text-content-muted mt-0.5">{label}</p>
   </div>
 );
 
@@ -48,36 +48,36 @@ const TrabajadorProfileModal: React.FC<Props> = ({ trabajadorId, onClose, onOpen
         </div>
       )}
       {error && (
-        <p className="text-red-500 text-center py-8">Error al cargar el perfil del trabajador.</p>
+        <p className="text-danger text-center py-8">Error al cargar el perfil del trabajador.</p>
       )}
       {profile && (
         <div className="space-y-5">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-start gap-4">
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-bold text-gray-900 truncate">
+              <h2 className="text-lg font-bold text-content-primary truncate">
                 {profile.nombres} {profile.apellidos}
               </h2>
-              <p className="text-sm text-gray-500">RUT: {profile.rut}</p>
+              <p className="text-sm text-content-muted">RUT: {profile.rut}</p>
               {profile.cargo && (
-                <p className="text-sm text-gray-600 mt-0.5">{profile.cargo}</p>
+                <p className="text-sm text-content-secondary mt-0.5">{profile.cargo}</p>
               )}
               {profile.email && (
-                <p className="text-xs text-gray-500 mt-0.5">{profile.email}</p>
+                <p className="text-xs text-content-muted mt-0.5">{profile.email}</p>
               )}
             </div>
             <div className="flex flex-wrap gap-2 items-center">
               <span
                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                   profile.estado === 'activo'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-100 text-gray-600'
+                    ? 'bg-success-subtle text-success-text'
+                    : 'bg-surface-overlay text-content-secondary'
                 }`}
               >
                 {profile.estado === 'activo' ? 'Activo' : 'Inactivo'}
               </span>
               {profile.fecha_ingreso && (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-content-muted">
                   Ingreso: {formatDate(profile.fecha_ingreso)}
                 </span>
               )}
@@ -89,7 +89,7 @@ const TrabajadorProfileModal: React.FC<Props> = ({ trabajadorId, onClose, onOpen
             <StatBox
               label="Equipos asignados"
               value={profile.stats.activos_en_custodia}
-              accent={profile.stats.activos_en_custodia > 0 ? 'text-blue-600' : 'text-gray-400'}
+              accent={profile.stats.activos_en_custodia > 0 ? 'text-primary' : 'text-content-disabled'}
             />
             <StatBox
               label="Entregas recibidas"
@@ -115,7 +115,7 @@ const CustodiaTable: React.FC<{
 }> = ({ custodias, onOpenActivoProfile }) => {
   if (custodias.length === 0) {
     return (
-      <p className="text-center text-gray-400 py-6 text-sm">
+      <p className="text-center text-content-disabled py-6 text-sm">
         No tiene activos en custodia actualmente.
       </p>
     );
@@ -124,25 +124,25 @@ const CustodiaTable: React.FC<{
   return (
     <div className="overflow-x-auto max-h-64 overflow-y-auto">
       <table className="w-full text-sm">
-        <thead className="bg-gray-50 sticky top-0">
+        <thead className="bg-surface-muted sticky top-0">
           <tr>
-            <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase">Código</th>
-            <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase">Artículo</th>
-            <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase">Desde</th>
-            <th className="text-left px-3 py-2 text-xs font-medium text-gray-500 uppercase"></th>
+            <th className="text-left px-3 py-2 text-xs font-medium text-content-muted uppercase">Código</th>
+            <th className="text-left px-3 py-2 text-xs font-medium text-content-muted uppercase">Artículo</th>
+            <th className="text-left px-3 py-2 text-xs font-medium text-content-muted uppercase">Desde</th>
+            <th className="text-left px-3 py-2 text-xs font-medium text-content-muted uppercase"></th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-edge">
           {custodias.map((c) => (
-            <tr key={c.custodia_id} className="hover:bg-gray-50">
-              <td className="px-3 py-2 font-mono text-xs text-gray-800">{c.codigo}</td>
-              <td className="px-3 py-2 text-gray-700">{c.articulo_nombre}</td>
-              <td className="px-3 py-2 text-gray-500 text-xs">{formatDate(c.desde_en)}</td>
+            <tr key={c.custodia_id} className="hover:bg-surface-muted">
+              <td className="px-3 py-2 font-mono text-xs text-content-primary">{c.codigo}</td>
+              <td className="px-3 py-2 text-content-secondary">{c.articulo_nombre}</td>
+              <td className="px-3 py-2 text-content-muted text-xs">{formatDate(c.desde_en)}</td>
               <td className="px-3 py-2">
                 {onOpenActivoProfile && (
                   <button
                     onClick={() => onOpenActivoProfile(c.activo_id)}
-                    className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                    className="text-primary hover:text-blue-800 text-xs font-medium"
                   >
                     Ver
                   </button>

@@ -1,199 +1,71 @@
-# epp-alltura — Claude Code Instructions
+# epp-alltura — Claude Code
 
-## Purpose
+## Skills
+- `/using-superpowers` before any response → find and use available agents/tools correctly
+- `/caveman ultra` for compressed output → save tokens across long sessions
 
-This repository contains the Alltura EPP, tools and equipment management application.
+## Project
+EPP/tools/equipment management: assets, assignments, returns, status, traceability. Monorepo.
 
-The product goal is to manage company assets, EPP, tools, equipment, workers, assignments, returns, status history and traceability.
+## Token discipline
+- Targeted search first (`rg`/`find`/glob) — no full repo scans
+- Read only needed files; skip dist/build/logs/node_modules
+- Phase-based changes; plan before large tasks, wait for approval
+- Command output: pipe to `2>&1 | tail -120` or `| grep -iE "error|warn"`
+- End-of-phase summary: changed files + decisions + pending only
 
-Optimize for maintainability, clarity, minimal changes and low token usage.
+## MCP policy
+Local files → CLI tools → MCP (only when MCP reduces context or improves accuracy).
 
-## Token and context discipline
+**Serena**: symbol nav, find defs/refs, project structure, durable decisions. Skip: single-file edits, simple rg-equiv, noisy details. Memory: arch/role/auth/migration decisions + gotchas only.
 
-- Do not scan the whole repository unless the task explicitly requires it.
-- Start with targeted search using grep, rg, find or file names before reading files.
-- Read only the files needed for the current task.
-- Avoid opening generated files, build outputs, logs, dependency folders or large dumps.
-- Do not paste long command outputs into the response.
-- When a command fails, inspect only the relevant error lines.
-- Prefer small, phase-based changes over broad rewrites.
-- For large tasks, first produce a concise plan and wait for approval unless the user explicitly asks to implement immediately.
-- At the end of each phase, summarize only changed files, decisions, verification commands and pending work.
+**Context7**: external lib docs only (React/Vite/Express/Tailwind/Joi, version-specific behavior). Skip: this repo's own code, generic JS/TS, tasks solvable locally.
 
-## MCP usage policy
+## Roles & product decisions
+- Login: `administrador` (max access), `supervisor` (+ bodega capabilities)
+- `trabajador` = domain entity, not login user; no dedicated login flow
+- No `bodega` login role; merged into supervisor; preserve historical data
 
-Available MCPs may include Serena and Context7.
+## Architecture
+- 3 layers: `controllers` (HTTP only) → `services` (business logic) → `models` (data access)
+- Preserve monorepo, existing conventions, middleware, route/validation patterns, UI components
+- Role/permission logic: centralized, no cross-file duplication
+- No new patterns without justification; no broad rewrites when localized change suffices
 
-Use MCP tools only when they reduce context usage or improve accuracy.
+## Backend
+- Express/Node patterns; reuse existing auth/authz middleware
+- All API input: Joi validation before business logic; backend enforcement before frontend checks
+- RBAC on every protected route + resource-scope validation
+- Every request: `requestId` traceable in middleware + logs; redact `password`/`token`/`authorization`/cookies
+- DB changes: explicit, reversible; explain data impact; no prod secrets in code or commits
 
-### Serena
+## Frontend
+- React + TypeScript + Vite; reuse layout/guards/services/hooks/components
+- All API calls: same-origin `/api/...` — no hardcoded hosts/ports
+- Navigation changes: sidebar + route defs + guards + role visibility together
+- No UI options for removed roles/features; no duplicate API clients
 
-Use Serena for:
-- symbol-aware navigation
-- locating definitions and references
-- understanding project structure without broad file scans
-- recording durable project decisions after meaningful changes
+## Role refactor checklist (auth/roles/permissions tasks)
+Inspect: user model, role enum/constants, auth middleware, authz middleware, route guards, sidebar visibility, session handling, seed data, migrations, tests/fixtures, frontend role checks, backend protected routes.
 
-Do not use Serena for:
-- trivial single-file edits
-- simple grep-like searches where `rg` is enough
-- storing noisy implementation details
-
-When recording memory, keep it short and limited to:
-- architecture decisions
-- role/auth decisions
-- migration decisions
-- recurring project gotchas
-
-### Context7
-
-Use Context7 only when external library documentation is needed.
-
-Good uses:
-- checking current API usage for React, Vite, Express, Tailwind or validation libraries
-- verifying unfamiliar library behavior
-- resolving version-specific implementation details
-
-Do not use Context7 for:
-- understanding this repository's own code
-- generic JavaScript or TypeScript questions
-- tasks that can be solved from existing local files
-- every implementation step by default
-
-Prefer local repository inspection first. Prefer CLI tools such as `rg`, `find`, package scripts and local docs before MCP calls when they are sufficient.
-
-## Repository scope
-
-Work only inside this repository unless explicitly instructed otherwise.
-
-Do not assume access to other Alltura repositories.
-
-If a task mentions behavior from another application, infer the intended pattern from the instruction and from existing code in this repository.
-
-## Current product decisions
-
-- Login users should be limited to:
-  - administrador
-  - supervisor
-- The previous bodega capabilities must be merged into supervisor.
-- Trabajador is a domain entity, not an active login user.
-- Trabajador may have a profile and relationships with assets, EPP, tools, equipment, assignments and returns.
-- Trabajador should not have a dedicated login flow unless explicitly requested.
-- Avoid reintroducing bodega as an independent login role.
-
-## Architecture rules
-
-- Preserve the existing monorepo structure.
-- Preserve existing backend, frontend, database and deployment conventions unless a task explicitly asks to change them.
-- Prefer existing services, middleware, route patterns, validation patterns and UI components.
-- Do not introduce new architectural patterns without explaining why they are necessary.
-- Do not perform broad rewrites when a localized change is enough.
-- Keep domain logic explicit and easy to trace.
-- Keep role and permission logic centralized where the existing architecture allows it.
-- Avoid duplicating permission checks across unrelated files.
-
-## Backend rules
-
-- Follow the existing Express/Node patterns in this repository.
-- Keep validation close to the route/controller pattern already used.
-- Reuse existing auth and authorization middleware when possible.
-- When changing roles, check backend enforcement points before frontend-only changes.
-- Do not rely only on frontend route guards for security.
-- Keep database changes explicit and reversible when possible.
-- If SQL migrations or seed changes are needed, explain the expected data impact.
-- Do not change production credentials, secrets or environment-specific values.
-- Do not commit real secrets.
-
-## Frontend rules
-
-- Follow the existing React, TypeScript and Vite patterns.
-- Reuse existing layout, guards, services, hooks and UI components.
-- Avoid creating duplicate API clients.
-- Prefer typed services over scattered fetch calls when the project already provides an API layer.
-- Keep screens simple and oriented to operational workflows.
-- When modifying navigation, check sidebar, route definitions, guards and role visibility together.
-- Do not add UI options for roles or features that no longer exist.
-
-## Role refactor checklist
-
-When a task touches users, roles, auth or permissions, inspect only the relevant files for:
-
-- user model or schema
-- role enum or constants
-- auth middleware
-- authorization middleware
-- route guards
-- sidebar/menu visibility
-- login/session handling
-- seed data
-- migrations or SQL init files
-- tests or fixtures
-- frontend role checks
-- backend protected routes
-
-Expected target behavior:
-
-- administrador has maximum system access.
-- supervisor has supervisor capabilities plus previous bodega capabilities.
-- trabajador remains a managed entity, not a login account.
-- references to bodega as a login role should be removed or migrated.
-- historical data should not be destroyed unless explicitly requested.
+Expected: `administrador` max access · `supervisor` + bodega · `trabajador` entity not login · no bodega login · preserve history.
 
 ## Alltura standards
+- App Shell: `AppLayout` (every auth screen), `Modal`, `ConfirmationModal`, `ResponsiveTable`, `ResponsiveGrid`, `NotificationBell`, `TourOverlay`
+- Contexts: `AuthContext`, `NotificationContext`, `TourContext`
+- Tokens: `primary-blue #2A64A4`, `dark-blue #1E2A4A`; no inline hex; Inter typography; reuse `heading-*`/`body-*`/`label-*` classes
+- Prioritize: assignment, return, status, location workflows; clear screens, direct actions
 
-- Keep the application aligned with the Alltura app style and operational simplicity.
-- Prefer clear screens, direct actions and understandable labels.
-- Avoid unnecessary complexity for workers or operational users.
-- Optimize for traceability of assets and responsibilities.
-- Prioritize assignment, return, status and location workflows.
+## Git discipline
+- Minimal file set before editing; no unrelated formatting; no rename/delete without checking refs
+- No commits unless instructed; no Co-Authored-By trailers
+- After changes report: files changed · verification performed · risks
 
-## Git and change discipline
+## Verification order
+1. typecheck (if available)
+2. targeted tests
+3. lint
+4. build (only if routing/buildable code affected)
+5. manual inspect routes/guards/API contracts when tests missing
 
-- Before editing, identify the minimal set of files required.
-- Do not modify unrelated formatting.
-- Do not rename files or components unless necessary.
-- Do not delete code without checking references.
-- After changes, report:
-  - files changed
-  - what changed
-  - verification performed
-  - risks or pending checks
-- Do not create commits unless explicitly instructed.
-
-## Verification
-
-Prefer targeted verification first.
-
-Use available project commands only after checking package scripts or existing documentation.
-
-Typical verification order:
-
-1. typecheck relevant frontend/backend code if available
-2. run targeted tests if available
-3. run lint if available
-4. run build only when the change affects buildable code or routing
-5. manually inspect affected routes, guards or API contracts when tests are missing
-
-If verification cannot be run, explain exactly why.
-
-## Command output policy
-
-- Keep command output summaries short.
-- Include only relevant errors.
-- For long outputs, use tail, grep or targeted filtering.
-- Do not include full logs unless explicitly requested.
-
-Suggested patterns:
-
-```bash
-npm run build 2>&1 | tail -120
-npm test 2>&1 | tail -120
-npm run lint 2>&1 | tail -120
-rg "bodega|supervisor|trabajador|admin|administrador" . \
-  --glob '!node_modules' \
-  --glob '!dist' \
-  --glob '!build' \
-  --glob '!coverage' \
-  --glob '!logs' \
-  --glob '!*.min.*'
-```
+If verification cannot run, explain why.

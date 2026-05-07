@@ -165,8 +165,8 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
 
   return (
     <div className="space-y-2">
-      <label htmlFor={searchInputId} className="block text-xs font-medium text-gray-600 mb-1">
-        {label} {required ? <span className="text-red-500">*</span> : null}
+      <label htmlFor={searchInputId} className="block text-xs font-medium text-content-secondary mb-1">
+        {label} {required ? <span className="text-danger">*</span> : null}
       </label>
 
       <div className="flex gap-2">
@@ -177,14 +177,14 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
           disabled={!trabajadorId || disabled}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Buscar por código interno o serie"
-          className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
+          className="flex-1 border border-edge-strong rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:bg-surface-overlay disabled:text-content-disabled"
           aria-describedby={selectionStatusId}
         />
         <button
           type="button"
           onClick={() => setIsScannerOpen(true)}
           disabled={!trabajadorId || disabled}
-          className="px-3 py-1.5 text-sm rounded-md border border-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400"
+          className="px-3 py-1.5 text-sm rounded-md border border-edge-strong hover:bg-surface-muted disabled:bg-surface-overlay disabled:text-content-disabled"
           aria-label="Escanear código"
         >
           Escanear
@@ -192,23 +192,23 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
       </div>
 
       {!trabajadorId ? (
-          <p className="text-xs text-gray-500">Selecciona trabajador para cargar custodias activas.</p>
+          <p className="text-xs text-content-muted">Selecciona trabajador para cargar custodias activas.</p>
       ) : null}
 
-      {isLoading ? <p className="text-xs text-gray-500">Cargando activos elegibles...</p> : null}
+      {isLoading ? <p className="text-xs text-content-muted">Cargando activos elegibles...</p> : null}
 
       {loadError ? (
-        <p className="text-xs text-red-600">
+        <p className="text-xs text-danger-text">
             {loadError} Reintenta para cargar las custodias activas elegibles.
         </p>
       ) : null}
 
       {canSelect && visibleAssets.length === 0 ? (
-          <p className="text-xs text-gray-500">No hay custodias activas elegibles para devolución.</p>
+          <p className="text-xs text-content-muted">No hay custodias activas elegibles para devolución.</p>
       ) : null}
 
       {canSelect && visibleAssets.length > 0 ? (
-        <div className="max-h-44 overflow-y-auto border border-gray-200 rounded-md divide-y divide-gray-100 bg-white">
+        <div className="max-h-44 overflow-y-auto border border-edge rounded-md divide-y divide-edge bg-surface">
           {visibleAssets.map((item) => {
             const isSelected = item.activo_id === selectedId;
 
@@ -230,25 +230,25 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
                     onChangeSelection?.([toSelection(item)]);
                   }}
                 className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                  isSelected ? 'bg-blue-50 text-primary-blue' : 'hover:bg-gray-50 text-gray-700'
+                  isSelected ? 'bg-blue-50 text-primary' : 'hover:bg-surface-muted text-content-secondary'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium">{item.codigo}</span>
                   {isSelected ? <span className="text-xs font-semibold">Seleccionado</span> : null}
                 </div>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-content-muted">
                     {item.articulo_nombre || 'Sin artículo'}
                   {item.nro_serie ? ` · Serie: ${item.nro_serie}` : ''}
                 </p>
-                  <p className="text-[11px] text-gray-400">Custodia: {item.custodia_activo_id.slice(0, 8)}</p>
+                  <p className="text-[11px] text-content-disabled">Custodia: {item.custodia_activo_id.slice(0, 8)}</p>
               </button>
             );
           })}
         </div>
       ) : null}
 
-      <p id={selectionStatusId} className="text-xs text-gray-500">
+      <p id={selectionStatusId} className="text-xs text-content-muted">
         {selectedId ? '1 unidad seleccionada.' : 'Sin unidad seleccionada.'}
       </p>
 

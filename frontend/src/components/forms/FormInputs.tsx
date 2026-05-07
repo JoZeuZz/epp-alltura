@@ -87,10 +87,10 @@ export const FormInput: React.FC<FormInputProps> = ({
     <div className={`mb-4 md:mb-6 ${className}`}>
       <label 
         htmlFor={id} 
-        className="block label-base text-gray-700 mb-2"
+        className="block label-base text-content-secondary mb-2"
       >
         {label}
-        {required && <span className="text-red-500 ml-1" aria-label="requerido">*</span>}
+        {required && <span className="text-danger ml-1" aria-label="requerido">*</span>}
       </label>
       
       <input
@@ -111,23 +111,23 @@ export const FormInput: React.FC<FormInputProps> = ({
           error ? `${id}-error` : helpText ? `${id}-help` : undefined
         }
         className={`
-          shadow-sm border rounded-lg w-full py-2.5 px-3 body-base text-gray-700 
+          shadow-sm border rounded-lg w-full py-2.5 px-3 body-base text-content-secondary 
           leading-tight min-h-touch
-          focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-primary-blue
-          disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-500
-          ${error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'}
+          focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary
+          disabled:bg-surface-overlay disabled:cursor-not-allowed disabled:text-content-muted
+          ${error ? 'border-danger focus:ring-danger focus:border-danger' : 'border-edge-strong'}
           transition-colors
         `}
       />
       
       {error && (
-        <p id={`${id}-error`} className="mt-1 body-small text-red-600" role="alert">
+        <p id={`${id}-error`} className="mt-1 body-small text-danger-text" role="alert">
           {error}
         </p>
       )}
       
       {!error && helpText && (
-        <p id={`${id}-help`} className="mt-1 body-small text-gray-500">
+        <p id={`${id}-help`} className="mt-1 body-small text-content-muted">
           {helpText}
         </p>
       )}
@@ -172,10 +172,10 @@ export const FormTextarea: React.FC<FormTextareaProps> = ({
     <div className={`mb-4 md:mb-6 ${className}`}>
       <label 
         htmlFor={id} 
-        className="block label-base text-gray-700 mb-2"
+        className="block label-base text-content-secondary mb-2"
       >
         {label}
-        {required && <span className="text-red-500 ml-1" aria-label="requerido">*</span>}
+        {required && <span className="text-danger ml-1" aria-label="requerido">*</span>}
       </label>
       
       <textarea
@@ -191,23 +191,23 @@ export const FormTextarea: React.FC<FormTextareaProps> = ({
           error ? `${id}-error` : helpText ? `${id}-help` : undefined
         }
         className={`
-          shadow-sm border rounded-lg w-full py-2.5 px-3 body-base text-gray-700 
+          shadow-sm border rounded-lg w-full py-2.5 px-3 body-base text-content-secondary 
           leading-relaxed resize-y
-          focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-primary-blue
-          disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-500
-          ${error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'}
+          focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary
+          disabled:bg-surface-overlay disabled:cursor-not-allowed disabled:text-content-muted
+          ${error ? 'border-danger focus:ring-danger focus:border-danger' : 'border-edge-strong'}
           transition-colors
         `}
       />
       
       {error && (
-        <p id={`${id}-error`} className="mt-1 body-small text-red-600" role="alert">
+        <p id={`${id}-error`} className="mt-1 body-small text-danger-text" role="alert">
           {error}
         </p>
       )}
       
       {!error && helpText && (
-        <p id={`${id}-help`} className="mt-1 body-small text-gray-500">
+        <p id={`${id}-help`} className="mt-1 body-small text-content-muted">
           {helpText}
         </p>
       )}
@@ -252,10 +252,10 @@ export const FormSelect: React.FC<FormSelectProps> = ({
     <div className={`mb-4 md:mb-6 ${className}`}>
       <label 
         htmlFor={id} 
-        className="block label-base text-gray-700 mb-2"
+        className="block label-base text-content-secondary mb-2"
       >
         {label}
-        {required && <span className="text-red-500 ml-1" aria-label="requerido">*</span>}
+        {required && <span className="text-danger ml-1" aria-label="requerido">*</span>}
       </label>
       
       <select
@@ -269,11 +269,11 @@ export const FormSelect: React.FC<FormSelectProps> = ({
           error ? `${id}-error` : helpText ? `${id}-help` : undefined
         }
         className={`
-          shadow-sm border rounded-lg w-full py-2.5 px-3 body-base text-gray-700 
+          shadow-sm border rounded-lg w-full py-2.5 px-3 body-base text-content-secondary 
           leading-tight min-h-touch
-          focus:outline-none focus:ring-2 focus:ring-primary-blue focus:border-primary-blue
-          disabled:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-500
-          ${error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300'}
+          focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary
+          disabled:bg-surface-overlay disabled:cursor-not-allowed disabled:text-content-muted
+          ${error ? 'border-danger focus:ring-danger focus:border-danger' : 'border-edge-strong'}
           transition-colors
         `}
       >
@@ -290,13 +290,13 @@ export const FormSelect: React.FC<FormSelectProps> = ({
       </select>
       
       {error && (
-        <p id={`${id}-error`} className="mt-1 body-small text-red-600" role="alert">
+        <p id={`${id}-error`} className="mt-1 body-small text-danger-text" role="alert">
           {error}
         </p>
       )}
       
       {!error && helpText && (
-        <p id={`${id}-help`} className="mt-1 body-small text-gray-500">
+        <p id={`${id}-help`} className="mt-1 body-small text-content-muted">
           {helpText}
         </p>
       )}
@@ -323,15 +323,15 @@ export const FormButtons: React.FC<FormButtonsProps> = ({
   submitVariant = 'primary',
 }) => {
   const getSubmitClasses = () => {
-    const base = 'min-h-touch px-6 py-2.5 rounded-lg label-base font-semibold text-white shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all';
+    const base = 'min-h-touch px-6 py-2.5 rounded-lg label-base font-semibold text-white shadow-card hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all';
     
     switch (submitVariant) {
       case 'danger':
-        return `${base} bg-red-600 hover:bg-red-700 focus:ring-red-500`;
+        return `${base} bg-red-600 hover:bg-red-700 focus:ring-danger`;
       case 'success':
-        return `${base} bg-green-600 hover:bg-green-700 focus:ring-green-500`;
+        return `${base} bg-success hover:bg-success-text focus:ring-success`;
       default:
-        return `${base} bg-primary-blue hover:bg-blue-700 focus:ring-primary-blue`;
+        return `${base} bg-primary hover:bg-primary-hover focus:ring-primary`;
     }
   };
 
@@ -342,7 +342,7 @@ export const FormButtons: React.FC<FormButtonsProps> = ({
           type="button"
           onClick={onCancel}
           disabled={isSubmitting}
-          className="min-h-touch px-6 py-2.5 rounded-lg label-base font-semibold text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="min-h-touch px-6 py-2.5 rounded-lg label-base font-semibold text-content-secondary bg-surface border-2 border-edge-strong hover:bg-surface-muted hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {cancelText}
         </button>

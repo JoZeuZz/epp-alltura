@@ -187,7 +187,7 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div className="space-y-1">
           <h2 className="text-xl font-bold text-dark-blue">Registrar Egreso</h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-content-muted">
             Retira stock indicando el motivo. El stock disponible se decrementará de inmediato.
           </p>
         </div>
@@ -195,7 +195,7 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
         {/* Motivo y notas generales */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="label-base text-gray-700">Motivo *</label>
+            <label className="label-base text-content-secondary">Motivo *</label>
             <select
               className="w-full border rounded-md p-2"
               value={tipoMotivo}
@@ -212,7 +212,7 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
           </div>
 
           <div>
-            <label className="label-base text-gray-700">Notas generales</label>
+            <label className="label-base text-content-secondary">Notas generales</label>
             <input
               className="w-full border rounded-md p-2"
               placeholder="Observación general del egreso"
@@ -225,10 +225,10 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
         {/* Detalles */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-700">Ítems a egresar</h3>
+            <h3 className="text-sm font-semibold text-content-secondary">Ítems a egresar</h3>
             <button
               type="button"
-              className="text-sm px-3 py-1 rounded-md border border-primary-blue text-primary-blue hover:bg-blue-50"
+              className="text-sm px-3 py-1 rounded-md border border-primary text-primary hover:bg-blue-50"
               onClick={addDetalle}
             >
               + Agregar ítem
@@ -242,16 +242,16 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
             return (
               <div
                 key={index}
-                className="border rounded-md p-3 space-y-3 bg-gray-50"
+                className="border rounded-md p-3 space-y-3 bg-surface-muted"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <span className="text-xs font-semibold text-content-muted uppercase tracking-wide">
                     Ítem {index + 1}
                   </span>
                   {detalles.length > 1 && (
                     <button
                       type="button"
-                      className="text-xs text-red-600 hover:text-red-800"
+                      className="text-xs text-danger-text hover:text-danger-text"
                       onClick={() => removeDetalle(index)}
                     >
                       Eliminar
@@ -261,7 +261,7 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="label-base text-gray-700">Artículo *</label>
+                    <label className="label-base text-content-secondary">Artículo *</label>
                     <select
                       className="w-full border rounded-md p-2"
                       value={detalle.articulo_id}
@@ -277,7 +277,7 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="label-base text-gray-700">Ubicación origen *</label>
+                    <label className="label-base text-content-secondary">Ubicación origen *</label>
                     <select
                       className="w-full border rounded-md p-2"
                       value={detalle.ubicacion_id}
@@ -293,7 +293,7 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="label-base text-gray-700">Cantidad *</label>
+                    <label className="label-base text-content-secondary">Cantidad *</label>
                     <input
                       type="number"
                       min={1}
@@ -322,7 +322,7 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
                   )}
 
                   <div className="md:col-span-2">
-                    <label className="label-base text-gray-700">Notas del ítem</label>
+                    <label className="label-base text-content-secondary">Notas del ítem</label>
                     <input
                       className="w-full border rounded-md p-2"
                       placeholder="Motivo específico para este ítem"
@@ -336,12 +336,12 @@ const InventoryEgressModal: React.FC<InventoryEgressModalProps> = ({
           })}
         </div>
 
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-danger-text">{error}</p> : null}
 
         <div className="flex justify-end gap-3 pt-2">
           <button
             type="button"
-            className="px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-50 disabled:opacity-60"
+            className="px-4 py-2 rounded-md border border-edge-strong hover:bg-surface-muted disabled:opacity-60"
             onClick={onClose}
             disabled={isSubmitting}
           >

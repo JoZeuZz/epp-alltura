@@ -21,15 +21,15 @@ interface StatsCardProps {
  * @param icon - Ícono SVG a mostrar en el header
  */
 const StatsCard: React.FC<StatsCardProps> = ({ title, items, icon }) => (
-  <div className="bg-white p-3 sm:p-4 md:p-5 rounded-lg shadow-md">
+  <div className="bg-surface p-3 sm:p-4 md:p-5 rounded-lg shadow-card">
     <div className="flex items-center gap-2 mb-3">
-      <div className="text-primary-blue w-5 h-5 sm:w-6 sm:h-6">{icon}</div>
+      <div className="text-primary w-5 h-5 sm:w-6 sm:h-6">{icon}</div>
       <h2 className="text-base sm:text-lg font-semibold text-dark-blue">{title}</h2>
     </div>
     <div className="space-y-2">
       {items.map((item, index) => (
         <div key={index} className="flex justify-between items-center">
-          <span className="text-sm sm:text-base text-neutral-gray">{item.label}</span>
+          <span className="text-sm sm:text-base text-content-muted">{item.label}</span>
           <span className={`text-lg font-semibold ${item.color || 'text-dark-blue'}`}>
             {item.value}
           </span>
