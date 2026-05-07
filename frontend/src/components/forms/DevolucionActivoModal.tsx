@@ -5,7 +5,7 @@ import Modal from '../Modal';
 import { useGet } from '../../hooks';
 import { devolverActivo } from '../../services/apiService';
 
-interface UbicacionOption {
+interface BodegaOption {
   id: string;
   nombre: string;
 }
@@ -52,9 +52,9 @@ const DevolucionActivoModal: React.FC<Props> = ({
   const [hasFirma, setHasFirma] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const { data: ubicaciones = [] } = useGet<UbicacionOption[]>(
-    ['ubicaciones'],
-    '/ubicaciones',
+  const { data: bodegas = [] } = useGet<BodegaOption[]>(
+    ['bodegas'],
+    '/bodegas',
   );
 
   useEffect(() => {
@@ -140,7 +140,7 @@ const DevolucionActivoModal: React.FC<Props> = ({
     mutationFn: (firmaBase64: string) =>
       devolverActivo(activoId, {
         trabajador_id: trabajadorId,
-        ubicacion_recepcion_id: ubicacionId,
+        bodega_recepcion_id: ubicacionId,
         condicion_entrada: condicion,
         disposicion,
         notas: notas.trim() || null,
@@ -195,8 +195,8 @@ const DevolucionActivoModal: React.FC<Props> = ({
             className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-blue"
           >
             <option value="">Seleccionar ubicación...</option>
-            {ubicaciones.map((u) => (
-              <option key={u.id} value={u.id}>{u.nombre}</option>
+            {bodegas.map((b) => (
+              <option key={b.id} value={b.id}>{b.nombre}</option>
             ))}
           </select>
         </div>

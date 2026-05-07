@@ -352,7 +352,7 @@ const cambiarEstadoActivoSchema = Joi.object({
     .valid('en_stock', 'asignado', 'mantencion', 'dado_de_baja', 'perdido')
     .required(),
   motivo: Joi.string().trim().min(3).max(500).required(),
-  ubicacion_destino_id: uuid.when('nuevo_estado', {
+  bodega_destino_id: uuid.when('nuevo_estado', {
     is: 'en_stock',
     then: Joi.required(),
     otherwise: Joi.optional().allow(null),
@@ -360,7 +360,7 @@ const cambiarEstadoActivoSchema = Joi.object({
 });
 
 const reubicarActivoSchema = Joi.object({
-  ubicacion_destino_id: uuid.required(),
+  bodega_destino_id: uuid.required(),
   motivo: Joi.string().trim().max(500).allow('', null),
 });
 

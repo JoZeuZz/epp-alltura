@@ -7,7 +7,12 @@ import {
   cambiarEstadoActivo,
   type InventoryActivoDetailRow,
 } from '../../services/apiService';
-import type { Ubicacion } from '../../types/api';
+
+interface BodegaOption {
+  id: string;
+  nombre: string;
+  estado: string;
+}
 
 const TRANSICIONES: Record<string, { estado: string; label: string; descripcion: string; variant: 'info' | 'warning' | 'danger'; requiereUbicacion: boolean }[]> = {
   en_stock: [
@@ -59,9 +64,9 @@ const CambiarEstadoActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess 
 
   const selectedTransicion = transiciones.find((t) => t.estado === selectedEstado);
 
-  const { data: ubicaciones } = useGet<Ubicacion[]>(
-    ['ubicaciones'],
-    '/ubicaciones',
+  const { data: bodegas } = useGet<BodegaOption[]>(
+    ['bodegas'],
+    '/bodegas',
     undefined,
     { enabled: selectedTransicion?.requiereUbicacion ?? false }
   );
@@ -71,7 +76,7 @@ const CambiarEstadoActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess 
       cambiarEstadoActivo(activo.id, {
         nuevo_estado: selectedEstado!,
         motivo,
-        ubicacion_destino_id: selectedTransicion?.requiereUbicacion ? ubicacionId : undefined,
+        bodega_destino_id: selectedTransicion?.requiereUbicacion ? ubicacionId : undefined,
       }),
     onSuccess: () => {
       toast.success('Estado del activo actualizado correctamente.');
@@ -126,8 +131,8 @@ const CambiarEstadoActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess 
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Seleccionar ubicación...</option>
-                  {(ubicaciones ?? []).filter((u) => u.activo).map((u) => (
-                    <option key={u.id} value={u.id}>{u.nombre}</option>
+                  {(bodegas ?? []).filter((b) => b.estado === 'activo').map((b) => (
+                    <option key={b.id} value={b.id}>{b.nombre}</option>
                   ))}
                 </select>
               </div>

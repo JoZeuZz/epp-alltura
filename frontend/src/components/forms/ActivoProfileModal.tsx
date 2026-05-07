@@ -15,7 +15,6 @@ import {
   type ActivoTimelineEntry,
   type ActivoProfileResponse,
   type EntregaCreatePayload,
-  type EntregaTemplate,
   type InventoryActivoDetailRow,
 } from '../../services/apiService';
 import { formatCLP } from '../../utils/currency';
@@ -116,16 +115,30 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
     undefined,
     { enabled: !!activoId }
   );
-  const { data: ubicaciones = [] } = useGet<{
+  const { data: bodegas = [] } = useGet<{
     id: string;
     nombre: string;
-    tipo?: 'bodega' | 'planta' | 'proyecto' | 'taller_mantencion';
+    estado: string;
   }[]>(
-    ['activo-profile-modal', 'ubicaciones'],
-    '/ubicaciones',
+    ['activo-profile-modal', 'bodegas'],
+    '/bodegas',
     undefined,
     { enabled: !!activoId }
   );
+  const { data: proyectos = [] } = useGet<{
+    id: string;
+    nombre: string;
+    estado: string;
+  }[]>(
+    ['activo-profile-modal', 'proyectos'],
+    '/proyectos',
+    undefined,
+    { enabled: !!activoId }
+  );
+  const ubicaciones = [
+    ...bodegas.map((b) => ({ id: b.id, nombre: b.nombre, tipo: 'bodega' as const })),
+    ...proyectos.map((p) => ({ id: p.id, nombre: p.nombre, tipo: 'planta' as const })),
+  ];
   const { data: articulos = [] } = useGet<{
     id: string;
     nombre: string;
@@ -136,13 +149,6 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
     undefined,
     { enabled: !!activoId }
   );
-  const { data: entregaTemplates = [] } = useGet<EntregaTemplate[]>(
-    ['activo-profile-modal', 'entrega-templates'],
-    '/entregas/templates',
-    { estado: 'activo' },
-    { enabled: !!activoId }
-  );
-
   const activoRow = useMemo(
     () => (profile ? toActivoRow(profile) : null),
     [profile]
@@ -184,7 +190,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
           trabajadores={trabajadores}
           ubicaciones={ubicaciones}
           articulos={articulos}
-          templates={entregaTemplates}
+          templates={[]}
           initialActivoId={profile.id}
           initialArticuloId={profile.articulo_id}
           lockActivoSelection

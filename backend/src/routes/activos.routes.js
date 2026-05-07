@@ -33,7 +33,7 @@ const entregarSchema = Joi.object({
 
 const devolverSchema = Joi.object({
   trabajador_id: uuid.required(),
-  ubicacion_recepcion_id: uuid.required(),
+  bodega_recepcion_id: uuid.required(),
   condicion_entrada: Joi.string().valid('ok', 'usado', 'danado', 'perdido').default('ok'),
   disposicion: Joi.string().valid('devuelto', 'perdido', 'baja', 'mantencion').required(),
   notas: Joi.string().trim().max(1000).allow('', null),
