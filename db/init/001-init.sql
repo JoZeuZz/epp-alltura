@@ -213,6 +213,11 @@ CREATE TABLE IF NOT EXISTS activo (
 
 ALTER TABLE activo ADD COLUMN IF NOT EXISTS foto_url TEXT;
 
+-- Schema migrations for columns added after initial production deployment
+ALTER TABLE articulo ADD COLUMN IF NOT EXISTS grupo_principal VARCHAR(20) DEFAULT 'herramienta';
+ALTER TABLE articulo ADD COLUMN IF NOT EXISTS subclasificacion VARCHAR(120) DEFAULT 'manual';
+ALTER TABLE custodia_activo ADD COLUMN IF NOT EXISTS fecha_devolucion_esperada TIMESTAMPTZ;
+
 CREATE TABLE IF NOT EXISTS stock (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   bodega_id UUID NOT NULL REFERENCES bodegas(id),
