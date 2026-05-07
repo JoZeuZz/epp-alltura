@@ -7,7 +7,12 @@ import {
   reubicarActivo,
   type InventoryActivoDetailRow,
 } from '../../services/apiService';
-import type { Ubicacion } from '../../types/api';
+
+interface BodegaOption {
+  id: string;
+  nombre: string;
+  estado: string;
+}
 
 const toErrorMessage = (error: unknown): string => {
   if (error instanceof Error && error.message) return error.message;
@@ -26,17 +31,17 @@ const ReubicarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) =>
   const [motivo, setMotivo] = useState('');
   const queryClient = useQueryClient();
 
-  const { data: ubicaciones } = useGet<Ubicacion[]>(
-    ['ubicaciones'],
-    '/ubicaciones'
+  const { data: bodegas } = useGet<BodegaOption[]>(
+    ['bodegas'],
+    '/bodegas'
   );
 
-  const currentUbicacionId = activo.ubicacion_id ?? activo.custodia_ubicacion_id ?? '';
+  const currentBodegaId = activo.ubicacion_id ?? activo.custodia_ubicacion_id ?? '';
 
   const mutation = useMutation({
     mutationFn: () =>
       reubicarActivo(activo.id, {
-        ubicacion_destino_id: ubicacionId,
+        bodega_destino_id: ubicacionId,
         motivo: motivo.trim() || undefined,
       }),
     onSuccess: () => {
@@ -49,7 +54,7 @@ const ReubicarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) =>
     onError: (err) => toast.error(toErrorMessage(err)),
   });
 
-  const canSubmit = ubicacionId && ubicacionId !== currentUbicacionId;
+  const canSubmit = ubicacionId && ubicacionId !== currentBodegaId;
 
   return (
     <Modal isOpen onClose={onClose} title={`Reubicar — ${activo.codigo}`}>
@@ -68,10 +73,10 @@ const ReubicarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) =>
             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Seleccionar ubicación...</option>
-            {(ubicaciones ?? [])
-              .filter((u) => u.activo && u.id !== currentUbicacionId)
-              .map((u) => (
-                <option key={u.id} value={u.id}>{u.nombre}</option>
+            {(bodegas ?? [])
+              .filter((b) => b.estado === 'activo' && b.id !== currentBodegaId)
+              .map((b) => (
+                <option key={b.id} value={b.id}>{b.nombre}</option>
               ))}
           </select>
         </div>

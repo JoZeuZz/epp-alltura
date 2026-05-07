@@ -472,7 +472,7 @@ export interface ActivoCustodiaEntry {
 
 export interface DevolverActivoPayload {
   trabajador_id: string;
-  ubicacion_recepcion_id: string;
+  bodega_recepcion_id: string;
   condicion_entrada: 'ok' | 'usado' | 'danado' | 'perdido';
   disposicion: 'devuelto' | 'perdido' | 'baja' | 'mantencion';
   notas?: string | null;
@@ -516,11 +516,11 @@ export const getActivoProfile = (id: string) =>
 export interface CambiarEstadoActivoPayload {
   nuevo_estado: string;
   motivo: string;
-  ubicacion_destino_id?: string;
+  bodega_destino_id?: string;
 }
 
 export interface ReubicarActivoPayload {
-  ubicacion_destino_id: string;
+  bodega_destino_id: string;
   motivo?: string;
 }
 

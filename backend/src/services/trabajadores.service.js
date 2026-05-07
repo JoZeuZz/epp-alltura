@@ -221,7 +221,7 @@ class TrabajadoresService {
         ar.id AS articulo_id,
         ar.nombre AS articulo_nombre,
         ar.grupo_principal AS articulo_tipo,
-        u.nombre AS ubicacion_nombre,
+
         GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - ca.desde_en)) / 86400))::int AS dias_en_custodia,
         CASE
           WHEN ca.fecha_devolucion_esperada IS NULL THEN 'sin_plazo'
@@ -244,7 +244,7 @@ class TrabajadoresService {
       FROM custodia_activo ca
       INNER JOIN activo a ON a.id = ca.activo_id
       INNER JOIN articulo ar ON ar.id = a.articulo_id
-      LEFT JOIN ubicacion u ON u.id = ca.ubicacion_destino_id
+
       WHERE ca.trabajador_id = $1 AND ca.estado = 'activa'
       ORDER BY
         CASE
