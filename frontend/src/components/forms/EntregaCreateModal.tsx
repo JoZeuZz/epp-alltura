@@ -369,18 +369,18 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
             <div
               className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold transition-colors ${
                 step === s
-                  ? 'bg-primary-blue text-white'
+                  ? 'bg-primary text-white'
                   : step > s
                   ? 'bg-green-500 text-white'
-                  : 'bg-gray-200 text-gray-500'
+                  : 'bg-edge text-content-muted'
               }`}
             >
               {step > s ? '✓' : s}
             </div>
-            <span className={`ml-2 text-sm ${step === s ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
+            <span className={`ml-2 text-sm ${step === s ? 'text-content-primary font-medium' : 'text-content-disabled'}`}>
               {s === 1 ? 'Datos básicos' : 'Ítems'}
             </span>
-            {s < 2 && <div className="flex-1 h-px bg-gray-200 mx-4" />}
+            {s < 2 && <div className="flex-1 h-px bg-edge mx-4" />}
           </React.Fragment>
         ))}
       </div>
@@ -390,7 +390,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
         <div className="space-y-4">
           {/* Plantilla opcional */}
           <div>
-            <label htmlFor="entrega-template-id" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="entrega-template-id" className="block text-sm font-medium text-content-secondary mb-1">
               Usar plantilla
             </label>
             <select
@@ -398,7 +398,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               value={selectedTemplateId}
               onChange={(e) => setSelectedTemplateId(e.target.value)}
               disabled={lockActivoSelection && shouldPrefillSingleAsset}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+              className="w-full border border-edge-strong rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
             >
               <option value="">— Sin plantilla —</option>
               {templates
@@ -409,21 +409,21 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                   </option>
                 ))}
             </select>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-content-muted">
               Si seleccionas una plantilla, los ítems se prellenan automáticamente.
             </p>
             {isLoadingTemplatePreview && (
-              <p className="mt-1 text-xs text-gray-500">Cargando plantilla seleccionada...</p>
+              <p className="mt-1 text-xs text-content-muted">Cargando plantilla seleccionada...</p>
             )}
             {templatePreviewError && (
-              <p className="mt-1 text-xs text-red-600">{templatePreviewError}</p>
+              <p className="mt-1 text-xs text-danger-text">{templatePreviewError}</p>
             )}
           </div>
 
           {/* Trabajador */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Trabajador <span className="text-red-500">*</span>
+            <label className="block text-sm font-medium text-content-secondary mb-1">
+              Trabajador <span className="text-danger">*</span>
             </label>
             <input
               id="entrega-trabajador-busqueda"
@@ -431,14 +431,14 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               placeholder="Buscar trabajador por nombre o RUT..."
               value={trabajadorSearch}
               onChange={(e) => setTrabajadorSearch(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none mb-2"
+              className="w-full border border-edge-strong rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none mb-2"
               aria-label="Buscar trabajador por nombre o RUT"
             />
             <select
               id="entrega-trabajador-select"
               value={trabajadorId}
               onChange={(e) => setTrabajadorId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+              className="w-full border border-edge-strong rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
               aria-label="Seleccionar trabajador"
             >
               <option value="">— Seleccionar trabajador —</option>
@@ -450,7 +450,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               ))}
             </select>
             {selectedTrabajador && (
-              <p className="mt-1 text-xs text-green-600 font-medium">
+              <p className="mt-1 text-xs text-success-text font-medium">
                 ✓ {selectedTrabajador.nombres} {selectedTrabajador.apellidos}
               </p>
             )}
@@ -458,14 +458,14 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 
           {/* Ubicación origen */}
           <div>
-            <label htmlFor="entrega-ubicacion-origen" className="block text-sm font-medium text-gray-700 mb-1">
-              Desde (bodega) <span className="text-red-500">*</span>
+            <label htmlFor="entrega-ubicacion-origen" className="block text-sm font-medium text-content-secondary mb-1">
+              Desde (bodega) <span className="text-danger">*</span>
             </label>
             <select
               id="entrega-ubicacion-origen"
               value={ubicacionOrigenId}
               onChange={(e) => setUbicacionOrigenId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+              className="w-full border border-edge-strong rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
             >
               <option value="">— Seleccionar origen —</option>
               {ubicacionesOrigen.map((u) => (
@@ -478,14 +478,14 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 
           {/* Ubicación destino */}
           <div>
-            <label htmlFor="entrega-ubicacion-destino" className="block text-sm font-medium text-gray-700 mb-1">
-              Hacia (planta) <span className="text-red-500">*</span>
+            <label htmlFor="entrega-ubicacion-destino" className="block text-sm font-medium text-content-secondary mb-1">
+              Hacia (planta) <span className="text-danger">*</span>
             </label>
             <select
               id="entrega-ubicacion-destino"
               value={ubicacionDestinoId}
               onChange={(e) => setUbicacionDestinoId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+              className="w-full border border-edge-strong rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
             >
               <option value="">— Seleccionar destino —</option>
               {ubicacionesDestino.map((u) => (
@@ -498,7 +498,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 
           {/* Nota */}
           <div>
-            <label htmlFor="entrega-nota-destino" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="entrega-nota-destino" className="block text-sm font-medium text-content-secondary mb-1">
               Observación (opcional)
             </label>
             <textarea
@@ -507,7 +507,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               value={notaDestino}
               onChange={(e) => setNotaDestino(e.target.value)}
               placeholder="Ej: turno, encargado, contexto de entrega"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+              className="w-full border border-edge-strong rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
             />
           </div>
         </div>
@@ -521,14 +521,14 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
             const needsSerial = art?.tracking_mode === 'serial';
 
             return (
-              <div key={idx} className="border border-gray-200 rounded-lg p-4 space-y-3 bg-gray-50">
+              <div key={idx} className="border border-edge rounded-lg p-4 space-y-3 bg-surface-muted">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-700">Ítem {idx + 1}</span>
+                  <span className="text-sm font-semibold text-content-secondary">Ítem {idx + 1}</span>
                   {detalles.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeDetalle(idx)}
-                      className="text-red-500 hover:text-red-700 text-sm"
+                      className="text-danger hover:text-danger-text text-sm"
                       aria-label={`Eliminar ítem ${idx + 1}`}
                     >
                       Eliminar
@@ -538,8 +538,8 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 
                 {/* Artículo */}
                 <div>
-                  <label htmlFor={`entrega-detalle-articulo-${idx}`} className="block text-xs font-medium text-gray-600 mb-1">
-                    Artículo <span className="text-red-500">*</span>
+                  <label htmlFor={`entrega-detalle-articulo-${idx}`} className="block text-xs font-medium text-content-secondary mb-1">
+                    Artículo <span className="text-danger">*</span>
                   </label>
                   <select
                     id={`entrega-detalle-articulo-${idx}`}
@@ -548,7 +548,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                       updateArticuloDetalle(idx, e.target.value)
                     }
                     disabled={lockActivoSelection && shouldPrefillSingleAsset}
-                    className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+                    className="w-full border border-edge-strong rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
                   >
                     <option value="">— Seleccionar artículo —</option>
                     {articulos.map((a) => (
@@ -562,8 +562,8 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                 <div className="grid grid-cols-2 gap-3">
                   {/* Cantidad */}
                   <div>
-                    <label htmlFor={`entrega-detalle-cantidad-${idx}`} className="block text-xs font-medium text-gray-600 mb-1">
-                      Cantidad <span className="text-red-500">*</span>
+                    <label htmlFor={`entrega-detalle-cantidad-${idx}`} className="block text-xs font-medium text-content-secondary mb-1">
+                      Cantidad <span className="text-danger">*</span>
                     </label>
                     <input
                       id={`entrega-detalle-cantidad-${idx}`}
@@ -575,13 +575,13 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                       onChange={(e) =>
                         updateDetalle(idx, 'cantidad', parseQuantityInteger(e.target.value, 1))
                       }
-                      className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+                      className="w-full border border-edge-strong rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
                     />
                   </div>
 
                   {/* Condición */}
                   <div>
-                    <label htmlFor={`entrega-detalle-condicion-${idx}`} className="block text-xs font-medium text-gray-600 mb-1">
+                    <label htmlFor={`entrega-detalle-condicion-${idx}`} className="block text-xs font-medium text-content-secondary mb-1">
                       Condición inicial
                     </label>
                     <select
@@ -590,7 +590,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                       onChange={(e) =>
                         updateDetalle(idx, 'condicion_salida', e.target.value as CondicionSalida)
                       }
-                      className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+                      className="w-full border border-edge-strong rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
                     >
                       {(Object.keys(CONDICION_LABELS) as CondicionSalida[]).map((c) => (
                         <option key={c} value={c}>
@@ -615,13 +615,13 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                       required
                       disabled={lockActivoSelection && shouldPrefillSingleAsset}
                     />
-                    <p className="text-xs text-gray-500">Selecciona al menos un activo para este ítem.</p>
+                    <p className="text-xs text-content-muted">Selecciona al menos un activo para este ítem.</p>
                   </>
                 )}
 
                 {/* Notas */}
                 <div>
-                  <label htmlFor={`entrega-detalle-notas-${idx}`} className="block text-xs font-medium text-gray-600 mb-1">
+                  <label htmlFor={`entrega-detalle-notas-${idx}`} className="block text-xs font-medium text-content-secondary mb-1">
                     Notas del ítem
                   </label>
                   <input
@@ -630,7 +630,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                     value={detalle.notas ?? ''}
                     onChange={(e) => updateDetalle(idx, 'notas', e.target.value || null)}
                     placeholder="Observaciones opcionales..."
-                    className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+                    className="w-full border border-edge-strong rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -641,7 +641,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
             type="button"
             onClick={addDetalle}
             disabled={lockActivoSelection && shouldPrefillSingleAsset}
-            className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-primary-blue hover:text-primary-blue transition-colors"
+            className="w-full py-2 border-2 border-dashed border-edge-strong rounded-lg text-sm text-content-muted hover:border-primary hover:text-primary transition-colors"
             aria-label="Agregar un nuevo ítem de artículo"
           >
             + Agregar artículo
@@ -651,7 +651,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 
       {/* Error */}
       {error && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div className="mt-4 p-3 bg-danger-subtle border border-danger-border rounded-lg text-sm text-danger-text">
           {error}
         </div>
       )}
@@ -663,7 +663,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              className="flex-1 py-2 px-4 border border-edge-strong rounded-lg text-sm text-content-secondary hover:bg-surface-muted transition-colors"
             >
               Cancelar
             </button>
@@ -671,7 +671,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               type="button"
               disabled={!canGoToStep2}
               onClick={() => setStep(2)}
-              className="flex-1 py-2 px-4 bg-primary-blue text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex-1 py-2 px-4 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Siguiente →
             </button>
@@ -681,14 +681,14 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="py-2 px-4 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              className="py-2 px-4 border border-edge-strong rounded-lg text-sm text-content-secondary hover:bg-surface-muted transition-colors"
             >
               ← Volver
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              className="flex-1 py-2 px-4 border border-edge-strong rounded-lg text-sm text-content-secondary hover:bg-surface-muted transition-colors"
             >
               Cancelar
             </button>
@@ -696,7 +696,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               type="button"
               disabled={isSubmitting}
               onClick={handleSubmit}
-              className="flex-1 py-2 px-4 bg-primary-blue text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="flex-1 py-2 px-4 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-50 transition-colors"
             >
               {isSubmitting ? 'Creando...' : 'Crear borrador'}
             </button>

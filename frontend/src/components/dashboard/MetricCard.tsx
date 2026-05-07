@@ -27,17 +27,17 @@ const MetricCard: React.FC<MetricCardProps> = ({
   icon,
   to,
   subtitle,
-  colorClass = 'text-primary-blue',
+  colorClass = 'text-primary',
 }) => {
   const content = (
-    <div className="bg-white p-3 sm:p-4 rounded-lg shadow-md flex items-center gap-2 sm:gap-3 transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+    <div className="bg-surface p-3 sm:p-4 rounded-lg shadow-card flex items-center gap-2 sm:gap-3 transition-all duration-300 hover:shadow-card-hover hover:-translate-y-1">
       <div className={`${colorClass} flex-shrink-0`}>
         <div className="w-8 h-8 sm:w-9 sm:h-9">{icon}</div>
       </div>
       <div className="min-w-0 flex-1">
-        <h3 className="text-xs sm:text-sm text-gray-600 mb-0.5">{title}</h3>
+        <h3 className="text-xs sm:text-sm text-content-secondary mb-0.5">{title}</h3>
         <p className="text-2xl sm:text-3xl font-bold text-dark-blue leading-tight">{value}</p>
-        {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+        {subtitle && <p className="text-xs text-content-muted mt-0.5">{subtitle}</p>}
       </div>
     </div>
   );

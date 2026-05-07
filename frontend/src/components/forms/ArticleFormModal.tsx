@@ -282,7 +282,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           <h2 className="text-2xl font-bold text-dark-blue">
             {isEditMode ? 'Editar Artículo' : 'Nuevo Artículo'}
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-content-muted">
             {isEditMode
               ? 'Modifica la configuración del artículo para inventario y trazabilidad.'
               : 'Crea EPP, equipos y herramientas para que queden disponibles en ingresos y stock.'}
@@ -291,18 +291,18 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="label-base text-gray-700">Nombre *</label>
+            <label className="label-base text-content-secondary">Nombre *</label>
             <input
               className="w-full border rounded-md p-2"
               value={formValues.nombre}
               onChange={(event) => handleFieldChange('nombre', event.target.value)}
               placeholder="Ej: Casco de seguridad"
             />
-            {errors.nombre ? <p className="text-xs text-red-600 mt-1">{errors.nombre}</p> : null}
+            {errors.nombre ? <p className="text-xs text-danger-text mt-1">{errors.nombre}</p> : null}
           </div>
 
           <div>
-            <label className="label-base text-gray-700">Grupo principal *</label>
+            <label className="label-base text-content-secondary">Grupo principal *</label>
             <select
               className="w-full border rounded-md p-2"
               value={formValues.grupo_principal}
@@ -317,7 +317,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           </div>
 
           <div>
-            <label className="label-base text-gray-700">Nivel de control *</label>
+            <label className="label-base text-content-secondary">Nivel de control *</label>
             <select
               className="w-full border rounded-md p-2"
               value={formValues.nivel_control}
@@ -336,7 +336,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           </div>
 
           <div>
-            <label className="label-base text-gray-700">Subclasificación *</label>
+            <label className="label-base text-content-secondary">Subclasificación *</label>
             <select
               className="w-full border rounded-md p-2"
               value={formValues.subclasificacion}
@@ -353,7 +353,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           </div>
 
           <div>
-            <label className="label-base text-gray-700">Unidad de medida *</label>
+            <label className="label-base text-content-secondary">Unidad de medida *</label>
             <input
               className="w-full border rounded-md p-2"
               value={formValues.unidad_medida}
@@ -361,12 +361,12 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
               placeholder="Ej: unidad, par, caja"
             />
             {errors.unidad_medida ? (
-              <p className="text-xs text-red-600 mt-1">{errors.unidad_medida}</p>
+              <p className="text-xs text-danger-text mt-1">{errors.unidad_medida}</p>
             ) : null}
           </div>
 
           <div>
-            <label className="label-base text-gray-700">Marca</label>
+            <label className="label-base text-content-secondary">Marca</label>
             <input
               className="w-full border rounded-md p-2"
               value={formValues.marca}
@@ -375,7 +375,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           </div>
 
           <div>
-            <label className="label-base text-gray-700">Modelo</label>
+            <label className="label-base text-content-secondary">Modelo</label>
             <input
               className="w-full border rounded-md p-2"
               value={formValues.modelo}
@@ -384,7 +384,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           </div>
 
           <div>
-            <label className="label-base text-gray-700">Estado inicial</label>
+            <label className="label-base text-content-secondary">Estado inicial</label>
             <select
               className="w-full border rounded-md p-2"
               value={formValues.estado}
@@ -398,12 +398,12 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           </div>
 
           <div className="md:col-span-2">
-            <label className="label-base text-gray-700">Especialidades *</label>
+            <label className="label-base text-content-secondary">Especialidades *</label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-1">
               {ESPECIALIDADES_OPTIONS.map((option) => {
                 const checked = formValues.especialidades.includes(option.value);
                 return (
-                  <label key={option.value} className="inline-flex items-center gap-2 text-sm text-gray-700">
+                  <label key={option.value} className="inline-flex items-center gap-2 text-sm text-content-secondary">
                     <input
                       type="checkbox"
                       checked={checked}
@@ -415,12 +415,12 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
               })}
             </div>
             {errors.especialidades ? (
-              <p className="text-xs text-red-600 mt-1">{errors.especialidades}</p>
+              <p className="text-xs text-danger-text mt-1">{errors.especialidades}</p>
             ) : null}
           </div>
 
           <div className="md:col-span-2">
-            <label className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <label className="inline-flex items-center gap-2 text-sm font-semibold text-content-secondary">
               <input
                 type="checkbox"
                 checked={formValues.requiere_vencimiento}
@@ -431,12 +431,12 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           </div>
         </div>
 
-        {generalError ? <p className="text-sm text-red-600">{generalError}</p> : null}
+        {generalError ? <p className="text-sm text-danger-text">{generalError}</p> : null}
 
         <div className="flex justify-end gap-3 pt-2">
           <button
             type="button"
-            className="px-4 py-2 rounded-md border border-gray-300 hover:bg-gray-50 disabled:opacity-60"
+            className="px-4 py-2 rounded-md border border-edge-strong hover:bg-surface-muted disabled:opacity-60"
             onClick={onClose}
             disabled={isSubmitting}
           >
@@ -444,7 +444,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
           </button>
           <button
             type="submit"
-            className="px-4 py-2 rounded-md bg-primary-blue text-white hover:bg-blue-700 disabled:opacity-60"
+            className="px-4 py-2 rounded-md bg-primary text-white hover:bg-primary-hover disabled:opacity-60"
             disabled={isSubmitting}
           >
             {isSubmitting ? 'Guardando...' : isEditMode ? 'Guardar cambios' : 'Crear artículo'}

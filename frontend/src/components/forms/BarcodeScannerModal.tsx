@@ -201,9 +201,9 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({ isOpen, onClo
       description="Escanea o pega un código para buscar y seleccionar un activo elegible."
     >
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-800">Escanear código</h3>
+        <h3 className="text-lg font-semibold text-content-primary">Escanear código</h3>
 
-        <div className="rounded-lg border border-gray-200 overflow-hidden bg-black/90">
+        <div className="rounded-lg border border-edge overflow-hidden bg-black/90">
           <video
             ref={videoRef}
             className="w-full h-56 object-cover"
@@ -213,12 +213,12 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({ isOpen, onClo
           />
         </div>
 
-        <p className="text-sm text-gray-600" aria-live="polite">
+        <p className="text-sm text-content-secondary" aria-live="polite">
           {status}
         </p>
 
         {error ? (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="text-sm text-danger-text" role="alert">
             {error}
           </p>
         ) : null}
@@ -227,21 +227,21 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({ isOpen, onClo
           <button
             type="button"
             onClick={() => void startScanner()}
-            className="px-3 py-2 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
+            className="px-3 py-2 rounded-md border border-edge-strong text-sm hover:bg-surface-muted"
           >
             Reintentar cámara
           </button>
           <button
             type="button"
             onClick={() => void handlePasteFromClipboard()}
-            className="px-3 py-2 rounded-md bg-primary-blue text-white text-sm hover:opacity-90"
+            className="px-3 py-2 rounded-md bg-primary text-white text-sm hover:opacity-90"
           >
             Pegar código
           </button>
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="barcode-manual-input" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="barcode-manual-input" className="block text-sm font-medium text-content-secondary">
             Código manual
           </label>
           <div className="flex gap-2">
@@ -252,12 +252,12 @@ const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({ isOpen, onClo
               value={manualCode}
               onChange={(event) => setManualCode(event.target.value)}
               placeholder="Ej: TAL-001 o SER-001"
-              className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
+              className="flex-1 border border-edge-strong rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
             />
             <button
               type="button"
               onClick={handleManualSubmit}
-              className="px-3 py-2 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
+              className="px-3 py-2 rounded-md border border-edge-strong text-sm hover:bg-surface-muted"
             >
               Usar código
             </button>

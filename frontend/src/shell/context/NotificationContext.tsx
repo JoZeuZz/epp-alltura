@@ -101,15 +101,15 @@ const NotificationItem: React.FC<{
   const getStyles = () => {
     switch (notification.type) {
       case 'success':
-        return 'bg-green-500 text-white';
+        return 'bg-success text-white';
       case 'error':
-        return 'bg-red-500 text-white';
+        return 'bg-danger text-white';
       case 'warning':
-        return 'bg-yellow-500 text-white';
+        return 'bg-warning text-white';
       case 'info':
-        return 'bg-blue-500 text-white';
+        return 'bg-info text-white';
       default:
-        return 'bg-gray-500 text-white';
+        return 'bg-content-muted text-white';
     }
   };
 

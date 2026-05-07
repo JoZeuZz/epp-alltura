@@ -238,10 +238,10 @@ const TourOverlay: React.FC = () => {
                 : 'bottom-0'
           }`}
         >
-          <div ref={tooltipRef} className="bg-white rounded-2xl shadow-2xl p-4">
+          <div ref={tooltipRef} className="bg-surface rounded-2xl shadow-modal p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs uppercase tracking-wide text-gray-400">
+                <p className="text-xs uppercase tracking-wide text-content-disabled">
                   Paso {stepIndex + 1} de {steps.length}
                 </p>
                 <h3 className="text-lg font-bold text-dark-blue">{step.title}</h3>
@@ -249,44 +249,44 @@ const TourOverlay: React.FC = () => {
               <button
                 type="button"
                 onClick={() => stop('dismissed')}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-content-disabled hover:text-content-secondary"
                 aria-label="Cerrar guía"
               >
                 ✕
               </button>
             </div>
 
-            <p className="text-sm text-gray-600 mt-2">{step.body}</p>
-            {subtitle && <p className="text-xs text-gray-500 mt-2">{subtitle}</p>}
+            <p className="text-sm text-content-secondary mt-2">{step.body}</p>
+            {subtitle && <p className="text-xs text-content-muted mt-2">{subtitle}</p>}
 
             <div className="flex items-center justify-between gap-2 mt-4">
               <button
                 type="button"
                 onClick={handlePrev}
                 disabled={stepIndex === 0}
-                className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 disabled:opacity-50"
+                className="px-3 py-2 rounded-lg border border-edge text-sm text-content-secondary disabled:opacity-50"
               >
                 Atrás
               </button>
               <button
                 type="button"
                 onClick={handleNext}
-                className="px-4 py-2 rounded-lg bg-primary-blue text-white text-sm font-semibold"
+                className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold"
               >
                 {actionLabel}
               </button>
             </div>
 
-            <div className="flex flex-wrap gap-3 mt-3 text-xs text-gray-500">
-              <button type="button" onClick={() => stop('dismissed')} className="hover:text-gray-700">
+            <div className="flex flex-wrap gap-3 mt-3 text-xs text-content-muted">
+              <button type="button" onClick={() => stop('dismissed')} className="hover:text-content-secondary">
                 Saltar
               </button>
               {mode === 'onboarding' && (
-                <button type="button" onClick={() => stop('skipped')} className="hover:text-gray-700">
+                <button type="button" onClick={() => stop('skipped')} className="hover:text-content-secondary">
                   No volver a mostrar
                 </button>
               )}
-              <button type="button" onClick={restart} className="hover:text-gray-700">
+              <button type="button" onClick={restart} className="hover:text-content-secondary">
                 Reiniciar guía
               </button>
             </div>
@@ -297,12 +297,12 @@ const TourOverlay: React.FC = () => {
       {showTooltip && !isMobile ? (
         <div
           ref={tooltipRef}
-          className="fixed max-w-sm bg-white rounded-2xl shadow-2xl p-5"
+          className="fixed max-w-sm bg-surface rounded-2xl shadow-modal p-5"
           style={tooltipStyle as React.CSSProperties}
         >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-wide text-gray-400">
+              <p className="text-xs uppercase tracking-wide text-content-disabled">
                 Paso {stepIndex + 1} de {steps.length}
               </p>
               <h3 className="text-lg font-bold text-dark-blue">{step.title}</h3>
@@ -310,44 +310,44 @@ const TourOverlay: React.FC = () => {
             <button
               type="button"
               onClick={() => stop('dismissed')}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-content-disabled hover:text-content-secondary"
               aria-label="Cerrar guía"
             >
               ✕
             </button>
           </div>
 
-          <p className="text-sm text-gray-600 mt-2">{step.body}</p>
-          {subtitle && <p className="text-xs text-gray-500 mt-2">{subtitle}</p>}
+          <p className="text-sm text-content-secondary mt-2">{step.body}</p>
+          {subtitle && <p className="text-xs text-content-muted mt-2">{subtitle}</p>}
 
           <div className="flex items-center justify-between gap-2 mt-4">
             <button
               type="button"
               onClick={handlePrev}
               disabled={stepIndex === 0}
-              className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 disabled:opacity-50"
+              className="px-3 py-2 rounded-lg border border-edge text-sm text-content-secondary disabled:opacity-50"
             >
               Atrás
             </button>
             <button
               type="button"
               onClick={handleNext}
-              className="px-4 py-2 rounded-lg bg-primary-blue text-white text-sm font-semibold"
+              className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold"
             >
               {actionLabel}
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-3 mt-3 text-xs text-gray-500">
-            <button type="button" onClick={() => stop('dismissed')} className="hover:text-gray-700">
+          <div className="flex flex-wrap gap-3 mt-3 text-xs text-content-muted">
+            <button type="button" onClick={() => stop('dismissed')} className="hover:text-content-secondary">
               Saltar
             </button>
             {mode === 'onboarding' && (
-              <button type="button" onClick={() => stop('skipped')} className="hover:text-gray-700">
+              <button type="button" onClick={() => stop('skipped')} className="hover:text-content-secondary">
                 No volver a mostrar
               </button>
             )}
-            <button type="button" onClick={restart} className="hover:text-gray-700">
+            <button type="button" onClick={restart} className="hover:text-content-secondary">
               Reiniciar guía
             </button>
           </div>

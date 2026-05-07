@@ -28,12 +28,12 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
       aria-labelledby="error-modal-title"
       aria-describedby="error-modal-message"
     >
-      <div className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4 transform transition-all">
+      <div className="bg-surface rounded-lg shadow-modal p-6 max-w-md w-full mx-4 transform transition-all">
         {/* Icono de error */}
         <div className="flex justify-center mb-4">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+          <div className="w-16 h-16 bg-danger-subtle rounded-full flex items-center justify-center">
             <svg
-              className="w-10 h-10 text-red-600"
+              className="w-10 h-10 text-danger"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -50,19 +50,19 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
         </div>
 
         {/* Título */}
-        <h3 id="error-modal-title" className="text-xl font-bold text-gray-900 mb-2 text-center">
+        <h3 id="error-modal-title" className="text-xl font-bold text-content-primary mb-2 text-center">
           {title}
         </h3>
 
         {/* Mensaje principal */}
-        <p id="error-modal-message" className="text-gray-700 mb-4 text-center">
+        <p id="error-modal-message" className="text-content-secondary mb-4 text-center">
           {message}
         </p>
 
         {/* Detalles opcionales */}
         {details && (
-          <div className="bg-gray-50 rounded-lg p-3 mb-4">
-            <p className="text-sm text-gray-600 break-words">
+          <div className="bg-surface-muted rounded-lg p-3 mb-4">
+            <p className="text-sm text-content-muted break-words">
               {details}
             </p>
           </div>
@@ -71,7 +71,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
         {/* Botón de cerrar */}
         <button
           onClick={onClose}
-          className="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+          className="w-full bg-danger text-white py-2 px-4 rounded-lg hover:bg-danger-text focus:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 transition-colors"
         >
           Entendido
         </button>

@@ -54,7 +54,7 @@ export default function NotificationItem({
 
   const icon = presentation.icon;
   const colorClass = notification.is_read
-    ? 'bg-white'
+    ? 'bg-surface'
     : presentation.unreadColorClass;
   
   const hasValidLink = true;
@@ -67,7 +67,7 @@ export default function NotificationItem({
       tabIndex={0}
       aria-label={`Abrir notificación: ${notification.title}`}
       className={`${colorClass} ${
-        hasValidLink ? 'cursor-pointer hover:bg-gray-100' : ''
+        hasValidLink ? 'cursor-pointer hover:bg-surface-overlay' : ''
       } ${compact ? 'px-3 py-2.5 sm:px-4 sm:py-3' : 'p-3 sm:p-4 border rounded-lg'} transition-colors relative group`}
     >
       <div className="flex items-start gap-2.5 sm:gap-3">
@@ -81,21 +81,21 @@ export default function NotificationItem({
               <p
                 className={`text-sm ${
                   notification.is_read ? 'font-normal' : 'font-semibold'
-                } text-gray-900 break-words`}
+                } text-content-primary break-words`}
               >
                 {notification.title}
               </p>
-              <p className="text-sm text-gray-600 mt-0.5 break-words">{notification.message}</p>
+              <p className="text-sm text-content-secondary mt-0.5 break-words">{notification.message}</p>
             </div>
 
             {/* Unread indicator */}
             {!notification.is_read && (
-              <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-1"></div>
+              <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-1"></div>
             )}
           </div>
 
           {/* Timestamp */}
-          <p className="text-xs text-gray-500 mt-1.5">
+          <p className="text-xs text-content-muted mt-1.5">
             {formatDistanceToNow(new Date(notification.created_at), {
               addSuffix: true,
               locale: es,
@@ -107,7 +107,7 @@ export default function NotificationItem({
         {!compact && (
           <button
             onClick={handleDelete}
-            className="opacity-0 sm:group-hover:opacity-100 sm:opacity-0 opacity-100 transition-opacity text-gray-400 hover:text-red-600 p-1 flex-shrink-0"
+            className="opacity-0 sm:group-hover:opacity-100 sm:opacity-0 opacity-100 transition-opacity text-content-disabled hover:text-danger p-1 flex-shrink-0"
             aria-label="Eliminar notificación"
           >
             <svg

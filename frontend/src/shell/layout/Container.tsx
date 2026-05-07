@@ -109,7 +109,7 @@ const spacingSizes = {
  */
 const backgrounds = {
   white: 'bg-white',
-  gray: 'bg-gray-50',
+  gray: 'bg-surface-muted',
   transparent: 'bg-transparent',
 };
 

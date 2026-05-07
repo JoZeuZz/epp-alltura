@@ -26,11 +26,11 @@ const UploadProgress: React.FC<UploadProgressProps> = ({ stage, progress, classN
 
   return (
     <div className={className}>
-      <p className="text-sm text-gray-600">{getStageLabel(stage, progress)}</p>
+      <p className="text-sm text-content-secondary">{getStageLabel(stage, progress)}</p>
       {stage === 'uploading' && (
-        <div className="mt-2 h-2 w-full rounded-full bg-gray-200">
+        <div className="mt-2 h-2 w-full rounded-full bg-surface-overlay">
           <div
-            className="h-2 rounded-full bg-primary-blue transition-all"
+            className="h-2 rounded-full bg-primary transition-all"
             style={{ width: `${progress}%` }}
           />
         </div>

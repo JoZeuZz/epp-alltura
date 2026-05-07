@@ -14,7 +14,7 @@ const ErrorMessage: React.FC<ErrorMessageProps> = React.memo(({ message, classNa
 
   return (
     <p 
-      className={`text-red-600 text-sm mt-1 ${className}`}
+      className={`text-danger-text text-sm mt-1 ${className}`}
       role="alert"
       aria-live="polite"
     >

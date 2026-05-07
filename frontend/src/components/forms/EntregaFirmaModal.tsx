@@ -159,36 +159,36 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
     <Modal isOpen={isOpen} onClose={onClose} title="Confirmar recepción">
       {/* Resumen entrega */}
       <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-        <p className="text-sm text-gray-700">
+        <p className="text-sm text-content-secondary">
           <span className="font-medium">Trabajador:</span> {trabajadorNombre}
           {entrega.rut ? ` · RUT ${entrega.rut}` : ''}
         </p>
-        <p className="text-sm text-gray-700 mt-1">
+        <p className="text-sm text-content-secondary mt-1">
           <span className="font-medium">Artículos:</span>{' '}
           {itemsCount} ítem(s)
         </p>
       </div>
 
       {/* Texto de aceptación */}
-      <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-        <p className="text-xs text-gray-600 leading-relaxed">{acceptanceText}</p>
+      <div className="mb-4 p-3 bg-surface-muted rounded-lg border border-edge">
+        <p className="text-xs text-content-secondary leading-relaxed">{acceptanceText}</p>
       </div>
 
       {/* Canvas firma */}
       <div className="mb-2">
         <div className="flex items-center justify-between mb-1">
-          <label htmlFor={signatureCanvasId} className="text-sm font-medium text-gray-700">
-            {`Firma del ${signerLabel}`} <span className="text-red-500">*</span>
+          <label htmlFor={signatureCanvasId} className="text-sm font-medium text-content-secondary">
+            {`Firma del ${signerLabel}`} <span className="text-danger">*</span>
           </label>
           <button
             type="button"
             onClick={clearCanvas}
-            className="text-xs text-gray-500 hover:text-red-500 underline transition-colors"
+            className="text-xs text-content-muted hover:text-danger underline transition-colors"
           >
             Limpiar
           </button>
         </div>
-        <div className="border-2 border-dashed border-gray-300 rounded-lg overflow-hidden bg-white relative">
+        <div className="border-2 border-dashed border-edge-strong rounded-lg overflow-hidden bg-surface relative">
           <canvas
             id={signatureCanvasId}
             ref={canvasRef}
@@ -213,7 +213,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
             </div>
           )}
         </div>
-        <p id={signatureHelpId} className="mt-1 text-xs text-gray-500">
+        <p id={signatureHelpId} className="mt-1 text-xs text-content-muted">
           Use el dedo o el ratón para firmar en el área de arriba.
         </p>
       </div>
@@ -222,7 +222,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
       {error && (
         <div
           id={signatureErrorId}
-          className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700"
+          className="mt-3 p-3 bg-danger-subtle border border-danger-border rounded-lg text-sm text-danger-text"
           role="alert"
         >
           {error}
@@ -234,7 +234,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          className="flex-1 py-2 px-4 border border-edge-strong rounded-lg text-sm text-content-secondary hover:bg-surface-muted transition-colors"
         >
           Cancelar
         </button>
@@ -242,7 +242,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
           type="button"
           disabled={isSubmitting || !hasFirma}
           onClick={handleConfirmar}
-          className="flex-1 py-2 px-4 bg-primary-blue text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex-1 py-2 px-4 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isSubmitting ? 'Registrando confirmación...' : 'Confirmar recepción'}
         </button>

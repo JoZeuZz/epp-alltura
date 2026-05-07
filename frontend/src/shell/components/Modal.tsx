@@ -7,14 +7,26 @@ interface ModalProps {
   children: ReactNode;
   title?: string;
   description?: string;
+  /** External element id for aria-labelledby — skips rendering internal <h2> */
+  titleId?: string;
+  /** External element id for aria-describedby — skips rendering internal sr-only <p> */
+  descriptionId?: string;
 }
 
-export default function Modal({ isOpen, onClose, children, title, description }: ModalProps) {
+export default function Modal({
+  isOpen,
+  onClose,
+  children,
+  title,
+  description,
+  titleId: externalTitleId,
+  descriptionId: externalDescId,
+}: ModalProps) {
   const previousActiveElement = useRef<HTMLElement | null>(null);
-  const dialogContainerRef = useRef<HTMLDivElement | null>(null);
+  const dialogPanelRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const titleId = useId();
-  const descId = useId();
+  const internalTitleId = useId();
+  const internalDescId = useId();
   const onCloseRef = useRef(onClose);
 
   useEffect(() => {
@@ -49,86 +61,68 @@ export default function Modal({ isOpen, onClose, children, title, description }:
 
   if (!isOpen) return null;
 
+  const effectiveTitleId = externalTitleId ?? (title ? internalTitleId : undefined);
+  const effectiveDescId  = externalDescId  ?? (description ? internalDescId : undefined);
+  const showInternalTitle = title && !externalTitleId;
+
   return (
     <FocusTrap
       focusTrapOptions={{
-        initialFocus: () => closeButtonRef.current ?? dialogContainerRef.current ?? document.body,
-        fallbackFocus: () => dialogContainerRef.current ?? document.body,
+        initialFocus: () => {
+          const panel = dialogPanelRef.current;
+          if (!panel) return closeButtonRef.current ?? document.body;
+          // Respect explicit autofocus attribute (e.g. cancel button in ConfirmationModal)
+          const autoFocused = panel.querySelector<HTMLElement>('[autofocus]');
+          if (autoFocused) return autoFocused;
+          // First focusable form field for form-type modals
+          const firstField = panel.querySelector<HTMLElement>(
+            'input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled])'
+          );
+          return firstField ?? closeButtonRef.current ?? document.body;
+        },
+        fallbackFocus: () => dialogPanelRef.current ?? document.body,
         clickOutsideDeactivates: false,
         escapeDeactivates: false,
         returnFocusOnDeactivate: false,
       }}
     >
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 animate-backdrop-in"
         onClick={(event) => {
-          if (event.target === event.currentTarget) {
-            onClose();
-          }
-        }}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? titleId : undefined}
-        aria-describedby={description ? descId : undefined}
-        style={{
-          animation: 'fadeIn 0.2s ease-out',
+          if (event.target === event.currentTarget) onClose();
         }}
       >
-        <style>{`
-          @keyframes fadeIn {
-            from {
-              opacity: 0;
-            }
-            to {
-              opacity: 1;
-            }
-          }
-
-          @keyframes modalSlideIn {
-            from {
-              opacity: 0;
-              transform: scale(0.95) translateY(-10px);
-            }
-            to {
-              opacity: 1;
-              transform: scale(1) translateY(0);
-            }
-          }
-
-          @media (prefers-reduced-motion: reduce) {
-            * {
-              animation-duration: 0.01ms !important;
-              animation-iteration-count: 1 !important;
-              transition-duration: 0.01ms !important;
-            }
-          }
-        `}</style>
-        
         <div
-          ref={dialogContainerRef}
-          className="bg-white p-4 sm:p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] sm:max-h-[85vh] overflow-y-auto"
+          ref={dialogPanelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={effectiveTitleId}
+          aria-describedby={effectiveDescId}
+          className="bg-surface p-4 sm:p-6 md:p-8 rounded-2xl shadow-modal w-full max-w-4xl max-h-[90vh] sm:max-h-[85vh] overflow-y-auto animate-modal-in"
           onClick={(e) => e.stopPropagation()}
-          role="document"
           tabIndex={-1}
-          style={{
-            animation: 'modalSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          }}
         >
-          <div className="flex justify-end mb-2">
+          <div className={`flex items-center mb-2 ${showInternalTitle ? 'justify-between' : 'justify-end'}`}>
+            {showInternalTitle && (
+              <h2 id={internalTitleId} className="heading-4 text-content-primary">
+                {title}
+              </h2>
+            )}
             <button
               ref={closeButtonRef}
-              onClick={onClose} 
-              className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg p-1.5 text-2xl leading-none transition-all duration-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary-blue focus:ring-offset-2"
-              aria-label="Cerrar modal"
+              onClick={onClose}
+              className="flex items-center justify-center w-8 h-8 rounded-lg text-content-disabled hover:text-content-secondary hover:bg-surface-overlay transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 flex-shrink-0"
+              aria-label="Cerrar"
             >
-              <span aria-hidden="true">&times;</span>
+              <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
           </div>
-          <div>
-            {title && <h2 id={titleId} className="sr-only">{title}</h2>}
-            {description && <p id={descId} className="sr-only">{description}</p>}
-            {children}
-          </div>
+          {description && !externalDescId && (
+            <p id={internalDescId} className="sr-only">{description}</p>
+          )}
+          {children}
         </div>
       </div>
     </FocusTrap>

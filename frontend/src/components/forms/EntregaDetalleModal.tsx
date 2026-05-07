@@ -24,10 +24,10 @@ const ESTADO_LABELS: Record<EntregaEstado, string> = {
 };
 
 const ESTADO_CLASSES: Record<EntregaEstado, string> = {
-  borrador: 'bg-gray-100 text-gray-700',
+  borrador: 'bg-surface-overlay text-content-secondary',
   pendiente_firma: 'bg-yellow-100 text-yellow-800',
-  confirmada: 'bg-green-100 text-green-800',
-  anulada: 'bg-red-100 text-red-700',
+  confirmada: 'bg-success-subtle text-green-800',
+  anulada: 'bg-danger-subtle text-danger-text',
   revertida_admin: 'bg-slate-200 text-slate-700',
 };
 
@@ -42,9 +42,9 @@ const CONDICION_LABELS: Record<CondicionSalida, string> = {
 };
 
 const CONDICION_CLASSES: Record<CondicionSalida, string> = {
-  ok: 'bg-green-100 text-green-700',
+  ok: 'bg-success-subtle text-success-text',
   usado: 'bg-yellow-100 text-yellow-700',
-  danado: 'bg-red-100 text-red-700',
+  danado: 'bg-danger-subtle text-danger-text',
 };
 
 const formatDate = (iso?: string | null) => {
@@ -110,71 +110,71 @@ const EntregaDetalleModal: React.FC<EntregaDetalleModalProps> = ({
       {/* Encabezado */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Trabajador</p>
-          <p className="text-sm text-gray-900">{trabajadorNombre}</p>
-          {entrega.rut && <p className="text-xs text-gray-500">RUT {entrega.rut}</p>}
+          <p className="text-xs font-medium text-content-muted uppercase tracking-wide mb-1">Trabajador</p>
+          <p className="text-sm text-content-primary">{trabajadorNombre}</p>
+          {entrega.rut && <p className="text-xs text-content-muted">RUT {entrega.rut}</p>}
         </div>
 
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Estado</p>
+          <p className="text-xs font-medium text-content-muted uppercase tracking-wide mb-1">Estado</p>
           <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ESTADO_CLASSES[estado] ?? 'bg-gray-100 text-gray-700'}`}
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${ESTADO_CLASSES[estado] ?? 'bg-surface-overlay text-content-secondary'}`}
           >
             {ESTADO_LABELS[estado] ?? estado}
           </span>
         </div>
 
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Tipo</p>
-          <p className="text-sm text-gray-900">{TIPO_LABELS[tipo] ?? tipo}</p>
+          <p className="text-xs font-medium text-content-muted uppercase tracking-wide mb-1">Tipo</p>
+          <p className="text-sm text-content-primary">{TIPO_LABELS[tipo] ?? tipo}</p>
         </div>
 
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+          <p className="text-xs font-medium text-content-muted uppercase tracking-wide mb-1">
             Creado el
           </p>
-          <p className="text-sm text-gray-900">{formatDate(entrega.creado_en)}</p>
+          <p className="text-sm text-content-primary">{formatDate(entrega.creado_en)}</p>
         </div>
 
         {entrega.confirmada_en && (
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+            <p className="text-xs font-medium text-content-muted uppercase tracking-wide mb-1">
               Confirmado el
             </p>
-            <p className="text-sm text-gray-900">{formatDate(entrega.confirmada_en)}</p>
+            <p className="text-sm text-content-primary">{formatDate(entrega.confirmada_en)}</p>
           </div>
         )}
 
         {entrega.nota_destino && (
           <div className="sm:col-span-2">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Nota</p>
-            <p className="text-sm text-gray-700">{entrega.nota_destino}</p>
+            <p className="text-xs font-medium text-content-muted uppercase tracking-wide mb-1">Nota</p>
+            <p className="text-sm text-content-secondary">{entrega.nota_destino}</p>
           </div>
         )}
       </div>
 
       {/* Tabla de artículos */}
       <div className="mb-6">
-        <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Artículos</h3>
+        <h3 className="text-xs font-medium text-content-muted uppercase tracking-wide mb-2">Artículos</h3>
         {entrega.detalles && entrega.detalles.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm divide-y divide-gray-200 border border-gray-200 rounded-lg overflow-hidden">
-              <thead className="bg-gray-50">
+            <table className="min-w-full text-sm divide-y divide-edge border border-edge rounded-lg overflow-hidden">
+              <thead className="bg-surface-muted">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Artículo</th>
-                  <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Cant.</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cond.</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Activo</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Notas</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-content-muted uppercase">Artículo</th>
+                  <th className="px-3 py-2 text-center text-xs font-medium text-content-muted uppercase">Cant.</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-content-muted uppercase">Cond.</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-content-muted uppercase">Activo</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-content-muted uppercase">Notas</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
+              <tbody className="bg-surface divide-y divide-edge">
                 {entrega.detalles.map((d) => {
                   const cond = d.condicion_salida as CondicionSalida;
                   return (
                     <tr key={d.id}>
-                      <td className="px-3 py-2 text-gray-900">{d.articulo_nombre ?? `#${d.articulo_id}`}</td>
-                      <td className="px-3 py-2 text-center text-gray-700">{formatQuantityInteger(d.cantidad)}</td>
+                      <td className="px-3 py-2 text-content-primary">{d.articulo_nombre ?? `#${d.articulo_id}`}</td>
+                      <td className="px-3 py-2 text-center text-content-secondary">{formatQuantityInteger(d.cantidad)}</td>
                       <td className="px-3 py-2">
                         {cond ? (
                           <span
@@ -186,10 +186,10 @@ const EntregaDetalleModal: React.FC<EntregaDetalleModalProps> = ({
                           '—'
                         )}
                       </td>
-                      <td className="px-3 py-2 text-gray-600">
+                      <td className="px-3 py-2 text-content-secondary">
                         {d.activo_codigo ?? '—'}
                       </td>
-                      <td className="px-3 py-2 text-gray-500 text-xs">{d.notas ?? '—'}</td>
+                      <td className="px-3 py-2 text-content-muted text-xs">{d.notas ?? '—'}</td>
                     </tr>
                   );
                 })}
@@ -197,37 +197,37 @@ const EntregaDetalleModal: React.FC<EntregaDetalleModalProps> = ({
             </table>
           </div>
         ) : (
-          <p className="text-sm text-gray-500 italic">Sin artículos registrados.</p>
+          <p className="text-sm text-content-muted italic">Sin artículos registrados.</p>
         )}
       </div>
 
       {/* Firma (visible cuando el flujo ya fue cerrado) */}
       {estado === 'confirmada' && (
         <div className="border-t pt-4">
-          <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Firma de recepción</h3>
+          <h3 className="text-xs font-medium text-content-muted uppercase tracking-wide mb-3">Firma de recepción</h3>
           {entrega.firma_imagen_url ? (
             <div className="flex flex-col sm:flex-row gap-4 items-start">
               <img
                 src={entrega.firma_imagen_url}
                 alt="Firma del trabajador"
-                className="border border-gray-200 rounded-lg max-h-32 bg-white"
+                className="border border-edge rounded-lg max-h-32 bg-surface"
               />
               <div>
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-content-secondary">
                   <span className="font-medium">Firmado el:</span>{' '}
                   {formatDate(entrega.firmado_en)}
                 </p>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-500 italic">Firma no disponible.</p>
+            <p className="text-sm text-content-muted italic">Firma no disponible.</p>
           )}
         </div>
       )}
 
       {/* Botón cerrar */}
       {actaError && (
-        <p className="mt-4 text-sm text-red-600">{actaError}</p>
+        <p className="mt-4 text-sm text-danger-text">{actaError}</p>
       )}
 
       <div className="mt-5 flex flex-col sm:flex-row gap-2">
@@ -235,14 +235,14 @@ const EntregaDetalleModal: React.FC<EntregaDetalleModalProps> = ({
           type="button"
           onClick={handleDownloadActa}
           disabled={isDownloadingActa}
-          className="w-full py-2 px-4 bg-primary-blue text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60 transition-colors"
+          className="w-full py-2 px-4 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-60 transition-colors"
         >
           {isDownloadingActa ? 'Generando acta...' : 'Descargar acta'}
         </button>
         <button
           type="button"
           onClick={onClose}
-          className="w-full py-2 px-4 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          className="w-full py-2 px-4 border border-edge-strong rounded-lg text-sm text-content-secondary hover:bg-surface-muted transition-colors"
         >
           Cerrar
         </button>

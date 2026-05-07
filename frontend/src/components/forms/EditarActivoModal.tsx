@@ -59,7 +59,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
       <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Valor ($)</label>
+            <label className="block text-sm font-medium text-content-secondary mb-1">Valor ($)</label>
             <input
               type="number"
               step="1"
@@ -67,16 +67,16 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
               value={valor}
               onChange={(e) => setValor(e.target.value)}
               placeholder="Ej: 150000"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-md border border-edge-strong px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Fecha vencimiento</label>
+            <label className="block text-sm font-medium text-content-secondary mb-1">Fecha vencimiento</label>
             <input
               type="date"
               value={fechaVencimiento}
               onChange={(e) => setFechaVencimiento(e.target.value)}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-md border border-edge-strong px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
             />
           </div>
         </div>
@@ -85,7 +85,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+            className="px-4 py-2 text-sm text-content-secondary bg-surface-overlay rounded-md hover:bg-edge"
           >
             Cancelar
           </button>
@@ -93,7 +93,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
             type="button"
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
-            className="px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+            className="px-4 py-2 text-sm text-white bg-primary rounded-md hover:bg-primary-hover disabled:opacity-50"
           >
             {mutation.isPending ? 'Guardando...' : 'Guardar cambios'}
           </button>
