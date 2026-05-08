@@ -5,7 +5,6 @@ export { default as Modal } from './components/Modal';
 export { default as ConfirmationModal } from './components/ConfirmationModal';
 export type { ConfirmationModalProps } from './components/ConfirmationModal';
 export { default as ErrorMessage } from './components/ErrorMessage';
-export { default as ErrorModal } from './components/ErrorModal';
 export { default as ErrorPage } from './components/ErrorPage';
 export { default as LoadingOverlay } from './components/LoadingOverlay';
 export { default as Spinner } from './components/Spinner';
@@ -59,7 +58,6 @@ export * from './services/performanceService';
 export { frontendLogger } from './services/frontendLogger';
 
 // Shell utils
-export * from './utils/tourSteps';
 export * from './utils/imageProcessing';
 export * from './utils/image';
 export * from './utils/name';

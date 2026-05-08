@@ -12,8 +12,8 @@ module.exports = {
     {
       name: "alltura-frontend",
       cwd: "./frontend",
-      script: "cmd.exe",
-      args: "/c npm run dev",
+      script: "npm",
+      args: "run dev",
       interpreter: "none",
       env: {
         NODE_ENV: "development",

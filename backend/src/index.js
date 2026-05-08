@@ -29,7 +29,6 @@ const firmasRoutes = require('./routes/firmas.routes');
 const comprasRoutes = require('./routes/compras.routes');
 const inventarioRoutes = require('./routes/inventario.routes');
 const proveedoresRoutes = require('./routes/proveedores.routes');
-const documentosRoutes = require('./routes/documentos.routes');
 const healthRoutes = require('./routes/health');
 
 // Cron scheduler
@@ -175,7 +174,6 @@ app.use('/api/firmas', firmasRoutes);
 app.use('/api/compras', comprasRoutes);
 app.use('/api/inventario', inventarioRoutes);
 app.use('/api/proveedores', proveedoresRoutes);
-app.use('/api/documentos', documentosRoutes);
 app.use('/health', healthRoutes);
 
 // Endpoint para métricas del cliente (performance monitoring)
