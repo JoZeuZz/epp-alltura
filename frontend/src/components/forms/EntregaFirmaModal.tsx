@@ -1,13 +1,25 @@
-import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import toast from 'react-hot-toast';
+import { QRCodeSVG } from 'qrcode.react';
 import Modal from '../Modal';
-import type { EntregaRow } from '../../services/apiService';
+import {
+  confirmEntrega,
+  firmarEntregaDispositivo,
+  generateEntregaSignatureToken,
+  type EntregaRow,
+} from '../../services/apiService';
+import { useDeliverySignatureEvents } from '../../hooks/useDeliverySignatureEvents';
 
 interface EntregaFirmaModalProps {
   isOpen: boolean;
   onClose: () => void;
   entrega: EntregaRow | null;
-  onFirmar: (entregaId: string, firmaBase64: string, textoAceptacion: string) => Promise<void>;
-  isSubmitting: boolean;
+  onCompleted: () => void;
+}
+
+interface DeliveryTokenMeta {
+  token: string;
+  expira_en?: string;
 }
 
 const TEXTO_ACEPTACION =
@@ -18,8 +30,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
   isOpen,
   onClose,
   entrega,
-  onFirmar,
-  isSubmitting,
+  onCompleted,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const signatureCanvasId = useId();
@@ -27,18 +38,111 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
   const signatureErrorId = useId();
   const isDrawing = useRef(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
+  const confirmingRef = useRef(false);
   const [hasFirma, setHasFirma] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [qrMeta, setQrMeta] = useState<DeliveryTokenMeta | null>(null);
+  const [isGeneratingQr, setIsGeneratingQr] = useState(false);
+
+  const qrLink = useMemo(() => {
+    if (!qrMeta?.token) {
+      return null;
+    }
+
+    return `${window.location.origin}/firma/${qrMeta.token}`;
+  }, [qrMeta]);
+
+  const finalizeDelivery = useCallback(async () => {
+    if (!entrega || confirmingRef.current) {
+      return;
+    }
+
+    confirmingRef.current = true;
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      await confirmEntrega(entrega.id);
+      toast.success('Entrega confirmada y activo actualizado.');
+      onCompleted();
+    } catch (err: unknown) {
+      const apiError = err as { response?: { data?: { message?: string } }; message?: string };
+      const message =
+        apiError?.response?.data?.message ??
+        apiError?.message ??
+        'No se pudo confirmar la entrega.';
+
+      setError(message);
+      confirmingRef.current = false;
+      setIsSubmitting(false);
+    }
+  }, [entrega, onCompleted]);
+
+  useDeliverySignatureEvents({
+    enabled: isOpen && Boolean(entrega?.id),
+    onSigned: (event) => {
+      if (!entrega || event.entrega_id !== entrega.id) {
+        return;
+      }
+
+      void finalizeDelivery();
+    },
+  });
 
   // Reset canvas when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
       setHasFirma(false);
       setError(null);
+      setIsSubmitting(false);
+      setQrMeta(null);
+      setIsGeneratingQr(false);
       lastPos.current = null;
       isDrawing.current = false;
+      confirmingRef.current = false;
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !entrega?.id) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadQr = async () => {
+      setIsGeneratingQr(true);
+      try {
+        const data = await generateEntregaSignatureToken(entrega.id, 30);
+        if (!cancelled) {
+          setQrMeta({
+            token: data.token,
+            expira_en: data.expira_en,
+          });
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const apiError = err as { response?: { data?: { message?: string } }; message?: string };
+          setError(
+            apiError?.response?.data?.message ??
+              apiError?.message ??
+              'No se pudo generar el QR de firma.'
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsGeneratingQr(false);
+        }
+      }
+    };
+
+    void loadQr();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [entrega?.id, isOpen]);
 
   // Set canvas background to white when it mounts
   useEffect(() => {
@@ -135,13 +239,25 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
 
     const firmaBase64 = canvas.toDataURL('image/png');
     const acceptanceText = TEXTO_ACEPTACION;
+    setIsSubmitting(true);
 
     try {
-      await onFirmar(entrega.id, firmaBase64, acceptanceText);
+      await firmarEntregaDispositivo(entrega.id, firmaBase64, acceptanceText);
+      await finalizeDelivery();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
       setError(e?.response?.data?.message ?? e?.message ?? 'Error al registrar la firma.');
+      setIsSubmitting(false);
     }
+  };
+
+  const handleCopyQrLink = async () => {
+    if (!qrLink) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(qrLink);
+    toast.success('Enlace de firma copiado al portapapeles.');
   };
 
   if (!entrega) return null;
@@ -172,6 +288,69 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
       {/* Texto de aceptación */}
       <div className="mb-4 p-3 bg-surface-muted rounded-lg border border-edge">
         <p className="text-xs text-content-secondary leading-relaxed">{acceptanceText}</p>
+      </div>
+
+      {/* QR remoto */}
+      <div className="mb-4 rounded-lg border border-edge bg-white p-4">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <h3 className="text-sm font-semibold text-content-primary">Firma remota por QR</h3>
+            <p className="text-xs text-content-muted mt-1">
+              El trabajador puede escanear este QR desde su teléfono. Cuando firme, esta pantalla se actualizará sola.
+            </p>
+          </div>
+          {isGeneratingQr ? (
+            <span className="text-xs text-content-muted">Generando QR...</span>
+          ) : qrMeta ? (
+            <span className="text-xs text-success-text font-medium">QR activo</span>
+          ) : null}
+        </div>
+
+        {qrLink ? (
+          <div className="flex flex-col sm:flex-row gap-4 items-start">
+            <div className="rounded-lg border border-edge p-3 bg-white">
+              <QRCodeSVG
+                value={qrLink}
+                size={156}
+                bgColor="#ffffff"
+                fgColor="#1E2A4A"
+                level="M"
+              />
+            </div>
+            <div className="flex-1 space-y-3">
+              <div className="rounded-lg bg-surface-muted border border-edge p-3">
+                <p className="text-xs text-content-muted break-all">{qrLink}</p>
+              </div>
+              {qrMeta?.expira_en ? (
+                <p className="text-xs text-content-muted">
+                  Expira: {new Date(qrMeta.expira_en).toLocaleTimeString('es-CL', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              ) : null}
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => void handleCopyQrLink()}
+                  className="px-3 py-2 rounded-md border border-edge-strong text-sm text-content-secondary hover:bg-surface-muted transition-colors"
+                >
+                  Copiar enlace
+                </button>
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`Firma esta entrega en: ${qrLink}`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-2 rounded-md border border-edge-strong text-sm text-content-secondary hover:bg-surface-muted transition-colors"
+                >
+                  Compartir por WhatsApp
+                </a>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-content-muted">El QR aún no está disponible.</p>
+        )}
       </div>
 
       {/* Canvas firma */}
@@ -234,6 +413,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
         <button
           type="button"
           onClick={onClose}
+          disabled={isSubmitting}
           className="flex-1 py-2 px-4 border border-edge-strong rounded-lg text-sm text-content-secondary hover:bg-surface-muted transition-colors"
         >
           Cancelar
