@@ -21,23 +21,35 @@ const uuid = Joi.string()
   .pattern(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)
   .messages({ 'string.pattern.base': '{{#label}} must be a valid GUID' });
 
+const entregaDetalleSchema = Joi.object({
+  articulo_id: uuid.required(),
+  activo_ids: Joi.array().items(uuid).min(1).required(),
+  condicion_salida: Joi.string().valid('ok', 'usado', 'danado').default('ok'),
+  notas: Joi.string().trim().max(1000).allow('', null),
+});
+
 const entregarSchema = Joi.object({
   trabajador_id: uuid.required(),
   ubicacion_origen_id: uuid.required(),
   ubicacion_destino_id: uuid.required(),
-  condicion_salida: Joi.string().valid('ok', 'usado', 'danado').default('ok'),
-  notas: Joi.string().trim().max(1000).allow('', null),
+  nota_destino: Joi.string().trim().max(1000).allow('', null),
   fecha_devolucion_esperada: Joi.date().iso().allow(null),
-  firma_imagen_url: Joi.string().trim().min(10).required(),
+  detalles: Joi.array().items(entregaDetalleSchema).min(1).required(),
+});
+
+const devolverDetalleSchema = Joi.object({
+  articulo_id: uuid.required(),
+  activo_ids: Joi.array().items(uuid).min(1).required(),
+  condicion_entrada: Joi.string().valid('ok', 'usado', 'danado', 'perdido').default('ok'),
+  disposicion: Joi.string().valid('devuelto', 'perdido', 'baja', 'mantencion').required(),
+  notas: Joi.string().trim().max(1000).allow('', null),
 });
 
 const devolverSchema = Joi.object({
   trabajador_id: uuid.required(),
-  bodega_recepcion_id: uuid.required(),
-  condicion_entrada: Joi.string().valid('ok', 'usado', 'danado', 'perdido').default('ok'),
-  disposicion: Joi.string().valid('devuelto', 'perdido', 'baja', 'mantencion').required(),
+  ubicacion_recepcion_id: uuid.required(),
   notas: Joi.string().trim().max(1000).allow('', null),
-  firma_imagen_url: Joi.string().trim().min(10).required(),
+  detalles: Joi.array().items(devolverDetalleSchema).min(1).required(),
 });
 
 router.post(
