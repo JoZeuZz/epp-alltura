@@ -41,6 +41,8 @@ export const useDeliverySignatureEvents = ({
       return;
     }
 
+    reconnectDelayMsRef.current = 1000;
+
     let source: EventSource | null = null;
     let cancelled = false;
     let aborted = false;
@@ -85,7 +87,7 @@ export const useDeliverySignatureEvents = ({
       try {
         const accessToken = getStoredAccessToken();
         if (!accessToken) {
-          scheduleReconnect();
+          aborted = true;
           return;
         }
 
@@ -94,7 +96,15 @@ export const useDeliverySignatureEvents = ({
           headers: { Authorization: `Bearer ${accessToken}` },
         });
 
-        if (!tokenResponse.ok || cancelled || aborted) {
+        if (cancelled || aborted) {
+          return;
+        }
+        if (!tokenResponse.ok) {
+          if (tokenResponse.status === 401 || tokenResponse.status === 403) {
+            aborted = true;
+            clearReconnectTimer();
+            return;
+          }
           scheduleReconnect();
           return;
         }
