@@ -107,23 +107,6 @@ const swaggerSpec = {
         },
       },
     },
-    '/api/ubicaciones': {
-      get: {
-        tags: ['Catálogos'],
-        summary: 'Listar ubicaciones',
-        security: [{ bearerAuth: [] }],
-        responses: {
-          200: {
-            description: 'Listado de ubicaciones',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ApiSuccess' },
-              },
-            },
-          },
-        },
-      },
-    },
     '/api/articulos': {
       get: {
         tags: ['Catálogos'],
