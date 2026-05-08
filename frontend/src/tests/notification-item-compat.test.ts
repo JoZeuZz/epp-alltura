@@ -28,8 +28,8 @@ describe('notificationItemCompat', () => {
   });
 
   it('keeps allowed EPP links', () => {
-    expect(resolveNotificationItemNavigationLink('/supervisor/operaciones')).toBe(
-      '/supervisor/operaciones'
+    expect(resolveNotificationItemNavigationLink('/supervisor/dashboard')).toBe(
+      '/supervisor/dashboard'
     );
     expect(resolveNotificationItemNavigationLink('/admin/trabajadores?perfil=123')).toBe(
       '/admin/trabajadores?perfil=123'
