@@ -36,8 +36,6 @@ export const ALLOWED_NOTIFICATION_PATHS = new Set([
   '/admin/trabajadores',
   '/supervisor/dashboard',
   '/supervisor/trazabilidad',
-  '/supervisor/operaciones',
-  '/supervisor/devoluciones',
   '/notifications',
   '/profile',
 ]);

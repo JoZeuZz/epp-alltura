@@ -51,13 +51,13 @@ describe('NotificationItem navigation', () => {
     const user = userEvent.setup();
     render(
       <NotificationItem
-        notification={{ ...baseNotification, link: '/supervisor/operaciones' }}
+        notification={{ ...baseNotification, link: '/supervisor/dashboard' }}
         onMarkAsRead={vi.fn(async () => {})}
         onDelete={vi.fn(async () => {})}
       />
     );
 
     await user.click(screen.getByText('Notificación de prueba'));
-    expect(navigateMock).toHaveBeenCalledWith('/supervisor/operaciones');
+    expect(navigateMock).toHaveBeenCalledWith('/supervisor/dashboard');
   });
 });
