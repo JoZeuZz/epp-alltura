@@ -82,8 +82,38 @@ const publishDeliverySigned = ({
   deadClients.forEach(removeClient);
 };
 
+const publishReturnSigned = ({
+  signatureId,
+  devolucionId,
+  metodo,
+  firmadoEn,
+  trabajadorId,
+}) => {
+  const payload = {
+    signature_id: signatureId,
+    devolucion_id: devolucionId,
+    metodo,
+    firmado_en: firmadoEn || new Date().toISOString(),
+    trabajador_id: trabajadorId,
+  };
+
+  const deadClients = [];
+
+  clients.forEach((client, clientId) => {
+    const okEvent = safeWrite(client.res, 'event: return-signed\n');
+    const okId = safeWrite(client.res, `id: ${signatureId}\n`);
+    const okData = safeWrite(client.res, `data: ${JSON.stringify(payload)}\n\n`);
+    if (!okEvent || !okId || !okData) {
+      deadClients.push(clientId);
+    }
+  });
+
+  deadClients.forEach(removeClient);
+};
+
 module.exports = {
   addClient,
   removeClient,
   publishDeliverySigned,
+  publishReturnSigned,
 };
