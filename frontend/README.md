@@ -1,183 +1,91 @@
-# Proyecto de Reportabilidad - Frontend
+# Frontend Alltura
 
-Este proyecto es la interfaz de usuario para la aplicación de reportabilidad de Alltura.
+Aplicacion React para operacion de inventario, articulos, custodias, firmas y trazabilidad.
 
-## Tecnologías
+## Stack
 
-- React 19.1.1
+- React 19
 - TypeScript
-- Tailwind CSS 3.4.4
-- Vite 7
-- React Router v7
-- @tanstack/react-query
+- Vite
+- React Router
+- TanStack Query
+- Tailwind CSS
 
-## 📱 Sistema Responsive
+## Rutas activas
 
-La aplicación cuenta con un **sistema de diseño responsive completo** que garantiza una experiencia óptima en todos los dispositivos.
+Publicas:
 
-### Breakpoints Personalizados
+- /login
+- /firma/:token
 
-| Breakpoint | Ancho | Dispositivo |
-|------------|-------|-------------|
-| `xs` | 480px | Smartphones grandes |
-| `sm` | 640px | Tablets pequeñas |
-| `md` | 768px | Tablets |
-| `lg` | 1024px | Laptops/Desktop |
-| `xl` | 1280px | Pantallas grandes |
-| `2xl` | 1536px | Pantallas muy grandes |
+Admin:
 
-### Hooks Disponibles
+- /admin/dashboard
+- /admin/trabajadores
+- /admin/users
+- /admin/ubicacion/bodegas
+- /admin/ubicacion/proyectos
+- /admin/inventario/epp
+- /admin/inventario/equipos
+- /admin/inventario/herramientas
+- /admin/inventario/articulos
 
-```tsx
-import { useBreakpoint, useBreakpoints, useMediaQuery } from './hooks';
+Supervisor:
 
-// Hook para breakpoint actual
-const breakpoint = useBreakpoint(); // 'base' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl'
+- /supervisor/dashboard
 
-// Hook para múltiples estados
-const { isMobile, isTablet, isDesktop, isLg, isXl } = useBreakpoints();
+## Flujo operativo actual en UI
 
-// Hook para media queries personalizadas
-const isDark = useMediaQuery('(prefers-color-scheme: dark)');
+No hay pagina dedicada activa para entregas/devoluciones en el router principal.
+
+El flujo vigente se ejecuta desde el perfil de activo:
+
+1. Seleccionar activo en inventario por scope.
+2. Abrir perfil de activo.
+3. Entrega:
+   - crear borrador (EntregaCreateModal)
+   - firmar (EntregaFirmaModal)
+   - confirmar entrega
+4. Devolucion:
+   - crear borrador (DevolucionActivoModal)
+   - firmar (DevolucionFirmaModal)
+   - confirmar devolucion
+
+SSE:
+
+- useDeliverySignatureEvents escucha delivery-signed y return-signed para actualizar flujo de firma remota.
+
+## Contratos cliente (same-origin)
+
+La app consume rutas relativas /api mediante apiService/httpClient.
+
+Ejemplos:
+
+- /api/articulos
+- /api/inventario/activos-paged
+- /api/entregas
+- /api/devoluciones
+- /api/firmas/events/deliveries
+
+## Tipos de articulo en frontend
+
+Contrato vigente:
+
+- grupo_principal: epp, equipo, herramienta
+- subclasificacion: epp, medicion_ensayos, manual, electrica_cable, inalambrica_bateria
+- especialidades: oocc, ooee, equipos, trabajos_verticales_lineas_de_vida
+
+## Scripts
+
+```bash
+npm run dev
+npm run build
+npm run preview
+npm test
 ```
 
-### Componentes Responsive
+## Notas de mantenimiento
 
-#### ResponsiveGrid
-Grid adaptativo con variantes predefinidas:
-
-```tsx
-import { ResponsiveGrid } from './components/layout';
-
-// Variantes: 'cards' | 'stats' | 'compact' | 'wide'
-<ResponsiveGrid variant="cards" gap="lg">
-  {items.map(item => <Card key={item.id} {...item} />)}
-</ResponsiveGrid>
-```
-
-#### Container & Section
-Contenedores con ancho máximo y padding responsive:
-
-```tsx
-import { Container, Section } from './components/layout';
-
-<Container variant="default" padding="md">
-  <Section variant="card" padding="lg">
-    {/* Contenido */}
-  </Section>
-</Container>
-```
-
-#### ResponsiveTable
-Tabla con scroll horizontal y ocultación de columnas:
-
-```tsx
-import { ResponsiveTable } from './components/layout';
-
-<ResponsiveTable
-  columns={[
-    { key: 'name', header: 'Nombre' },
-    { key: 'email', header: 'Email', hideOnMobile: true },
-  ]}
-  data={items}
-  onRowClick={handleClick}
-/>
-```
-
-#### Componentes de Formulario
-Inputs optimizados con touch targets y accesibilidad:
-
-```tsx
-import { FormInput, FormSelect, FormTextarea, FormButtons } from './components/forms';
-
-<FormInput
-  id="email"
-  name="email"
-  label="Correo Electrónico"
-  type="email"
-  required
-  error={errors?.email}
-/>
-
-<FormButtons
-  submitText="Guardar"
-  onCancel={handleCancel}
-  isSubmitting={isSubmitting}
-/>
-```
-
-### Sistema Tipográfico
-
-Clases estandarizadas con tamaños responsive:
-
-```tsx
-<h1 className="heading-1">Título Principal</h1>
-<h2 className="heading-2">Subtítulo</h2>
-<p className="body-base">Texto normal</p>
-<p className="body-small text-gray-500">Texto secundario</p>
-<span className="stat-large text-primary-blue">1,234</span>
-```
-
-**Clases disponibles:**
-- Headings: `heading-hero`, `heading-1`, `heading-2`, `heading-3`, `heading-4`
-- Body: `body-large`, `body-base`, `body-small`
-- Labels: `label-large`, `label-base`
-- Stats: `stat-large`, `stat-base`, `stat-small`
-
-### Documentación Completa
-
-Para más detalles sobre el sistema responsive, consulta:
-📖 **[Guía de Sistema Responsive](./docs/RESPONSIVE_GUIDE.md)**
-
-Incluye:
-- Ejemplos de uso completos
-- Mejores prácticas
-- Patrones de diseño
-- Guía de accesibilidad
-
-## Scripts Disponibles
-
-En el directorio del proyecto, puedes ejecutar:
-
-### `npm run dev`
-
-Ejecuta la aplicación en modo de desarrollo con Vite.\
-Abre http://localhost:3000 (o el puerto que indique Vite) para verla en tu navegador.
-
-La página se recargará si haces cambios.\
-También verás cualquier error de lint en la consola.
-
-### `npm test`
-
-Lanza el corredor de pruebas en modo interactivo.
-
-### `npm run build`
-
-Construye la aplicación para producción en la carpeta `dist`.\
-Empaqueta React correctamente en modo de producción y optimiza la compilación para obtener el mejor rendimiento.
-
-### `npm run preview`
-
-Sirve la build de producción de forma local para previsualizarla.
-
-## Aprender Más
-
-Para aprender React, consulta la [documentación de React](https://reactjs.org/).
-
-## Migración de navegación Admin (Inventario/Ubicación)
-
-La navegación de Administración fue reorganizada en tres grupos: **Inventario**, **Personal** y **Ubicación**.
-
-### Rutas vigentes
-
-- `/admin/inventario/epp`
-- `/admin/inventario/equipos`
-- `/admin/inventario/herramientas`
-- `/admin/ubicacion/proyectos`
-- `/admin/ubicacion/bodegas`
-
-### Compatibilidad temporal (legacy)
-
-- `/admin/ubicaciones` redirige a `/admin/ubicacion/bodegas`.
-- `/admin/inventario` y subrutas legacy (`/articulos`, `/stock`, `/movimientos`, `/ingresos`, `/egresos`, `/activos`) redirigen a `/admin/inventario/herramientas`.
-- El layout legacy de inventario queda en `/admin/inventario/legacy` y no debe usarse como punto de entrada principal.
+- Mantener same-origin /api (sin hosts hardcodeados).
+- El cliente incluye metodos legacy en apiService no usados por rutas activas; revisar antes de usar en nuevas vistas.
+- Validar sincronia entre router, apiService y contratos backend para evitar drift.
