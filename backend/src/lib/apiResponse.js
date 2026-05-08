@@ -19,7 +19,6 @@ const buildErrorResponse = (message, errors = []) => ({
 });
 
 module.exports = {
-  buildSuccessResponse,
   buildErrorResponse,
   sendSuccess,
 };
