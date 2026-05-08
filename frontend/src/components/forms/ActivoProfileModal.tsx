@@ -230,7 +230,6 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
           trabajadores={trabajadores}
           ubicaciones={ubicaciones}
           articulos={articulos}
-          templates={[]}
           initialActivoId={profile.id}
           initialArticuloId={profile.articulo_id}
           lockActivoSelection
