@@ -68,11 +68,16 @@ describe('EntregaFirmaModal - afterSignatureBeforeConfirm extension point', () =
 
   it('afterSignatureBeforeConfirm defaults to no-op (undefined) and does not block confirmation', async () => {
     const onCompleted = vi.fn();
-    renderModal({ onCompleted });
+    renderModal({ onCompleted, alreadySigned: true });
 
-    // With alreadySigned=true the confirm button should be active
     const btn = screen.getByRole('button', { name: /confirmar/i });
-    expect(btn).toBeDefined();
+    expect(btn).not.toBeDisabled();
+
+    await userEvent.click(btn);
+
+    await waitFor(() => {
+      expect(confirmEntregaMock).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('if afterSignatureBeforeConfirm is provided, it is awaited before confirm', async () => {
