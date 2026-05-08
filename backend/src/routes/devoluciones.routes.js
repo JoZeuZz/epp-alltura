@@ -1,7 +1,6 @@
 const express = require('express');
 const Joi = require('joi');
-const jwt = require('jsonwebtoken');
-const FirmasController = require('../controllers/firmas.controller');
+const DevolucionesController = require('../controllers/devoluciones.controller');
 const { authMiddleware } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roles');
 const { imageUpload, validateImageMagic } = require('../middleware/upload');
@@ -32,13 +31,51 @@ const validateBody = (schema) => {
   };
 };
 
+const validateQuery = (schema) => {
+  return async (req, _res, next) => {
+    try {
+      req.query = await schema.validateAsync(req.query, {
+        abortEarly: false,
+        stripUnknown: true,
+        convert: true,
+      });
+      return next();
+    } catch (error) {
+      return next(error);
+    }
+  };
+};
+
 const uuid = Joi.string()
   .trim()
   .pattern(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)
   .messages({ 'string.pattern.base': '{{#label}} must be a valid GUID' });
 
-const tokenGenerationSchema = Joi.object({
-  expira_minutos: Joi.number().integer().min(5).max(1440).default(60),
+const eligibleAssetsQuerySchema = Joi.object({
+  trabajador_id: uuid.required(),
+  articulo_id: uuid.optional(),
+  search: Joi.string().trim().max(120).allow('', null),
+  limit: Joi.number().integer().min(1).max(200).default(50),
+});
+
+const devolucionDetailSchema = Joi.object({
+  articulo_id: uuid.required(),
+  activo_ids: Joi.array().items(uuid).min(1).required(),
+  condicion_entrada: Joi.string().valid('ok', 'usado', 'danado', 'perdido').default('ok'),
+  disposicion: Joi.string().valid('devuelto', 'perdido', 'baja', 'mantencion').required(),
+  notas: Joi.string().trim().max(1000).allow('', null),
+});
+
+const createDevolucionSchema = Joi.object({
+  trabajador_id: uuid.required(),
+  ubicacion_recepcion_id: uuid.required(),
+  notas: Joi.string().trim().max(1000).allow('', null),
+  detalles: Joi.array().items(devolucionDetailSchema).min(1).required(),
+});
+
+const listQuerySchema = Joi.object({
+  estado: Joi.string().trim().valid('borrador', 'pendiente_firma', 'confirmada', 'anulada'),
+  trabajador_id: uuid,
 });
 
 const acceptanceDetailSchema = Joi.object({
@@ -51,6 +88,10 @@ const signatureSchema = Joi.object({
   firma_imagen_url: Joi.string().trim().min(10).optional(),
   texto_aceptacion: Joi.string().trim().min(10).max(5000).required(),
   texto_aceptacion_detalle: Joi.array().items(acceptanceDetailSchema).default([]),
+});
+
+const anularSchema = Joi.object({
+  motivo: Joi.string().trim().min(5).max(1000).required(),
 });
 
 const normalizeSignaturePayload = (req, _res, next) => {
@@ -119,44 +160,6 @@ const ensureSignatureInput = (req, _res, next) => {
   );
 };
 
-const authFromStreamToken = (req, res, next) => {
-  const token = req.query?.stream_token;
-  if (!token || typeof token !== 'string') {
-    return res.status(401).json({
-      success: false,
-      message: 'Token de stream requerido',
-      data: null,
-      errors: ['STREAM_TOKEN_REQUIRED'],
-    });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET, {
-      issuer: 'alltura-api',
-      audience: 'alltura-client',
-    });
-
-    if (decoded.type !== 'delivery_events_stream' || !decoded.user?.id) {
-      return res.status(401).json({
-        success: false,
-        message: 'Token de stream inválido',
-        data: null,
-        errors: ['STREAM_TOKEN_INVALID'],
-      });
-    }
-
-    req.user = decoded.user;
-    return next();
-  } catch {
-    return res.status(401).json({
-      success: false,
-      message: 'Token de stream expirado o inválido',
-      data: null,
-      errors: ['STREAM_TOKEN_INVALID'],
-    });
-  }
-};
-
 const optionalSignatureUpload = (req, res, next) => {
   const contentType = String(req.headers['content-type'] || '').toLowerCase();
   if (contentType.includes('multipart/form-data')) {
@@ -165,68 +168,62 @@ const optionalSignatureUpload = (req, res, next) => {
   return next();
 };
 
-router.get('/tokens/:token', FirmasController.getTokenInfo);
-router.post(
-  '/events/deliveries/token',
-  authMiddleware,
-  checkRole(['admin', 'supervisor']),
-  FirmasController.generateDeliveryStreamToken
-);
 router.get(
-  '/events/deliveries',
-  authFromStreamToken,
+  '/activos-elegibles',
+  authMiddleware,
   checkRole(['admin', 'supervisor']),
-  FirmasController.streamDeliverySignatureEvents
+  validateQuery(eligibleAssetsQuerySchema),
+  DevolucionesController.listEligibleAssets
 );
+
+router.get(
+  '/',
+  authMiddleware,
+  checkRole(['admin', 'supervisor']),
+  validateQuery(listQuerySchema),
+  DevolucionesController.list
+);
+
+router.get(
+  '/:id',
+  authMiddleware,
+  checkRole(['admin', 'supervisor']),
+  DevolucionesController.getById
+);
+
 router.post(
-  '/tokens/:token/firmar',
+  '/',
+  authMiddleware,
+  checkRole(['admin', 'supervisor']),
+  validateBody(createDevolucionSchema),
+  DevolucionesController.create
+);
+
+router.post(
+  '/:id/firmar-dispositivo',
+  authMiddleware,
+  checkRole(['admin', 'supervisor']),
   optionalSignatureUpload,
   validateImageMagic,
   normalizeSignaturePayload,
   validateBody(signatureSchema),
   ensureSignatureInput,
-  FirmasController.consumeToken
+  DevolucionesController.signInDevice
 );
 
 router.post(
-  '/entregas/:entregaId/token',
+  '/:id/confirm',
   authMiddleware,
   checkRole(['admin', 'supervisor']),
-  validateBody(tokenGenerationSchema),
-  FirmasController.generateToken
+  DevolucionesController.confirm
 );
 
 router.post(
-  '/entregas/:entregaId/firmar-dispositivo',
+  '/:id/anular',
   authMiddleware,
   checkRole(['admin', 'supervisor']),
-  optionalSignatureUpload,
-  validateImageMagic,
-  normalizeSignaturePayload,
-  validateBody(signatureSchema),
-  ensureSignatureInput,
-  FirmasController.signInDevice
-);
-
-// ─── Devoluciones: QR token ───────────────────────────────────────────────
-router.post(
-  '/devoluciones/:devolucionId/token',
-  authMiddleware,
-  checkRole(['admin', 'supervisor']),
-  validateBody(tokenGenerationSchema),
-  FirmasController.generateReturnToken
-);
-
-router.get('/devoluciones/:token', FirmasController.getReturnTokenInfo);
-
-router.post(
-  '/devoluciones/:token/firmar',
-  optionalSignatureUpload,
-  validateImageMagic,
-  normalizeSignaturePayload,
-  validateBody(signatureSchema),
-  ensureSignatureInput,
-  FirmasController.consumeReturnToken
+  validateBody(anularSchema),
+  DevolucionesController.anular
 );
 
 module.exports = router;

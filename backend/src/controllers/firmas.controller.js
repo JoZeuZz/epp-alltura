@@ -181,6 +181,64 @@ class FirmasController {
       return next(error);
     }
   }
+
+  // ─── Devoluciones: token QR ───────────────────────────────────────────────
+
+  static async generateReturnToken(req, res, next) {
+    try {
+      const data = await FirmasService.generateReturnToken(
+        req.params.devolucionId,
+        req.user.id,
+        req.body || {}
+      );
+      return sendSuccess(res, {
+        status: 201,
+        message: 'Token de firma de devolución generado correctamente',
+        data,
+      });
+    } catch (error) {
+      logger.error('Error generating return token:', error);
+      return next(error);
+    }
+  }
+
+  static async getReturnTokenInfo(req, res, next) {
+    try {
+      const data = await FirmasService.getReturnTokenInfo(req.params.token);
+      return sendSuccess(res, {
+        message: 'Información del token de devolución obtenida correctamente',
+        data,
+      });
+    } catch (error) {
+      logger.error('Error retrieving return token info:', error);
+      return next(error);
+    }
+  }
+
+  static async consumeReturnToken(req, res, next) {
+    let uploadedSignatureUrl = null;
+
+    try {
+      const { payload, uploadedSignatureUrl: uploadedUrl } = await buildSignaturePayload(req);
+      uploadedSignatureUrl = uploadedUrl;
+
+      const data = await FirmasService.consumeReturnTokenAndSign(
+        req.params.token,
+        payload,
+        buildRequestMeta(req)
+      );
+
+      return sendSuccess(res, {
+        status: 201,
+        message: 'Firma de devolución registrada correctamente usando token',
+        data,
+      });
+    } catch (error) {
+      await cleanupUploadedSignature(uploadedSignatureUrl);
+      logger.error('Error consuming return token and signing:', error);
+      return next(error);
+    }
+  }
 }
 
 module.exports = FirmasController;

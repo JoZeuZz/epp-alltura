@@ -575,6 +575,368 @@ class FirmasService {
 
     return signatureResult.rows[0];
   }
+
+  // ─── QR / Token para DEVOLUCIONES ─────────────────────────────────────────
+
+  static async ensureReturnTokenTable(client) {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS firma_token_devolucion (
+        id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        devolucion_id         UUID NOT NULL REFERENCES devolucion(id) ON DELETE CASCADE,
+        trabajador_id         UUID NOT NULL REFERENCES trabajador(id),
+        creado_por_usuario_id UUID NOT NULL REFERENCES usuario(id),
+        token_hash            TEXT NOT NULL,
+        token_publico         TEXT NOT NULL,
+        expira_en             TIMESTAMPTZ NOT NULL,
+        usado_en              TIMESTAMPTZ,
+        usado_ip              TEXT,
+        usado_user_agent      TEXT,
+        creado_en             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uidx_firma_token_devolucion_hash
+        ON firma_token_devolucion (token_hash)
+    `);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uidx_firma_token_devolucion_publico
+        ON firma_token_devolucion (token_publico)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_firma_token_devolucion_devolucion
+        ON firma_token_devolucion (devolucion_id)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_firma_token_devolucion_expira
+        ON firma_token_devolucion (expira_en)
+    `);
+  }
+
+  static async generateReturnToken(devolucionId, creadoPorUsuarioId, payload = {}) {
+    const expiryMinutes = Math.min(Math.max(Number(payload.expira_minutos || 60), 5), 24 * 60);
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashValue(token);
+
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await this.ensureReturnTokenTable(client);
+
+      const devolucionResult = await client.query(
+        `SELECT * FROM devolucion WHERE id = $1 FOR UPDATE`,
+        [devolucionId]
+      );
+
+      if (!devolucionResult.rows.length) {
+        throw buildError('Devolución no encontrada', 404, 'RETURN_NOT_FOUND');
+      }
+
+      const devolucion = devolucionResult.rows[0];
+
+      if (devolucion.estado === 'confirmada') {
+        throw buildError('No se puede generar token para una devolución confirmada', 400, 'RETURN_CONFIRMED');
+      }
+      if (devolucion.estado === 'anulada') {
+        throw buildError('No se puede generar token para una devolución anulada', 400, 'RETURN_CANCELLED');
+      }
+
+      const signatureResult = await client.query(
+        `SELECT id FROM firma_devolucion WHERE devolucion_id = $1 LIMIT 1`,
+        [devolucionId]
+      );
+      if (signatureResult.rows.length) {
+        throw buildError('La devolución ya se encuentra firmada', 409, 'RETURN_ALREADY_SIGNED');
+      }
+
+      // Reutilizar token activo si existe
+      const activeTokenResult = await client.query(
+        `SELECT id, devolucion_id, trabajador_id, expira_en, token_publico
+         FROM firma_token_devolucion
+         WHERE devolucion_id = $1
+           AND usado_en IS NULL
+           AND expira_en > NOW()
+         ORDER BY expira_en DESC
+         LIMIT 1
+         FOR UPDATE`,
+        [devolucionId]
+      );
+
+      const activeToken = activeTokenResult.rows[0] || null;
+      if (activeToken?.token_publico) {
+        if (devolucion.estado === 'borrador') {
+          await client.query(
+            `UPDATE devolucion SET estado = 'pendiente_firma' WHERE id = $1`,
+            [devolucionId]
+          );
+        }
+        await client.query('COMMIT');
+        return {
+          id: activeToken.id,
+          devolucion_id: activeToken.devolucion_id,
+          trabajador_id: activeToken.trabajador_id,
+          expira_en: activeToken.expira_en,
+          token: activeToken.token_publico,
+          url: `/firmas/devoluciones/${activeToken.token_publico}`,
+          reused: true,
+          time_to_expiry_minutes: toExpiryMinutes(activeToken.expira_en),
+        };
+      }
+
+      const tokenResult = await client.query(
+        `INSERT INTO firma_token_devolucion (
+           devolucion_id, trabajador_id, creado_por_usuario_id,
+           token_hash, token_publico, expira_en
+         )
+         VALUES ($1, $2, $3, $4, $5, NOW() + ($6 || ' minutes')::interval)
+         RETURNING id, devolucion_id, trabajador_id, expira_en`,
+        [
+          devolucionId,
+          devolucion.trabajador_id,
+          creadoPorUsuarioId,
+          tokenHash,
+          token,
+          String(expiryMinutes),
+        ]
+      );
+
+      await writeAuditEvent({
+        client,
+        entidadTipo: 'firma_token_devolucion',
+        entidadId: tokenResult.rows[0].id,
+        accion: 'crear',
+        usuarioId: creadoPorUsuarioId,
+        diff: {
+          devolucion_id: devolucionId,
+          trabajador_id: devolucion.trabajador_id,
+          expira_minutos: expiryMinutes,
+        },
+      });
+
+      if (devolucion.estado === 'borrador') {
+        await client.query(
+          `UPDATE devolucion SET estado = 'pendiente_firma' WHERE id = $1`,
+          [devolucionId]
+        );
+      }
+
+      await client.query('COMMIT');
+
+      const rec = tokenResult.rows[0];
+      return {
+        id: rec.id,
+        devolucion_id: rec.devolucion_id,
+        trabajador_id: rec.trabajador_id,
+        expira_en: rec.expira_en,
+        token,
+        url: `/firmas/devoluciones/${token}`,
+        reused: false,
+        time_to_expiry_minutes: toExpiryMinutes(rec.expira_en),
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async getReturnTokenInfo(token) {
+    if (!token) {
+      throw buildError('Token inválido', 400, 'TOKEN_INVALID');
+    }
+
+    const tokenHash = hashValue(token);
+    const client = await db.pool.connect();
+    try {
+      await this.ensureReturnTokenTable(client);
+      await client.query('COMMIT').catch(() => {});
+    } finally {
+      client.release();
+    }
+
+    const { rows } = await db.query(
+      `SELECT
+         ftd.id,
+         ftd.devolucion_id,
+         ftd.trabajador_id,
+         ftd.expira_en,
+         ftd.usado_en,
+         d.estado AS devolucion_estado,
+         d.notas AS devolucion_notas,
+         bo.nombre AS bodega_recepcion_nombre,
+         p.nombres,
+         p.apellidos,
+         p.rut,
+         fd.id AS firma_id,
+         fd.firmado_en
+       FROM firma_token_devolucion ftd
+       INNER JOIN devolucion d ON d.id = ftd.devolucion_id
+       INNER JOIN trabajador t ON t.id = ftd.trabajador_id
+       INNER JOIN persona p ON p.id = t.persona_id
+       LEFT JOIN firma_devolucion fd ON fd.devolucion_id = d.id
+       LEFT JOIN bodegas bo ON bo.id = d.bodega_recepcion_id
+       WHERE ftd.token_hash = $1
+       LIMIT 1`,
+      [tokenHash]
+    );
+
+    if (!rows.length) {
+      throw buildError('Token no encontrado', 404, 'TOKEN_NOT_FOUND');
+    }
+
+    const tokenInfo = rows[0];
+    let estadoToken = 'disponible';
+    if (tokenInfo.usado_en) {
+      estadoToken = 'usado';
+    } else if (new Date(tokenInfo.expira_en).getTime() <= Date.now()) {
+      estadoToken = 'expirado';
+    } else if (tokenInfo.firma_id) {
+      estadoToken = 'firmado';
+    }
+
+    const detallesResult = await db.query(
+      `SELECT
+         dd.id,
+         dd.cantidad,
+         dd.condicion_entrada,
+         dd.disposicion,
+         dd.notas,
+         a.nombre AS articulo_nombre,
+         ac.codigo AS activo_codigo
+       FROM devolucion_detalle dd
+       INNER JOIN articulo a ON a.id = dd.articulo_id
+       LEFT JOIN activo ac ON ac.id = dd.activo_id
+       WHERE dd.devolucion_id = $1
+       ORDER BY dd.id`,
+      [tokenInfo.devolucion_id]
+    );
+
+    return { ...tokenInfo, estado_token: estadoToken, detalles: detallesResult.rows };
+  }
+
+  static async consumeReturnTokenAndSign(token, payload, meta) {
+    if (!token) {
+      throw buildError('Token inválido', 400, 'TOKEN_INVALID');
+    }
+
+    const tokenHash = hashValue(token);
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await this.ensureReturnTokenTable(client);
+
+      const tokenResult = await client.query(
+        `SELECT ftd.*, d.estado AS devolucion_estado, d.trabajador_id AS devolucion_trabajador_id
+         FROM firma_token_devolucion ftd
+         INNER JOIN devolucion d ON d.id = ftd.devolucion_id
+         WHERE ftd.token_hash = $1
+         FOR UPDATE OF ftd`,
+        [tokenHash]
+      );
+
+      if (!tokenResult.rows.length) {
+        throw buildError('Token no encontrado', 404, 'TOKEN_NOT_FOUND');
+      }
+
+      const tokenRow = tokenResult.rows[0];
+
+      if (tokenRow.usado_en) {
+        throw buildError('El token ya fue utilizado', 409, 'TOKEN_ALREADY_USED');
+      }
+      if (new Date(tokenRow.expira_en).getTime() <= Date.now()) {
+        throw buildError('El token se encuentra expirado', 410, 'TOKEN_EXPIRED');
+      }
+      if (tokenRow.devolucion_estado === 'confirmada') {
+        throw buildError('La devolución ya fue confirmada', 409, 'RETURN_CONFIRMED');
+      }
+      if (tokenRow.devolucion_estado === 'anulada') {
+        throw buildError('La devolución se encuentra anulada', 409, 'RETURN_CANCELLED');
+      }
+
+      const signatureExists = await client.query(
+        `SELECT id FROM firma_devolucion WHERE devolucion_id = $1 LIMIT 1 FOR UPDATE`,
+        [tokenRow.devolucion_id]
+      );
+      if (signatureExists.rows.length) {
+        throw buildError('La devolución ya tiene una firma registrada', 409, 'RETURN_ALREADY_SIGNED');
+      }
+
+      const acceptanceText = normalizeAcceptanceText(
+        payload.texto_aceptacion,
+        payload.texto_aceptacion_detalle || []
+      );
+      const signatureImageUrl = String(payload.firma_imagen_url || '').trim();
+      if (!signatureImageUrl) {
+        throw buildError('La firma es obligatoria', 400, 'SIGNATURE_IMAGE_REQUIRED');
+      }
+
+      const signatureResult = await client.query(
+        `INSERT INTO firma_devolucion (
+           devolucion_id, receptor_usuario_id, metodo,
+           texto_aceptacion, texto_hash, firma_imagen_url, ip, user_agent
+         )
+         VALUES ($1, $2, 'qr_link', $3, $4, $5, $6, $7)
+         RETURNING id, firmado_en`,
+        [
+          tokenRow.devolucion_id,
+          tokenRow.creado_por_usuario_id,
+          acceptanceText,
+          hashValue(acceptanceText),
+          signatureImageUrl,
+          meta?.ip || null,
+          meta?.userAgent || null,
+        ]
+      );
+
+      const firma = signatureResult.rows[0];
+
+      await client.query(
+        `UPDATE firma_token_devolucion
+         SET usado_en = NOW(), usado_ip = $2, usado_user_agent = $3
+         WHERE id = $1`,
+        [tokenRow.id, meta?.ip || null, meta?.userAgent || null]
+      );
+
+      await client.query(
+        `UPDATE devolucion SET estado = 'pendiente_firma' WHERE id = $1 AND estado = 'borrador'`,
+        [tokenRow.devolucion_id]
+      );
+
+      await writeAuditEvent({
+        client,
+        entidadTipo: 'firma_devolucion',
+        entidadId: firma.id,
+        accion: 'firmar',
+        usuarioId: tokenRow.creado_por_usuario_id,
+        diff: { devolucion_id: tokenRow.devolucion_id, metodo: 'qr_link' },
+      });
+
+      await client.query('COMMIT');
+
+      signatureEvents.publishReturnSigned({
+        signatureId: firma.id,
+        devolucionId: tokenRow.devolucion_id,
+        metodo: 'qr_link',
+        firmadoEn: firma.firmado_en,
+        trabajadorId: tokenRow.trabajador_id,
+      });
+
+      return {
+        id: firma.id,
+        devolucion_id: tokenRow.devolucion_id,
+        token_consumido: true,
+        metodo: 'qr_link',
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 }
 
 module.exports = FirmasService;
