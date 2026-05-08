@@ -16,6 +16,7 @@
     "lint": "npm-run-all lint:backend lint:frontend",
     "check:backend-validation": "node scripts/check-backend-validation-usage.js",
     "check:legacy": "node scripts/check-legacy.js",
+    "check:docs-contract-drift": "bash scripts/check_docs_contract_drift.sh",
     "lint:ci": "npm-run-all lint check:backend-validation check:legacy",
     "test": "npm-run-all test:backend test:frontend",
     "test:backend": "npm test --prefix backend",
