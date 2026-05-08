@@ -6,21 +6,25 @@ import CambiarEstadoActivoModal from './CambiarEstadoActivoModal';
 import ReubicarActivoModal from './ReubicarActivoModal';
 import EditarActivoModal from './EditarActivoModal';
 import EntregaCreateModal from './EntregaCreateModal';
+import EntregaFirmaModal from './EntregaFirmaModal';
 import DevolucionActivoModal from './DevolucionActivoModal';
+import DevolucionFirmaModal from './DevolucionFirmaModal';
 import { useGet } from '../../hooks';
 import {
-  createEntrega,
+  entregarActivo,
   getActivoProfile,
   type ActivoCustodiaEntry,
   type ActivoTimelineEntry,
+  type EntregaRow,
+  type DevolucionRow,
   type ActivoProfileResponse,
-  type EntregaCreatePayload,
+  type EntregarActivoPayload,
   type InventoryActivoDetailRow,
 } from '../../services/apiService';
 import { formatCLP } from '../../utils/currency';
 import { getToolStatusBadgeClasses, getToolStatusLabel } from '../../utils/toolPresentation';
 
-type SubModal = 'entregar' | 'devolver' | 'estado' | 'reubicar' | 'editar' | null;
+type SubModal = 'entregar' | 'firmar-entrega' | 'devolver' | 'firmar-devolucion' | 'estado' | 'reubicar' | 'editar' | null;
 
 const MOV_ICONS: Record<string, string> = {
   entrada: '📥',
@@ -94,6 +98,8 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
   const queryClient = useQueryClient();
   const [showMoreDetails, setShowMoreDetails] = useState(false);
   const [subModal, setSubModal] = useState<SubModal>(null);
+  const [draftEntrega, setDraftEntrega] = useState<EntregaRow | null>(null);
+  const [draftDevolucion, setDraftDevolucion] = useState<DevolucionRow | null>(null);
   const detailsPanelId = useId();
 
   const { data: profile, isLoading, error } = useQuery<ActivoProfileResponse>({
@@ -155,12 +161,11 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
   );
 
   const entregaMutation = useMutation({
-    mutationFn: (payload: EntregaCreatePayload) => createEntrega(payload),
-    onSuccess: () => {
-      toast.success('Entrega creada correctamente.');
-      void queryClient.invalidateQueries({ queryKey: ['activo-profile', activoId] });
-      onRefresh?.();
-      setSubModal(null);
+    mutationFn: (payload: EntregarActivoPayload) => entregarActivo(activoId, payload),
+    onSuccess: (created) => {
+      setDraftEntrega(created);
+      setSubModal('firmar-entrega');
+      toast.success('Borrador de entrega creado. Falta registrar la firma para completar el flujo.');
     },
     onError: (err: unknown) => {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
@@ -169,8 +174,15 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
   });
 
   const handleSubmodalSuccess = () => {
+    setDraftEntrega(null);
+    setDraftDevolucion(null);
     void queryClient.invalidateQueries({ queryKey: ['activo-profile', activoId] });
     onRefresh?.();
+    setSubModal(null);
+  };
+
+  const handleCloseEntregaFlow = () => {
+    setDraftEntrega(null);
     setSubModal(null);
   };
 
@@ -182,7 +194,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
       return (
         <EntregaCreateModal
           isOpen
-          onClose={() => setSubModal(null)}
+          onClose={handleCloseEntregaFlow}
           onSubmit={async (payload) => {
             await entregaMutation.mutateAsync(payload);
           }}
@@ -197,7 +209,16 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
           initialActivoCode={code}
           initialActivoName={name}
           initialActivoValue={value}
-          onSuccess={() => setSubModal(null)}
+        />
+      );
+    }
+    if (subModal === 'firmar-entrega' && draftEntrega) {
+      return (
+        <EntregaFirmaModal
+          isOpen
+          onClose={handleCloseEntregaFlow}
+          entrega={draftEntrega}
+          onCompleted={handleSubmodalSuccess}
         />
       );
     }
@@ -207,10 +228,24 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
       return (
         <DevolucionActivoModal
           activoId={profile.id}
+          articuloId={profile.articulo_id}
           trabajadorId={custodio.trabajador_id}
           trabajadorNombre={nombre}
-          onClose={() => setSubModal(null)}
-          onSuccess={handleSubmodalSuccess}
+          onClose={() => { setDraftDevolucion(null); setSubModal(null); }}
+          onDraftCreated={(draft) => {
+            setDraftDevolucion(draft);
+            setSubModal('firmar-devolucion');
+          }}
+        />
+      );
+    }
+    if (subModal === 'firmar-devolucion' && draftDevolucion) {
+      return (
+        <DevolucionFirmaModal
+          isOpen
+          onClose={() => { setDraftDevolucion(null); setSubModal(null); }}
+          devolucion={draftDevolucion}
+          onCompleted={handleSubmodalSuccess}
         />
       );
     }
