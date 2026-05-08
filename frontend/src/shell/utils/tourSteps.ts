@@ -123,15 +123,6 @@ export const onboardingStepsByRole: Record<TourRole, TourStep[]> = {
       mobilePlacement: 'bottom',
     },
     {
-      id: 'supervisor-operaciones',
-      role: 'supervisor',
-      route: '/supervisor/operaciones',
-      title: 'Operación diaria',
-      body: 'Gestiona entregas, firmas, devoluciones y stock desde una vista operativa.',
-      placement: 'center',
-      mobilePlacement: 'bottom',
-    },
-    {
       id: 'supervisor-tour-launcher',
       role: 'supervisor',
       route: '*',
@@ -242,14 +233,6 @@ export const contextualStepsByRole: Record<TourRole, TourStep[]> = {
     ...sharedContextSteps('admin'),
   ],
   supervisor: [
-    {
-      id: 'supervisor-operations-context',
-      role: 'supervisor',
-      route: '/supervisor/operaciones',
-      title: 'Flujo operativo',
-      body: 'Este módulo concentra creación y confirmación de entregas/devoluciones.',
-      placement: 'center',
-    },
     {
       id: 'supervisor-dashboard-context',
       role: 'supervisor',

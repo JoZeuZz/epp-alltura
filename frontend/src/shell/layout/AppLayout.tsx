@@ -297,18 +297,6 @@ const AppLayout = () => {
         </svg>
         <span className={isCollapsed ? 'sr-only' : ''}>Dashboard Supervisor</span>
       </NavLink>
-      <NavLink
-        to="/supervisor/operaciones"
-        onClick={handleLinkClick}
-        onMouseEnter={e => showTooltip(e, 'Operación Diaria')}
-        onMouseLeave={hideTooltip}
-        className={({ isActive }) => (isActive ? activeLinkCls : linkCls)}
-      >
-        <svg className={iconCls} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7L4 7m16 5H4m16 5H4" />
-        </svg>
-        <span className={isCollapsed ? 'sr-only' : ''}>Operación Diaria</span>
-      </NavLink>
     </Fragment>
   );
 
