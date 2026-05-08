@@ -166,8 +166,11 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
       return null;
     }
 
-    const firstEntrega = profile.timeline.find((entry) => entry.entrega_id);
-    return firstEntrega?.entrega_id ?? null;
+    const sorted = [...profile.timeline].sort(
+      (a, b) => b.fecha_movimiento.localeCompare(a.fecha_movimiento)
+    );
+    const mostRecent = sorted.find((entry) => entry.entrega_id);
+    return mostRecent?.entrega_id ?? null;
   }, [profile?.timeline]);
 
   const { data: inProgressEntrega } = useQuery<EntregaRow | null>({
