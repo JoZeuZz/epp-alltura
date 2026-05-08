@@ -54,12 +54,6 @@ function unwrapData<T>(payload: T | ApiEnvelope<T>): T {
   return payload as T;
 }
 
-/**
- * Obtiene usuarios filtrados por rol (compatibilidad de administración MER).
- */
-export const getUsersByRole = (
-  role: 'admin' | 'supervisor'
-) => get(`/users?role=${role}`);
 
 export type UserRole = 'admin' | 'supervisor';
 
@@ -422,13 +416,6 @@ export interface CompraCreatePayload {
   detalles: CompraDetallePayload[];
 }
 
-export interface InventoryIngresoCreatePayload {
-  documento_compra_id?: string | null;
-  documento_compra?: CompraDocumentoPayload;
-  fecha_ingreso?: string | null;
-  notas?: string | null;
-  detalles: CompraDetallePayload[];
-}
 
 export const getInventoryStock = (params?: InventoryStockQueryParams) =>
   get('/inventario/stock', params);
@@ -571,98 +558,12 @@ export const confirmDevolucion = (id: string) =>
 export const getInventoryStockMovements = (params?: InventoryMovementQueryParams) =>
   get('/inventario/movimientos-stock', params);
 
-export const exportInventoryStockMovementsCsv = async (params?: InventoryMovementQueryParams) => {
-  const response = await apiService.get('/inventario/movimientos-stock/export', {
-    params,
-    responseType: 'blob',
-  });
-
-  const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
-  const contentDisposition = String(response.headers['content-disposition'] || '');
-  const fileNameMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-  const fileName = fileNameMatch?.[1] || 'movimientos-stock.csv';
-
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', fileName);
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.URL.revokeObjectURL(url);
-};
-
-export const getInventoryIngresos = (params?: {
-  proveedor_id?: string;
-  creado_por_usuario_id?: string;
-}) => get('/inventario/ingresos', params);
-
 export const getPurchases = (params?: { proveedor_id?: string; creado_por_usuario_id?: string }) =>
   get('/compras', params);
 
 export const createPurchase = <T = unknown>(payload: CompraCreatePayload) =>
   post<T>('/compras', payload);
 
-export const createInventoryIngreso = <T = unknown>(
-  payload: InventoryIngresoCreatePayload | FormData
-) => {
-  if (payload instanceof FormData) {
-    return apiService
-      .post<T | ApiEnvelope<T>>('/inventario/ingresos', payload, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
-      .then((res) => unwrapData<T>(res.data));
-  }
-
-  return post<T>('/inventario/ingresos', payload);
-};
-
-export const deleteInventoryIngreso = (id: string) =>
-  del(`/inventario/ingresos/${id}`);
-
-// ============ EGRESOS ============
-
-export type EgresoTipoMotivo = 'salida' | 'baja' | 'ajuste';
-
-export interface EgresoRow {
-  id: string;
-  tipo_motivo: EgresoTipoMotivo;
-  creado_por_nombre?: string | null;
-  creado_en?: string;
-  notas?: string | null;
-  cantidad_items?: number;
-  cantidad_total?: number;
-}
-
-export interface InventoryEgresoDetallePayload {
-  articulo_id: string;
-  ubicacion_id: string;
-  cantidad?: number;
-  activo_ids?: string[];
-  notas?: string | null;
-}
-
-export interface InventoryEgresoCreatePayload {
-  tipo_motivo: EgresoTipoMotivo;
-  notas?: string | null;
-  detalles: InventoryEgresoDetallePayload[];
-}
-
-export const getInventoryEgresos = (params?: {
-  tipo_motivo?: EgresoTipoMotivo;
-  creado_por_usuario_id?: string;
-  desde?: string;
-  hasta?: string;
-  limit?: number;
-}) => get<EgresoRow[]>('/inventario/egresos', params);
-
-export const createInventoryEgreso = <T = unknown>(payload: InventoryEgresoCreatePayload) =>
-  post<T>('/inventario/egresos', payload);
-
-export const deleteInventoryEgreso = (id: string) =>
-  del(`/inventario/egresos/${id}`);
 
 // ============ ENTREGAS ============
 
@@ -948,16 +849,6 @@ export const createEntregasBatchFromTemplate = (
 export const confirmEntrega = (id: string) =>
   post<EntregaRow>(`/entregas/${id}/confirm`);
 
-export const anularEntrega = (id: string, payload: { motivo: string }) =>
-  post<EntregaRow>(`/entregas/${id}/anular`, payload);
-
-export const deshacerEntrega = (id: string, payload: { motivo: string }) =>
-  post<EntregaRow>(`/entregas/${id}/deshacer`, payload);
-
-export const permanentDeleteEntrega = (id: string) =>
-  del<{ id: string; estado_anterior: EntregaEstado; eliminado_por_usuario_id: string }>(
-    `/entregas/${id}/permanent`
-  );
 
 export const firmarEntregaDispositivo = (
   entregaId: string,
@@ -1011,16 +902,6 @@ export const createSupplier = <T = Supplier>(payload: SupplierCreatePayload) =>
  */
 export const getDashboardSummary = () => get('/dashboard/summary');
 
-/**
- * Indicadores operativos (endpoint canónico).
- */
-export const getOperationalIndicators = () => get('/dashboard/indicadores-operativos');
-
-/**
- * Resumen por ubicación (endpoint canónico).
- */
-export const getLocationDashboardSummary = (ubicacionId: string) =>
-  get(`/dashboard/ubicaciones/${ubicacionId}/resumen`);
 
 // ============ IN-APP NOTIFICATIONS ENDPOINTS ============
 
