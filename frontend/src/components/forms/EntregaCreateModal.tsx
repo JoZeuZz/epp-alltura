@@ -3,17 +3,10 @@ import Modal from '../Modal';
 import type {
   EntregaCreatePayload,
   EntregaDetallePayload,
-  EntregaTemplate,
   CondicionSalida,
-  EntregaTemplateDetailOverridePayload,
 } from '../../services/apiService';
-import { previewEntregaTemplate } from '../../services/apiService';
 import AssetUnitSelector from './AssetUnitSelector';
 import { parseQuantityInteger } from '../../utils/quantity';
-import {
-  buildDraftDetailsFromTemplateItems,
-  buildTemplateDetailOverrides,
-} from './entregaTemplate.utils';
 
 interface TrabajadorOption {
   id: string;
@@ -44,7 +37,6 @@ interface EntregaCreateModalProps {
   trabajadores: TrabajadorOption[];
   ubicaciones: UbicacionOption[];
   articulos: ArticuloOption[];
-  templates?: EntregaTemplate[];
   initialActivoId?: string | number;
   initialArticuloId?: string | number;
   lockActivoSelection?: boolean;
@@ -74,31 +66,21 @@ const buildEntregaPayload = (
   ubicacionDestinoId: string,
   notaDestino: string,
   detalles: EntregaDetallePayload[]
-): EntregaCreatePayload => {
-  const templateOverrides: EntregaTemplateDetailOverridePayload[] = buildTemplateDetailOverrides(
-    detalles.map((d) => ({
+): EntregaCreatePayload => ({
+  trabajador_id: trabajadorId,
+  ubicacion_origen_id: ubicacionOrigenId,
+  ubicacion_destino_id: ubicacionDestinoId,
+  nota_destino: notaDestino || null,
+  detalles: detalles
+    .filter((d) => Boolean(d.articulo_id))
+    .map((d) => ({
       articulo_id: d.articulo_id,
       activo_ids: d.activo_ids?.length ? d.activo_ids : undefined,
       cantidad: d.activo_ids?.length ? undefined : Number(d.cantidad),
       condicion_salida: d.condicion_salida || 'ok',
       notas: d.notas || null,
-    }))
-  );
-
-  return {
-    trabajador_id: trabajadorId,
-    ubicacion_origen_id: ubicacionOrigenId,
-    ubicacion_destino_id: ubicacionDestinoId,
-    nota_destino: notaDestino || null,
-    detalles: templateOverrides.map((item) => ({
-      articulo_id: item.articulo_id,
-      activo_ids: item.activo_ids,
-      cantidad: item.activo_ids?.length ? undefined : item.cantidad,
-      condicion_salida: item.condicion_salida || 'ok',
-      notas: item.notas || null,
     })),
-  };
-};
+});
 
 const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   isOpen,
@@ -108,7 +90,6 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   trabajadores,
   ubicaciones,
   articulos,
-  templates = [],
   initialActivoId,
   initialArticuloId,
   lockActivoSelection = false,
@@ -146,10 +127,6 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 
   // Filtro de búsqueda de trabajador
   const [trabajadorSearch, setTrabajadorSearch] = useState('');
-  const [selectedTemplateId, setSelectedTemplateId] = useState('');
-  const [isLoadingTemplatePreview, setIsLoadingTemplatePreview] = useState(false);
-  const [templatePreviewError, setTemplatePreviewError] = useState<string | null>(null);
-
   useEffect(() => {
     if (!isOpen) {
       setStep(1);
@@ -160,53 +137,8 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       setDetalles(buildInitialDetalles());
       setError(null);
       setTrabajadorSearch('');
-      setSelectedTemplateId('');
-      setIsLoadingTemplatePreview(false);
-      setTemplatePreviewError(null);
     }
   }, [isOpen, initialActivoId, initialArticuloId]);
-
-  useEffect(() => {
-    if (!selectedTemplateId) {
-      setTemplatePreviewError(null);
-      return;
-    }
-
-    let cancelled = false;
-    const loadTemplatePreview = async () => {
-      setIsLoadingTemplatePreview(true);
-      setTemplatePreviewError(null);
-      try {
-        const preview = await previewEntregaTemplate(selectedTemplateId, {
-          ubicacion_origen_id: ubicacionOrigenId || undefined,
-        });
-
-        if (cancelled) return;
-
-        const nextDetalles = buildDraftDetailsFromTemplateItems(preview.items || []);
-        setDetalles(nextDetalles.length > 0 ? nextDetalles : [{ ...EMPTY_DETALLE }]);
-      } catch (templateError: unknown) {
-        if (cancelled) return;
-
-        const e = templateError as { response?: { data?: { message?: string } }; message?: string };
-        setTemplatePreviewError(
-          e?.response?.data?.message ??
-            e?.message ??
-            'No se pudo previsualizar la plantilla seleccionada.'
-        );
-      } finally {
-        if (!cancelled) {
-          setIsLoadingTemplatePreview(false);
-        }
-      }
-    };
-
-    void loadTemplatePreview();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedTemplateId, ubicacionOrigenId]);
 
   useEffect(() => {
     setDetalles((prev) =>
@@ -406,38 +338,6 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       {/* STEP 1 */}
       {step === 1 && (
         <div className="space-y-4">
-          {/* Plantilla opcional */}
-          <div>
-            <label htmlFor="entrega-template-id" className="block text-sm font-medium text-content-secondary mb-1">
-              Usar plantilla
-            </label>
-            <select
-              id="entrega-template-id"
-              value={selectedTemplateId}
-              onChange={(e) => setSelectedTemplateId(e.target.value)}
-              disabled={lockActivoSelection && shouldPrefillSingleAsset}
-              className="w-full border border-edge-strong rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-            >
-              <option value="">— Sin plantilla —</option>
-              {templates
-                .filter((template) => template.estado === 'activo')
-                .map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.nombre}
-                  </option>
-                ))}
-            </select>
-            <p className="mt-1 text-xs text-content-muted">
-              Si seleccionas una plantilla, los ítems se prellenan automáticamente.
-            </p>
-            {isLoadingTemplatePreview && (
-              <p className="mt-1 text-xs text-content-muted">Cargando plantilla seleccionada...</p>
-            )}
-            {templatePreviewError && (
-              <p className="mt-1 text-xs text-danger-text">{templatePreviewError}</p>
-            )}
-          </div>
-
           {/* Trabajador */}
           <div>
             <label className="block text-sm font-medium text-content-secondary mb-1">
