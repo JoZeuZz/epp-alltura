@@ -656,6 +656,9 @@ class EntregasService {
          WHERE id = $1`,
         [id]
       );
+      // afterSignatureBeforeConfirm extension point (frontend):
+      // photo evidence or other async steps can be injected in frontend
+      // before this service call is triggered. Backend contract unchanged.
 
       await writeAuditEvent({
         client,
