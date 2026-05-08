@@ -15,6 +15,17 @@ interface EntregaFirmaModalProps {
   onClose: () => void;
   entrega: EntregaRow | null;
   onCompleted: () => void;
+  /**
+   * Extension point: awaited between signature registration and delivery confirmation.
+   * Default: no-op. Future use: photo evidence upload.
+   * If it throws, confirmation is aborted and the error is shown in UI.
+   */
+  afterSignatureBeforeConfirm?: () => Promise<void>;
+  /**
+   * Override: treat entrega as already signed (skips canvas check).
+   * Useful when entrega.firmado_en is not yet reflected in the snapshot.
+   */
+  alreadySigned?: boolean;
 }
 
 interface DeliveryTokenMeta {
@@ -35,6 +46,8 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
   onClose,
   entrega,
   onCompleted,
+  afterSignatureBeforeConfirm,
+  alreadySigned = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const signatureCanvasId = useId();
@@ -67,6 +80,11 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
     setError(null);
 
     try {
+      // Extension point: no-op by default, future use for photo evidence
+      if (afterSignatureBeforeConfirm) {
+        await afterSignatureBeforeConfirm();
+      }
+
       let retryCount = 0;
       while (retryCount < 2) {
         try {
@@ -130,7 +148,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
       confirmingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [entrega, onCompleted]);
+  }, [entrega, onCompleted, afterSignatureBeforeConfirm]);
 
   useDeliverySignatureEvents({
     enabled: isOpen && Boolean(entrega?.id),
@@ -334,7 +352,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
   const acceptanceText = TEXTO_ACEPTACION;
   const signerLabel = 'trabajador';
   const itemsCount = entrega.cantidad_items ?? entrega.detalles?.length ?? 0;
-  const hasExistingSignature = Boolean(entrega.firmado_en || entrega.firma_imagen_url);
+  const hasExistingSignature = alreadySigned || Boolean(entrega.firmado_en || entrega.firma_imagen_url);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Confirmar recepción">
