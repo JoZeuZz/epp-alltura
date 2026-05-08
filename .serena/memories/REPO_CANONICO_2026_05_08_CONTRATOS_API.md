@@ -1,0 +1,7 @@
+- Entregas rutas activas: GET /api/entregas, GET /api/entregas/:id, POST /api/entregas, POST /api/entregas/:id/confirm, POST /api/entregas/:id/anular.
+- Entregas NO activas actualmente: /api/entregas/:id/recibir, /api/entregas/:id/deshacer, /api/entregas/:id/permanent.
+- Devoluciones rutas activas: GET /api/devoluciones/activos-elegibles, GET /api/devoluciones, GET /api/devoluciones/:id, POST /api/devoluciones, POST /api/devoluciones/:id/firmar-dispositivo, POST /api/devoluciones/:id/confirm, POST /api/devoluciones/:id/anular.
+- Firmas activas: /api/firmas/tokens/:token, /api/firmas/tokens/:token/firmar, /api/firmas/entregas/:entregaId/token, /api/firmas/entregas/:entregaId/firmar-dispositivo, /api/firmas/devoluciones/:devolucionId/token, /api/firmas/devoluciones/:token, /api/firmas/devoluciones/:token/firmar.
+- SSE firmas: POST /api/firmas/events/deliveries/token + GET /api/firmas/events/deliveries?stream_token=...
+- Endpoint legado no activo: GET /api/firmas/pendientes/me.
+- Articulos: /api/articulos CRUD + /:id/permanent; payload moderno con grupo_principal/subclasificacion/especialidades.

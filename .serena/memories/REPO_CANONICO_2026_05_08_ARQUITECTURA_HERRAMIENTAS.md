@@ -1,0 +1,6 @@
+- Roles login vigentes: admin/supervisor; trabajador solo entidad dominio.
+- Frontend rutas operativas activas centradas en dashboard/trabajadores/usuarios/ubicaciones e inventario por scope; flujo entrega/devolucion ocurre desde perfil de activo via modales.
+- Backend 3 capas vigente; rutas clave activas para articulos/inventario/entregas/devoluciones/firmas/documentos.
+- Entregas y devoluciones en servicios actuales son serial-only para flujo operativo principal.
+- Firmas con tokens reutilizables + SSE (delivery-signed y return-signed).
+- Contrato articulo actual usa grupo_principal/subclasificacion/especialidades; tracking_mode se deriva en backend.
