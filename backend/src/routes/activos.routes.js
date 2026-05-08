@@ -9,7 +9,11 @@ const router = express.Router();
 
 const validateBody = (schema) => async (req, res, next) => {
   try {
-    req.body = await schema.validateAsync(req.body, { abortEarly: false });
+    req.body = await schema.validateAsync(req.body, {
+      abortEarly: false,
+      stripUnknown: true,
+      convert: true,
+    });
     return next();
   } catch (error) {
     return next(error);

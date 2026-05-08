@@ -74,6 +74,18 @@ describe('ActivosService', () => {
       await expect(ActivosService.entregar(ACTIVO_ID, payload, USER_ID)).resolves.toBeDefined();
     });
 
+    it('handles malformed detalles payload without crashing', async () => {
+      const payload = {
+        ...basePayload,
+        detalles: null,
+      };
+
+      await expect(ActivosService.entregar(ACTIVO_ID, payload, USER_ID))
+        .rejects.toMatchObject({ code: 'ASSET_NOT_IN_DETAILS', statusCode: 400 });
+
+      expect(EntregasService.create).not.toHaveBeenCalled();
+    });
+
     it('propagates errors from EntregasService.create', async () => {
       EntregasService.create.mockRejectedValue(
         Object.assign(new Error('WORKER_NOT_FOUND'), { statusCode: 400, code: 'WORKER_NOT_FOUND' })
@@ -120,6 +132,18 @@ describe('ActivosService', () => {
 
       expect(DevolucionesService.create).toHaveBeenCalledWith(basePayload, USER_ID);
       expect(result).toEqual(mockResult);
+    });
+
+    it('handles malformed detalles in devolver payload without crashing', async () => {
+      const payload = {
+        ...basePayload,
+        detalles: undefined,
+      };
+
+      await expect(ActivosService.devolver(ACTIVO_ID, payload, USER_ID))
+        .rejects.toMatchObject({ code: 'ASSET_NOT_IN_DETAILS', statusCode: 400 });
+
+      expect(DevolucionesService.create).not.toHaveBeenCalled();
     });
 
     it('propagates errors from DevolucionesService.create', async () => {

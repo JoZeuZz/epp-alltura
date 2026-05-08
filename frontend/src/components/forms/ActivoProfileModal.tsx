@@ -13,6 +13,7 @@ import { useGet } from '../../hooks';
 import {
   entregarActivo,
   getActivoProfile,
+  getEntregaById,
   type ActivoCustodiaEntry,
   type ActivoTimelineEntry,
   type EntregaRow,
@@ -160,12 +161,36 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
     [profile]
   );
 
+  const latestEntregaId = useMemo(() => {
+    if (!profile?.timeline?.length) {
+      return null;
+    }
+
+    const firstEntrega = profile.timeline.find((entry) => entry.entrega_id);
+    return firstEntrega?.entrega_id ?? null;
+  }, [profile?.timeline]);
+
+  const { data: inProgressEntrega } = useQuery<EntregaRow | null>({
+    queryKey: ['activo-profile', activoId, 'latest-entrega', latestEntregaId],
+    queryFn: async () => {
+      if (!latestEntregaId) {
+        return null;
+      }
+      return getEntregaById(latestEntregaId);
+    },
+    enabled: Boolean(latestEntregaId && !subModal),
+    staleTime: 30_000,
+  });
+
+  const hasInProgressEntrega = inProgressEntrega?.estado === 'borrador';
+  const inProgressSigned = Boolean(inProgressEntrega?.firmado_en || inProgressEntrega?.firma_imagen_url);
+
   const entregaMutation = useMutation({
     mutationFn: (payload: EntregarActivoPayload) => entregarActivo(activoId, payload),
     onSuccess: (created) => {
       setDraftEntrega(created);
       setSubModal('firmar-entrega');
-      toast.success('Borrador de entrega creado. Falta registrar la firma para completar el flujo.');
+      toast.success('Entrega creada. Continúa con la firma del trabajador para completar el flujo.');
     },
     onError: (err: unknown) => {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
@@ -377,6 +402,27 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
               </div>
             </div>
           </div>
+
+          {hasInProgressEntrega && inProgressEntrega && (
+            <section className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <h4 className="text-sm font-semibold text-blue-900">Entrega en curso</h4>
+              <p className="mt-1 text-xs text-blue-800">
+                ID: {inProgressEntrega.id} · Estado: pendiente de confirmación
+              </p>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftEntrega(inProgressEntrega);
+                    setSubModal('firmar-entrega');
+                  }}
+                  className="inline-flex items-center px-3 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors"
+                >
+                  {inProgressSigned ? 'Reintentar confirmación' : 'Reanudar firma'}
+                </button>
+              </div>
+            </section>
+          )}
 
           {/* Acciones */}
           <section className="space-y-2" aria-label="Acciones del activo">

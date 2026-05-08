@@ -26,6 +26,10 @@ const TEXTO_ACEPTACION =
   'Confirmo que recibo los equipos y herramientas indicados en buen estado ' +
   'y me comprometo a su uso y cuidado responsable.';
 
+const wait = (ms: number) => new Promise<void>((resolve) => {
+  window.setTimeout(resolve, ms);
+});
+
 const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
   isOpen,
   onClose,
@@ -63,7 +67,56 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
     setError(null);
 
     try {
-      await confirmEntrega(entrega.id);
+      let retryCount = 0;
+      while (retryCount < 2) {
+        try {
+          await confirmEntrega(entrega.id);
+          break;
+        } catch (err: unknown) {
+          const apiError = err as {
+            response?: {
+              status?: number;
+              data?: {
+                message?: string;
+                errors?: Array<string | { message?: string }>;
+              };
+            };
+            message?: string;
+          };
+
+          const errorTokens = (apiError?.response?.data?.errors ?? []).map((item) => {
+            if (typeof item === 'string') {
+              return item;
+            }
+            return item?.message ?? '';
+          });
+          const fallbackMessage = apiError?.response?.data?.message ?? apiError?.message ?? '';
+
+          const isSignatureRequired =
+            errorTokens.some((token) => token.includes('SIGNATURE_REQUIRED')) ||
+            fallbackMessage.includes('debe estar firmada');
+
+          if (isSignatureRequired && retryCount === 0) {
+            retryCount += 1;
+            await wait(700);
+            continue;
+          }
+
+          const isAlreadyConfirmed =
+            errorTokens.some((token) => token.includes('DELIVERY_ALREADY_CONFIRMED')) ||
+            fallbackMessage.includes('ya está confirmada') ||
+            (apiError?.response?.status === 409 && fallbackMessage.includes('confirmada'));
+
+          if (isAlreadyConfirmed) {
+            toast.success('La entrega ya estaba confirmada.');
+            onCompleted();
+            return;
+          }
+
+          throw err;
+        }
+      }
+
       toast.success('Entrega confirmada y activo actualizado.');
       onCompleted();
     } catch (err: unknown) {
@@ -232,6 +285,17 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
     if (!entrega) return;
+
+    if (hasExistingSignature) {
+      setIsSubmitting(true);
+      try {
+        await finalizeDelivery();
+      } catch {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     if (!hasFirma) {
       setError('Debes firmar antes de confirmar.');
       return;
@@ -270,6 +334,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
   const acceptanceText = TEXTO_ACEPTACION;
   const signerLabel = 'trabajador';
   const itemsCount = entrega.cantidad_items ?? entrega.detalles?.length ?? 0;
+  const hasExistingSignature = Boolean(entrega.firmado_en || entrega.firma_imagen_url);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Confirmar recepción">
@@ -420,11 +485,11 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
         </button>
         <button
           type="button"
-          disabled={isSubmitting || !hasFirma}
+          disabled={isSubmitting || (!hasFirma && !hasExistingSignature)}
           onClick={handleConfirmar}
           className="flex-1 py-2 px-4 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {isSubmitting ? 'Registrando confirmación...' : 'Confirmar recepción'}
+          {isSubmitting ? 'Registrando confirmación...' : hasExistingSignature ? 'Confirmar entrega pendiente' : 'Confirmar recepción'}
         </button>
       </div>
     </Modal>
