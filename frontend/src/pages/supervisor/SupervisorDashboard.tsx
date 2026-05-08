@@ -3,8 +3,6 @@ import { useLoaderData, useLocation } from 'react-router-dom';
 
 interface SupervisorData {
   summary?: any;
-  entregas?: any[];
-  devoluciones?: any[];
   movimientosActivo?: any[];
 }
 
@@ -21,77 +19,28 @@ const SupervisorDashboard: React.FC = () => {
   const section = location.pathname.split('/').pop() || 'dashboard';
 
   const summary = data.summary || {};
-  const entregas = summary.entregas || {};
-  const devoluciones = summary.devoluciones || {};
+  const activos = summary.activos || {};
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Panel Supervisor de Equipos y Herramientas</h1>
         <p className="text-neutral-gray mt-1">
-          {section === 'dashboard' && 'Seguimiento diario de entregas y devoluciones por cuadrilla.'}
+          {section === 'dashboard' && 'Estado actual del inventario y asignaciones.'}
           {section === 'trazabilidad' && 'Revisa movimientos recientes de activos en terreno.'}
         </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <Stat label="Entregas Totales" value={entregas.total || 0} />
-        <Stat label="Pend. Firma" value={entregas.pendiente_firma || 0} />
-        <Stat label="Devoluciones Borrador" value={devoluciones.borrador || 0} />
-        <Stat label="Devoluciones Confirmadas" value={devoluciones.confirmada || 0} />
+        <Stat label="Activos en Stock" value={activos.en_stock || 0} />
+        <Stat label="Activos Asignados" value={activos.asignado || 0} />
+        <Stat label="En Mantención" value={activos.mantencion || 0} />
+        <Stat label="Dados de Baja" value={activos.dado_de_baja || 0} />
       </div>
-
-      <section className="bg-white rounded-lg shadow-md p-5">
-        <h2 className="text-lg font-semibold text-dark-blue mb-3">Entregas Recientes</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-2 px-2">Estado</th>
-                <th className="text-left py-2 px-2">Creación</th>
-                <th className="text-left py-2 px-2">Confirmada</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data.entregas || []).slice(0, 10).map((item) => (
-                <tr key={item.id} className="border-b last:border-b-0 border-gray-100">
-                  <td className="py-2 px-2">{item.estado}</td>
-                  <td className="py-2 px-2">{new Date(item.creado_en).toLocaleString()}</td>
-                  <td className="py-2 px-2">{item.confirmada_en ? new Date(item.confirmada_en).toLocaleString() : '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="bg-white rounded-lg shadow-md p-5">
-        <h2 className="text-lg font-semibold text-dark-blue mb-3">Devoluciones Recientes</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-2 px-2">Estado</th>
-                <th className="text-left py-2 px-2">Creación</th>
-                <th className="text-left py-2 px-2">Confirmada</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data.devoluciones || []).slice(0, 10).map((item) => (
-                <tr key={item.id} className="border-b last:border-b-0 border-gray-100">
-                  <td className="py-2 px-2">{item.estado}</td>
-                  <td className="py-2 px-2">{new Date(item.creado_en).toLocaleString()}</td>
-                  <td className="py-2 px-2">{item.confirmada_en ? new Date(item.confirmada_en).toLocaleString() : '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
 
       {section === 'trazabilidad' && (
         <section className="bg-white rounded-lg shadow-md p-5">
-          <h2 className="text-lg font-semibold text-dark-blue mb-3">Movimientos de Activos</h2>
+          <h2 className="text-lg font-semibold text-dark-blue mb-3">Movimientos Recientes de Activos</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>

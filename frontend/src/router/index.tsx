@@ -10,7 +10,6 @@ import { isHttpAuthError, loaderHttpClient } from '../services/httpClient';
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
 const UsersPage = lazy(() => import('../pages/admin/UsersPage'));
 const SupervisorDashboard = lazy(() => import('../pages/supervisor/SupervisorDashboard'));
-const SupervisorOperationsPage = lazy(() => import('../pages/supervisor/SupervisorOperationsPage'));
 const ProfilePage = lazy(() => import('../pages/ProfilePage'));
 const NotificationsPage = lazy(() => import('../pages/NotificationsPage'));
 const UnauthorizedPage = lazy(() => import('../pages/UnauthorizedPage'));
@@ -180,44 +179,15 @@ async function adminDashboardLoader() {
 async function supervisorDashboardLoader() {
   const { user } = (await requireRole(['supervisor', 'admin'])()) as { user: User };
 
-  const [summary, entregas, devoluciones, movimientosActivo] = await Promise.all([
+  const [summary, movimientosActivo] = await Promise.all([
     loaderGetOrThrow('/dashboard/summary'),
-    loaderGetOrThrow('/entregas'),
-    loaderGetOrThrow('/devoluciones'),
     loaderGetOrThrow('/inventario/movimientos-activo?limit=20'),
   ]);
 
   return {
     user,
     summary,
-    entregas,
-    devoluciones,
     movimientosActivo,
-  };
-}
-
-async function supervisorOperationsLoader() {
-  const { user } = (await requireRole(['admin', 'supervisor'])()) as { user: User };
-
-  const [trabajadores, bodegas, articulos, entregas, devoluciones, stock, proveedores] = await Promise.all([
-    loaderGetOrThrow('/trabajadores'),
-    loaderGetOrThrow('/bodegas'),
-    loaderGetOrThrow('/articulos'),
-    loaderGetOrThrow('/entregas'),
-    loaderGetOrThrow('/devoluciones'),
-    loaderGetOrThrow('/inventario/stock'),
-    loaderGetOrThrow('/proveedores'),
-  ]);
-
-  return {
-    user,
-    trabajadores,
-    bodegas,
-    articulos,
-    entregas,
-    devoluciones,
-    stock,
-    proveedores,
   };
 }
 
@@ -319,11 +289,6 @@ export const router = createBrowserRouter([
         path: 'supervisor/trazabilidad',
         loader: supervisorDashboardLoader,
         element: <SupervisorDashboard key="supervisor-trazabilidad" />,
-      },
-      {
-        path: 'supervisor/operaciones',
-        loader: supervisorOperationsLoader,
-        element: <SupervisorOperationsPage key="supervisor-operaciones" />,
       },
       {
         path: 'notifications',
