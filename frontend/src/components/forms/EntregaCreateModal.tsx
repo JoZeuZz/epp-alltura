@@ -68,6 +68,38 @@ const EMPTY_DETALLE: EntregaDetallePayload = {
   notas: null,
 };
 
+const buildEntregaPayload = (
+  trabajadorId: string,
+  ubicacionOrigenId: string,
+  ubicacionDestinoId: string,
+  notaDestino: string,
+  detalles: EntregaDetallePayload[]
+): EntregaCreatePayload => {
+  const templateOverrides: EntregaTemplateDetailOverridePayload[] = buildTemplateDetailOverrides(
+    detalles.map((d) => ({
+      articulo_id: d.articulo_id,
+      activo_ids: d.activo_ids?.length ? d.activo_ids : undefined,
+      cantidad: d.activo_ids?.length ? undefined : Number(d.cantidad),
+      condicion_salida: d.condicion_salida || 'ok',
+      notas: d.notas || null,
+    }))
+  );
+
+  return {
+    trabajador_id: trabajadorId,
+    ubicacion_origen_id: ubicacionOrigenId,
+    ubicacion_destino_id: ubicacionDestinoId,
+    nota_destino: notaDestino || null,
+    detalles: templateOverrides.map((item) => ({
+      articulo_id: item.articulo_id,
+      activo_ids: item.activo_ids,
+      cantidad: item.activo_ids?.length ? undefined : item.cantidad,
+      condicion_salida: item.condicion_salida || 'ok',
+      notas: item.notas || null,
+    })),
+  };
+};
+
 const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   isOpen,
   onClose,
@@ -234,6 +266,9 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 
   const articuloOf = (id: string) => articulos.find((a) => a.id === id);
 
+  const isLockedPrefilledRow = (idx: number) =>
+    lockActivoSelection && shouldPrefillSingleAsset && idx === 0;
+
   const updateArticuloDetalle = (idx: number, articuloId: string) => {
     const art = articuloOf(articuloId);
     setDetalles((prev) =>
@@ -304,30 +339,13 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 
     }
 
-    const templateOverrides: EntregaTemplateDetailOverridePayload[] = buildTemplateDetailOverrides(
-      detalles.map((d) => ({
-        articulo_id: d.articulo_id,
-        activo_ids: d.activo_ids?.length ? d.activo_ids : undefined,
-        cantidad: d.activo_ids?.length ? undefined : Number(d.cantidad),
-        condicion_salida: d.condicion_salida || 'ok',
-        notas: d.notas || null,
-      }))
+    const payload = buildEntregaPayload(
+      trabajadorId,
+      ubicacionOrigenId,
+      ubicacionDestinoId,
+      notaDestino,
+      detalles
     );
-
-    const payload: EntregaCreatePayload = {
-      trabajador_id: trabajadorId,
-      ubicacion_origen_id: ubicacionOrigenId,
-      ubicacion_destino_id: ubicacionDestinoId,
-      tipo: 'entrega',
-      nota_destino: notaDestino || null,
-      detalles: templateOverrides.map((item) => ({
-        articulo_id: item.articulo_id,
-        activo_ids: item.activo_ids,
-        cantidad: item.activo_ids?.length ? undefined : item.cantidad,
-        condicion_salida: item.condicion_salida || 'ok',
-        notas: item.notas || null,
-      })),
-    };
 
     try {
       await onSubmit(payload);
@@ -547,7 +565,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                     onChange={(e) =>
                       updateArticuloDetalle(idx, e.target.value)
                     }
-                    disabled={lockActivoSelection && shouldPrefillSingleAsset}
+                    disabled={isLockedPrefilledRow(idx)}
                     className="w-full border border-edge-strong rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
                   >
                     <option value="">— Seleccionar artículo —</option>
@@ -613,7 +631,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                       )}
                       label="Seleccionar activo"
                       required
-                      disabled={lockActivoSelection && shouldPrefillSingleAsset}
+                      disabled={isLockedPrefilledRow(idx)}
                     />
                     <p className="text-xs text-content-muted">Selecciona al menos un activo para este ítem.</p>
                   </>
@@ -640,7 +658,6 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
           <button
             type="button"
             onClick={addDetalle}
-            disabled={lockActivoSelection && shouldPrefillSingleAsset}
             className="w-full py-2 border-2 border-dashed border-edge-strong rounded-lg text-sm text-content-muted hover:border-primary hover:text-primary transition-colors"
             aria-label="Agregar un nuevo ítem de artículo"
           >
@@ -698,7 +715,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               onClick={handleSubmit}
               className="flex-1 py-2 px-4 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-50 transition-colors"
             >
-              {isSubmitting ? 'Creando...' : 'Crear borrador'}
+              {isSubmitting ? 'Creando...' : 'Continuar a firma'}
             </button>
           </>
         )}

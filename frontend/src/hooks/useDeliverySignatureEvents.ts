@@ -29,14 +29,41 @@ export const useDeliverySignatureEvents = ({
   onReturnSigned,
 }: UseDeliverySignatureEventsOptions) => {
   const seenEventIdsRef = useRef<Set<string>>(new Set());
+  const reconnectDelayMsRef = useRef(1000);
+  const reconnectTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!enabled) {
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       return;
     }
 
     let source: EventSource | null = null;
     let cancelled = false;
+    let aborted = false;
+
+    const clearReconnectTimer = () => {
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
+
+    const scheduleReconnect = () => {
+      if (cancelled || aborted || reconnectTimerRef.current) {
+        return;
+      }
+
+      const delay = reconnectDelayMsRef.current;
+      reconnectDelayMsRef.current = Math.min(reconnectDelayMsRef.current * 2, 10000);
+      reconnectTimerRef.current = window.setTimeout(() => {
+        reconnectTimerRef.current = null;
+        void connect();
+      }, delay);
+    };
 
     const deduplicateAndRun = (id: string, fn: () => void) => {
       if (id && seenEventIdsRef.current.has(id)) return;
@@ -51,23 +78,42 @@ export const useDeliverySignatureEvents = ({
     };
 
     const connect = async () => {
-      const accessToken = getStoredAccessToken();
-      if (!accessToken) return;
+      clearReconnectTimer();
+      source?.close();
+      source = null;
 
-      const tokenResponse = await fetch('/api/firmas/events/deliveries/token', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      try {
+        const accessToken = getStoredAccessToken();
+        if (!accessToken) {
+          scheduleReconnect();
+          return;
+        }
 
-      if (!tokenResponse.ok) return;
+        const tokenResponse = await fetch('/api/firmas/events/deliveries/token', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
 
-      const payload = (await tokenResponse.json()) as { data?: { token?: string } };
-      const streamToken = payload?.data?.token;
-      if (!streamToken || cancelled) return;
+        if (!tokenResponse.ok || cancelled || aborted) {
+          scheduleReconnect();
+          return;
+        }
 
-      source = new EventSource(
-        `/api/firmas/events/deliveries?stream_token=${encodeURIComponent(streamToken)}`
-      );
+        const payload = (await tokenResponse.json()) as { data?: { token?: string } };
+        const streamToken = payload?.data?.token;
+        if (!streamToken || cancelled || aborted) {
+          scheduleReconnect();
+          return;
+        }
+
+        source = new EventSource(
+          `/api/firmas/events/deliveries?stream_token=${encodeURIComponent(streamToken)}`
+        );
+        reconnectDelayMsRef.current = 1000;
+      } catch {
+        scheduleReconnect();
+        return;
+      }
 
       source.addEventListener('delivery-signed', ((rawEvent: MessageEvent<string>) => {
         try {
@@ -85,13 +131,23 @@ export const useDeliverySignatureEvents = ({
         } catch { /* ignore malformed */ }
       }) as EventListener);
 
-      source.addEventListener('auth-required', () => { source?.close(); });
+      source.addEventListener('auth-required', () => {
+        aborted = true;
+        clearReconnectTimer();
+        source?.close();
+      });
+
+      source.onerror = () => {
+        source?.close();
+        scheduleReconnect();
+      };
     };
 
     void connect();
 
     return () => {
       cancelled = true;
+      clearReconnectTimer();
       source?.close();
     };
   }, [enabled, onSigned, onReturnSigned]);

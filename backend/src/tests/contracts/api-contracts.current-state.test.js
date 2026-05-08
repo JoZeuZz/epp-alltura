@@ -22,4 +22,10 @@ describe('API contracts current state', () => {
     expect(routes).toContain("'/events/deliveries'");
     expect(routes).toContain("'/devoluciones/:devolucionId/token'");
   });
+
+  it('activos routes normalize payload with stripUnknown in body validation', () => {
+    const routes = read('routes/activos.routes.js');
+
+    expect(routes).toContain('stripUnknown: true');
+  });
 });
