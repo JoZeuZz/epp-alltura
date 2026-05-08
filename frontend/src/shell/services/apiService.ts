@@ -470,13 +470,19 @@ export interface ActivoCustodiaEntry {
   dias_en_custodia?: number | null;
 }
 
-export interface DevolverActivoPayload {
-  trabajador_id: string;
-  bodega_recepcion_id: string;
-  condicion_entrada: 'ok' | 'usado' | 'danado' | 'perdido';
+export interface DevolverActivoDetallePayload {
+  articulo_id: string;
+  activo_ids: string[];
+  condicion_entrada?: 'ok' | 'usado' | 'danado' | 'perdido';
   disposicion: 'devuelto' | 'perdido' | 'baja' | 'mantencion';
   notas?: string | null;
-  firma_imagen_url: string;
+}
+
+export interface DevolverActivoPayload {
+  trabajador_id: string;
+  ubicacion_recepcion_id: string;
+  notas?: string | null;
+  detalles: DevolverActivoDetallePayload[];
 }
 
 export interface ActivoProfileResponse {
@@ -539,7 +545,10 @@ export const editarActivo = (id: string, payload: EditarActivoPayload) =>
   patch<{ id: string; valor: number | null; fecha_vencimiento: string | null }>(`/inventario/activos/${id}`, payload);
 
 export const devolverActivo = (id: string, payload: DevolverActivoPayload) =>
-  post<{ id: string }>(`/activos/${id}/devolver`, payload);
+  post<DevolucionRow>(`/activos/${id}/devolver`, payload);
+
+export const entregarActivo = (activoId: string, payload: EntregarActivoPayload) =>
+  post<EntregaRow>(`/activos/${activoId}/entregar`, payload);
 
 export const getInventoryAvailableAssets = (params: InventoryAvailableAssetQueryParams) =>
   get<InventoryAvailableAssetRow[]>('/inventario/activos-disponibles', params);
@@ -729,6 +738,15 @@ export interface EntregaCreatePayload {
   detalles: EntregaDetallePayload[];
 }
 
+export interface EntregarActivoPayload {
+  trabajador_id: string;
+  ubicacion_origen_id: string;
+  ubicacion_destino_id: string;
+  nota_destino?: string | null;
+  fecha_devolucion_esperada?: string | null;
+  detalles: EntregaDetallePayload[];
+}
+
 export type EntregaTemplateEstado = 'activo' | 'inactivo';
 
 export interface EntregaTemplateItem {
@@ -863,6 +881,25 @@ export const generateEntregaSignatureToken = (
   expiraMinutos = 30
 ) =>
   post<EntregaSignatureTokenResponse>(`/firmas/entregas/${entregaId}/token`, {
+    expira_minutos: expiraMinutos,
+  });
+
+export interface DevolucionSignatureTokenResponse {
+  id: string;
+  devolucion_id: string;
+  trabajador_id: string;
+  expira_en: string;
+  token: string;
+  url: string;
+  reused?: boolean;
+  time_to_expiry_minutes?: number;
+}
+
+export const generateDevolucionSignatureToken = (
+  devolucionId: string,
+  expiraMinutos = 30
+) =>
+  post<DevolucionSignatureTokenResponse>(`/firmas/devoluciones/${devolucionId}/token`, {
     expira_minutos: expiraMinutos,
   });
 
