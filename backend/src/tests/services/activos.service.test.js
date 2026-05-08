@@ -1,222 +1,134 @@
 // backend/src/tests/services/activos.service.test.js
 const ActivosService = require('../../services/activos.service');
-const db = require('../../db');
-const { writeAuditEvent } = require('../../lib/auditoriaDb');
 
-jest.mock('../../db', () => ({
-  pool: { connect: jest.fn() },
+jest.mock('../../services/entregas.service', () => ({
+  create: jest.fn(),
 }));
 
-jest.mock('../../lib/auditoriaDb', () => ({
-  writeAuditEvent: jest.fn().mockResolvedValue(undefined),
+jest.mock('../../services/devoluciones.service', () => ({
+  create: jest.fn(),
 }));
 
-const makeClient = (queryResponses) => {
-  let callIndex = 0;
-  return {
-    query: jest.fn().mockImplementation(() => {
-      const response = queryResponses[callIndex++];
-      if (response instanceof Error) return Promise.reject(response);
-      return Promise.resolve(response ?? { rows: [] });
-    }),
-    release: jest.fn(),
-  };
-};
+const EntregasService = require('../../services/entregas.service');
+const DevolucionesService = require('../../services/devoluciones.service');
+
+const ACTIVO_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const USER_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const TRAB_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+const ART_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+const UBIC_ORIGEN = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+const UBIC_DESTINO = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+const UBIC_RECEPCION = '11111111-1111-1111-1111-111111111111';
 
 describe('ActivosService', () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe('entregar', () => {
-    const activoId = 'activo-uuid-1';
-    const userId = 'user-uuid-1';
-    const payload = {
-      trabajador_id: 'trabajador-uuid-1',
-      ubicacion_origen_id: 'ubic-origen-uuid',
-      ubicacion_destino_id: 'ubic-destino-uuid',
-      condicion_salida: 'ok',
-      notas: null,
-      fecha_devolucion_esperada: null,
-      firma_imagen_url: 'https://example.com/firma.png',
+    const basePayload = {
+      trabajador_id: TRAB_ID,
+      ubicacion_origen_id: UBIC_ORIGEN,
+      ubicacion_destino_id: UBIC_DESTINO,
+      detalles: [
+        {
+          articulo_id: ART_ID,
+          activo_ids: [ACTIVO_ID],
+          condicion_salida: 'ok',
+          notas: null,
+        },
+      ],
     };
 
-    const trabajadorRow = { rows: [{ id: 'trabajador-uuid-1', estado: 'activo', persona_estado: 'activo' }] };
-    const ubicacionesRows = { rows: [
-      { id: 'ubic-origen-uuid', tipo: 'bodega', estado: 'activo' },
-      { id: 'ubic-destino-uuid', tipo: 'planta', estado: 'activo' },
-    ]};
+    it('throws ASSET_NOT_IN_DETAILS when activoId not in any detalle', async () => {
+      const payload = {
+        ...basePayload,
+        detalles: [{ articulo_id: ART_ID, activo_ids: ['otro-uuid'], condicion_salida: 'ok', notas: null }],
+      };
 
-    it('rechaza si el activo no existe', async () => {
-      const client = makeClient([
-        undefined,          // BEGIN
-        { rows: [] },       // SELECT activo
-        undefined,          // ROLLBACK
-      ]);
-      db.pool.connect.mockResolvedValue(client);
+      await expect(ActivosService.entregar(ACTIVO_ID, payload, USER_ID))
+        .rejects.toMatchObject({ code: 'ASSET_NOT_IN_DETAILS', statusCode: 400 });
 
-      await expect(ActivosService.entregar(activoId, payload, userId))
-        .rejects.toMatchObject({ message: 'Activo no encontrado', statusCode: 404 });
-
-      expect(client.query).toHaveBeenCalledWith('ROLLBACK');
-      expect(client.release).toHaveBeenCalled();
+      expect(EntregasService.create).not.toHaveBeenCalled();
     });
 
-    it('rechaza si el activo no está en_stock', async () => {
-      const client = makeClient([
-        undefined,
-        { rows: [{ id: activoId, estado: 'asignado', ubicacion_actual_id: 'ubic-origen-uuid', articulo_id: 'art-1' }] },
-        undefined,
-      ]);
-      db.pool.connect.mockResolvedValue(client);
+    it('delegates to EntregasService.create when activoId is in detalles', async () => {
+      const mockResult = { id: 'entrega-uuid', estado: 'borrador' };
+      EntregasService.create.mockResolvedValue(mockResult);
 
-      await expect(ActivosService.entregar(activoId, payload, userId))
-        .rejects.toMatchObject({ message: 'El activo no está disponible para entrega', statusCode: 409 });
+      const result = await ActivosService.entregar(ACTIVO_ID, basePayload, USER_ID);
+
+      expect(EntregasService.create).toHaveBeenCalledWith(basePayload, USER_ID);
+      expect(result).toEqual(mockResult);
     });
 
-    it('rechaza si el activo no está en la ubicación de origen', async () => {
-      const client = makeClient([
-        undefined,
-        { rows: [{ id: activoId, estado: 'en_stock', ubicacion_actual_id: 'otra-ubicacion', articulo_id: 'art-1' }] },
-        undefined,
-      ]);
-      db.pool.connect.mockResolvedValue(client);
+    it('finds activoId in any detalle (not just first)', async () => {
+      EntregasService.create.mockResolvedValue({ id: 'e2', estado: 'borrador' });
 
-      await expect(ActivosService.entregar(activoId, payload, userId))
-        .rejects.toMatchObject({ message: 'El activo no está en la ubicación de origen indicada', statusCode: 409 });
+      const payload = {
+        ...basePayload,
+        detalles: [
+          { articulo_id: ART_ID, activo_ids: ['otro-uuid-1'], condicion_salida: 'ok', notas: null },
+          { articulo_id: ART_ID, activo_ids: [ACTIVO_ID], condicion_salida: 'ok', notas: null },
+        ],
+      };
+
+      await expect(ActivosService.entregar(ACTIVO_ID, payload, USER_ID)).resolves.toBeDefined();
     });
 
-    it('rechaza si ya existe una custodia activa', async () => {
-      const client = makeClient([
-        undefined,                                                                                                // BEGIN
-        { rows: [{ id: activoId, estado: 'en_stock', ubicacion_actual_id: 'ubic-origen-uuid', articulo_id: 'art-1' }] }, // SELECT activo
-        trabajadorRow,                                                                                           // _validateWorkerActive
-        ubicacionesRows,                                                                                         // _validateMovementRoute
-        { rows: [{ id: 'custodia-existente' }] },                                                               // SELECT custodia (found)
-        undefined,                                                                                               // ROLLBACK
-      ]);
-      db.pool.connect.mockResolvedValue(client);
-
-      await expect(ActivosService.entregar(activoId, payload, userId))
-        .rejects.toMatchObject({ message: 'El activo ya tiene una custodia activa', statusCode: 409 });
-    });
-
-    it('crea entrega, custodia y movimiento en una sola TX y retorna IDs', async () => {
-      const client = makeClient([
-        undefined,                                                                                                // BEGIN
-        { rows: [{ id: activoId, estado: 'en_stock', ubicacion_actual_id: 'ubic-origen-uuid', articulo_id: 'art-1' }] }, // SELECT activo
-        trabajadorRow,                                                                                           // _validateWorkerActive
-        ubicacionesRows,                                                                                         // _validateMovementRoute
-        { rows: [] },                                                                                            // SELECT custodia (not found)
-        { rows: [{ id: 'entrega-uuid-1' }] },                                                                   // INSERT entrega
-        { rows: [] },                                                                                            // INSERT entrega_detalle
-        { rows: [] },                                                                                            // INSERT firma_entrega
-        { rows: [] },                                                                                            // UPDATE activo
-        { rows: [{ id: 'custodia-uuid-1' }] },                                                                  // INSERT custodia_activo
-        { rows: [{ id: 'movimiento-uuid-1' }] },                                                                // INSERT movimiento_activo
-        undefined,                                                                                               // COMMIT
-      ]);
-      db.pool.connect.mockResolvedValue(client);
-
-      const result = await ActivosService.entregar(activoId, payload, userId);
-
-      expect(result).toEqual({
-        activo_id: activoId,
-        entrega_id: 'entrega-uuid-1',
-        custodia_id: 'custodia-uuid-1',
-        movimiento_id: 'movimiento-uuid-1',
-        estado: 'confirmada',
-      });
-      expect(writeAuditEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ entidadTipo: 'activo', accion: 'entregar' })
+    it('propagates errors from EntregasService.create', async () => {
+      EntregasService.create.mockRejectedValue(
+        Object.assign(new Error('WORKER_NOT_FOUND'), { statusCode: 400, code: 'WORKER_NOT_FOUND' })
       );
-      expect(client.query).toHaveBeenCalledWith('COMMIT');
-      expect(client.release).toHaveBeenCalled();
+
+      await expect(ActivosService.entregar(ACTIVO_ID, basePayload, USER_ID))
+        .rejects.toMatchObject({ code: 'WORKER_NOT_FOUND' });
     });
   });
 
   describe('devolver', () => {
-    const activoId = 'activo-uuid-1';
-    const userId = 'user-uuid-1';
-    const payload = {
-      trabajador_id: 'trabajador-uuid-1',
-      ubicacion_recepcion_id: 'ubic-recepcion-uuid',
-      condicion_entrada: 'ok',
-      disposicion: 'devuelto',
+    const basePayload = {
+      trabajador_id: TRAB_ID,
+      ubicacion_recepcion_id: UBIC_RECEPCION,
       notas: null,
-      firma_imagen_url: 'https://example.com/firma.png',
+      detalles: [
+        {
+          articulo_id: ART_ID,
+          activo_ids: [ACTIVO_ID],
+          condicion_entrada: 'ok',
+          disposicion: 'devuelto',
+          notas: null,
+        },
+      ],
     };
 
-    const ubicacionRecepcionRow = { rows: [{ id: 'ubic-recepcion-uuid', estado: 'activo', fecha_inicio_operacion: null, fecha_cierre_operacion: null }] };
+    it('throws ASSET_NOT_IN_DETAILS when activoId not in any detalle', async () => {
+      const payload = {
+        ...basePayload,
+        detalles: [{ articulo_id: ART_ID, activo_ids: ['otro-uuid'], condicion_entrada: 'ok', disposicion: 'devuelto', notas: null }],
+      };
 
-    it('rechaza si el activo no existe', async () => {
-      const client = makeClient([
-        undefined,
-        { rows: [] },
-        undefined,
-      ]);
-      db.pool.connect.mockResolvedValue(client);
+      await expect(ActivosService.devolver(ACTIVO_ID, payload, USER_ID))
+        .rejects.toMatchObject({ code: 'ASSET_NOT_IN_DETAILS', statusCode: 400 });
 
-      await expect(ActivosService.devolver(activoId, payload, userId))
-        .rejects.toMatchObject({ message: 'Activo no encontrado', statusCode: 404 });
-
-      expect(client.query).toHaveBeenCalledWith('ROLLBACK');
-      expect(client.release).toHaveBeenCalled();
+      expect(DevolucionesService.create).not.toHaveBeenCalled();
     });
 
-    it('rechaza si el activo no está en estado asignado', async () => {
-      const client = makeClient([
-        undefined,
-        { rows: [{ id: activoId, estado: 'en_stock', ubicacion_actual_id: 'ubic-a', articulo_id: 'art-1' }] },
-        undefined,
-      ]);
-      db.pool.connect.mockResolvedValue(client);
+    it('delegates to DevolucionesService.create when activoId is in detalles', async () => {
+      const mockResult = { id: 'devol-uuid', estado: 'borrador' };
+      DevolucionesService.create.mockResolvedValue(mockResult);
 
-      await expect(ActivosService.devolver(activoId, payload, userId))
-        .rejects.toMatchObject({ message: 'El activo no está en estado asignado', statusCode: 409 });
+      const result = await ActivosService.devolver(ACTIVO_ID, basePayload, USER_ID);
+
+      expect(DevolucionesService.create).toHaveBeenCalledWith(basePayload, USER_ID);
+      expect(result).toEqual(mockResult);
     });
 
-    it('rechaza si no existe custodia activa para el trabajador', async () => {
-      const client = makeClient([
-        undefined,                                                                                                 // BEGIN
-        { rows: [{ id: activoId, estado: 'asignado', ubicacion_actual_id: 'ubic-a', articulo_id: 'art-1' }] },   // SELECT activo
-        ubicacionRecepcionRow,                                                                                     // _validateReceivingLocation
-        { rows: [] },                                                                                              // SELECT custodia_activo — not found
-        undefined,                                                                                                 // ROLLBACK
-      ]);
-      db.pool.connect.mockResolvedValue(client);
-
-      await expect(ActivosService.devolver(activoId, payload, userId))
-        .rejects.toMatchObject({ message: 'No existe custodia activa para este activo y trabajador', statusCode: 409 });
-    });
-
-    it('crea devolucion, cierra custodia e inserta movimiento en una sola TX', async () => {
-      const client = makeClient([
-        undefined,                                                                                                 // BEGIN
-        { rows: [{ id: activoId, estado: 'asignado', ubicacion_actual_id: 'ubic-a', articulo_id: 'art-1' }] },   // SELECT activo
-        ubicacionRecepcionRow,                                                                                     // _validateReceivingLocation
-        { rows: [{ id: 'custodia-uuid-1', entrega_id: 'entrega-uuid-1' }] },                                     // SELECT custodia
-        { rows: [{ id: 'devolucion-uuid-1' }] },                                                                  // INSERT devolucion
-        { rows: [] },                                                                                              // INSERT devolucion_detalle
-        { rows: [] },                                                                                              // INSERT firma_devolucion
-        { rows: [] },                                                                                              // UPDATE custodia_activo
-        { rows: [] },                                                                                              // UPDATE activo
-        { rows: [{ id: 'movimiento-uuid-1' }] },                                                                  // INSERT movimiento_activo
-        undefined,                                                                                                 // COMMIT
-      ]);
-      db.pool.connect.mockResolvedValue(client);
-
-      const result = await ActivosService.devolver(activoId, payload, userId);
-
-      expect(result).toEqual({
-        activo_id: activoId,
-        devolucion_id: 'devolucion-uuid-1',
-        custodia_id: 'custodia-uuid-1',
-        movimiento_id: 'movimiento-uuid-1',
-        estado: 'confirmada',
-      });
-      expect(writeAuditEvent).toHaveBeenCalledWith(
-        expect.objectContaining({ entidadTipo: 'activo', accion: 'devolver' })
+    it('propagates errors from DevolucionesService.create', async () => {
+      DevolucionesService.create.mockRejectedValue(
+        Object.assign(new Error('ACTIVE_CUSTODY_NOT_FOUND'), { statusCode: 409, code: 'ACTIVE_CUSTODY_NOT_FOUND' })
       );
-      expect(client.query).toHaveBeenCalledWith('COMMIT');
+
+      await expect(ActivosService.devolver(ACTIVO_ID, basePayload, USER_ID))
+        .rejects.toMatchObject({ code: 'ACTIVE_CUSTODY_NOT_FOUND' });
     });
   });
 });
