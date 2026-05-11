@@ -13,33 +13,6 @@ class TrabajadorModel {
     this.actualizado_en = data.actualizado_en;
   }
 
-  static async create({
-    persona_id,
-    cargo,
-    fecha_ingreso,
-    fecha_salida,
-    estado = 'activo',
-  }) {
-    const { rows } = await db.query(
-      `
-      INSERT INTO trabajador (
-        persona_id, cargo, fecha_ingreso, fecha_salida, estado
-      )
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
-      `,
-      [
-        persona_id,
-        cargo || null,
-        fecha_ingreso || null,
-        fecha_salida || null,
-        estado,
-      ]
-    );
-
-    return new TrabajadorModel(rows[0]);
-  }
-
   static async findById(id) {
     const { rows } = await db.query('SELECT * FROM trabajador WHERE id = $1', [id]);
     return rows.length ? new TrabajadorModel(rows[0]) : null;
