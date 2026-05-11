@@ -158,6 +158,7 @@ const AppLayout = () => {
   };
 
   const isCollapsed = !isSidebarOpen;
+  const showHeaderLogo = (isMobile && !isSidebarOpen) || (!isMobile && isCollapsed);
 
   // Nav link classes — active state uses inset shadow as left-edge accent indicator
   const linkCls = `relative flex items-center px-3 py-2.5 rounded-lg text-gray-300
@@ -346,13 +347,13 @@ const AppLayout = () => {
         <div className="flex flex-col h-full overflow-hidden">
           {/* Sidebar top: logo + desktop toggle */}
           <div
-            className={`flex items-center h-16 border-b border-white/10 px-3 flex-shrink-0 gap-1.5 transition-[gap] duration-300 ease-in-out ${
-              isSidebarOpen ? 'lg:justify-start' : 'lg:justify-center'
-            }`}
+            className="relative flex items-center h-16 border-b border-white/10 px-3 pr-12 flex-shrink-0"
           >
             <div
-              className={`overflow-hidden transition-[max-width] duration-300 ease-in-out flex-shrink-0 ${
-                isSidebarOpen ? 'max-w-[180px]' : 'max-w-[32px]'
+              className={`overflow-hidden transition-[max-width,opacity,transform] duration-300 ease-in-out flex-shrink-0 ${
+                isSidebarOpen
+                  ? 'max-w-[180px] opacity-100 translate-x-0 origin-left'
+                  : 'max-w-[180px] opacity-100 translate-x-0 origin-left lg:max-w-0 lg:opacity-0 lg:translate-x-4 lg:delay-0'
               }`}
               aria-hidden={!isSidebarOpen}
             >
@@ -369,7 +370,7 @@ const AppLayout = () => {
               aria-label={isSidebarOpen ? 'Contraer menú' : 'Expandir menú'}
               aria-expanded={isSidebarOpen}
               aria-controls="sidebar-nav"
-              className={`hidden lg:inline-flex p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors duration-150 flex-shrink-0 ${darkFocusRing}`}
+              className={`hidden lg:inline-flex absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors duration-150 flex-shrink-0 ${darkFocusRing}`}
             >
               {isSidebarOpen ? <ChevronLeftIcon aria-hidden="true" /> : <ChevronRightIcon aria-hidden="true" />}
             </button>
@@ -447,9 +448,11 @@ const AppLayout = () => {
             src={logoWhite}
             alt="Alltura"
             data-tour="app-shell-logo"
-            aria-hidden={isMobile && isSidebarOpen}
-            className={`h-8 w-auto lg:hidden flex-shrink-0 transition-opacity duration-200 ${
-              isMobile && isSidebarOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            aria-hidden={!showHeaderLogo}
+            className={`h-8 w-auto max-w-[180px] flex-shrink-0 object-contain transition-[opacity,transform,max-width] duration-300 ease-in-out motion-reduce:transition-none ${
+              showHeaderLogo
+                ? 'opacity-100 translate-x-0 max-w-[180px] origin-left lg:delay-100 motion-reduce:delay-0'
+                : 'opacity-0 -translate-x-3 max-w-0 pointer-events-none origin-left lg:delay-0'
             }`}
           />
 
