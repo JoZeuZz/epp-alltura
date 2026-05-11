@@ -103,7 +103,7 @@ export type ArticuloEspecialidad =
   | 'equipos'
   | 'trabajos_verticales_lineas_de_vida';
 export type ArticuloNivelControl = 'alto' | 'medio' | 'bajo' | 'fuera_scope';
-export type ArticuloEstado = 'activo' | 'inactivo';
+type ArticuloEstado = 'activo' | 'inactivo';
 
 export interface Articulo {
   id: string;
@@ -469,7 +469,7 @@ export const getInventoryStockMovements = (params?: InventoryMovementQueryParams
 
 // ============ ENTREGAS ============
 
-export type EntregaTipo = 'entrega';
+type EntregaTipo = 'entrega';
 export type EntregaEstado =
   | 'borrador'
   | 'pendiente_firma'
@@ -496,7 +496,7 @@ export interface EntregaDetalleRow {
   devolucion_disposicion?: string | null;
 }
 
-export type EntregaEstadoDevolucion = 'devuelta_completa' | 'parcialmente_devuelta' | 'pendiente_devolucion';
+type EntregaEstadoDevolucion = 'devuelta_completa' | 'parcialmente_devuelta' | 'pendiente_devolucion';
 
 export interface EntregaRow {
   id: string;

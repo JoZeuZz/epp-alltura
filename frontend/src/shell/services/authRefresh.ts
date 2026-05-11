@@ -8,7 +8,7 @@ type RefreshResponse = RefreshTokens & {
   data?: RefreshTokens;
 };
 
-export const TOKEN_STORAGE_KEYS = {
+const TOKEN_STORAGE_KEYS = {
   accessToken: 'accessToken',
   refreshToken: 'refreshToken',
 } as const;
