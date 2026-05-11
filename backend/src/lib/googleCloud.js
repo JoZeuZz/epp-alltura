@@ -689,4 +689,4 @@ const deleteFileByUrl = async (imageUrl) => {
   }
 };
 
-module.exports = { uploadFile, uploadDocument, deleteFileByUrl, resolveImageUrl };
+module.exports = { uploadFile, uploadDocument, deleteFileByUrl };
