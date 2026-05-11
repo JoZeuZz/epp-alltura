@@ -103,24 +103,28 @@ describe('AppLayout logo behavior', () => {
     const { container } = renderLayout({ isMobile: false, collapsed: false });
 
     const sidebarLogo = container.querySelector('nav img[alt="Alltura"]') as HTMLImageElement | null;
+    const headerLogo = container.querySelector('header img[alt="Alltura"]') as HTMLImageElement | null;
     expect(sidebarLogo).toBeTruthy();
+    expect(headerLogo).toBeTruthy();
     expect(sidebarLogo?.className).toContain('object-contain');
     expect(sidebarLogo?.className).toContain('max-w-[180px]');
     expect(sidebarLogo?.className).not.toContain('flex-1');
 
     const sidebarLogoWrapper = sidebarLogo?.parentElement as HTMLDivElement | null;
-    const sidebarHeader = sidebarLogoWrapper?.parentElement as HTMLDivElement | null;
     expect(sidebarLogoWrapper).toBeTruthy();
     expect(sidebarLogoWrapper?.getAttribute('aria-hidden')).toBe('false');
-    expect(sidebarHeader).toBeTruthy();
-    expect(sidebarHeader?.className).toContain('gap-2');
+    expect(headerLogo?.getAttribute('aria-hidden')).toBe('true');
+    expect(headerLogo?.className).toContain('opacity-0');
+    expect(headerLogo?.className).toContain('max-w-0');
 
     await user.click(screen.getByRole('button', { name: 'Contraer menú' }));
 
     expect(sidebarLogoWrapper?.getAttribute('aria-hidden')).toBe('true');
-    expect(sidebarLogoWrapper?.className).toContain('max-w-0');
-    expect(sidebarHeader?.className).toContain('gap-0');
-    expect(sidebarHeader?.className).toContain('justify-center');
+    expect(sidebarLogoWrapper?.className).toContain('lg:max-w-0');
+    expect(sidebarLogoWrapper?.className).toContain('lg:opacity-0');
+    expect(headerLogo?.getAttribute('aria-hidden')).toBe('false');
+    expect(headerLogo?.className).toContain('opacity-100');
+    expect(headerLogo?.className).toContain('max-w-[180px]');
     expect(screen.getByRole('button', { name: 'Expandir menú' })).toBeInTheDocument();
   });
 
