@@ -1,14 +1,14 @@
 'use strict';
 
 jest.mock('../../middleware/auth', () => ({
-  authMiddleware: (req, _res, next) => {
+  authMiddleware: jest.fn((req, _res, next) => {
     req.user = {
       id: 'user-1',
       role: 'admin',
       roles: ['admin'],
     };
     next();
-  },
+  }),
 }));
 
 jest.mock('../../middleware/roles', () => ({
@@ -32,6 +32,7 @@ const request = require('supertest');
 const errorHandler = require('../../middleware/errorHandler');
 const entregasRoutes = require('../../routes/entregas.routes');
 const EntregasService = require('../../services/entregas.service');
+const { authMiddleware } = require('../../middleware/auth');
 
 const MOCK_ENTREGA = {
   id: '11111111-0000-0000-0000-000000000001',
@@ -89,15 +90,12 @@ describe('GET /api/entregas/:id/pdf', () => {
   });
 
   it('returns 401 without token when auth rejects', async () => {
-    // Build an app that uses a real-style auth rejection
-    const appWith401 = express();
-    appWith401.use(express.json());
-    appWith401.use('/api/entregas', (_req, res, _next) => {
+    authMiddleware.mockImplementationOnce((_req, res, _next) => {
       res.status(401).json({ success: false, message: 'No autorizado' });
     });
-    appWith401.use(errorHandler);
 
-    const res = await request(appWith401)
+    const app = buildApp();
+    const res = await request(app)
       .get(`/api/entregas/${MOCK_ENTREGA.id}/pdf`);
 
     expect(res.status).toBe(401);
