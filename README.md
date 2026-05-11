@@ -2,7 +2,7 @@
 
 Sistema para gestionar inventario, entregas, devoluciones, firmas y trazabilidad operacional de activos y articulos.
 
-## Estado actual (2026-05-08)
+## Estado actual (2026-05-11)
 
 - Roles autenticables vigentes: admin, supervisor.
 - trabajador permanece como entidad de dominio (sin login).
@@ -166,9 +166,10 @@ npm run test:integration-db
 
 ## Deuda tecnica conocida
 
-- Posible drift entre swagger y rutas reales.
-- apiService frontend mantiene metodos legacy no respaldados por rutas backend actuales (p.ej. deshacer/permanent/templates en entregas).
+- Posible drift entre swagger y rutas reales (Swagger desactualizado; endpoints de inventario/activos no documentados).
 - Integracion DB no bloquea PR por defecto (workflow manual).
+- Tablas DB sin CRUD activo: `inspeccion_activo`, `lote` (existen en schema, sin endpoints).
+- Columnas candidatas a DROP: `articulo.categoria` (nullable legacy), `persona.foto_url`.
 
 ## Documentacion relacionada
 

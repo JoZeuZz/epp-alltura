@@ -78,7 +78,9 @@ Todos con prefijo /api.
 - /proyectos
 - /proveedores
 - /notifications
-- /documentos
+- /compras
+- /activos (sub-rutas de inventario: entregar, devolver)
+- /image-proxy
 
 Health:
 
@@ -145,6 +147,24 @@ Eventos:
 - delivery-signed
 - return-signed
 
+## Inventario (rutas principales)
+
+- GET /api/inventario/ingresos
+- POST /api/inventario/ingresos
+- DELETE /api/inventario/ingresos/:id
+- GET /api/inventario/egresos | /egresos/:id
+- POST /api/inventario/egresos
+- DELETE /api/inventario/egresos/:id
+- GET /api/inventario/stock | /stock-summary | /stock-paged
+- GET /api/inventario/movimientos-stock | /movimientos-stock/export
+- GET /api/inventario/movimientos-activo
+- GET /api/inventario/activos | /activos-paged | /activos-disponibles
+- GET /api/inventario/activos/:id/perfil
+- PATCH /api/inventario/activos/:id/estado | /activos/:id/reubicar | /activos/:id
+- GET /api/inventario/auditoria
+- POST /api/activos/:id/entregar
+- POST /api/activos/:id/devolver
+
 ## Reglas de negocio clave
 
 - Roles login activos: admin, supervisor.
@@ -177,6 +197,8 @@ npm run test:integration-db
 - middleware de hardening: helmet, cors, hpp, sanitizacion.
 - error handler global.
 
-## Nota de drift
+## Deuda tecnica conocida
 
-Hay rutas/metodos legacy en el cliente frontend que ya no tienen contrato activo en backend (ejemplo: endpoints de deshacer/permanent/templates de entrega). Mantener contratos cliente-servidor sincronizados antes de promover cambios.
+- Swagger desactualizado respecto a rutas reales (endpoints de inventario/activos no documentados).
+- Tablas DB sin CRUD activo: `inspeccion_activo`, `lote` (existen en schema, sin servicios/rutas).
+- Columnas candidatas a DROP: `articulo.categoria` (nullable legacy), `persona.foto_url`.
