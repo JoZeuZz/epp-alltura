@@ -51,11 +51,6 @@ class ActivoModel {
     return rows.length ? new ActivoModel(rows[0]) : null;
   }
 
-  static async findByCodigo(codigo) {
-    const { rows } = await db.query('SELECT * FROM activo WHERE codigo = $1', [codigo]);
-    return rows.length ? new ActivoModel(rows[0]) : null;
-  }
-
   static async findAll(filters = {}) {
     const { estado, articulo_id, bodega_actual_id, proyecto_actual_id, search } = filters;
     const { limit, offset } = normalizePagination(filters.limit, filters.offset);

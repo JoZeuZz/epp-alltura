@@ -45,11 +45,6 @@ class TrabajadorModel {
     return rows.length ? new TrabajadorModel(rows[0]) : null;
   }
 
-  static async findByPersonaId(personaId) {
-    const { rows } = await db.query('SELECT * FROM trabajador WHERE persona_id = $1', [personaId]);
-    return rows.length ? new TrabajadorModel(rows[0]) : null;
-  }
-
   static async findAll(filters = {}) {
     const { estado, search } = filters;
     const { limit, offset } = normalizePagination(filters.limit, filters.offset);
