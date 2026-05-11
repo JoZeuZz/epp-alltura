@@ -22,7 +22,7 @@ const SupervisorDashboard: React.FC = () => {
   const activos = summary.activos || {};
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-tour="supervisor-dashboard-root">
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Panel Supervisor de Equipos y Herramientas</h1>
         <p className="text-neutral-gray mt-1">
@@ -39,7 +39,7 @@ const SupervisorDashboard: React.FC = () => {
       </div>
 
       {section === 'trazabilidad' && (
-        <section className="bg-white rounded-lg shadow-md p-5">
+        <section className="bg-white rounded-lg shadow-md p-5" data-tour="supervisor-dashboard-movements">
           <h2 className="text-lg font-semibold text-dark-blue mb-3">Movimientos Recientes de Activos</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
