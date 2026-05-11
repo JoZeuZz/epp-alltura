@@ -78,6 +78,7 @@ export const TourProvider: React.FC<{ children: React.ReactNode }> = ({ children
       steps,
       stepIndex,
       mode,
+      currentDemoAction: isActive ? (steps[stepIndex]?.demoAction ?? null) : null,
       startOnboarding,
       startContextual,
       stop,
