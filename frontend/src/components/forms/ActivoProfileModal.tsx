@@ -10,6 +10,7 @@ import EntregaFirmaModal from './EntregaFirmaModal';
 import DevolucionActivoModal from './DevolucionActivoModal';
 import DevolucionFirmaModal from './DevolucionFirmaModal';
 import { useGet } from '../../hooks';
+import { usePdfDownload } from '../../hooks/usePdfDownload';
 import {
   entregarActivo,
   getActivoProfile,
@@ -102,6 +103,25 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
   const [draftEntrega, setDraftEntrega] = useState<EntregaRow | null>(null);
   const [draftDevolucion, setDraftDevolucion] = useState<DevolucionRow | null>(null);
   const detailsPanelId = useId();
+
+  const { downloadPdf, isLoading: isPdfLoading } = usePdfDownload();
+
+  const handleDownloadFicha = () => {
+    if (!activoId) return;
+    const timestamp = new Date().toISOString().slice(0, 10);
+    void downloadPdf(
+      `/inventario/activos/${activoId}/pdf`,
+      `ficha-activo-${activoId.slice(0, 8)}-${timestamp}.pdf`
+    );
+  };
+
+  const handleDownloadActa = (entregaId: string) => {
+    const timestamp = new Date().toISOString().slice(0, 10);
+    void downloadPdf(
+      `/entregas/${entregaId}/pdf`,
+      `acta-entrega-${entregaId.slice(0, 8)}-${timestamp}.pdf`
+    );
+  };
 
   const { data: profile, isLoading, error } = useQuery<ActivoProfileResponse>({
     queryKey: ['activo-profile', activoId],
@@ -461,6 +481,17 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
                 onClick={() => setSubModal('editar')}
               />
             </div>
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={handleDownloadFicha}
+                disabled={isPdfLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-edge text-sm text-content-secondary bg-surface hover:bg-surface-muted transition-colors disabled:opacity-50"
+                aria-label="Descargar ficha PDF"
+              >
+                {isPdfLoading ? '…' : '↓'} Descargar ficha PDF
+              </button>
+            </div>
           </section>
 
           {/* Custodia activa */}
@@ -516,7 +547,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
                 <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-edge" />
                 <ul className="space-y-3">
                   {profile.timeline.map((entry) => (
-                    <TimelineItem key={entry.id} entry={entry} />
+                    <TimelineItem key={entry.id} entry={entry} onDownloadActa={handleDownloadActa} />
                   ))}
                 </ul>
               </div>
@@ -592,7 +623,10 @@ const ActionButton: React.FC<{
   </div>
 );
 
-const TimelineItem: React.FC<{ entry: ActivoTimelineEntry }> = ({ entry }) => (
+const TimelineItem: React.FC<{
+  entry: ActivoTimelineEntry;
+  onDownloadActa?: (entregaId: string) => void;
+}> = ({ entry, onDownloadActa }) => (
   <li className="relative pl-10">
     <span className="absolute left-2 top-0.5 w-5 h-5 flex items-center justify-center text-sm bg-surface border rounded-full">
       {MOV_ICONS[entry.tipo] ?? '•'}
@@ -601,6 +635,16 @@ const TimelineItem: React.FC<{ entry: ActivoTimelineEntry }> = ({ entry }) => (
       <div className="flex items-baseline gap-2">
         <span className="font-medium text-content-primary">{MOV_LABELS[entry.tipo] ?? entry.tipo}</span>
         <span className="text-xs text-content-disabled">{formatDateTime(entry.fecha_movimiento)}</span>
+        {entry.tipo === 'entrega' && entry.entrega_id && onDownloadActa && (
+          <button
+            type="button"
+            onClick={() => onDownloadActa(entry.entrega_id!)}
+            className="text-xs text-primary hover:underline"
+            aria-label="Acta PDF"
+          >
+            ↓ Acta
+          </button>
+        )}
       </div>
       <div className="text-xs text-content-muted mt-0.5 space-y-0.5">
         {(entry.ubicacion_origen_nombre || entry.ubicacion_destino_nombre) && (
