@@ -57,5 +57,4 @@ export { frontendLogger } from './services/frontendLogger';
 
 // Shell utils
 export * from './utils/imageProcessing';
-export * from './utils/image';
 export * from './utils/name';

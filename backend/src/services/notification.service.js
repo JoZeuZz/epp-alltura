@@ -48,43 +48,6 @@ class NotificationService {
     return userRole === 'admin';
   }
 
-  static async createInAppNotification(notificationData) {
-    try {
-      if (notificationData.metadata) {
-        const hasDuplicate = await NotificationModel.hasDuplicate(
-          notificationData.user_id,
-          notificationData.type,
-          notificationData.metadata,
-          5
-        );
-
-        if (hasDuplicate) {
-          logger.debug('Duplicate notification prevented', {
-            userId: notificationData.user_id,
-            type: notificationData.type,
-          });
-          return null;
-        }
-      }
-
-      const notification = await NotificationModel.create(notificationData);
-
-      logger.info('In-app notification created', {
-        notificationId: notification.id,
-        userId: notificationData.user_id,
-        type: notificationData.type,
-      });
-
-      return notification;
-    } catch (error) {
-      logger.error('Error creating in-app notification', {
-        error: error.message,
-        notificationData,
-      });
-      throw error;
-    }
-  }
-
   static async createBatchInAppNotifications(notifications) {
     try {
       const created = await NotificationModel.createBatch(notifications);
@@ -110,19 +73,6 @@ class NotificationService {
       logger.error('Error getting in-app notifications', {
         error: error.message,
         userId,
-      });
-      throw error;
-    }
-  }
-
-  static async getInAppNotificationsByType(userId, type, options = {}) {
-    try {
-      return await NotificationModel.getByType(userId, type, options);
-    } catch (error) {
-      logger.error('Error getting in-app notifications by type', {
-        error: error.message,
-        userId,
-        type,
       });
       throw error;
     }

@@ -1,7 +1,7 @@
 import imageCompression from 'browser-image-compression';
 import { IMAGE_MAX_BYTES, IMAGE_MAX_MB } from '../../config/imageLimits';
 
-export const ALLOWED_IMAGE_TYPES = [
+const ALLOWED_IMAGE_TYPES = [
   'image/jpeg',
   'image/jpg',
   'image/png',
@@ -32,7 +32,7 @@ export const formatBytes = (bytes: number) => {
 
 const normalizeMimeType = (value: string) => value.toLowerCase();
 
-export const validateImageFile = (file: File) => {
+const validateImageFile = (file: File) => {
   if (!file) {
     throw new Error('No se seleccionó ninguna imagen.');
   }
