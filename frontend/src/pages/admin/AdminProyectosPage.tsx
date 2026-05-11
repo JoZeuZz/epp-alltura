@@ -454,7 +454,7 @@ const AdminProyectosPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-tour="admin-proyectos-root">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Proyectos</h1>
@@ -524,7 +524,7 @@ const AdminProyectosPage: React.FC = () => {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="bg-white rounded-lg shadow-md overflow-hidden" data-tour="admin-proyectos-table">
           <div className="px-5 py-3 border-b border-gray-100">
             <p className="text-sm text-neutral-gray">
               {filtered.length} proyecto{filtered.length !== 1 ? 's' : ''}
