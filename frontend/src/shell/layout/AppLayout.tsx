@@ -344,10 +344,10 @@ const AppLayout = () => {
           ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full lg:translate-x-0 lg:w-16'}`}
       >
         <div className="flex flex-col h-full overflow-hidden">
-          {/* Sidebar top: logo + collapse toggle */}
+          {/* Sidebar top: logo */}
           <div
             className={`flex items-center h-16 border-b border-white/10 px-3 flex-shrink-0 ${
-              isSidebarOpen ? 'gap-2' : 'justify-center gap-0'
+              isSidebarOpen ? 'justify-start' : 'justify-center'
             }`}
           >
             <div
@@ -362,18 +362,6 @@ const AppLayout = () => {
                 className="h-9 w-auto max-w-[180px] flex-shrink-0 object-contain"
               />
             </div>
-            <button
-              onClick={() => setSidebarOpen(!isSidebarOpen)}
-              data-tour="app-shell-sidebar-toggle-desktop"
-              aria-label={isSidebarOpen ? 'Contraer menú' : 'Expandir menú'}
-              aria-expanded={isSidebarOpen}
-              aria-controls="sidebar-nav"
-              className={`p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors duration-150 flex-shrink-0 ${darkFocusRing} ${
-                !isSidebarOpen ? 'lg:mx-auto' : ''
-              }`}
-            >
-              {isSidebarOpen ? <ChevronLeftIcon aria-hidden="true" /> : <ChevronRightIcon aria-hidden="true" />}
-            </button>
           </div>
 
           {/* Nav links */}
@@ -429,7 +417,7 @@ const AppLayout = () => {
         {/* Header */}
         <header
           data-tour="app-shell-header"
-          className="bg-dark-blue text-white flex items-center justify-between px-4 h-16 z-30 shadow-md border-b border-white/10 flex-shrink-0"
+          className="bg-dark-blue text-white flex items-center gap-[var(--shell-header-gap)] sm:gap-[var(--shell-header-gap-sm)] px-[var(--shell-header-px)] sm:px-[var(--shell-header-px-sm)] md:px-[var(--shell-header-px-md)] h-16 z-30 shadow-md border-b border-white/10 flex-shrink-0 min-w-0"
         >
           {/* Mobile sidebar toggle */}
           <button
@@ -438,9 +426,21 @@ const AppLayout = () => {
             aria-label={isSidebarOpen ? 'Cerrar menú de navegación' : 'Abrir menú de navegación'}
             aria-expanded={isSidebarOpen}
             aria-controls="sidebar-nav"
-            className={`lg:hidden p-2 -ml-1 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors duration-150 ${darkFocusRing}`}
+            className={`lg:hidden p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors duration-150 flex-shrink-0 ${darkFocusRing}`}
           >
             <MenuIcon aria-hidden="true" />
+          </button>
+
+          {/* Desktop sidebar toggle anchored to sidebar/content edge */}
+          <button
+            onClick={() => setSidebarOpen(!isSidebarOpen)}
+            data-tour="app-shell-sidebar-toggle-desktop"
+            aria-label={isSidebarOpen ? 'Contraer menú' : 'Expandir menú'}
+            aria-expanded={isSidebarOpen}
+            aria-controls="sidebar-nav"
+            className={`hidden lg:inline-flex p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors duration-150 flex-shrink-0 ${darkFocusRing}`}
+          >
+            {isSidebarOpen ? <ChevronLeftIcon aria-hidden="true" /> : <ChevronRightIcon aria-hidden="true" />}
           </button>
 
           {/* Logo */}
@@ -449,19 +449,21 @@ const AppLayout = () => {
             alt="Alltura"
             data-tour="app-shell-logo"
             aria-hidden={isMobile && isSidebarOpen}
-            className={`h-8 w-auto lg:hidden transition-opacity duration-200 ${
+            className={`h-8 w-auto lg:hidden flex-shrink-0 transition-opacity duration-200 ${
               isMobile && isSidebarOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
             }`}
           />
 
+          <div className="flex-1" aria-hidden="true" />
+
           {/* Right-side actions: notifications + profile */}
           <div
             ref={profileMenuRef}
-            className="relative flex items-center gap-0.5"
+            className="relative ml-auto flex items-center gap-[var(--shell-header-actions-gap)] sm:gap-[var(--shell-header-actions-gap-sm)] flex-shrink-0"
             data-tour="app-shell-header-actions"
           >
             <div
-              className={`p-1.5 rounded-lg hover:bg-white/10 transition-colors duration-150 ${darkFocusRing}`}
+              className={`p-[var(--shell-header-bell-p)] sm:p-[var(--shell-header-bell-p-sm)] rounded-lg hover:bg-white/10 transition-colors duration-150 ${darkFocusRing}`}
               data-tour="app-shell-notifications"
             >
               <NotificationBell variant="dark" />
@@ -477,7 +479,7 @@ const AppLayout = () => {
               aria-expanded={isProfileMenuOpen}
               aria-haspopup="menu"
               aria-controls="profile-dropdown"
-              className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 hover:bg-white/10 transition-colors duration-150 ${darkFocusRing}`}
+              className={`flex items-center gap-[var(--shell-header-profile-gap)] sm:gap-[var(--shell-header-profile-gap-sm)] rounded-lg px-[var(--shell-header-profile-px)] sm:px-[var(--shell-header-profile-px-sm)] py-1.5 hover:bg-white/10 transition-colors duration-150 max-w-[11.5rem] sm:max-w-none ${darkFocusRing}`}
             >
               <div className="w-8 h-8 rounded-full bg-gray-600 flex-shrink-0 overflow-hidden flex items-center justify-center ring-2 ring-white/20">
                 {user.profile_picture_url ? (
@@ -486,12 +488,12 @@ const AppLayout = () => {
                   <UserIcon className="w-4 h-4 text-gray-300" />
                 )}
               </div>
-              <span className="hidden md:block text-sm font-medium max-w-[10rem] truncate">
+              <span className="hidden lg:block text-sm font-medium max-w-[9rem] xl:max-w-[10rem] truncate">
                 {formatNameParts(user?.first_name, user?.last_name)}
               </span>
               <ChevronDownIcon
                 aria-hidden="true"
-                className={`text-gray-400 transition-transform duration-200 motion-reduce:transition-none ${isProfileMenuOpen ? 'rotate-180' : ''}`}
+                className={`hidden sm:block text-gray-400 transition-transform duration-200 motion-reduce:transition-none ${isProfileMenuOpen ? 'rotate-180' : ''}`}
               />
             </button>
 
@@ -500,7 +502,7 @@ const AppLayout = () => {
               id="profile-dropdown"
               role="menu"
               aria-label="Opciones de perfil"
-              className={`absolute right-0 top-full mt-2 w-64 bg-[#1a2235] rounded-xl shadow-2xl border border-white/10 py-2 z-[100]
+              className={`absolute right-0 top-full mt-2 w-[min(var(--shell-profile-dropdown-width),calc(100vw-var(--shell-profile-dropdown-edge)))] bg-[#1a2235] rounded-xl shadow-2xl border border-white/10 py-2 z-[100]
                 transition-all duration-200 origin-top-right motion-reduce:transition-none ${
                 isProfileMenuOpen
                   ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
