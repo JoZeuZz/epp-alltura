@@ -9,7 +9,7 @@ export interface Notification {
   duration?: number;
 }
 
-export interface NotificationContextValue {
+interface NotificationContextValue {
   notifications: Notification[];
   showNotification: (type: NotificationType, message: string, duration?: number) => void;
   removeNotification: (id: string) => void;
