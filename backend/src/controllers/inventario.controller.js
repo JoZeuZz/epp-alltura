@@ -2,7 +2,7 @@ const InventarioService = require('../services/inventario.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
 const { uploadDocument, deleteFileByUrl } = require('../lib/googleCloud');
-const { createDoc, DARK_BLUE, BODY_TEXT } = require('../lib/pdfGenerator');
+const { createDoc, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
 
 class InventarioController {
   static async listIngresos(req, res, next) {
@@ -256,6 +256,45 @@ class InventarioController {
       return sendSuccess(res, { message: 'Activo actualizado correctamente', data });
     } catch (error) {
       logger.error('Error updating activo:', error);
+      return next(error);
+    }
+  }
+
+  static async exportInventarioPdf(req, res, next) {
+    try {
+      const { categoria } = req.query;
+      const activos = await InventarioService.getActivos({ tipo_activo: categoria, limit: 500 });
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const label = { epp: 'EPP', herramientas: 'Herramientas', equipos: 'Equipos' }[categoria] ?? categoria;
+      const filename = `inventario-${categoria}-${timestamp}.pdf`;
+      const doc = createDoc(`Inventario: ${label} — ${timestamp}`, res, filename);
+
+      if (activos.length === 0) {
+        doc.fontSize(9).fillColor(MUTED_GRAY).text('Sin activos registrados para esta categoría.');
+        doc.end();
+        return;
+      }
+
+      const headers = ['Código', 'Artículo', 'Estado', 'Ubicación', 'Asignado a'];
+      const rows = activos.map((a) => [
+        a.codigo ?? '—',
+        a.articulo_nombre ?? '—',
+        a.estado ?? '—',
+        a.bodega_nombre ?? '—',
+        a.custodio_nombres ? `${a.custodio_nombres} ${a.custodio_apellidos}` : '—',
+      ]);
+
+      await doc.table({ headers, rows }, {
+        columnsSize: [80, 150, 70, 100, 120],
+        prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
+        prepareRow: () => doc.font('Helvetica').fontSize(8),
+      });
+
+      doc.moveDown();
+      doc.fontSize(8).fillColor(MUTED_GRAY).text(`Total: ${activos.length} activo(s)`);
+      doc.end();
+    } catch (error) {
+      logger.error('Error exporting inventario PDF:', error);
       return next(error);
     }
   }

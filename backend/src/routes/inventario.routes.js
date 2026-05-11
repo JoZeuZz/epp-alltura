@@ -227,6 +227,10 @@ const createEgresoSchema = Joi.object({
   ).min(1).required(),
 });
 
+const exportPdfQuerySchema = Joi.object({
+  categoria: Joi.string().valid('epp', 'herramientas', 'equipos').required(),
+});
+
 const activosQuerySchema = Joi.object({
   articulo_id: uuid,
   ubicacion_id: uuid,
@@ -398,6 +402,14 @@ router.patch(
   checkRole(['admin']),
   validateBody(editarActivoSchema),
   InventarioController.editarActivo
+);
+
+router.get(
+  '/export/pdf',
+  authMiddleware,
+  checkRole(['admin', 'supervisor']),
+  validateQuery(exportPdfQuerySchema),
+  InventarioController.exportInventarioPdf
 );
 
 module.exports = router;
