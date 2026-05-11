@@ -344,15 +344,15 @@ const AppLayout = () => {
           ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full lg:translate-x-0 lg:w-16'}`}
       >
         <div className="flex flex-col h-full overflow-hidden">
-          {/* Sidebar top: logo */}
+          {/* Sidebar top: logo + desktop toggle */}
           <div
-            className={`flex items-center h-16 border-b border-white/10 px-3 flex-shrink-0 ${
-              isSidebarOpen ? 'justify-start' : 'justify-center'
+            className={`flex items-center h-16 border-b border-white/10 px-3 flex-shrink-0 gap-1.5 transition-[gap] duration-300 ease-in-out ${
+              isSidebarOpen ? 'lg:justify-start' : 'lg:justify-center'
             }`}
           >
             <div
-              className={`overflow-hidden transition-[max-width,opacity] duration-300 ease-in-out ${
-                isSidebarOpen ? 'max-w-[180px] opacity-100' : 'max-w-0 opacity-0 lg:pointer-events-none'
+              className={`overflow-hidden transition-[max-width] duration-300 ease-in-out flex-shrink-0 ${
+                isSidebarOpen ? 'max-w-[180px]' : 'max-w-[32px]'
               }`}
               aria-hidden={!isSidebarOpen}
             >
@@ -362,6 +362,17 @@ const AppLayout = () => {
                 className="h-9 w-auto max-w-[180px] flex-shrink-0 object-contain"
               />
             </div>
+            {/* Desktop sidebar toggle */}
+            <button
+              onClick={() => setSidebarOpen(!isSidebarOpen)}
+              data-tour="app-shell-sidebar-toggle-desktop"
+              aria-label={isSidebarOpen ? 'Contraer menú' : 'Expandir menú'}
+              aria-expanded={isSidebarOpen}
+              aria-controls="sidebar-nav"
+              className={`hidden lg:inline-flex p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors duration-150 flex-shrink-0 ${darkFocusRing}`}
+            >
+              {isSidebarOpen ? <ChevronLeftIcon aria-hidden="true" /> : <ChevronRightIcon aria-hidden="true" />}
+            </button>
           </div>
 
           {/* Nav links */}
@@ -417,7 +428,7 @@ const AppLayout = () => {
         {/* Header */}
         <header
           data-tour="app-shell-header"
-          className="relative bg-dark-blue text-white flex items-center gap-[var(--shell-header-gap)] sm:gap-[var(--shell-header-gap-sm)] px-[var(--shell-header-px)] sm:px-[var(--shell-header-px-sm)] md:px-[var(--shell-header-px-md)] h-16 z-30 shadow-md border-b border-white/10 flex-shrink-0 min-w-0"
+          className="bg-dark-blue text-white flex items-center gap-[var(--shell-header-gap)] sm:gap-[var(--shell-header-gap-sm)] px-[var(--shell-header-px)] sm:px-[var(--shell-header-px-sm)] md:px-[var(--shell-header-px-md)] h-16 z-30 shadow-md border-b border-white/10 flex-shrink-0 min-w-0"
         >
           {/* Mobile sidebar toggle */}
           <button
@@ -429,18 +440,6 @@ const AppLayout = () => {
             className={`lg:hidden p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors duration-150 flex-shrink-0 ${darkFocusRing}`}
           >
             <MenuIcon aria-hidden="true" />
-          </button>
-
-          {/* Desktop sidebar toggle anchored to sidebar/content edge */}
-          <button
-            onClick={() => setSidebarOpen(!isSidebarOpen)}
-            data-tour="app-shell-sidebar-toggle-desktop"
-            aria-label={isSidebarOpen ? 'Contraer menú' : 'Expandir menú'}
-            aria-expanded={isSidebarOpen}
-            aria-controls="sidebar-nav"
-            className={`hidden lg:inline-flex absolute left-[var(--shell-header-toggle-left)] top-1/2 -translate-y-1/2 z-10 p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors duration-150 ${darkFocusRing}`}
-          >
-            {isSidebarOpen ? <ChevronLeftIcon aria-hidden="true" /> : <ChevronRightIcon aria-hidden="true" />}
           </button>
 
           {/* Logo */}
