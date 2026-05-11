@@ -12,8 +12,3 @@ export const isValidRut = (rut: string): boolean => validateRut(rut, false);
  */
 export const normalizeRut = (rut: string): string => formatRut(rut, RutFormat.DASH);
 
-/**
- * Formatea un RUT para mostrar al usuario: XX.XXX.XXX-X (con puntos y guion).
- * Ejemplo: "12345678-9" → "12.345.678-9"
- */
-export const formatRutDisplay = (rut: string): string => formatRut(rut, RutFormat.DOTS_DASH);
