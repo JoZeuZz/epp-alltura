@@ -338,6 +338,9 @@ export const getInventoryStock = (params?: InventoryStockQueryParams) =>
 export const getInventoryActivosPaged = (params?: InventoryActivoDetailQueryParams) =>
   get<CursorPaginatedResponse<InventoryActivoDetailRow>>('/inventario/activos-paged', params);
 
+export const getInventoryActivosAll = (scope: InventoryActivoTypeScope) =>
+  get<InventoryActivoDetailRow[]>('/inventario/activos', { tipo_activo: scope, limit: 500 });
+
 // ---- Perfil completo de activo ----
 
 export interface ActivoTimelineEntry {
