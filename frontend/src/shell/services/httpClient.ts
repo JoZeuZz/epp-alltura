@@ -39,9 +39,9 @@ export function extractErrorMetadata(error: unknown): { requestId?: string; mess
   };
 }
 
-export type AuthFailureMode = 'redirect' | 'throw';
+type AuthFailureMode = 'redirect' | 'throw';
 
-export type HttpRequestConfig = AxiosRequestConfig & {
+type HttpRequestConfig = AxiosRequestConfig & {
   _retry?: boolean;
   authFailureMode?: AuthFailureMode;
 };

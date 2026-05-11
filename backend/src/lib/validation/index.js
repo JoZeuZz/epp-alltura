@@ -50,7 +50,6 @@ const pushSubscription = Joi.object({
 });
 
 module.exports = {
-  PATTERNS,
   email,
   password,
   personName,
