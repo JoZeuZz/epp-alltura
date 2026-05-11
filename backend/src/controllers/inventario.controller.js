@@ -2,7 +2,7 @@ const InventarioService = require('../services/inventario.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
 const { uploadDocument, deleteFileByUrl } = require('../lib/googleCloud');
-const { createDoc, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
+const { createDoc, DARK_BLUE, BODY_TEXT } = require('../lib/pdfGenerator');
 
 class InventarioController {
   static async listIngresos(req, res, next) {
