@@ -87,5 +87,5 @@ npm test
 ## Notas de mantenimiento
 
 - Mantener same-origin /api (sin hosts hardcodeados).
-- El cliente incluye metodos legacy en apiService no usados por rutas activas; revisar antes de usar en nuevas vistas.
-- Validar sincronia entre router, apiService y contratos backend para evitar drift.
+- apiService y httpClient se han auditado; superficie pública limpia al 2026-05-11.
+- Validar sincronia entre router, apiService y contratos backend al agregar nuevas rutas/vistas.
