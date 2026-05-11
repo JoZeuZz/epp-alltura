@@ -102,9 +102,6 @@ export type ArticuloEspecialidad =
   | 'ooee'
   | 'equipos'
   | 'trabajos_verticales_lineas_de_vida';
-export type ArticuloTipo = ArticuloGrupoPrincipal;
-export type ArticuloTrackingMode = 'serial' | 'lote';
-export type ArticuloRetornoMode = 'retornable';
 export type ArticuloNivelControl = 'alto' | 'medio' | 'bajo' | 'fuera_scope';
 export type ArticuloEstado = 'activo' | 'inactivo';
 
@@ -553,12 +550,6 @@ export interface EntregarActivoPayload {
   detalles: EntregaDetallePayload[];
 }
 
-
-export interface FirmaDispositivoPayload {
-  texto_aceptacion: string;
-  firma_imagen_url?: string;
-  texto_aceptacion_detalle?: { detalle_id: string | null; texto: string }[];
-}
 
 export const getEntregas = (params?: { estado?: EntregaEstado; trabajador_id?: string }) =>
   get<EntregaRow[]>('/entregas', params);

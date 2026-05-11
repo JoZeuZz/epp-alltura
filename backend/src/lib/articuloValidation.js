@@ -60,10 +60,7 @@ const resolveTrackingMode = (subclasificacion) => {
 };
 
 module.exports = {
-  GRUPOS_VALIDOS,
   SUBCLASIFICACIONES_POR_GRUPO,
-  ESPECIALIDADES_VALIDAS,
-  SUBCLASIFICACIONES_NO_SERIALES,
   normalizeGrupoPrincipal,
   normalizeSubclasificacion,
   normalizeEspecialidades,

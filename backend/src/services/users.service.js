@@ -673,27 +673,6 @@ class UserService {
     }
   }
 
-  static async isEmailAvailable(email, excludeUserId = null) {
-    const normalizedEmail = normalizeEmail(email);
-    if (!normalizedEmail) {
-      return false;
-    }
-
-    const user = await UsuarioModel.findByEmailLogin(normalizedEmail);
-    if (!user) {
-      return true;
-    }
-
-    if (excludeUserId && user.id === excludeUserId) {
-      return true;
-    }
-
-    return false;
-  }
-
-  static generateUserToken(user) {
-    return signAccessToken(user);
-  }
 }
 
 module.exports = UserService;
