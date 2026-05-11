@@ -178,39 +178,6 @@ export interface CursorPaginatedResponse<T> {
   nextCursor?: string | null;
 }
 
-export interface InventoryStockSummaryQueryParams extends CursorPaginationParams {
-  search?: string;
-  articulo_id?: string;
-  ubicacion_id?: string;
-}
-
-export interface InventoryStockSummaryRow {
-  articulo_id: string;
-  articulo_nombre: string;
-  ubicaciones_count: number;
-  disponible_total: number;
-  reservada_total: number;
-  registros_count: number;
-}
-
-export interface InventoryStockDetailQueryParams extends CursorPaginationParams {
-  search?: string;
-  articulo_id?: string;
-  ubicacion_id?: string;
-}
-
-export interface InventoryStockDetailRow {
-  id: string;
-  articulo_id: string;
-  articulo_nombre?: string;
-  ubicacion_id: string;
-  ubicacion_nombre?: string;
-  cantidad_disponible?: number;
-  cantidad_reservada?: number;
-  ultimo_movimiento_tipo?: string | null;
-  ultimo_movimiento_fecha?: string | null;
-  ultimo_movimiento_responsable?: string | null;
-}
 
 export interface InventoryActivoDetailQueryParams extends CursorPaginationParams {
   search?: string;
@@ -366,65 +333,10 @@ export interface InventoryMovementQueryParams {
   limit?: number;
 }
 
-export interface Supplier {
-  id: string;
-  nombre: string;
-  rut?: string | null;
-  email?: string | null;
-  telefono?: string | null;
-  estado?: 'activo' | 'inactivo';
-  creado_en?: string;
-}
-
-export interface SupplierCreatePayload {
-  nombre: string;
-  rut?: string | null;
-  email?: string | null;
-  telefono?: string | null;
-  estado?: 'activo' | 'inactivo';
-}
-
-export interface CompraDocumentoPayload {
-  proveedor_id: string;
-  tipo: 'factura' | 'boleta' | 'guia';
-  numero: string;
-  fecha: string;
-  archivo_url?: string | null;
-}
-
-export interface CompraDetalleSerialActivoPayload {
-  codigo: string;
-  nro_serie?: string | null;
-  valor?: number | null;
-  fecha_vencimiento?: string | null;
-}
-
-export interface CompraDetallePayload {
-  articulo_id: string;
-  ubicacion_id: string;
-  cantidad: number;
-  costo_unitario: number;
-  notas?: string | null;
-  activos?: CompraDetalleSerialActivoPayload[];
-}
-
-export interface CompraCreatePayload {
-  documento_compra_id?: string | null;
-  documento_compra?: CompraDocumentoPayload;
-  fecha_compra?: string | null;
-  notas?: string | null;
-  detalles: CompraDetallePayload[];
-}
 
 
 export const getInventoryStock = (params?: InventoryStockQueryParams) =>
   get('/inventario/stock', params);
-
-export const getInventoryStockSummary = (params?: InventoryStockSummaryQueryParams) =>
-  get<CursorPaginatedResponse<InventoryStockSummaryRow>>('/inventario/stock-summary', params);
-
-export const getInventoryStockPaged = (params?: InventoryStockDetailQueryParams) =>
-  get<CursorPaginatedResponse<InventoryStockDetailRow>>('/inventario/stock-paged', params);
 
 export const getInventoryActivosPaged = (params?: InventoryActivoDetailQueryParams) =>
   get<CursorPaginatedResponse<InventoryActivoDetailRow>>('/inventario/activos-paged', params);
@@ -557,13 +469,6 @@ export const confirmDevolucion = (id: string) =>
 
 export const getInventoryStockMovements = (params?: InventoryMovementQueryParams) =>
   get('/inventario/movimientos-stock', params);
-
-export const getPurchases = (params?: { proveedor_id?: string; creado_por_usuario_id?: string }) =>
-  get('/compras', params);
-
-export const createPurchase = <T = unknown>(payload: CompraCreatePayload) =>
-  post<T>('/compras', payload);
-
 
 // ============ ENTREGAS ============
 
@@ -762,18 +667,6 @@ export const firmarDevolucionDispositivo = (
     })
     .then((res) => res.data);
 };
-
-export const getSuppliers = (params?: { search?: string; estado?: 'activo' | 'inactivo' }) =>
-  get<Supplier[]>('/proveedores', params);
-
-export const createSupplier = <T = Supplier>(payload: SupplierCreatePayload) =>
-  post<T>('/proveedores', payload);
-
-/**
- * Resumen de dashboard operativo.
- */
-export const getDashboardSummary = () => get('/dashboard/summary');
-
 
 // ============ IN-APP NOTIFICATIONS ENDPOINTS ============
 

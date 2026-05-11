@@ -36,33 +36,6 @@ class NotificationModel {
     return rows.map((row) => NotificationModel.fromRow(row));
   }
 
-  static async create(notificationData) {
-    const query = `
-      INSERT INTO notifications (
-        user_id,
-        type,
-        title,
-        message,
-        metadata,
-        link
-      )
-      VALUES ($1, $2, $3, $4, $5::jsonb, $6)
-      RETURNING *
-    `;
-
-    const values = [
-      notificationData.user_id,
-      notificationData.type,
-      notificationData.title,
-      notificationData.message,
-      notificationData.metadata ? JSON.stringify(notificationData.metadata) : null,
-      notificationData.link || null,
-    ];
-
-    const result = await db.query(query, values);
-    return NotificationModel.fromRow(result.rows[0]);
-  }
-
   static async createBatch(notifications) {
     if (!notifications || notifications.length === 0) {
       return [];
@@ -224,31 +197,6 @@ class NotificationModel {
     return result.rowCount;
   }
 
-  static async getByType(userId, type, options = {}) {
-    let query = `
-      SELECT *
-      FROM notifications
-      WHERE user_id = $1 AND type = $2
-    `;
-
-    const values = [userId, type];
-    let paramIndex = 3;
-
-    if (options.unreadOnly) {
-      query += ' AND is_read = false';
-    }
-
-    query += ' ORDER BY created_at DESC';
-
-    if (options.limit) {
-      query += ` LIMIT $${paramIndex++}`;
-      values.push(options.limit);
-    }
-
-    const result = await db.query(query, values);
-    return NotificationModel.mapRows(result.rows);
-  }
-
   static async getStats(userId) {
     const query = `
       SELECT
@@ -271,20 +219,6 @@ class NotificationModel {
     };
   }
 
-  static async hasDuplicate(userId, type, metadata, minutes = 5) {
-    const sanitizedMinutes = Math.max(1, Number(minutes) || 5);
-    const query = `
-      SELECT COUNT(*)::int AS count
-      FROM notifications
-      WHERE user_id = $1
-        AND type = $2
-        AND metadata = $3::jsonb
-        AND created_at > NOW() - ($4::int * INTERVAL '1 minute')
-    `;
-
-    const result = await db.query(query, [userId, type, JSON.stringify(metadata), sanitizedMinutes]);
-    return result.rows[0].count > 0;
-  }
 }
 
 module.exports = NotificationModel;
