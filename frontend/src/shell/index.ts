@@ -17,17 +17,10 @@ export { default as AppLayout } from './layout/AppLayout';
 export {
   Container,
   Section,
-  type ContainerProps,
-  type SectionProps,
-  type ContainerVariant,
 } from './layout/Container';
 export {
   ResponsiveGrid,
   CustomGrid,
-  type ResponsiveGridProps,
-  type CustomGridProps,
-  type GridVariant,
-  type GridGap,
 } from './layout/ResponsiveGrid';
 export {
   default as ResponsiveTable,
