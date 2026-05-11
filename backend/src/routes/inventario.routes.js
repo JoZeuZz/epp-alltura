@@ -346,6 +346,13 @@ router.get(
   InventarioController.getActivoProfile
 );
 
+router.get(
+  '/activos/:id/pdf',
+  authMiddleware,
+  checkRole(['admin', 'supervisor']),
+  InventarioController.exportActivoPdf
+);
+
 // ── Gestión de activos (admin) ─────────────────────────────
 const cambiarEstadoActivoSchema = Joi.object({
   nuevo_estado: Joi.string()
