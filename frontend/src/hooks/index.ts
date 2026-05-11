@@ -5,9 +5,6 @@ export { useMediaQuery } from './useMediaQuery';
 export {
   useBreakpoint,
   useBreakpoints,
-  useBreakpointDown,
-  useBreakpointUp,
-  BREAKPOINTS,
   type Breakpoint,
 } from './useBreakpoint';
 export { useNotifications } from './useNotifications';

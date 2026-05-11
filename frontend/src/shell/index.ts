@@ -3,17 +3,13 @@
 // Components
 export { default as Modal } from './components/Modal';
 export { default as ConfirmationModal } from './components/ConfirmationModal';
-export type { ConfirmationModalProps } from './components/ConfirmationModal';
 export { default as ErrorMessage } from './components/ErrorMessage';
 export { default as ErrorPage } from './components/ErrorPage';
 export { default as Spinner } from './components/Spinner';
 export { default as UploadProgress } from './components/UploadProgress';
 export type { UploadStage } from './components/UploadProgress';
-export type { UploadProgressProps } from './components/UploadProgress';
 export { default as NotificationBell } from './components/NotificationBell';
-export type { NotificationBellProps } from './components/NotificationBell';
 export { default as NotificationItem } from './components/NotificationItem';
-export type { NotificationItemProps } from './components/NotificationItem';
 export { default as TourOverlay } from './components/TourOverlay';
 
 // Layout
