@@ -1,9 +1,9 @@
 import type { InventoryActivoDetailRow } from '../services/apiService';
 import { formatCLP } from './currency';
 
-export type ToolRawStatus = string;
+type ToolRawStatus = string;
 
-export type ToolVisualStatus =
+type ToolVisualStatus =
   | 'available'
   | 'assigned'
   | 'maintenance'
@@ -12,7 +12,7 @@ export type ToolVisualStatus =
   | 'damaged'
   | 'unknown';
 
-export interface ToolActionFlags {
+interface ToolActionFlags {
   canAssign: boolean;
   canReturn: boolean;
   canRelocate: boolean;

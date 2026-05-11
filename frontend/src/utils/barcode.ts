@@ -1,4 +1,4 @@
-export interface BarcodeMatchAsset {
+interface BarcodeMatchAsset {
   codigo?: string | null;
   nro_serie?: string | null;
 }
