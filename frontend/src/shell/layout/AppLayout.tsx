@@ -345,14 +345,23 @@ const AppLayout = () => {
       >
         <div className="flex flex-col h-full overflow-hidden">
           {/* Sidebar top: logo + collapse toggle */}
-          <div className="flex items-center h-16 border-b border-white/10 px-3 flex-shrink-0 gap-2">
-            <img
-              src={logoWhite}
-              alt="Alltura"
-              className={`h-9 w-auto flex-1 min-w-0 transition-all duration-300 ${
-                isSidebarOpen ? 'opacity-100' : 'opacity-0 lg:pointer-events-none'
+          <div
+            className={`flex items-center h-16 border-b border-white/10 px-3 flex-shrink-0 ${
+              isSidebarOpen ? 'gap-2' : 'justify-center gap-0'
+            }`}
+          >
+            <div
+              className={`overflow-hidden transition-[max-width,opacity] duration-300 ease-in-out ${
+                isSidebarOpen ? 'max-w-[180px] opacity-100' : 'max-w-0 opacity-0 lg:pointer-events-none'
               }`}
-            />
+              aria-hidden={!isSidebarOpen}
+            >
+              <img
+                src={logoWhite}
+                alt="Alltura"
+                className="h-9 w-auto max-w-[180px] flex-shrink-0 object-contain"
+              />
+            </div>
             <button
               onClick={() => setSidebarOpen(!isSidebarOpen)}
               data-tour="app-shell-sidebar-toggle-desktop"
@@ -439,7 +448,10 @@ const AppLayout = () => {
             src={logoWhite}
             alt="Alltura"
             data-tour="app-shell-logo"
-            className="h-8 w-auto"
+            aria-hidden={isMobile && isSidebarOpen}
+            className={`h-8 w-auto lg:hidden transition-opacity duration-200 ${
+              isMobile && isSidebarOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+            }`}
           />
 
           {/* Right-side actions: notifications + profile */}
