@@ -417,7 +417,7 @@ const AppLayout = () => {
         {/* Header */}
         <header
           data-tour="app-shell-header"
-          className="bg-dark-blue text-white flex items-center gap-[var(--shell-header-gap)] sm:gap-[var(--shell-header-gap-sm)] px-[var(--shell-header-px)] sm:px-[var(--shell-header-px-sm)] md:px-[var(--shell-header-px-md)] h-16 z-30 shadow-md border-b border-white/10 flex-shrink-0 min-w-0"
+          className="relative bg-dark-blue text-white flex items-center gap-[var(--shell-header-gap)] sm:gap-[var(--shell-header-gap-sm)] px-[var(--shell-header-px)] sm:px-[var(--shell-header-px-sm)] md:px-[var(--shell-header-px-md)] h-16 z-30 shadow-md border-b border-white/10 flex-shrink-0 min-w-0"
         >
           {/* Mobile sidebar toggle */}
           <button
@@ -438,7 +438,7 @@ const AppLayout = () => {
             aria-label={isSidebarOpen ? 'Contraer menú' : 'Expandir menú'}
             aria-expanded={isSidebarOpen}
             aria-controls="sidebar-nav"
-            className={`hidden lg:inline-flex p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors duration-150 flex-shrink-0 ${darkFocusRing}`}
+            className={`hidden lg:inline-flex absolute left-[var(--shell-header-toggle-left)] top-1/2 -translate-y-1/2 z-10 p-2 rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors duration-150 ${darkFocusRing}`}
           >
             {isSidebarOpen ? <ChevronLeftIcon aria-hidden="true" /> : <ChevronRightIcon aria-hidden="true" />}
           </button>
