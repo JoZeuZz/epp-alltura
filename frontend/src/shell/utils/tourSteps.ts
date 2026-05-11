@@ -183,7 +183,7 @@ const sharedContextSteps = (role: TourRole): TourStep[] => [
   },
 ];
 
-export const contextualStepsByRole: Record<TourRole, TourStep[]> = {
+const contextualStepsByRole: Record<TourRole, TourStep[]> = {
   admin: [
     {
       id: 'admin-dashboard-context',
