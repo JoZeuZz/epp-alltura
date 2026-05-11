@@ -594,62 +594,6 @@ const uploadDocument = async (file) => {
 };
 
 /**
- * Resolve an image URL to a signed URL when using GCS (for private buckets).
- * Falls back to the original URL if signing is not available.
- * @param {string} imageUrl
- * @returns {Promise<string>}
- */
-const resolveImageUrl = async (imageUrl) => {
-  if (!imageUrl) return imageUrl;
-
-  if (resolvedProvider !== 'gcs') {
-    const token = createLocalProxyToken(imageUrl);
-    if (token) {
-      return `/api/image-proxy?token=${token}`;
-    }
-    return imageUrl;
-  }
-
-  if (proxyEnabled && isGcsUrl(imageUrl)) {
-    const token = createProxyToken(imageUrl);
-    if (token) {
-      return `/api/image-proxy?token=${token}`;
-    }
-  }
-
-  if (!signedUrlsEnabled) {
-    return imageUrl;
-  }
-
-  if (!isGCSConfigured || !storage) {
-    return imageUrl;
-  }
-
-  if (!isGcsUrl(imageUrl)) {
-    return imageUrl;
-  }
-
-  const gcsInfo = parseGcsUrl(imageUrl);
-  if (!gcsInfo) {
-    return imageUrl;
-  }
-
-  try {
-    const targetBucket = storage.bucket(gcsInfo.bucketName);
-    const file = targetBucket.file(gcsInfo.objectName);
-    const [signedUrl] = await file.getSignedUrl({
-      version: 'v4',
-      action: 'read',
-      expires: Date.now() + signedUrlTtlMs,
-    });
-    return signedUrl;
-  } catch (error) {
-    logger.warn(`No se pudo generar signed URL para ${imageUrl}: ${error.message}`);
-    return imageUrl;
-  }
-};
-
-/**
  * Deletes a file stored either locally or on Google Cloud Storage.
  * @param {string} imageUrl URL or path of the image.
  */

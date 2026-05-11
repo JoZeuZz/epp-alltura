@@ -1,6 +1,5 @@
 const crypto = require('crypto');
 const https = require('https');
-const Joi = require('joi');
 const { logger } = require('../lib/logger');
 
 /**
@@ -174,26 +173,6 @@ function isCommonPassword(password) {
 }
 
 /**
- * Genera una contraseña criptográficamente segura
- * 
- * @param {number} length - Longitud de la contraseña (por defecto 16)
- * @returns {string} - Contraseña generada
- */
-function generateSecurePassword(length = 16) {
-  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
-  let password = '';
-
-  // Usar crypto.randomBytes para generación criptográficamente segura
-  const randomBytes = crypto.randomBytes(length);
-
-  for (let i = 0; i < length; i++) {
-    password += charset[randomBytes[i] % charset.length];
-  }
-
-  return password;
-}
-
-/**
  * Middleware de Express para validar contraseñas en requests
  */
 const passwordValidationMiddleware = async (req, res, next) => {
@@ -215,19 +194,6 @@ const passwordValidationMiddleware = async (req, res, next) => {
 
   next();
 };
-
-/**
- * Schema de Joi para validación de contraseñas
- */
-const passwordSchema = Joi.string()
-  .min(PASSWORD_CONFIG.MIN_LENGTH)
-  .max(PASSWORD_CONFIG.MAX_LENGTH)
-  .required()
-  .messages({
-    'string.min': `La contraseña debe tener al menos ${PASSWORD_CONFIG.MIN_LENGTH} caracteres`,
-    'string.max': `La contraseña no debe exceder ${PASSWORD_CONFIG.MAX_LENGTH} caracteres`,
-    'any.required': 'La contraseña es requerida',
-  });
 
 module.exports = {
   validatePasswordStrength,
