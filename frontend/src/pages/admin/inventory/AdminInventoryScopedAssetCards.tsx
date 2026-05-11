@@ -3,7 +3,7 @@ import { keepPreviousData } from '@tanstack/react-query';
 import { ToolGrid } from '../../../components/tools';
 import ActivoProfileModal from '../../../components/forms/ActivoProfileModal';
 import { useGet, useTour } from '../../../hooks';
-import TourDemoActivoModal from '../../forms/TourDemoActivoModal';
+import TourDemoActivoModal from '../../../components/forms/TourDemoActivoModal';
 import {
   getInventoryActivosPaged,
   type InventoryActivoDetailRow,
