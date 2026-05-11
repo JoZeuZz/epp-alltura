@@ -12,7 +12,7 @@ jest.mock('../../middleware/auth', () => ({
 }));
 
 jest.mock('../../middleware/roles', () => ({
-  checkRole: () => (_req, _res, next) => next(),
+  checkRole: jest.fn(() => (_req, _res, next) => next()),
 }));
 
 jest.mock('../../services/entregas.service');
@@ -33,6 +33,7 @@ const errorHandler = require('../../middleware/errorHandler');
 const entregasRoutes = require('../../routes/entregas.routes');
 const EntregasService = require('../../services/entregas.service');
 const { authMiddleware } = require('../../middleware/auth');
+const { checkRole } = require('../../middleware/roles');
 
 const MOCK_ENTREGA = {
   id: '11111111-0000-0000-0000-000000000001',
@@ -99,5 +100,33 @@ describe('GET /api/entregas/:id/pdf', () => {
       .get(`/api/entregas/${MOCK_ENTREGA.id}/pdf`);
 
     expect(res.status).toBe(401);
+  });
+
+  it('returns 200 with PDF even when detalles is empty', async () => {
+    EntregasService.getById.mockResolvedValue({ ...MOCK_ENTREGA, detalles: [] });
+    const res = await request(buildApp())
+      .get(`/api/entregas/${MOCK_ENTREGA.id}/pdf`)
+      .set('Authorization', 'Bearer test-token');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/application\/pdf/);
+  });
+
+  it('returns 403 when role is not admin or supervisor', async () => {
+    checkRole.mockImplementation(() => (_req, res) =>
+      res.status(403).json({ message: 'Forbidden' })
+    );
+    let res;
+    await jest.isolateModulesAsync(async () => {
+      const freshRoutes = require('../../routes/entregas.routes');
+      const app = express();
+      app.use(express.json());
+      app.use('/api/entregas', freshRoutes);
+      app.use(errorHandler);
+      res = await request(app)
+        .get(`/api/entregas/${MOCK_ENTREGA.id}/pdf`)
+        .set('Authorization', 'Bearer test-token');
+    });
+    checkRole.mockImplementation(() => (_req, _res, next) => next());
+    expect(res.status).toBe(403);
   });
 });

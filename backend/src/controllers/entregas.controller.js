@@ -1,7 +1,7 @@
 const EntregasService = require('../services/entregas.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
-const { createDoc } = require('../lib/pdfGenerator');
+const { createDoc, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
 
 class EntregasController {
   static async list(req, res, next) {
@@ -69,6 +69,7 @@ class EntregasController {
       return next(error);
     }
   }
+
   static async exportPdf(req, res, next) {
     try {
       const { id } = req.params;
@@ -77,8 +78,8 @@ class EntregasController {
       const filename = `acta-entrega-${id.slice(0, 8)}-${timestamp}.pdf`;
       const doc = createDoc('Acta de Entrega', res, filename);
 
-      doc.fontSize(10).fillColor('#1E2A4A').text('Trabajador', { underline: true });
-      doc.fontSize(9).fillColor('#333333')
+      doc.fontSize(10).fillColor(DARK_BLUE).text('Trabajador', { underline: true });
+      doc.fontSize(9).fillColor(BODY_TEXT)
         .text(`Nombre: ${data.nombres} ${data.apellidos}`)
         .text(`RUT: ${data.rut ?? '—'}`)
         .text(`Estado: ${data.estado}`)
@@ -86,7 +87,7 @@ class EntregasController {
         .moveDown(0.5);
 
       if (data.detalles && data.detalles.length > 0) {
-        doc.fontSize(10).fillColor('#1E2A4A').text('Detalle de items', { underline: true }).moveDown(0.3);
+        doc.fontSize(10).fillColor(DARK_BLUE).text('Detalle de items', { underline: true }).moveDown(0.3);
         const headers = ['Artículo', 'Código activo', 'Cant.', 'Condición', 'Notas'];
         const rows = data.detalles.map((d) => [
           d.articulo_nombre ?? '—',
@@ -104,10 +105,10 @@ class EntregasController {
 
       doc.moveDown();
       if (data.firmado_en) {
-        doc.fontSize(9).fillColor('#333333')
+        doc.fontSize(9).fillColor(BODY_TEXT)
           .text(`Firmado el: ${new Date(data.firmado_en).toLocaleString('es-CL')}`);
       } else {
-        doc.fontSize(9).fillColor('#888888').text('Firma: pendiente.');
+        doc.fontSize(9).fillColor(MUTED_GRAY).text('Firma: pendiente.');
       }
 
       doc.end();
