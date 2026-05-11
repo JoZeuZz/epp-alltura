@@ -104,4 +104,11 @@ router.post(
   EntregasController.anular
 );
 
+router.get(
+  '/:id/pdf',
+  authMiddleware,
+  checkRole(['admin', 'supervisor']),
+  EntregasController.exportPdf
+);
+
 module.exports = router;
