@@ -4,7 +4,7 @@
 - Monorepo con backend Express 5 + frontend React 19/Vite + PostgreSQL + Redis.
 - Dominio operativo principal: EPP/Herramientas (inventario por categoría, entregas, devoluciones, firmas, trazabilidad, inspecciones, documentos).
 - Roles autenticables: solo `admin` y `supervisor` (sin `bodega`/`worker`).
-- Capa shell frontend: `frontend/src/shell/` contiene componentes, contextos, layouts y servicios base en transición de consolidación (actualmente `shell/index.ts` vacío).
+- Capa shell frontend: `frontend/src/shell/` contiene componentes, contextos, layouts y servicios base. `shell/index.ts` es el barrel público con todos los primitivos exportados. Las páginas consumen a través de re-exportadores delgados en `src/components/`, `src/services/`, `src/context/`.
 
 ## Capas backend
 - Rutas -> Controladores -> Servicios -> DB/lib.

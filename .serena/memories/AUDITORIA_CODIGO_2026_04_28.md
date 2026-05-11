@@ -2,22 +2,11 @@
 
 ## BACKEND
 
-### 🔴 Código completamente muerto
-- `backend/src/lib/responseMessages.js` — NUNCA importado por ningún archivo. Define SuccessMessages/ErrorMessages pero todos los controladores usan strings hardcodeados. Eliminar.
-
-### 🔴 Duplicación de validaciones de artículos
-- `backend/src/models/articulo.js` (líneas 6-47): define `SUBCLASIFICACIONES_POR_GRUPO`, `normalizeGrupoPrincipal`, `normalizeSubclasificacion`, `ESPECIALIDADES_VALIDAS`, `normalizeEspecialidades`.
-- `backend/src/routes/articulos.routes.js` (líneas 20-84): redefine las mismas constantes y funciones para Joi. Si cambia una lista de valores válidos, hay que actualizarla en dos lugares.
-
-### 🟡 Métodos sin usar en models/usuario.js
-- `create()` (línea ~21) — nunca llamado; auth.service.js usa SQL directo.
-- `findAll()` (línea ~88) — nunca llamado.
-- `update()` (línea ~141) — nunca llamado.
-
-### 🟡 Middleware sin usar en middleware/roles.js
-Exportados pero sin ningún importador en rutas:
-- `requireRole()`, `isSupervisor`, `isAdminOrSupervisor`, `checkOwnership()`, `verifySupervisorOwnership()`
-- `checkProjectAccess`, `checkAssetAccess` — stubs noop legacy (líneas 73-75)
+### ✅ Resueltos (eliminados/corregidos)
+- ~~`backend/src/lib/responseMessages.js`~~ — ELIMINADO (era código muerto).
+- ~~Duplicación `SUBCLASIFICACIONES_POR_GRUPO`~~ — RESUELTO: `backend/src/lib/articuloValidation.js` es la fuente canónica; articulo.js y articulos.routes.js importan de ahí.
+- ~~`models/usuario.js` métodos muertos (create, findAll, update)~~ — ELIMINADOS; solo quedan `updateLastLogin` y `updatePasswordHash`.
+- ~~`middleware/roles.js` exports muertos~~ — RESUELTO: ahora exporta solo `isAdmin` y `checkRole`.
 
 ### 🟡 Swagger muy desactualizado
 Endpoints SIN documentar en `backend/src/config/swagger.js`:
@@ -29,15 +18,11 @@ Endpoints SIN documentar en `backend/src/config/swagger.js`:
 
 ## FRONTEND
 
-### 🔴 Componentes sin usar
-- `frontend/src/components/PasswordStrength.tsx` — ningún archivo lo importa, no está en shell.
-- `frontend/src/components/icons/ImageUploadIcon.tsx` — ningún archivo lo importa.
-
-### 🟡 Hook sin usar
-- `frontend/src/hooks/useConfirmation.tsx` — exportado en hooks/index.ts pero sin ningún consumidor.
-
-### 🟡 Componente de dashboard sin usar
-- `frontend/src/components/dashboard/ProjectDashboard.tsx` — definido pero ninguna página lo renderiza.
+### ✅ Resueltos (eliminados)
+- ~~`PasswordStrength.tsx`~~ — ELIMINADO.
+- ~~`ImageUploadIcon.tsx`~~ — ELIMINADO.
+- ~~`useConfirmation.tsx`~~ — ELIMINADO.
+- ~~`ProjectDashboard.tsx`~~ — ELIMINADO.
 
 ### 🟡 Service workers desactivados silenciosamente
 - En `frontend/src/App.tsx`: `notificationService.initialize()` está comentado con "TEMPORALMENTE DESACTIVADO".
@@ -77,10 +62,43 @@ Endpoints SIN documentar en `backend/src/config/swagger.js`:
 - `persona.foto_url` — columna en DB, nunca populada ni consultada por ningún endpoint.
 - `trabajador.fecha_salida` — columna en DB, no usada en lógica operativa ni en ningún endpoint.
 
-### 🟡 documentos.service.js incompleto
-- Solo implementa `createAnexo()`.
-- No hay métodos de lectura (list, getById) ni rutas públicas de consulta.
-- `documento_compra` se crea implícitamente al crear compra (compras.service.js) pero no es consultable.
+### ✅ documentos.service.js — ELIMINADO
+- El servicio fue eliminado completamente (código muerto). `documento_compra` sigue creándose implícitamente en `compras.service.js` mediante SQL directo.
+
+### ✅ Resueltos en sesión 2026-05-11 (auditoría dead code)
+**Backend:**
+- `auth.service.js`: eliminados `emailExists`, `getFailedLoginAttempts`, `isAccountLocked`.
+- `backend/src/models/stock.js`: ELIMINADO (nunca importado).
+- `backend/src/models/activo.js`: ELIMINADO (nunca importado; inventario.service.js usa SQL directo).
+- `trabajadores.service.js` modelo: eliminado `create()` (servicio usa SQL INSERT directo).
+- `notification.js` modelo: eliminado `getById` (0 consumidores).
+- `googleCloud.js`: eliminada `resolveImageUrl` (nunca llamada).
+- `auditLogger.js`: eliminados 6 exports muertos (`logError`, `logAccess`, `logInfo`, `auditMiddleware`, `cleanOldLogs`, `getRecentLogs`).
+- `logger.js`: eliminados 10 wrappers muertos (`logDbOperation`, `logAuth`, `logBusinessError`, etc.).
+- `validation/index.js`: eliminado `PATTERNS` del export.
+- `security.js`: eliminados 6 del export (solo internos a `createSecurityMiddleware`).
+- `sanitization.js`: reducido a export único `sanitizeStrict`.
+- `passwordPolicy.js`: eliminados `generateSecurePassword` y `passwordSchema`.
+- `upload.js`: eliminados `MAX_IMAGE_BYTES` y `MAX_DOCUMENT_BYTES` del export.
+
+**Frontend shell:**
+- `shell/index.ts`: eliminados `ConfirmationModalProps`, `UploadProgressProps`, `NotificationBellProps`, `NotificationItemProps`, tipos de layout (ContainerProps, GridVariant, etc.).
+- `hooks/index.ts`: eliminados `useBreakpointDown`, `useBreakpointUp`, `BREAKPOINTS`.
+- `frontend/src/types/components.d.ts`: ELIMINADO (AssignFormData sin consumidores).
+- `frontend/src/types/index.ts`: ELIMINADO (vacío).
+
+**Frontend utils:**
+- `barcode.ts`: BarcodeMatchAsset unexported (solo constrainte interna).
+- `quantity.ts`: eliminado `formatQuantityInteger` + `integerQuantityFormatter`.
+- `rutUtils.ts`: eliminado `formatRutDisplay`.
+- `toolPresentation.ts`: ToolRawStatus, ToolVisualStatus, ToolActionFlags unexported.
+
+**Shell services:**
+- `apiService.ts`: unexported ArticuloEstado, EntregaTipo, EntregaEstadoDevolucion.
+- `authRefresh.ts`: unexported TOKEN_STORAGE_KEYS.
+- `httpClient.ts`: unexported AuthFailureMode, HttpRequestConfig.
+- `context/*.shared.ts`: unexported AuthContextType, NotificationContextValue, TourContextValue.
+- `tourSteps.ts`: unexported contextualStepsByRole.
 
 ### 🟢 Diseño correcto (no bugs)
 - Filtrado de ubicaciones por tipo (bodega/proyecto) es client-side — funciona, podría optimizarse con `?tipo=` en backend.

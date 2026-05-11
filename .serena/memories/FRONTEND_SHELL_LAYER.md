@@ -15,14 +15,14 @@ shell/
   services/      — apiService, authRefresh, frontendLogger, httpClient,
                    notificationService, performanceService
   utils/         — imageProcessing, image, name, tourSteps
-  index.ts       — VACÍO (sin exports)
+  index.ts       — barrel con todos los primitivos exportados (ver sección Estado actual)
 ```
 
-## Estado actual (actualizado 2026-04-28)
-- `shell/index.ts` exporta correctamente todos los primitivos incluyendo `frontendLogger`.
-- Las páginas importan desde `src/components/`, `src/services/`, `src/context/` — que son re-exportadores delgados que apuntan a `src/shell/`. Patrón CORRECTO y funcionando.
-- `frontendLogger` ahora se importa desde `../shell` (barrel) en NotificationsPage y useNotifications.
+## Estado actual (actualizado 2026-05-11)
+- `shell/index.ts` exporta: Modal, ConfirmationModal, ErrorMessage, ErrorPage, Spinner, UploadProgress (+ UploadStage), NotificationBell, NotificationItem, TourOverlay, AppLayout, layout types, context providers/values, todos los services (apiService, authRefresh, httpClient, notificationService, performanceService, frontendLogger), imageProcessing utils, name utils.
+- Las páginas importan desde `src/components/`, `src/services/`, `src/context/` — re-exportadores delgados hacia `src/shell/`. Patrón correcto y funcionando.
+- **NO exportados desde shell** (limpieza de dead code 2026-05-11): ConfirmationModalProps, NotificationBellProps, UploadProgressProps, NotificationItemProps; tipos de layout (ContainerProps, SectionProps, GridVariant, etc.); ToolRawStatus, ToolVisualStatus, ToolActionFlags, BarcodeMatchAsset.
 
 ## Riesgo activo
-- Los archivos re-exportadores en `src/components/`, `src/services/`, `src/context/`, `src/layouts/` son la interfaz pública para las páginas. Si alguien los borra sin migrar los imports, todo se rompe.
-- El directorio `src/utils/` NO tiene espejo completo en shell (hooks, PasswordStrength, barcode, currency, quantity, rutUtils, toolPresentation permanecen solo en src/).
+- Los re-exportadores en `src/components/`, `src/services/`, `src/context/`, `src/layouts/` son la interfaz pública. Borrarlos sin migrar imports rompe todo.
+- `src/utils/` NO tiene espejo en shell (barcode, currency, quantity, rutUtils, toolPresentation permanecen solo en src/).

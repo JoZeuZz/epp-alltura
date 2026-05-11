@@ -14,7 +14,6 @@
 - Lógica: detecta activos con custodia activa sin devolución y notifica a admin/supervisor
 
 ## Documentos
-- `documentos.service.js` + `documentos.routes.js`
-- Tabla: `documento`, `documento_compra`, `documento_referencia`
-- Soporta: anexos con subida de archivos (`documentUpload`, `validateDocumentMagic`)
-- Relaciona documentos con compras y referencias cruzadas entre entidades
+- `documentos.service.js` y `documentos.routes.js` fueron ELIMINADOS (código muerto — no había endpoints activos).
+- Las tablas `documento`, `documento_compra`, `documento_referencia` persisten en DB.
+- `documento_compra` se crea implícitamente desde `compras.service.js` vía SQL directo al crear una compra.

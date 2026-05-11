@@ -36,13 +36,9 @@
 - `articulo.js` model ya no escribe la columna `tipo` en CREATE ni UPDATE.
 - La columna permanece en DB (nullable-no-nullable legacy), candidata a DROP.
 
-11. Páginas de inventario huérfanas (sin ruta activa):
-- `AdminInventoryActivosPage`, `AdminInventoryEgressPage`, `AdminInventoryMovementsPage`,
-  `AdminInventoryStockPage`, `AdminInventoryIngressPage` (esta última tiene 1 test).
-- Decisión pendiente: eliminar páginas + test o crear rutas para rehabilitarlas.
+11. ~~Páginas de inventario huérfanas~~ — RESUELTO: `AdminInventoryActivosPage`, `AdminInventoryEgressPage`, `AdminInventoryMovementsPage`, `AdminInventoryStockPage`, `AdminInventoryIngressPage` ELIMINADAS.
 
-12. `AdminInventoryLayout` con navegación rota — solo existe para `/admin/inventario/legacy`,
-    sus tabs todos redirigen al mismo destino. Candidato a eliminar junto con la ruta legacy.
+12. ~~`AdminInventoryLayout` con navegación rota~~ — RESUELTO: ELIMINADO junto con la ruta legacy `/admin/inventario/legacy`.
 
 8. ~~`articulo` escribe `categoria` y `subclasificacion` con el mismo valor~~ — RESUELTO 2026-04-28:
 - Modelo `articulo.js` ya no escribe la columna `categoria` en CREATE ni UPDATE.

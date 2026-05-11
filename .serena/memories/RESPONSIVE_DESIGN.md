@@ -17,15 +17,14 @@ Implementación completa de diseño responsive para la aplicación Alltura, tran
 
 **Ubicación Base:** `frontend/src/components/cards/`
 
-**Estructura:**
+**Estructura actual (2026-05-11):**
 ```
 cards/
 ├── EntityCard.tsx       # Componente base reutilizable
-├── UserCard.tsx         # Cards específicas de usuarios
-├── ClientCard.tsx       # Cards específicas de clientes
-├── ProjectCard.tsx      # Cards específicas de proyectos
 └── index.ts            # Barrel export
 ```
+
+> Nota: UserCard, ClientCard, ProjectCard fueron descritas en versiones anteriores de esta memoria pero pertenecían al dominio andamios (legacy). No existen en este repo. Usar EntityCard como base para cards de dominio específicas.
 
 ---
 
@@ -82,39 +81,9 @@ const variantClasses = {
 
 ---
 
-### 1.3 UserCard - Cards de Usuarios
+### 1.3 UserCard / ClientCard / ProjectCard — NO EXISTEN EN ESTE REPO
 
-**Ubicación:** `frontend/src/components/cards/UserCard.tsx`
-
-**Fields mostrados:**
-- Email
-- Rol (con RoleBadge colorido)
-- Fecha de creación (formateada)
-
-**Actions:**
-- Historial (condicional, solo si `onHistory` existe)
-- Editar
-- Eliminar
-
-**Badge Component:**
-```tsx
-<RoleBadge role={user.role} />
-// admin → bg-purple-100 text-purple-800
-// supervisor → bg-blue-100 text-blue-800
-// client → bg-green-100 text-green-800
-```
-
-**Tipos:**
-```typescript
-import { User } from '../../types/api';  // NO tipos locales
-
-interface UserCardProps {
-  user: User;
-  onEdit: (user?: User | null) => void;
-  onDelete: (userId: number) => void;
-  onHistory?: (user: User) => void;  // Opcional
-}
-```
+Estas cards fueron documentadas desde el dominio andamios (legacy) y no existen en `frontend/src/components/cards/`. Para crear cards específicas de dominio, extender `EntityCard` con las props correspondientes.
 
 ---
 
