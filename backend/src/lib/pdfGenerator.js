@@ -32,4 +32,4 @@ function createDoc(title, res, filename) {
   return doc;
 }
 
-module.exports = { createDoc };
+module.exports = { createDoc, DARK_BLUE, BODY_TEXT, MUTED_GRAY };
