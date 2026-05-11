@@ -11,6 +11,7 @@ export interface TourStep {
   mobilePlacement?: 'bottom' | 'center' | 'top';
   highlightPadding?: number;
   autoNavigate?: boolean;
+  demoAction?: string;
 }
 
 export const TOUR_VERSION = 'v2';

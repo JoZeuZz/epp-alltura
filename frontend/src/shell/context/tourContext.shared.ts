@@ -10,6 +10,7 @@ interface TourContextValue {
   steps: TourStep[];
   stepIndex: number;
   mode: TourMode;
+  currentDemoAction: string | null;
   startOnboarding: (role: TourRole, options?: { force?: boolean }) => boolean;
   startContextual: (role: TourRole, steps: TourStep[]) => boolean;
   stop: (reason?: StopReason) => void;
