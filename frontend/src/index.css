@@ -64,6 +64,23 @@
     --c-info-subtle: #F0F9FF;     /* badge bg                       */
     --c-info-border: #BAE6FD;     /* badge / card border            */
     --c-info-text:   #075985;     /* 7.56:1 on white ✓ WCAG AAA     */
+
+    /* ── App Shell header calibration ───────────────────────── */
+    --shell-header-gap: 0.375rem;
+    --shell-header-gap-sm: 0.5rem;
+    --shell-header-px: 0.5rem;
+    --shell-header-px-sm: 0.75rem;
+    --shell-header-px-md: 1rem;
+    --shell-header-actions-gap: 0.125rem;
+    --shell-header-actions-gap-sm: 0.25rem;
+    --shell-header-bell-p: 0.25rem;
+    --shell-header-bell-p-sm: 0.375rem;
+    --shell-header-profile-gap: 0.375rem;
+    --shell-header-profile-gap-sm: 0.5rem;
+    --shell-header-profile-px: 0.375rem;
+    --shell-header-profile-px-sm: 0.625rem;
+    --shell-profile-dropdown-width: 16rem;
+    --shell-profile-dropdown-edge: 1rem;
   }
 }
 
