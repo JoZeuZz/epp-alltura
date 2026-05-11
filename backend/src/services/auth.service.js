@@ -463,40 +463,6 @@ class AuthService {
     };
   }
 
-  // ============================================
-  // VALIDACIONES Y UTILIDADES
-  // ============================================
-
-  /**
-   * Verificar si un email ya está registrado
-   * @param {string} email - Email a verificar
-   * @returns {Promise<boolean>} true si existe
-   */
-  static async emailExists(email) {
-    const normalizedEmail = (email || '').trim().toLowerCase();
-    const user = await UsuarioModel.findByEmailLogin(normalizedEmail);
-    return !!user;
-  }
-
-  /**
-   * Obtener conteo de intentos fallidos de login
-   * @param {string} identifier - Email o IP
-   * @returns {Promise<number>} Número de intentos fallidos
-   */
-  static async getFailedLoginAttempts(identifier) {
-    return await redisClient.getFailedLoginCount(identifier);
-  }
-
-  /**
-   * Verificar si una cuenta está bloqueada temporalmente
-   * @param {string} email - Email del usuario
-   * @returns {Promise<boolean>} true si está bloqueada
-   */
-  static async isAccountLocked(email) {
-    const normalizedEmail = (email || '').trim().toLowerCase();
-    const failedAttempts = await redisClient.getFailedLoginCount(normalizedEmail);
-    return failedAttempts >= AUTH_LOGIN_LOCK_THRESHOLD;
-  }
 }
 
 module.exports = AuthService;

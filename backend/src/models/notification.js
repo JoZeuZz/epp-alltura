@@ -119,17 +119,6 @@ class NotificationModel {
     };
   }
 
-  static async getById(id) {
-    const query = 'SELECT * FROM notifications WHERE id = $1';
-    const result = await db.query(query, [id]);
-
-    if (result.rows.length === 0) {
-      return null;
-    }
-
-    return NotificationModel.fromRow(result.rows[0]);
-  }
-
   static async markAsRead(id, userId) {
     const query = `
       UPDATE notifications
