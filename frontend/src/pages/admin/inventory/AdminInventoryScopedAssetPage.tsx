@@ -54,7 +54,7 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
         <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">{copy.pageTitle}</h1>
         <p className="text-neutral-gray">{copy.pageSubtitle}</p>
       </section>
-      <div className="flex gap-2 justify-end">
+      <div className="flex gap-2 justify-end" data-tour="admin-inventory-export-toolbar">
         <button
           type="button"
           onClick={() => void handleExportPdf()}
