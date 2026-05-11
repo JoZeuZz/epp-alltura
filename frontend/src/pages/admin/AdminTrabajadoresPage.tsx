@@ -517,7 +517,7 @@ const AdminTrabajadoresPage: React.FC = () => {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-tour="admin-trabajadores-root">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
@@ -600,7 +600,7 @@ const AdminTrabajadoresPage: React.FC = () => {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="bg-white rounded-lg shadow-md overflow-hidden" data-tour="admin-trabajadores-table">
           <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
             <p className="text-sm text-neutral-gray">
               {filtered.length} trabajador{filtered.length !== 1 ? 'es' : ''}
