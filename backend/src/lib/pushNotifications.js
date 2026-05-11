@@ -62,23 +62,6 @@ class PushNotificationService {
     }
   }
 
-  // Compatibilidad legacy: ahora se envía a todos los supervisores activos.
-  async sendToProjectSupervisors(_projectId, payload) {
-    const result = await db.query(
-      `
-      SELECT DISTINCT u.id
-      FROM usuario u
-      INNER JOIN usuario_rol ur ON ur.usuario_id = u.id
-      INNER JOIN rol r ON r.id = ur.rol_id
-      WHERE u.estado = 'activo'
-        AND r.nombre = 'supervisor'
-      `
-    );
-
-    const promises = result.rows.map((row) => this.sendToUser(row.id, payload));
-    await Promise.allSettled(promises);
-  }
-
   async removeSubscription(userId) {
     try {
       await PushSubscriptionModel.removeByUserId(userId);

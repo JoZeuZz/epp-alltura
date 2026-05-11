@@ -218,35 +218,9 @@ async function generateTokenPair(user) {
   return { accessToken, refreshToken };
 }
 
-/**
- * Middleware que verifica si el usuario debe cambiar su contraseña
- * Debe usarse DESPUÉS de authMiddleware
- */
-const checkPasswordChangeRequired = async (req, res, next) => {
-  try {
-    const user = await UsuarioModel.findById(req.user.id);
-
-    if (!user) {
-      return res.status(404).json(buildErrorResponse('Usuario no encontrado', ['USER_NOT_FOUND']));
-    }
-
-    if (user.estado !== 'activo') {
-      return res
-        .status(403)
-        .json(buildErrorResponse('La cuenta no está activa', ['ACCOUNT_NOT_ACTIVE']));
-    }
-
-    next();
-  } catch (error) {
-    logger.error('Error verificando cambio de contraseña requerido:', error);
-    next(error);
-  }
-};
-
 module.exports = {
   authMiddleware,
   revokeToken,
   generateTokenPair,
-  checkPasswordChangeRequired,
   TOKEN_CONFIG,
 };
