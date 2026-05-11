@@ -209,8 +209,6 @@ const collectRequestFiles = (req) => {
 module.exports = {
   imageUpload,
   documentUpload,
-  MAX_IMAGE_BYTES: maxImageBytes,
-  MAX_DOCUMENT_BYTES: maxDocumentBytes,
   validateImageMagic: async (req, _res, next) => {
     try {
       const files = collectRequestFiles(req);

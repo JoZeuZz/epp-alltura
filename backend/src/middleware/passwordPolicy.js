@@ -232,8 +232,6 @@ const passwordSchema = Joi.string()
 module.exports = {
   validatePasswordStrength,
   checkPwnedPassword,
-  generateSecurePassword,
   passwordValidationMiddleware,
-  passwordSchema,
   PASSWORD_CONFIG,
 };
