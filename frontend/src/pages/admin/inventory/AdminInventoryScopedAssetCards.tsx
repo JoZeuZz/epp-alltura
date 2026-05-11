@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData } from '@tanstack/react-query';
 import { ToolGrid } from '../../../components/tools';
 import ActivoProfileModal from '../../../components/forms/ActivoProfileModal';
-import { useGet } from '../../../hooks';
+import { useGet, useTour } from '../../../hooks';
+import TourDemoActivoModal from '../../forms/TourDemoActivoModal';
 import {
   getInventoryActivosPaged,
   type InventoryActivoDetailRow,
@@ -102,6 +103,22 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   const [selectedAsset, setSelectedAsset] = useState<ToolPresentationSource | null>(null);
+  const [showDemoModal, setShowDemoModal] = useState(false);
+  const { isActive, currentDemoAction } = useTour();
+
+  const isDemoStep = isActive && currentDemoAction === 'open-activo-demo' && scope === 'epp';
+
+  useEffect(() => {
+    if (isDemoStep) {
+      if (rows.length > 0) {
+        setSelectedAsset(rows[0] as ToolPresentationSource);
+      } else {
+        setShowDemoModal(true);
+      }
+    } else {
+      setShowDemoModal(false);
+    }
+  }, [isDemoStep, rows]);
 
   const queryParams = useMemo(
     () => ({
@@ -195,7 +212,7 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
 
   return (
     <div className="space-y-4">
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label={`KPIs de ${scope}`}>
+      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label={`KPIs de ${scope}`} data-tour="admin-inventory-kpis">
         <KpiCard label={copy.totalLabel} value={String(kpis.total)} />
         <KpiCard label="Disponibles" value={String(kpis.available)} accent="text-green-600" />
         <KpiCard label="Asignadas" value={String(kpis.assigned)} accent="text-blue-600" />
@@ -206,7 +223,7 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
         />
       </section>
 
-      <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-3" aria-label={`Filtros de ${scope}`}>
+      <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-3" aria-label={`Filtros de ${scope}`} data-tour="admin-inventory-filters">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <label className="space-y-1">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Buscar</span>
@@ -269,13 +286,15 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
           </button>
         </section>
       ) : (
-        <ToolGrid
-          tools={filteredAssets}
-          loading={isLoading}
-          emptyMessage={copy.emptyMessage}
-          selectedToolId={selectedAsset?.id ?? null}
-          onToolSelect={setSelectedAsset}
-        />
+        <div data-tour="admin-inventory-grid">
+          <ToolGrid
+            tools={filteredAssets}
+            loading={isLoading}
+            emptyMessage={copy.emptyMessage}
+            selectedToolId={selectedAsset?.id ?? null}
+            onToolSelect={setSelectedAsset}
+          />
+        </div>
       )}
 
       {!isLoading && hasMore && (
@@ -297,6 +316,9 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
           onClose={() => setSelectedAsset(null)}
           onRefresh={() => { void refetch(); }}
         />
+      )}
+      {showDemoModal && (
+        <TourDemoActivoModal onClose={() => setShowDemoModal(false)} />
       )}
     </div>
   );
