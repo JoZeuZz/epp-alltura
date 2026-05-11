@@ -439,7 +439,7 @@ const UsersPage: React.FC = () => {
     <div className="space-y-6">
 
       {/* Page header */}
-      <section className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <section className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4" data-tour="admin-users-root">
         <div className="space-y-1">
           <h1 className="heading-2 text-content-primary">Usuarios del Sistema</h1>
           <p className="body-small text-content-muted">
@@ -462,7 +462,7 @@ const UsersPage: React.FC = () => {
       </section>
 
       {/* Role filter + counters */}
-      <section aria-label="Filtros por rol" className="grid grid-cols-3 gap-3">
+      <section aria-label="Filtros por rol" className="grid grid-cols-3 gap-3" data-tour="admin-users-role-filters">
         <RoleCounterCard
           label="Total"
           count={userCounters.total}
@@ -623,7 +623,7 @@ const UsersPage: React.FC = () => {
           )}
         </section>
       ) : (
-        <section aria-label="Tabla de usuarios">
+        <section aria-label="Tabla de usuarios" data-tour="admin-users-table">
           <ResponsiveTable<UserRecord>
             columns={columns}
             data={filteredUsers}
