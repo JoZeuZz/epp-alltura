@@ -180,7 +180,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* ── Primary KPIs ───────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" data-tour="admin-dashboard-kpis">
         <MetricCard
           title="Activos Totales"
           value={activos.total || 0}
@@ -235,7 +235,7 @@ const AdminDashboard: React.FC = () => {
 
       {/* ── Movimientos de Stock ───────────────────────────────────────────── */}
       {showMovimientos && (
-        <section aria-labelledby="hdr-mov-stock" className="space-y-3">
+        <section aria-labelledby="hdr-mov-stock" className="space-y-3" data-tour="admin-trazabilidad-movements">
           <SectionHeader title="Movimientos de Stock Recientes" id="hdr-mov-stock" />
           <ResponsiveTable<StockMovRow>
             columns={COLS_STOCK_MOV}
