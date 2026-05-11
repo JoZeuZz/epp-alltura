@@ -506,12 +506,6 @@ const createSecurityMiddleware = (config = {}) => {
 
 module.exports = {
   CSP_REPORT_ENDPOINT,
-  CSP_REPORTING_GROUP,
   createSecurityMiddleware,
-  configureHelmet,
-  configureCORS,
-  configureHPP,
-  additionalSecurityHeaders,
-  logCSPViolations,
   getCSPViolationStats,
 };

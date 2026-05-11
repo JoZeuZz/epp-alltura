@@ -658,33 +658,5 @@ const createFieldSanitizer = (fieldConfig) => {
 };
 
 module.exports = {
-  // Middlewares principales
-  sanitizeInput,
   sanitizeStrict,
-  sanitizeRichHTML,
-  sanitizeMongoOnly,
-  validateIDParam,
-  
-  // Funciones de sanitización individuales
-  sanitizeValue,
-  sanitizeObject,
-  sanitizeEmail,
-  sanitizeURL,
-  sanitizeNumber,
-  sanitizeID,
-  sanitizeDate,
-  sanitizePhone,
-  sanitizeLatLong,
-  sanitizeUUID,
-  sanitizeJSON,
-  sanitizeIP,
-  sanitizeSlug,
-  sanitizePostalCode,
-  
-  // Utilidades
-  createFieldSanitizer,
-  
-  // Constantes
-  DOMPURIFY_CONFIG,
-  DOMPURIFY_RICH_CONFIG,
 };
