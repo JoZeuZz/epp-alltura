@@ -1,1 +1,1 @@
-export { default } from '../shell/components/ErrorMessage';
+export { ErrorMessage as default } from '@alltura/shell';

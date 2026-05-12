@@ -5,7 +5,7 @@ import {
   getStoredRefreshToken,
   refreshAccessToken,
   storeTokens,
-} from '../shell/services/authRefresh';
+} from '@alltura/shell';
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;

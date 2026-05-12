@@ -175,8 +175,8 @@ const AdminInventoryArticlesPage: React.FC<InventoryArticleManagerConfig> = ({
     queryClient.invalidateQueries({ queryKey: ['admin-inventory'] });
   };
 
-  const createArticleMutation = useMutation<Articulo, Error, ArticuloCreatePayload>({
-    mutationFn: (payload) => createArticulo(payload),
+  const createArticleMutation = useMutation<Articulo, Error, { payload: ArticuloCreatePayload; foto?: File }>({
+    mutationFn: ({ payload, foto }) => createArticulo(payload, foto),
     onSuccess: () => {
       invalidateInventoryArticleQueries();
     },
@@ -185,8 +185,8 @@ const AdminInventoryArticlesPage: React.FC<InventoryArticleManagerConfig> = ({
     },
   });
 
-  const updateArticleMutation = useMutation<Articulo, Error, ArticuloUpdatePayload>({
-    mutationFn: (payload) => updateArticulo(payload),
+  const updateArticleMutation = useMutation<Articulo, Error, { payload: ArticuloUpdatePayload; foto?: File }>({
+    mutationFn: ({ payload, foto }) => updateArticulo(payload, foto),
     onSuccess: () => {
       invalidateInventoryArticleQueries();
     },
@@ -215,18 +215,18 @@ const AdminInventoryArticlesPage: React.FC<InventoryArticleManagerConfig> = ({
     },
   });
 
-  const handleCreateArticle = async (payload: ArticuloCreatePayload) => {
-    await createArticleMutation.mutateAsync(payload);
+  const handleCreateArticle = async (payload: ArticuloCreatePayload, foto?: File) => {
+    await createArticleMutation.mutateAsync({ payload, foto });
     toast.success('Artículo creado correctamente.');
     setIsCreateModalOpen(false);
   };
 
-  const handleUpdateArticle = async (payload: ArticuloCreatePayload) => {
+  const handleUpdateArticle = async (payload: ArticuloCreatePayload, foto?: File) => {
     if (!editingArticulo) return;
 
     await updateArticleMutation.mutateAsync({
-      id: editingArticulo.id,
-      ...payload,
+      payload: { id: editingArticulo.id, ...payload },
+      foto,
     });
     toast.success('Artículo actualizado correctamente.');
     setEditingArticulo(null);
@@ -245,8 +245,7 @@ const AdminInventoryArticlesPage: React.FC<InventoryArticleManagerConfig> = ({
 
       if (type === 'activate') {
         await updateArticleMutation.mutateAsync({
-          id: articulo.id,
-          estado: 'activo',
+          payload: { id: articulo.id, estado: 'activo' },
         });
         toast.success('Artículo activado correctamente.');
       }

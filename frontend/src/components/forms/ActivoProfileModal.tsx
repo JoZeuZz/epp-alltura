@@ -25,6 +25,7 @@ import {
 } from '../../services/apiService';
 import { formatCLP } from '../../utils/currency';
 import { getToolStatusBadgeClasses, getToolStatusLabel } from '../../utils/toolPresentation';
+import { buildImageUrl, DEFAULT_IMAGE_PLACEHOLDER } from '../../utils/image';
 
 type SubModal = 'entregar' | 'firmar-entrega' | 'devolver' | 'firmar-devolucion' | 'estado' | 'reubicar' | 'editar' | null;
 
@@ -209,7 +210,8 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
   const inProgressSigned = Boolean(inProgressEntrega?.firmado_en || inProgressEntrega?.firma_imagen_url);
 
   const entregaMutation = useMutation({
-    mutationFn: (payload: EntregarActivoPayload) => entregarActivo(activoId, payload),
+    mutationFn: ({ payload, foto }: { payload: EntregarActivoPayload; foto?: File }) =>
+      entregarActivo(activoId, payload, foto),
     onSuccess: (created) => {
       setDraftEntrega(created);
       setSubModal('firmar-entrega');
@@ -243,8 +245,8 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
         <EntregaCreateModal
           isOpen
           onClose={handleCloseEntregaFlow}
-          onSubmit={async (payload) => {
-            await entregaMutation.mutateAsync(payload);
+          onSubmit={async (payload, foto) => {
+            await entregaMutation.mutateAsync({ payload, foto });
           }}
           isSubmitting={entregaMutation.isPending}
           trabajadores={trabajadores}
@@ -346,13 +348,12 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
           <div className="space-y-4">
             {/* Mobile */}
             <div className="sm:hidden space-y-3">
-              {profile.foto_url && (
-                <img
-                  src={profile.foto_url}
-                  alt={profile.articulo_nombre}
-                  className="w-24 h-24 object-cover rounded-lg border border-edge"
-                />
-              )}
+              <img
+                src={buildImageUrl(profile.foto_url, 'medium') || DEFAULT_IMAGE_PLACEHOLDER}
+                alt={`${profile.articulo_nombre} — ${profile.codigo}`}
+                className="w-24 h-24 object-cover rounded-lg border border-edge"
+                onError={(e) => { e.currentTarget.src = DEFAULT_IMAGE_PLACEHOLDER; }}
+              />
               <div className="grid grid-cols-3 gap-2">
                 <MobileSummaryItem label="Estado">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getToolStatusBadgeClasses(profile.estado)}`}>
@@ -393,13 +394,12 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
 
             {/* Desktop */}
             <div className="hidden sm:flex flex-col sm:flex-row sm:items-start gap-4">
-              {profile.foto_url && (
-                <img
-                  src={profile.foto_url}
-                  alt={profile.articulo_nombre}
-                  className="w-24 h-24 object-cover rounded-lg border border-edge flex-shrink-0"
-                />
-              )}
+              <img
+                src={buildImageUrl(profile.foto_url, 'medium') || DEFAULT_IMAGE_PLACEHOLDER}
+                alt={`${profile.articulo_nombre} — ${profile.codigo}`}
+                className="w-24 h-24 object-cover rounded-lg border border-edge flex-shrink-0"
+                onError={(e) => { e.currentTarget.src = DEFAULT_IMAGE_PLACEHOLDER; }}
+              />
               <div className="flex-1 space-y-1">
                 <h3 className="text-lg font-bold text-content-primary">{profile.articulo_nombre}</h3>
                 <div className="flex flex-wrap gap-2 text-sm text-content-secondary">

@@ -1,1 +1,1 @@
-export * from '../shell/utils/name';
+export * from '@alltura/shell';

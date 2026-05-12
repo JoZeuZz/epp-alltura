@@ -1,1 +1,1 @@
-export * from '../shell/utils/imageProcessing';
+export * from '@alltura/shell';

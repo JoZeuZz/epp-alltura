@@ -11,6 +11,7 @@ import {
   getToolVisibleSerial,
   type ToolPresentationSource,
 } from '../../utils/toolPresentation';
+import { buildImageUrl, DEFAULT_IMAGE_PLACEHOLDER } from '../../utils/image';
 
 export interface ToolCardProps {
   tool: ToolPresentationSource;
@@ -27,6 +28,7 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, selected = false, onSelect })
   const location = getToolVisibleLocation(tool);
   const responsible = getToolVisibleResponsible(tool);
   const value = getToolVisibleMonetaryValue(tool);
+  const fotoSrc = buildImageUrl(tool.foto_url, 'thumb') || DEFAULT_IMAGE_PLACEHOLDER;
 
   return (
     <button
@@ -34,10 +36,19 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, selected = false, onSelect })
       aria-label={`Ver detalles de ${code}`}
       aria-pressed={selected}
       onClick={() => onSelect(tool)}
-      className={`flex h-full w-full flex-col rounded-lg border bg-surface p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+      className={`flex h-full w-full flex-col rounded-lg border bg-surface text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
         selected ? 'border-primary ring-1 ring-primary' : 'border-edge hover:border-primary/40'
       }`}
     >
+      <div className="overflow-hidden rounded-t-lg h-32 w-full flex-shrink-0">
+        <img
+          src={fotoSrc}
+          alt={name}
+          className="h-full w-full object-cover"
+          onError={(e) => { e.currentTarget.src = DEFAULT_IMAGE_PLACEHOLDER; }}
+        />
+      </div>
+      <div className="flex flex-col flex-1 p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-content-muted">{code}</p>
@@ -65,6 +76,7 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, selected = false, onSelect })
           <dd className="inline text-content-primary">{value}</dd>
         </div>
       </dl>
+      </div>
     </button>
   );
 };

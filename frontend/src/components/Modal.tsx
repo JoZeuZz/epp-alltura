@@ -1,1 +1,1 @@
-export { default } from '../shell/components/Modal';
+export { Modal as default } from '@alltura/shell';

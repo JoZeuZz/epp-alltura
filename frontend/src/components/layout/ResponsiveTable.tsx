@@ -1,3 +1,3 @@
 /* eslint-disable react-refresh/only-export-components */
-export { default, ResponsiveTable } from '../../shell/layout/ResponsiveTable';
-export type { ResponsiveTableProps, TableColumn } from '../../shell/layout/ResponsiveTable';
+export { ResponsiveTable as default, ResponsiveTable } from '@alltura/shell';
+export type { ResponsiveTableProps, TableColumn } from '@alltura/shell';

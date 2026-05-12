@@ -1,7 +1,2 @@
-export { ResponsiveGrid, CustomGrid } from '../../shell/layout/ResponsiveGrid';
-export type {
-  ResponsiveGridProps,
-  CustomGridProps,
-  GridVariant,
-  GridGap,
-} from '../../shell/layout/ResponsiveGrid';
+export { ResponsiveGrid, CustomGrid } from '@alltura/shell';
+export type { ResponsiveGridProps, CustomGridProps, GridVariant, GridGap } from '@alltura/shell';

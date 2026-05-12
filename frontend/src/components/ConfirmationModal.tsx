@@ -1,2 +1,2 @@
-export { default } from '../shell/components/ConfirmationModal';
-export type { ConfirmationModalProps } from '../shell/components/ConfirmationModal';
+export { ConfirmationModal as default } from '@alltura/shell';
+export type { ConfirmationModalProps } from '@alltura/shell';

@@ -4,14 +4,19 @@ import {
   clearStoredTokens,
   getStoredAccessToken,
   refreshAccessToken,
-} from '../shell/services/authRefresh';
-import { createHttpClient, HttpAuthError } from '../shell/services/httpClient';
+  createHttpClient,
+  HttpAuthError,
+} from '@alltura/shell';
 
-vi.mock('../shell/services/authRefresh', () => ({
-  clearStoredTokens: vi.fn(),
-  getStoredAccessToken: vi.fn(),
-  refreshAccessToken: vi.fn(),
-}));
+vi.mock('@alltura/shell', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@alltura/shell')>();
+  return {
+    ...actual,
+    clearStoredTokens: vi.fn(),
+    getStoredAccessToken: vi.fn(),
+    refreshAccessToken: vi.fn(),
+  };
+});
 
 vi.mock('axios', () => {
   const mockInstance = Object.assign(vi.fn(), {

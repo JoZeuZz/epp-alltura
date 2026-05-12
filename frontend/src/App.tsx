@@ -1,16 +1,10 @@
 import React, { useEffect, useMemo } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from './shell/context/AuthContext';
+import { AuthProvider, NotificationProvider, TourProvider, notificationService, performanceService } from '@alltura/shell';
 import { post } from './services/apiService';
-import { NotificationProvider } from './shell/context/NotificationContext';
-import { TourProvider } from './shell/context/TourContext';
 import { onboardingStepsByRole, TOUR_VERSION } from './utils/tourSteps';
 import { router } from './router';
-
-// Servicios
-import { notificationService } from './shell/services/notificationService';
-import { performanceService } from './shell/services/performanceService';
 
 const extractBuildIdFromScripts = (): string => {
   if (typeof document === 'undefined') return '';

@@ -2,27 +2,19 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useAuth } from '../shell/hooks/useAuth';
-import { useTour } from '../shell/hooks/useTour';
-import { useBreakpoints } from '../shell/hooks/useBreakpoints';
-import AppLayout from '../shell/layout/AppLayout';
+import { useAuth, useTour, useBreakpoints } from '@alltura/shell';
+import AppLayout from '../layouts/AppLayout';
 
-vi.mock('../shell/hooks/useAuth', () => ({
-  useAuth: vi.fn(),
-}));
-
-vi.mock('../shell/hooks/useTour', () => ({
-  useTour: vi.fn(),
-}));
-
-vi.mock('../shell/hooks/useBreakpoints', () => ({
-  useBreakpoints: vi.fn(),
-}));
-
-vi.mock('../shell/components/TourOverlay', () => ({
-  __esModule: true,
-  default: () => null,
-}));
+vi.mock('@alltura/shell', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@alltura/shell')>();
+  return {
+    ...actual,
+    useAuth: vi.fn(),
+    useTour: vi.fn(),
+    useBreakpoints: vi.fn(),
+    TourOverlay: () => null,
+  };
+});
 
 const useAuthMock = vi.mocked(useAuth);
 const useTourMock = vi.mocked(useTour);
