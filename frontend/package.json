@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "dependencies": {
+    "@alltura/shell": "file:../../alltura-shell",
     "@fdograph/rut-utilities": "^1.4.0",
     "@hookform/resolvers": "^5.2.2",
     "@tanstack/react-query": "^5.90.2",
