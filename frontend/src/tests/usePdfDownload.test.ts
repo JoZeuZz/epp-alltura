@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // apiService is an AxiosInstance — .get() returns Promise<AxiosResponse<T>>
 const mockGet = vi.hoisted(() => vi.fn());
-vi.mock('../shell/services/apiService', () => ({
+vi.mock('../services/apiService', () => ({
   apiService: { get: mockGet },
 }));
 
