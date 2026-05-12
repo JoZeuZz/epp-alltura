@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   getContextualStepsForRoute,
   matchTourRoute,
-  onboardingStepsByRole,
 } from '../shell/utils/tourSteps';
+import { onboardingStepsByRole } from '../utils/tourSteps';
+import type { TourStep } from '../shell/utils/tourSteps';
 
 describe('matchTourRoute', () => {
   it('returns true when no route specified', () => {
@@ -51,10 +52,10 @@ describe('onboardingStepsByRole', () => {
   });
 
   it('step ids are unique within role', () => {
-    const adminIds = onboardingStepsByRole.admin.map((s) => s.id);
+    const adminIds = onboardingStepsByRole.admin.map((s: TourStep) => s.id);
     expect(new Set(adminIds).size).toBe(adminIds.length);
 
-    const supervIds = onboardingStepsByRole.supervisor.map((s) => s.id);
+    const supervIds = onboardingStepsByRole.supervisor.map((s: TourStep) => s.id);
     expect(new Set(supervIds).size).toBe(supervIds.length);
   });
 
@@ -76,7 +77,7 @@ describe('onboardingStepsByRole', () => {
   });
 
   it('only one step has demoAction', () => {
-    const demoSteps = onboardingStepsByRole.admin.filter((s) => s.demoAction);
+    const demoSteps = onboardingStepsByRole.admin.filter((s: TourStep) => s.demoAction);
     expect(demoSteps).toHaveLength(1);
     expect(demoSteps[0].demoAction).toBe('open-activo-demo');
     expect(demoSteps[0].route).toBe('/admin/inventario/epp');
