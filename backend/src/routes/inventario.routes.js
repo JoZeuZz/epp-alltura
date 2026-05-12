@@ -5,16 +5,9 @@ const { authMiddleware } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roles');
 const { documentUpload, validateDocumentMagic } = require('../middleware/upload');
 
-const router = express.Router();
+const { buildError } = require('../lib/errors');
 
-const buildError = (message, statusCode = 400, code = null) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  if (code) {
-    error.code = code;
-  }
-  return error;
-};
+const router = express.Router();
 
 const validateBody = (schema) => {
   return async (req, _res, next) => {

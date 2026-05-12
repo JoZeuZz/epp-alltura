@@ -1,10 +1,6 @@
 const db = require('../db');
 
-const buildError = (message, statusCode = 400) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  return error;
-};
+const { buildError } = require('../lib/errors');
 
 class ProveedoresService {
   static async list(filters = {}) {

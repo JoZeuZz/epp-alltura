@@ -2,14 +2,7 @@ const pushService = require('../lib/pushNotifications');
 const { logger } = require('../lib/logger');
 const NotificationModel = require('../models/notification');
 
-const buildError = (message, statusCode = 400, code = null) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  if (code) {
-    error.code = code;
-  }
-  return error;
-};
+const { buildError } = require('../lib/errors');
 
 class NotificationService {
   static async saveSubscription(userId, subscription) {

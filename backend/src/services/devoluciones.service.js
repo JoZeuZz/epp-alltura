@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const db = require('../db');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
+const { uploadFile, deleteFileByUrl, resolveImageUrl, resolveHeaderImages } = require('../lib/googleCloud');
 
 const UUID_REGEX =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -26,12 +27,7 @@ const MOVIMIENTO_TYPE_BY_DISPOSICION = {
   mantencion: 'mantencion',
 };
 
-const buildError = (message, statusCode = 400, code = null) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  if (code) error.code = code;
-  return error;
-};
+const { buildError } = require('../lib/errors');
 
 const isUuid = (value) => UUID_REGEX.test(String(value || '').trim());
 
@@ -76,6 +72,7 @@ const mapHeaderRow = (row) => ({
   creado_en: row.creado_en,
   confirmada_en: row.confirmada_en,
   notas: row.notas,
+  evidencia_foto_url: row.evidencia_foto_url || null,
   nombres: row.nombres,
   apellidos: row.apellidos,
   cantidad_detalles: Number(row.cantidad_detalles || 0),
@@ -84,6 +81,7 @@ const mapHeaderRow = (row) => ({
 });
 
 class DevolucionesService {
+
   static async _validateWorkerActive(client, trabajadorId) {
     const { rows } = await client.query(
       `SELECT t.id, t.estado, p.estado AS persona_estado
@@ -283,6 +281,7 @@ class DevolucionesService {
          d.creado_en,
          d.confirmada_en,
          d.notas,
+         d.evidencia_foto_url,
          p.nombres,
          p.apellidos,
          fd.firma_imagen_url,
@@ -315,6 +314,7 @@ class DevolucionesService {
          dd.activo_id,
          ac.codigo AS activo_codigo,
          ac.nro_serie AS activo_nro_serie,
+         COALESCE(ac.foto_url, a.foto_url) AS foto_url,
          dd.cantidad,
          dd.condicion_entrada,
          dd.disposicion,
@@ -333,7 +333,7 @@ class DevolucionesService {
 
     const row = mapHeaderRow(headerResult.rows[0]);
     row.detalles = detailResult.rows;
-    return row;
+    return resolveHeaderImages(row);
   }
 
   static async listEligibleAssets(filters = {}) {
@@ -373,6 +373,7 @@ class DevolucionesService {
         ac.estado AS activo_estado,
         ac.articulo_id,
         ar.nombre AS articulo_nombre,
+        COALESCE(ac.foto_url, ar.foto_url) AS foto_url,
         ac.proyecto_actual_id AS ubicacion_actual_id,
         pr.nombre AS ubicacion_actual_nombre
       FROM custodia_activo ca
@@ -392,7 +393,10 @@ class DevolucionesService {
     `;
 
     const { rows } = await db.query(query, values);
-    return rows;
+    return Promise.all(rows.map(async (row) => ({
+      ...row,
+      foto_url: await resolveImageUrl(row.foto_url),
+    })));
   }
 
   static async list(filters = {}) {
@@ -418,6 +422,7 @@ class DevolucionesService {
       d.creado_en,
       d.confirmada_en,
       d.notas,
+      d.evidencia_foto_url,
       p.nombres,
       p.apellidos,
       fd.firma_imagen_url,
@@ -454,6 +459,7 @@ class DevolucionesService {
          dd.activo_id,
          ac.codigo AS activo_codigo,
          ac.nro_serie AS activo_nro_serie,
+         COALESCE(ac.foto_url, a.foto_url) AS foto_url,
          dd.cantidad,
          dd.condicion_entrada,
          dd.disposicion,
@@ -477,10 +483,10 @@ class DevolucionesService {
       detailByDevolucion.set(detail.devolucion_id, list);
     }
 
-    return headerResult.rows.map((row) => ({
+    return Promise.all(headerResult.rows.map((row) => resolveHeaderImages({
       ...mapHeaderRow(row),
       detalles: detailByDevolucion.get(row.id) || [],
-    }));
+    })));
   }
 
   static async getById(id) {
@@ -492,7 +498,12 @@ class DevolucionesService {
     }
   }
 
-  static async create(payload, userId) {
+  static async create(payload, userId, imageFile = null) {
+    let uploadedEvidenceUrl = null;
+    if (imageFile) {
+      uploadedEvidenceUrl = await uploadFile(imageFile);
+    }
+
     const client = await db.pool.connect();
 
     try {
@@ -512,15 +523,17 @@ class DevolucionesService {
            recibido_por_usuario_id,
            bodega_recepcion_id,
            estado,
-           notas
+           notas,
+           evidencia_foto_url
          )
-         VALUES ($1, $2, $3, 'borrador', $4)
+         VALUES ($1, $2, $3, 'borrador', $4, $5)
          RETURNING id`,
         [
           payload.trabajador_id,
           userId,
           payload.ubicacion_recepcion_id,
           payload.notas || null,
+          uploadedEvidenceUrl || payload.evidencia_foto_url || null,
         ]
       );
 
@@ -570,6 +583,9 @@ class DevolucionesService {
       return data;
     } catch (error) {
       await client.query('ROLLBACK');
+      if (uploadedEvidenceUrl) {
+        await deleteFileByUrl(uploadedEvidenceUrl);
+      }
       throw error;
     } finally {
       client.release();

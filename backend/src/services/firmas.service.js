@@ -3,14 +3,7 @@ const db = require('../db');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
 const signatureEvents = require('../lib/signatureEvents');
 
-const buildError = (message, statusCode = 400, code = null) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  if (code) {
-    error.code = code;
-  }
-  return error;
-};
+const { buildError } = require('../lib/errors');
 
 const hashValue = (value) =>
   crypto.createHash('sha256').update(String(value), 'utf8').digest('hex');

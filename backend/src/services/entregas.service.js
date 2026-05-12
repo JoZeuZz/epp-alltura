@@ -1,15 +1,11 @@
 const db = require('../db');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
+const { uploadFile, deleteFileByUrl, resolveHeaderImages } = require('../lib/googleCloud');
 
 const UUID_REGEX =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
-const buildError = (message, statusCode = 400, code = null) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  if (code) error.code = code;
-  return error;
-};
+const { buildError } = require('../lib/errors');
 
 const isUuid = (value) => UUID_REGEX.test(String(value || '').trim());
 
@@ -29,6 +25,7 @@ const mapHeaderRow = (row) => ({
   creado_en: row.creado_en,
   confirmada_en: row.confirmada_en,
   fecha_devolucion_esperada: row.fecha_devolucion_esperada,
+  evidencia_foto_url: row.evidencia_foto_url || null,
   firmado_en: row.firmado_en,
   firma_imagen_url: row.firma_imagen_url,
   cantidad_items: Number(row.cantidad_items || 0),
@@ -234,6 +231,7 @@ class EntregasService {
     return normalized;
   }
 
+
   static async _getByIdWithClient(client, id) {
     const headerResult = await client.query(
       `SELECT
@@ -252,6 +250,7 @@ class EntregasService {
          e.creado_en,
          e.confirmada_en,
          e.fecha_devolucion_esperada,
+         e.evidencia_foto_url,
          fe.firmado_en,
          fe.firma_imagen_url,
          COALESCE((
@@ -281,6 +280,7 @@ class EntregasService {
          a.grupo_principal AS articulo_tipo,
          ed.activo_id,
          ac.codigo AS activo_codigo,
+         COALESCE(ac.foto_url, a.foto_url) AS foto_url,
          ed.lote_id,
          ed.cantidad,
          ed.tipo_item_entrega,
@@ -296,10 +296,15 @@ class EntregasService {
 
     const row = mapHeaderRow(headerResult.rows[0]);
     row.detalles = detallesResult.rows;
-    return row;
+    return resolveHeaderImages(row);
   }
 
-  static async create(payload, userId) {
+  static async create(payload, userId, imageFile = null) {
+    let uploadedEvidenceUrl = null;
+    if (imageFile) {
+      uploadedEvidenceUrl = await uploadFile(imageFile);
+    }
+
     const client = await db.pool.connect();
 
     try {
@@ -322,9 +327,10 @@ class EntregasService {
            tipo,
            estado,
            nota_destino,
-           fecha_devolucion_esperada
+           fecha_devolucion_esperada,
+           evidencia_foto_url
          )
-         VALUES ($1, $2, $3, $4, 'entrega', 'borrador', $5, $6)
+         VALUES ($1, $2, $3, $4, 'entrega', 'borrador', $5, $6, $7)
          RETURNING id`,
         [
           userId,
@@ -333,6 +339,7 @@ class EntregasService {
           payload.ubicacion_destino_id,
           payload.nota_destino || null,
           payload.fecha_devolucion_esperada || null,
+          uploadedEvidenceUrl || payload.evidencia_foto_url || null,
         ]
       );
 
@@ -383,6 +390,9 @@ class EntregasService {
       return data;
     } catch (error) {
       await client.query('ROLLBACK');
+      if (uploadedEvidenceUrl) {
+        await deleteFileByUrl(uploadedEvidenceUrl);
+      }
       throw error;
     } finally {
       client.release();
@@ -419,6 +429,7 @@ class EntregasService {
       e.creado_en,
       e.confirmada_en,
       e.fecha_devolucion_esperada,
+      e.evidencia_foto_url,
       fe.firmado_en,
       fe.firma_imagen_url,
       COALESCE((
@@ -452,6 +463,7 @@ class EntregasService {
          a.grupo_principal AS articulo_tipo,
          ed.activo_id,
          ac.codigo AS activo_codigo,
+         COALESCE(ac.foto_url, a.foto_url) AS foto_url,
          ed.lote_id,
          ed.cantidad,
          ed.tipo_item_entrega,
@@ -472,10 +484,10 @@ class EntregasService {
       detailByEntrega.set(detail.entrega_id, list);
     }
 
-    return headerResult.rows.map((row) => ({
+    return Promise.all(headerResult.rows.map((row) => resolveHeaderImages({
       ...mapHeaderRow(row),
       detalles: detailByEntrega.get(row.id) || [],
-    }));
+    })));
   }
 
   static async getById(id) {

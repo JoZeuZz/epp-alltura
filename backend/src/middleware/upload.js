@@ -2,6 +2,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { buildError } = require('../lib/errors');
 
 const DEFAULT_MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 const DEFAULT_MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
@@ -206,7 +207,21 @@ const collectRequestFiles = (req) => {
   return files;
 };
 
+const parseMultipartPayload = (req, _res, next) => {
+  if (req.body?.payload === undefined) {
+    return next();
+  }
+  try {
+    req.body = JSON.parse(req.body.payload);
+    return next();
+  } catch {
+    return next(buildError('payload no tiene formato JSON válido.', 400, 'INVALID_PAYLOAD_JSON'));
+  }
+};
+
 module.exports = {
+  buildError,
+  parseMultipartPayload,
   imageUpload,
   documentUpload,
   validateImageMagic: async (req, _res, next) => {

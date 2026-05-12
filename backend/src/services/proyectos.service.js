@@ -1,10 +1,6 @@
 const ProyectoModel = require('../models/proyecto');
 
-const buildError = (message, statusCode = 400) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  return error;
-};
+const { buildError } = require('../lib/errors');
 
 const validateDates = (data, current = null) => {
   const fechaInicio = data.fecha_inicio ?? current?.fecha_inicio ?? null;

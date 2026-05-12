@@ -1,6 +1,7 @@
 const db = require('../db');
 const ComprasService = require('./compras.service');
 const EgresosService = require('./egresos.service');
+const { resolveImageUrl } = require('../lib/googleCloud');
 
 // ── Transiciones directas de estado (admin) ────────────────
 const TRANSICIONES_DIRECTAS = {
@@ -12,12 +13,7 @@ const TRANSICIONES_DIRECTAS = {
   'en_stock→perdido':      { mov_tipo: 'ajuste',     cambia_ubicacion: false },
 };
 
-const buildError = (message, statusCode = 400, code = null) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  if (code) error.code = code;
-  return error;
-};
+const { buildError } = require('../lib/errors');
 
 const csvEscape = (value) => {
   if (value === null || value === undefined) {
@@ -101,6 +97,13 @@ const buildScopedAssetTypeCondition = (value, nextParamIndex) => {
 
 
 class InventarioService {
+  static async _resolveActivoRows(rows) {
+    return Promise.all((rows || []).map(async (row) => ({
+      ...row,
+      foto_url: await resolveImageUrl(row.foto_url),
+    })));
+  }
+
   static async getIngresos(filters = {}) {
     return ComprasService.list(filters);
   }
@@ -586,6 +589,7 @@ class InventarioService {
         a.fecha_vencimiento,
         a.fecha_compra,
         a.creado_en,
+        COALESCE(a.foto_url, ar.foto_url) AS foto_url,
         ar.id AS articulo_id,
         ar.nombre AS articulo_nombre,
         ar.grupo_principal AS articulo_tipo,
@@ -637,7 +641,7 @@ class InventarioService {
     query += ` ORDER BY ar.nombre ASC, a.codigo ASC LIMIT $${values.length}`;
 
     const { rows } = await db.query(query, values);
-    return rows;
+    return this._resolveActivoRows(rows);
   }
 
   static async getActivosPaged(filters = {}) {
@@ -699,6 +703,7 @@ class InventarioService {
         a.fecha_vencimiento,
         a.fecha_compra,
         a.creado_en,
+        COALESCE(a.foto_url, ar.foto_url) AS foto_url,
         ar.id AS articulo_id,
         ar.nombre AS articulo_nombre,
         ar.grupo_principal AS articulo_tipo,
@@ -798,7 +803,7 @@ class InventarioService {
 
     const { rows } = await db.query(query, values);
     const hasMore = rows.length > limit;
-    const items = hasMore ? rows.slice(0, limit) : rows;
+    const items = await this._resolveActivoRows(hasMore ? rows.slice(0, limit) : rows);
 
     return {
       items,
@@ -841,6 +846,7 @@ class InventarioService {
         a.estado,
         a.articulo_id,
         ar.nombre AS articulo_nombre,
+        COALESCE(a.foto_url, ar.foto_url) AS foto_url,
         a.bodega_actual_id AS bodega_id,
         b.nombre AS bodega_nombre
       FROM activo a
@@ -852,7 +858,7 @@ class InventarioService {
     `;
 
     const { rows } = await db.query(query, values);
-    return rows;
+    return this._resolveActivoRows(rows);
   }
 
   static async getAuditoria(filters = {}) {
@@ -920,7 +926,7 @@ class InventarioService {
     const activoResult = await db.query(
       `
       SELECT
-        ac.id, ac.codigo, ac.nro_serie, ac.estado, ac.foto_url,
+        ac.id, ac.codigo, ac.nro_serie, ac.estado, COALESCE(ac.foto_url, a.foto_url) AS foto_url,
         ac.bodega_actual_id, ac.proyecto_actual_id, ac.fecha_compra, ac.fecha_vencimiento, ac.valor,
         ac.creado_en,
         a.id AS articulo_id, a.nombre AS articulo_nombre,
@@ -1044,6 +1050,7 @@ class InventarioService {
 
     return {
       ...activo,
+      foto_url: await resolveImageUrl(activo.foto_url),
       custodia_activa: custodiaResult.rows[0] || null,
       compra: compraResult.rows[0] || null,
       timeline: timelineResult.rows,
