@@ -7,7 +7,7 @@ import ErrorPage from '../components/ErrorPage';
 import type { User } from '../types/api';
 import { clearStoredTokens, refreshAccessToken } from '../shell/services/authRefresh';
 import { isHttpAuthError, loaderHttpClient } from '../shell/services/httpClient';
-import NotificationBell from '../shell/components/NotificationBell';
+import NotificationBell from '../components/NotificationBell';
 import logoWhite from '../assets/logo-alltura-white.png';
 
 const EppIcon = () => (
