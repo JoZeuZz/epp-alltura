@@ -1,11 +1,11 @@
 import { lazy } from 'react';
 import { createBrowserRouter, redirect } from 'react-router-dom';
 import AppLayout from '../layouts/AppLayout';
-import type { NavItem } from '@alltura/shell';
+import type { NavItem } from '@alltura/ui';
 import LoginPage from '../pages/LoginPage';
 import ErrorPage from '../components/ErrorPage';
 import type { User } from '../types/api';
-import { clearStoredTokens, refreshAccessToken, isHttpAuthError, loaderHttpClient } from '@alltura/shell';
+import { clearStoredTokens, refreshAccessToken, isHttpAuthError, loaderHttpClient } from '@alltura/ui';
 import NotificationBell from '../components/NotificationBell';
 import logoWhite from '../assets/logo-alltura-white.png';
 

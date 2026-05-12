@@ -1,4 +1,4 @@
-import type { TourRole, TourStep } from '@alltura/shell';
+import type { TourRole, TourStep } from '@alltura/ui';
 
 export const TOUR_VERSION = 'v3';
 

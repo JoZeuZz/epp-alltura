@@ -5,25 +5,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import AppLayout from '../layouts/AppLayout';
 
-// AppLayout comes from @alltura/shell (symlinked package processed from source).
+// AppLayout comes from @alltura/ui (symlinked package processed from source).
 // Its internal imports resolve to the real path, so we mock those directly.
-vi.mock('../../../../alltura-shell/src/hooks/useAuth', () => ({
+vi.mock('../../../../alltura-ui/src/hooks/useAuth', () => ({
   useAuth: vi.fn(),
 }));
-vi.mock('../../../../alltura-shell/src/hooks/useTour', () => ({
+vi.mock('../../../../alltura-ui/src/hooks/useTour', () => ({
   useTour: vi.fn(),
 }));
-vi.mock('../../../../alltura-shell/src/hooks/useBreakpoints', () => ({
+vi.mock('../../../../alltura-ui/src/hooks/useBreakpoints', () => ({
   useBreakpoints: vi.fn(),
 }));
-vi.mock('../../../../alltura-shell/src/components/TourOverlay', () => ({
+vi.mock('../../../../alltura-ui/src/components/TourOverlay', () => ({
   __esModule: true,
   default: ({ children }: { children: ReactNode }) => children,
 }));
 
-import { useAuth } from '../../../../alltura-shell/src/hooks/useAuth';
-import { useTour } from '../../../../alltura-shell/src/hooks/useTour';
-import { useBreakpoints } from '../../../../alltura-shell/src/hooks/useBreakpoints';
+import { useAuth } from '../../../../alltura-ui/src/hooks/useAuth';
+import { useTour } from '../../../../alltura-ui/src/hooks/useTour';
+import { useBreakpoints } from '../../../../alltura-ui/src/hooks/useBreakpoints';
 
 const useAuthMock = vi.mocked(useAuth);
 const useTourMock = vi.mocked(useTour);

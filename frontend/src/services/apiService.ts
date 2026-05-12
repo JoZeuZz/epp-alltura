@@ -1,4 +1,4 @@
-import { defaultHttpClient, type ApiEnvelope } from '@alltura/shell';
+import { defaultHttpClient, type ApiEnvelope } from '@alltura/ui';
 
 // Contrato Alltura de sesión:
 // - baseURL same-origin '/api'

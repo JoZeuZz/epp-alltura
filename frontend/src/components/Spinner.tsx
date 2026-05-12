@@ -1,1 +1,1 @@
-export { Spinner as default } from '@alltura/shell';
+export { Spinner as default } from '@alltura/ui';

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   getContextualStepsForRoute,
   matchTourRoute,
-} from '@alltura/shell';
+} from '@alltura/ui';
 import { onboardingStepsByRole } from '../utils/tourSteps';
-import type { TourStep } from '@alltura/shell';
+import type { TourStep } from '@alltura/ui';
 
 describe('matchTourRoute', () => {
   it('returns true when no route specified', () => {
