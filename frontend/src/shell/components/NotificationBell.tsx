@@ -1,22 +1,36 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import FocusTrap from 'focus-trap-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useBreakpoints } from '../../hooks';
-import { useNotifications } from '../../hooks/useNotifications';
+import { useBreakpoints } from '../hooks/useBreakpoints';
 import { frontendLogger } from '../services/frontendLogger';
 import NotificationItem from './NotificationItem';
+import type { ShellNotification, ShellNotificationPresentation } from '../context/notificationContext.shared';
 
 export interface NotificationBellProps {
+  notifications: ShellNotification[];
+  unreadCount: number;
+  loading?: boolean;
+  onMarkAsRead: (id: number) => Promise<void>;
+  onMarkAllAsRead: () => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+  onRefresh: () => Promise<void>;
+  resolvePresentation?: (
+    n: Pick<ShellNotification, 'type' | 'link'>
+  ) => ShellNotificationPresentation;
   variant?: 'light' | 'dark';
-  pollIntervalMs?: number;
   previewLimit?: number;
 }
 
-const SHELL_NOTIFICATIONS_POLL_INTERVAL_MS = 30000;
-
 export default function NotificationBell({
+  notifications,
+  unreadCount,
+  loading = false,
+  onMarkAsRead,
+  onMarkAllAsRead,
+  onDelete,
+  onRefresh,
+  resolvePresentation,
   variant = 'light',
-  pollIntervalMs = SHELL_NOTIFICATIONS_POLL_INTERVAL_MS,
   previewLimit = 5,
 }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -30,75 +44,36 @@ export default function NotificationBell({
   const location = useLocation();
   const { isMobile } = useBreakpoints();
   const isNotificationsRoute = location.pathname.startsWith('/notifications');
-  
-  const {
-    notifications,
-    unreadCount,
-    loading,
-    fetchNotifications,
-    markAsRead,
-    markAllAsRead,
-    deleteNotif,
-  } = useNotifications({
-    // Cuando estamos en /notifications, la página ya realiza polling.
-    autoRefresh: !isNotificationsRoute,
-    refreshInterval: pollIntervalMs,
-    pauseWhenHidden: true,
-    autoRefreshMode: 'unread-only',
-  });
 
-  // Cierra dropdown en desktop al hacer click fuera.
   useEffect(() => {
-    if (!isOpen || isMobile) {
-      return;
-    }
-
+    if (!isOpen || isMobile) return;
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        bellRef.current &&
-        !bellRef.current.contains(event.target as Node)
-      ) {
+      if (bellRef.current && !bellRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, isMobile]);
 
-  // Cierre por Escape para desktop y mobile.
   useEffect(() => {
     if (!isOpen) return;
-
     const handleEsc = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
         setIsOpen(false);
       }
     };
-
     document.addEventListener('keydown', handleEsc);
-    return () => {
-      document.removeEventListener('keydown', handleEsc);
-    };
+    return () => document.removeEventListener('keydown', handleEsc);
   }, [isOpen]);
 
-  // Bloquea scroll de fondo cuando el modal móvil está abierto.
   useEffect(() => {
-    if (!isMobile || !isOpen) {
-      return;
-    }
-
+    if (!isMobile || !isOpen) return;
     document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = '';
-    };
+    return () => { document.body.style.overflow = ''; };
   }, [isMobile, isOpen]);
 
-  // Devuelve foco al trigger cuando se cierra el panel.
   useEffect(() => {
     if (wasOpenRef.current && !isOpen) {
       triggerButtonRef.current?.focus();
@@ -108,7 +83,7 @@ export default function NotificationBell({
 
   const handleMarkAllAsRead = async () => {
     try {
-      await markAllAsRead();
+      await onMarkAllAsRead();
     } catch (error) {
       frontendLogger.error('Error marking all as read', error);
     }
@@ -117,18 +92,14 @@ export default function NotificationBell({
   const handleToggleDropdown = () => {
     const shouldOpen = !isOpen;
     setIsOpen(shouldOpen);
-
-    if (shouldOpen) {
-      fetchNotifications().catch((error: unknown) => {
+    if (shouldOpen && !isNotificationsRoute) {
+      onRefresh().catch((error: unknown) => {
         frontendLogger.error('Error refreshing notifications', error);
       });
     }
   };
 
-  const handleClose = () => {
-    setIsOpen(false);
-  };
-
+  const handleClose = () => setIsOpen(false);
   const handleViewAll = () => {
     navigate('/notifications');
     setIsOpen(false);
@@ -136,50 +107,37 @@ export default function NotificationBell({
 
   const previewNotifications = notifications.slice(0, previewLimit);
 
-  // Estilos dinamicos basados en la variante.
   const buttonClasses = variant === 'dark'
-    ? "relative p-2 text-white hover:text-gray-200 hover:bg-gray-700 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-    : "relative p-2 text-content-secondary hover:text-content-primary hover:bg-surface-overlay rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary";
+    ? 'relative p-2 text-white hover:text-gray-200 hover:bg-gray-700 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+    : 'relative p-2 text-content-secondary hover:text-content-primary hover:bg-surface-overlay rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary';
 
   const renderNotificationList = () => {
     if (loading) {
       return (
         <div className="flex justify-center items-center py-8">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
         </div>
       );
     }
-
     if (previewNotifications.length === 0) {
       return (
         <div className="text-center py-8 text-content-muted">
-          <svg
-            className="w-12 h-12 mx-auto mb-2 text-content-disabled"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-            />
+          <svg className="w-12 h-12 mx-auto mb-2 text-content-disabled" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
           </svg>
           <p className="text-sm">No hay notificaciones</p>
         </div>
       );
     }
-
     return (
       <div className="divide-y divide-edge-subtle">
         {previewNotifications.map((notification) => (
           <NotificationItem
             key={notification.id}
             notification={notification}
-            onMarkAsRead={markAsRead}
-            onDelete={deleteNotif}
+            onMarkAsRead={onMarkAsRead}
+            onDelete={onDelete}
+            resolvePresentation={resolvePresentation}
             compact
           />
         ))}
@@ -192,10 +150,7 @@ export default function NotificationBell({
       <h3 id={headingId} className="text-base font-semibold text-content-primary">Notificaciones</h3>
       <div className="flex items-center gap-2">
         {unreadCount > 0 && (
-          <button
-            onClick={handleMarkAllAsRead}
-            className="text-sm text-primary hover:text-primary-dark font-medium whitespace-nowrap"
-          >
+          <button onClick={handleMarkAllAsRead} className="text-sm text-primary hover:text-primary-dark font-medium whitespace-nowrap">
             <span className="hidden sm:inline">Marcar todas como leídas</span>
             <span className="sm:hidden">Marcar</span>
           </button>
@@ -227,21 +182,9 @@ export default function NotificationBell({
         aria-expanded={isOpen}
         aria-controls={isOpen ? panelId : undefined}
       >
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-          />
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
-
         {unreadCount > 0 && (
           <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-danger rounded-full transform translate-x-1/2 -translate-y-1/2">
             {unreadCount > 99 ? '99+' : unreadCount}
@@ -260,10 +203,7 @@ export default function NotificationBell({
           <div className="flex-1 overflow-y-auto">{renderNotificationList()}</div>
           {previewNotifications.length > 0 && (
             <div className="px-4 py-3 border-t border-edge bg-surface-muted flex-shrink-0">
-              <button
-                onClick={handleViewAll}
-                className="text-sm text-primary hover:text-primary-dark font-medium block text-center w-full"
-              >
+              <button onClick={handleViewAll} className="text-sm text-primary hover:text-primary-dark font-medium block text-center w-full">
                 Ver todas
               </button>
             </div>
@@ -273,11 +213,7 @@ export default function NotificationBell({
 
       {isOpen && isMobile && (
         <>
-          <div
-            className="fixed inset-0 bg-black/50 z-40"
-            onClick={handleClose}
-            aria-hidden="true"
-          />
+          <div className="fixed inset-0 bg-black/50 z-40" onClick={handleClose} aria-hidden="true" />
           <FocusTrap
             focusTrapOptions={{
               initialFocus: () => closeButtonRef.current ?? triggerButtonRef.current ?? document.body,
@@ -298,10 +234,7 @@ export default function NotificationBell({
               <div className="flex-1 overflow-y-auto">{renderNotificationList()}</div>
               {previewNotifications.length > 0 && (
                 <div className="px-4 py-3 border-t border-edge bg-surface-muted flex-shrink-0">
-                  <button
-                    onClick={handleViewAll}
-                    className="text-sm text-primary hover:text-primary-dark font-medium block text-center w-full"
-                  >
+                  <button onClick={handleViewAll} className="text-sm text-primary hover:text-primary-dark font-medium block text-center w-full">
                     Ver todas
                   </button>
                 </div>
