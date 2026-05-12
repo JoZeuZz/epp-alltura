@@ -5,6 +5,9 @@ export interface ShellUser {
   email?: string;
   role?: string;
   roles?: string[];
+  first_name?: string;
+  last_name?: string;
+  profile_picture_url?: string | null;
   [key: string]: unknown;
 }
 

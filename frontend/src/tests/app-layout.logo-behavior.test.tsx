@@ -2,30 +2,21 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as hooks from '../hooks';
-import { useAuth } from '../hooks/useAuth';
-import { useTour } from '../hooks/useTour';
+import { useAuth } from '../shell/hooks/useAuth';
+import { useTour } from '../shell/hooks/useTour';
+import { useBreakpoints } from '../shell/hooks/useBreakpoints';
 import AppLayout from '../shell/layout/AppLayout';
 
-vi.mock('../hooks/useAuth', () => ({
+vi.mock('../shell/hooks/useAuth', () => ({
   useAuth: vi.fn(),
 }));
 
-vi.mock('../hooks/useTour', () => ({
+vi.mock('../shell/hooks/useTour', () => ({
   useTour: vi.fn(),
 }));
 
-vi.mock('../hooks', async importOriginal => {
-  const actual = await importOriginal<typeof import('../hooks')>();
-  return {
-    ...actual,
-    useBreakpoints: vi.fn(),
-  };
-});
-
-vi.mock('../shell/components/NotificationBell', () => ({
-  __esModule: true,
-  default: () => <div data-testid="notification-bell" />,
+vi.mock('../shell/hooks/useBreakpoints', () => ({
+  useBreakpoints: vi.fn(),
 }));
 
 vi.mock('../shell/components/TourOverlay', () => ({
@@ -35,7 +26,7 @@ vi.mock('../shell/components/TourOverlay', () => ({
 
 const useAuthMock = vi.mocked(useAuth);
 const useTourMock = vi.mocked(useTour);
-const useBreakpointsMock = vi.mocked(hooks.useBreakpoints);
+const useBreakpointsMock = vi.mocked(useBreakpoints);
 
 const renderLayout = ({ isMobile = false, collapsed = false } = {}) => {
   window.innerWidth = isMobile ? 390 : 1280;
@@ -59,7 +50,7 @@ const renderLayout = ({ isMobile = false, collapsed = false } = {}) => {
   return render(
     <MemoryRouter initialEntries={['/admin/inventario/equipos']}>
       <Routes>
-        <Route path="*" element={<AppLayout navItems={[]} />} />
+        <Route path="*" element={<AppLayout navItems={[]} logoSrc="/logo-test.png" />} />
       </Routes>
     </MemoryRouter>
   );
