@@ -37,7 +37,7 @@ export * from './context/notificationContext.shared';
 export * from './context/tourContext.shared';
 
 // Services
-export * from './services/apiService';
+export * from '../services/apiService';
 export * from './services/authRefresh';
 export * from './services/httpClient';
 export * from './services/notificationService';
