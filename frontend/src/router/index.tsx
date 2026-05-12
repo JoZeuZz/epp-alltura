@@ -1,11 +1,80 @@
 import { lazy } from 'react';
 import { createBrowserRouter, redirect } from 'react-router-dom';
 import AppLayout from '../layouts/AppLayout';
+import type { NavItem } from '../shell/layout/AppLayout';
 import LoginPage from '../pages/LoginPage';
 import ErrorPage from '../components/ErrorPage';
 import type { User } from '../types/api';
 import { clearStoredTokens, refreshAccessToken } from '../shell/services/authRefresh';
 import { isHttpAuthError, loaderHttpClient } from '../shell/services/httpClient';
+
+const EppIcon = () => (
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3l7 3v5c0 4.97-3.05 8.88-7 10-3.95-1.12-7-5.03-7-10V6l7-3z" />
+  </svg>
+);
+const EquiposIcon = () => (
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16v10a2 2 0 01-2 2H6a2 2 0 01-2-2V8zm5-4h6a2 2 0 012 2v2H7V6a2 2 0 012-2z" />
+  </svg>
+);
+const HerramientasIcon = () => (
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.7 6.3a1 1 0 010 1.4l-2.3 2.3a3 3 0 01-4.2 4.2l-4.8 4.8 1.4 1.4 4.8-4.8a3 3 0 004.2-4.2l2.3-2.3a1 1 0 011.4 0l1.4 1.4-1.4 1.4" />
+  </svg>
+);
+const TrabajadoresIcon = () => (
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.655-.084-1.289-.241-1.892M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.655.084-1.289.241-1.892m0 0a5.002 5.002 0 019.518 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+const UsuariosIcon = () => (
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.655-.084-1.289-.241-1.892M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.655.084-1.289.241-1.892m0 0a5.002 5.002 0 019.518 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM6 10a2 2 0 11-4 0 2 2 0 014 0z" />
+  </svg>
+);
+const ProyectosIcon = () => (
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M6 7v13m6-13v13m6-13v13M4 20h16" />
+  </svg>
+);
+const BodegasIcon = () => (
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+  </svg>
+);
+const DashboardSupervisorIcon = () => (
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+  </svg>
+);
+
+const navItems: NavItem[] = [
+  {
+    label: 'Inventario',
+    children: [
+      { to: '/admin/inventario/epp', label: 'EPP', icon: <EppIcon />, roles: ['admin'] },
+      { to: '/admin/inventario/equipos', label: 'Equipos', icon: <EquiposIcon />, roles: ['admin'] },
+      { to: '/admin/inventario/herramientas', label: 'Herramientas', icon: <HerramientasIcon />, roles: ['admin'] },
+    ],
+  },
+  {
+    label: 'Personal',
+    children: [
+      { to: '/admin/trabajadores', label: 'Trabajadores', icon: <TrabajadoresIcon />, roles: ['admin'] },
+      { to: '/admin/users', label: 'Usuarios del Sistema', icon: <UsuariosIcon />, roles: ['admin'] },
+    ],
+  },
+  {
+    label: 'Operaciones',
+    children: [
+      { to: '/admin/ubicacion/proyectos', label: 'Proyectos', icon: <ProyectosIcon />, roles: ['admin'] },
+      { to: '/admin/ubicacion/bodegas', label: 'Bodegas', icon: <BodegasIcon />, roles: ['admin'] },
+    ],
+  },
+  { to: '/supervisor/dashboard', label: 'Dashboard Supervisor', icon: <DashboardSupervisorIcon />, roles: ['supervisor'] },
+];
 
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
 const UsersPage = lazy(() => import('../pages/admin/UsersPage'));
@@ -218,7 +287,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/',
-    element: <AppLayout />,
+    element: <AppLayout navItems={navItems} />,
     loader: protectedLoader,
     errorElement: <ErrorPage />,
     children: [

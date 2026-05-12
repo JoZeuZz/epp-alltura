@@ -59,7 +59,7 @@ const renderLayout = ({ isMobile = false, collapsed = false } = {}) => {
   return render(
     <MemoryRouter initialEntries={['/admin/inventario/equipos']}>
       <Routes>
-        <Route path="*" element={<AppLayout />} />
+        <Route path="*" element={<AppLayout navItems={[]} />} />
       </Routes>
     </MemoryRouter>
   );
