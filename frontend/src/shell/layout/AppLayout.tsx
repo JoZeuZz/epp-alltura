@@ -2,6 +2,7 @@ import { useState, Fragment, useRef, useEffect, Suspense } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
+import type { User } from '../../types/api';
 import { useTour } from '../../hooks/useTour';
 import TourOverlay from '../components/TourOverlay';
 import type { TourRole } from '../utils/tourSteps';
@@ -58,7 +59,8 @@ const darkFocusRing =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-1 focus-visible:ring-offset-[#1E2A4A]';
 
 const AppLayout = () => {
-  const { user, logout } = useAuth();
+  const { user: shellUser, logout } = useAuth();
+  const user = shellUser as User | null;
   const { startOnboarding, startContextual, isActive, steps, stepIndex } = useTour();
   const { isMobile } = useBreakpoints();
   const navigate = useNavigate();
@@ -355,6 +357,7 @@ const AppLayout = () => {
                   ? 'max-w-[180px] opacity-100 translate-x-0 origin-left'
                   : 'max-w-[180px] opacity-100 translate-x-0 origin-left lg:max-w-0 lg:opacity-0 lg:translate-x-4 lg:delay-0'
               }`}
+              style={{ transitionDuration: 'var(--shell-logo-handoff-duration)' }}
               aria-hidden={!isSidebarOpen}
             >
               <img
@@ -454,6 +457,12 @@ const AppLayout = () => {
                 ? 'opacity-100 translate-x-0 max-w-[180px] origin-left lg:delay-100 motion-reduce:delay-0'
                 : 'opacity-0 -translate-x-3 max-w-0 pointer-events-none origin-left lg:delay-0'
             }`}
+            style={{
+              transitionDuration: 'var(--shell-logo-handoff-duration)',
+              transitionDelay: showHeaderLogo && !isMobile
+                ? 'var(--shell-logo-handoff-enter-delay-desktop)'
+                : '0ms',
+            }}
           />
 
           <div className="flex-1" aria-hidden="true" />

@@ -7,6 +7,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePut } from '../hooks/useMutate';
 import { useFormErrors } from '../hooks/useFormErrors';
 import { User } from '../types/api';
+import type { ShellUser } from '../shell/context/authContext.shared';
 import UserIcon from '../components/icons/UserIcon';
 import UploadProgress, { UploadStage } from '../components/UploadProgress';
 import { uploadWithProgress } from '../services/apiService';
@@ -40,7 +41,8 @@ const profileSchema = z.object({
 type ProfileFormData = z.infer<typeof profileSchema>;
 
 const ProfilePage: React.FC = () => {
-  const { user, refreshUserData } = useAuth();
+  const { user: shellUser, refreshUserData } = useAuth();
+  const user = shellUser as User | null;
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>(user?.profile_picture_url || '');
@@ -108,7 +110,7 @@ const ProfilePage: React.FC = () => {
 
     try {
       const dataResponse = await updateUser.mutateAsync(updateData);
-      refreshUserData(dataResponse.user, dataResponse.token);
+      refreshUserData(dataResponse.user as unknown as ShellUser, dataResponse.token);
 
       if (imageFile) {
         const pictureFormData = new FormData();
@@ -127,7 +129,7 @@ const ProfilePage: React.FC = () => {
           controller.signal
         );
         setUploadStage('finishing');
-        refreshUserData(pictureResponse.user, pictureResponse.token);
+        refreshUserData(pictureResponse.user as unknown as ShellUser, pictureResponse.token);
         toast.success('¡Perfil actualizado exitosamente!');
       } else {
         toast.success('Datos actualizados con éxito');

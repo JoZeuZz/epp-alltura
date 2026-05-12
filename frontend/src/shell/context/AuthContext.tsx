@@ -1,23 +1,26 @@
 import React, { useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import * as api from '../../services/apiService';
 import { jwtDecode } from 'jwt-decode';
-import { User } from '../../types/api';
+import { ShellUser, AuthContext } from './authContext.shared';
 import {
   refreshAccessToken,
   clearStoredTokens,
   getStoredAccessToken,
   storeTokens,
 } from '../services/authRefresh';
-import { AuthContext } from './authContext.shared';
 
 interface AuthProviderProps {
   children: ReactNode;
+  loginFn: (email: string, password: string) => Promise<{
+    accessToken: string;
+    refreshToken: string;
+    user: ShellUser;
+  }>;
 }
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children, loginFn }) => {
   const queryClient = useQueryClient();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ShellUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,7 +30,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         let token = getStoredAccessToken();
         if (token && typeof token === 'string') {
-          const decodedUser = jwtDecode<{ user: User; exp: number }>(token);
+          const decodedUser = jwtDecode<{ user: ShellUser; exp: number }>(token);
           const isExpired = decodedUser.exp * 1000 < Date.now();
 
           if (isExpired) {
@@ -41,7 +44,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             token = refreshedToken;
           }
 
-          const freshDecoded = jwtDecode<{ user: User }>(token);
+          const freshDecoded = jwtDecode<{ user: ShellUser }>(token);
           if (isMounted) {
             setUser(freshDecoded.user);
           }
@@ -68,41 +71,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const response = await api.post<{ accessToken: string; refreshToken: string; user: User }>('/auth/login', { email, password });
+      const response = await loginFn(email, password);
       const { accessToken, refreshToken, user } = response;
-
-      // Guardar ambos tokens en storage estandarizado
       storeTokens(accessToken, refreshToken);
-      
-      // Establecer usuario desde la respuesta del backend
       setUser(user);
       return true;
     } catch (error) {
       console.error('Login failed:', error);
-      logout(); // Ensure clean state on failure
+      logout();
       return false;
     }
-  }, []);
+  }, [loginFn]);
 
   const logout = useCallback(() => {
     clearStoredTokens();
     queryClient.clear();
     setUser(null);
-    // Redirigir al login
     window.location.href = '/login';
   }, [queryClient]);
 
-  const refreshUserData = useCallback((newUserData: User, token?: string) => {
+  const refreshUserData = useCallback((newUserData: ShellUser, token?: string) => {
     try {
-      // Si llega un nuevo access token, se actualiza sin tocar refresh token.
       if (token) {
         storeTokens(token);
       }
-      // Update user state with the new data from the API response
       setUser(newUserData);
     } catch (error) {
       console.error('Failed to refresh token', error);
-      logout(); // Fallback to logout on error
+      logout();
     }
   }, [logout]);
 
