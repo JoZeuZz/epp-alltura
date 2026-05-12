@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { TourRole, TourStep, onboardingStepsByRole, TOUR_VERSION } from '../utils/tourSteps';
+import { TourRole, TourStep } from '../utils/tourSteps';
+import { onboardingStepsByRole, TOUR_VERSION } from '../../utils/tourSteps';
 import { StopReason, TourMode, TourContext } from './tourContext.shared';
 
 const storageKeyFor = (role: TourRole) => `tour:${role}:${TOUR_VERSION}`;
