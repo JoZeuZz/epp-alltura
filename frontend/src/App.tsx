@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './shell/context/AuthContext';
+import { post } from './services/apiService';
 import { NotificationProvider } from './shell/context/NotificationContext';
 import { TourProvider } from './shell/context/TourContext';
 import { router } from './router';
@@ -55,7 +56,7 @@ const AppContent: React.FC = () => {
 
 function App() {
   return (
-    <AuthProvider>
+    <AuthProvider loginFn={(email, password) => post('/auth/login', { email, password })}>
       <NotificationProvider>
         <TourProvider>
           <Toaster
