@@ -1,11 +1,16 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { TourRole, TourStep } from '../utils/tourSteps';
-import { onboardingStepsByRole, TOUR_VERSION } from '../../utils/tourSteps';
 import { StopReason, TourMode, TourContext } from './tourContext.shared';
 
-const storageKeyFor = (role: TourRole) => `tour:${role}:${TOUR_VERSION}`;
+interface TourProviderProps {
+  children: React.ReactNode;
+  steps: Record<string, TourStep[]>;
+  version: string;
+}
 
-export const TourProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const storageKeyFor = (role: TourRole, version: string) => `tour:${role}:${version}`;
+
+export const TourProvider: React.FC<TourProviderProps> = ({ children, steps: stepsByRole, version }) => {
   const [role, setRole] = useState<TourRole | null>(null);
   const [stepIndex, setStepIndex] = useState(0);
   const [isActive, setIsActive] = useState(false);
@@ -14,19 +19,19 @@ export const TourProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const startOnboarding = useCallback((nextRole: TourRole, options?: { force?: boolean }) => {
     if (!nextRole) return false;
-    const key = storageKeyFor(nextRole);
+    const key = storageKeyFor(nextRole, version);
     const status = localStorage.getItem(key);
     if (!options?.force && (status === 'completed' || status === 'skipped')) {
       return false;
     }
     setMode('onboarding');
     setRole(nextRole);
-    setSteps(onboardingStepsByRole[nextRole] || []);
+    setSteps(stepsByRole[nextRole] || []);
     setStepIndex(0);
     setIsActive(true);
     localStorage.setItem(key, 'in_progress');
     return true;
-  }, []);
+  }, [stepsByRole, version]);
 
   const startContextual = useCallback((nextRole: TourRole, contextualSteps: TourStep[]) => {
     if (!nextRole || contextualSteps.length === 0) return false;
@@ -40,7 +45,7 @@ export const TourProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const stop = useCallback((reason: StopReason = 'dismissed') => {
     if (role && mode === 'onboarding') {
-      const key = storageKeyFor(role);
+      const key = storageKeyFor(role, version);
       if (reason === 'completed') {
         localStorage.setItem(key, 'completed');
       } else if (reason === 'skipped') {
@@ -48,7 +53,7 @@ export const TourProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     setIsActive(false);
-  }, [mode, role]);
+  }, [mode, role, version]);
 
   const next = useCallback(() => {
     setStepIndex((prev) => Math.min(prev + 1, Math.max(steps.length - 1, 0)));
@@ -65,12 +70,12 @@ export const TourProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const restart = useCallback(() => {
     if (!role) return;
     if (mode === 'onboarding') {
-      const key = storageKeyFor(role);
+      const key = storageKeyFor(role, version);
       localStorage.setItem(key, 'in_progress');
     }
     setStepIndex(0);
     setIsActive(true);
-  }, [mode, role]);
+  }, [mode, role, version]);
 
   const value = useMemo(
     () => ({
