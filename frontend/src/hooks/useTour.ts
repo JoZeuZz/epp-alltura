@@ -1,10 +1,1 @@
-import { useContext } from 'react';
-import { TourContext } from '../shell/context/tourContext.shared';
-
-export const useTour = () => {
-  const context = useContext(TourContext);
-  if (!context) {
-    throw new Error('useTour must be used within a TourProvider');
-  }
-  return context;
-};
+export { useTour } from '../shell/hooks/useTour';
