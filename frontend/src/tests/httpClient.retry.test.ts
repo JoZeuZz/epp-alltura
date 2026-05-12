@@ -1,22 +1,19 @@
 import axios from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHttpClient, HttpAuthError } from '@alltura/shell';
+
+// Mock the internal authRefresh module so createHttpClient picks up the mocked versions.
+vi.mock('../../../../alltura-shell/src/services/authRefresh', () => ({
+  clearStoredTokens: vi.fn(),
+  getStoredAccessToken: vi.fn(),
+  refreshAccessToken: vi.fn(),
+}));
+
 import {
   clearStoredTokens,
   getStoredAccessToken,
   refreshAccessToken,
-  createHttpClient,
-  HttpAuthError,
-} from '@alltura/shell';
-
-vi.mock('@alltura/shell', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@alltura/shell')>();
-  return {
-    ...actual,
-    clearStoredTokens: vi.fn(),
-    getStoredAccessToken: vi.fn(),
-    refreshAccessToken: vi.fn(),
-  };
-});
+} from '../../../../alltura-shell/src/services/authRefresh';
 
 vi.mock('axios', () => {
   const mockInstance = Object.assign(vi.fn(), {
