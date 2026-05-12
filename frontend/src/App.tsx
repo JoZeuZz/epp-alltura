@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider, NotificationProvider, TourProvider, notificationService, performanceService } from '@alltura/shell';
+import { AuthProvider, NotificationProvider, TourProvider, notificationService, performanceService } from '@alltura/ui';
 import { post } from './services/apiService';
 import { onboardingStepsByRole, TOUR_VERSION } from './utils/tourSteps';
 import { router } from './router';

@@ -1,6 +1,6 @@
-import { NotificationItem as ShellNotificationItem } from '@alltura/shell';
-import type { NotificationItemProps as ShellNotificationItemProps } from '@alltura/shell';
-import type { ShellNotification, ShellNotificationPresentation } from '@alltura/shell';
+import { NotificationItem as ShellNotificationItem } from '@alltura/ui';
+import type { NotificationItemProps as ShellNotificationItemProps } from '@alltura/ui';
+import type { ShellNotification, ShellNotificationPresentation } from '@alltura/ui';
 import { getNotificationItemPresentation } from '../config/notificationItemCompat';
 
 export type NotificationItemProps = Omit<ShellNotificationItemProps, 'resolvePresentation'>;

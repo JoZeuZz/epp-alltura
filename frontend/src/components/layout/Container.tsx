@@ -1,2 +1,2 @@
-export { Container, Section } from '@alltura/shell';
-export type { ContainerProps, SectionProps, ContainerVariant } from '@alltura/shell';
+export { Container, Section } from '@alltura/ui';
+export type { ContainerProps, SectionProps, ContainerVariant } from '@alltura/ui';

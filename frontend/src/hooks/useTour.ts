@@ -1,1 +1,1 @@
-export { useTour } from '@alltura/shell';
+export { useTour } from '@alltura/ui';
