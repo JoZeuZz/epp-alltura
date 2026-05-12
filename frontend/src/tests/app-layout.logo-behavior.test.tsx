@@ -51,6 +51,9 @@ const renderLayout = ({ isMobile = false, collapsed = false } = {}) => {
     isMobile,
     isTablet: false,
     isDesktop: !isMobile,
+    isSmallScreen: isMobile,
+    isMediumScreen: false,
+    isLargeScreen: !isMobile,
   });
 
   return render(
