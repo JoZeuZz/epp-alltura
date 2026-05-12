@@ -5,7 +5,7 @@ import {
   getStoredRefreshToken,
   refreshAccessToken,
   storeTokens,
-} from '../services/authRefresh';
+} from '../shell/services/authRefresh';
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;

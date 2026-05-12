@@ -4,8 +4,8 @@ import AppLayout from '../layouts/AppLayout';
 import LoginPage from '../pages/LoginPage';
 import ErrorPage from '../components/ErrorPage';
 import type { User } from '../types/api';
-import { clearStoredTokens, refreshAccessToken } from '../services/authRefresh';
-import { isHttpAuthError, loaderHttpClient } from '../services/httpClient';
+import { clearStoredTokens, refreshAccessToken } from '../shell/services/authRefresh';
+import { isHttpAuthError, loaderHttpClient } from '../shell/services/httpClient';
 
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
 const UsersPage = lazy(() => import('../pages/admin/UsersPage'));

@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from './context/AuthContext';
-import { NotificationProvider } from './context/NotificationContext';
-import { TourProvider } from './context/TourContext';
+import { AuthProvider } from './shell/context/AuthContext';
+import { NotificationProvider } from './shell/context/NotificationContext';
+import { TourProvider } from './shell/context/TourContext';
 import { router } from './router';
 
 // Servicios
-import { notificationService } from './services/notificationService';
-import { performanceService } from './services/performanceService';
+import { notificationService } from './shell/services/notificationService';
+import { performanceService } from './shell/services/performanceService';
 
 const extractBuildIdFromScripts = (): string => {
   if (typeof document === 'undefined') return '';
