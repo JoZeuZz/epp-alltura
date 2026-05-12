@@ -10,14 +10,7 @@ const parsePositiveInt = (value, fallback) => {
   return parsed;
 };
 
-const buildError = (message, statusCode = 400, code = null) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  if (code) {
-    error.code = code;
-  }
-  return error;
-};
+const { buildError } = require('../lib/errors');
 
 class NotificationController {
   static async subscribe(req, res, next) {

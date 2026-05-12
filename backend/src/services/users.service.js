@@ -12,14 +12,7 @@ const { PASSWORD_CONFIG } = require('../middleware/passwordPolicy');
 const { TOKEN_CONFIG } = require('../middleware/auth');
 const { toDbRole, toExternalRole, normalizeDbRoles, buildCompatibleRoles } = require('../lib/roleUtils');
 
-const buildError = (message, statusCode = 400, code = null) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  if (code) {
-    error.code = code;
-  }
-  return error;
-};
+const { buildError } = require('../lib/errors');
 
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 

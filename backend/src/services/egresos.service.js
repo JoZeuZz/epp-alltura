@@ -1,13 +1,6 @@
 const db = require('../db');
 
-const buildError = (message, statusCode = 400, code = null) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  if (code) {
-    error.code = code;
-  }
-  return error;
-};
+const { buildError } = require('../lib/errors');
 
 const toQuantity = (value) => {
   const qty = Number(value);
