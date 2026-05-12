@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { TourContext } from '../context/tourContext.shared';
+import { TourContext } from '../shell/context/tourContext.shared';
 
 export const useTour = () => {
   const context = useContext(TourContext);

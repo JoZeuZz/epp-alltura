@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { getStoredAccessToken } from '../services/authRefresh';
+import { getStoredAccessToken } from '../shell/services/authRefresh';
 
 export interface DeliverySignedEvent {
   signature_id: string;
