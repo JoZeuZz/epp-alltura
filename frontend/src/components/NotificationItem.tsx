@@ -1,2 +1,2 @@
-export { default } from '../shell/components/NotificationItem';
-export type { NotificationItemProps } from '../shell/components/NotificationItem';
+export { NotificationItem as default } from '@alltura/shell';
+export type { NotificationItemProps } from '@alltura/shell';

@@ -32,7 +32,7 @@ interface ArticuloOption {
 interface EntregaCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (payload: EntregaCreatePayload) => Promise<void>;
+  onSubmit: (payload: EntregaCreatePayload, foto?: File) => Promise<void>;
   isSubmitting: boolean;
   trabajadores: TrabajadorOption[];
   ubicaciones: UbicacionOption[];
@@ -124,6 +124,8 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   const [notaDestino, setNotaDestino] = useState('');
   const [detalles, setDetalles] = useState<EntregaDetallePayload[]>(buildInitialDetalles);
   const [error, setError] = useState<string | null>(null);
+  const [evidenciaFile, setEvidenciaFile] = useState<File | null>(null);
+  const [evidenciaPreviewUrl, setEvidenciaPreviewUrl] = useState<string | null>(null);
 
   // Filtro de búsqueda de trabajador
   const [trabajadorSearch, setTrabajadorSearch] = useState('');
@@ -137,8 +139,19 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       setDetalles(buildInitialDetalles());
       setError(null);
       setTrabajadorSearch('');
+      setEvidenciaFile(null);
     }
   }, [isOpen, initialActivoId, initialArticuloId]);
+
+  useEffect(() => {
+    if (!evidenciaFile) {
+      setEvidenciaPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(evidenciaFile);
+    setEvidenciaPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [evidenciaFile]);
 
   useEffect(() => {
     setDetalles((prev) =>
@@ -280,7 +293,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
     );
 
     try {
-      await onSubmit(payload);
+      await onSubmit(payload, evidenciaFile ?? undefined);
       onSuccess?.();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
@@ -427,6 +440,40 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
               placeholder="Ej: turno, encargado, contexto de entrega"
               className="w-full border border-edge-strong rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
             />
+          </div>
+
+          {/* Evidencia fotográfica */}
+          <div>
+            <label className="block text-sm font-medium text-content-secondary mb-1">
+              Evidencia fotográfica <span className="text-xs font-normal text-content-muted">(opcional)</span>
+            </label>
+            {evidenciaPreviewUrl ? (
+              <div className="flex items-start gap-3">
+                <div className="relative inline-block">
+                  <img
+                    src={evidenciaPreviewUrl}
+                    alt="Vista previa de evidencia"
+                    className="w-28 h-28 object-cover rounded-lg border border-edge"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setEvidenciaFile(null)}
+                    className="absolute -top-2 -right-2 bg-white border border-edge-strong rounded-full w-5 h-5 flex items-center justify-center text-xs text-danger hover:bg-danger-subtle leading-none"
+                    aria-label="Eliminar imagen seleccionada"
+                  >
+                    ×
+                  </button>
+                </div>
+                <p className="text-xs text-content-muted mt-1">{evidenciaFile?.name}</p>
+              </div>
+            ) : (
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setEvidenciaFile(e.target.files?.[0] ?? null)}
+                className="block text-sm text-content-secondary file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-surface-muted file:text-content-secondary hover:file:bg-edge cursor-pointer"
+              />
+            )}
           </div>
         </div>
       )}

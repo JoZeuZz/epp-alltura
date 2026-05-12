@@ -1,3 +1,2 @@
-export { default } from '../shell/components/UploadProgress';
-export type { UploadStage } from '../shell/components/UploadProgress';
-export type { UploadProgressProps } from '../shell/components/UploadProgress';
+export { UploadProgress as default } from '@alltura/shell';
+export type { UploadStage, UploadProgressProps } from '@alltura/shell';

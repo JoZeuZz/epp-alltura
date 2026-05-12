@@ -7,7 +7,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePut } from '../hooks/useMutate';
 import { useFormErrors } from '../hooks/useFormErrors';
 import { User } from '../types/api';
-import type { ShellUser } from '../shell/context/authContext.shared';
+import type { ShellUser } from '@alltura/shell';
 import UserIcon from '../components/icons/UserIcon';
 import UploadProgress, { UploadStage } from '../components/UploadProgress';
 import { uploadWithProgress } from '../services/apiService';

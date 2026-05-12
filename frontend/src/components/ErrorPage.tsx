@@ -1,1 +1,1 @@
-export { default } from '../shell/components/ErrorPage';
+export { ErrorPage as default } from '@alltura/shell';

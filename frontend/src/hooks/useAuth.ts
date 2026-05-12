@@ -1,1 +1,1 @@
-export { useAuth } from '../shell/hooks/useAuth';
+export { useAuth } from '@alltura/shell';

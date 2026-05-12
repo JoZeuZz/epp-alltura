@@ -82,6 +82,10 @@
     --shell-header-toggle-left: 0.5rem;
     --shell-profile-dropdown-width: 16rem;
     --shell-profile-dropdown-edge: 1rem;
+
+    /* ── App Shell logo handoff (sidebar <-> header) ─────────── */
+    --shell-logo-handoff-duration: 300ms;
+    --shell-logo-handoff-enter-delay-desktop: 100ms;
   }
 }
 

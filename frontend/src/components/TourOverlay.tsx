@@ -1,1 +1,1 @@
-export { default } from '../shell/components/TourOverlay';
+export { TourOverlay as default } from '@alltura/shell';

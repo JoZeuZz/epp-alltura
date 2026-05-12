@@ -1,1 +1,1 @@
-export { default } from '../shell/components/Spinner';
+export { Spinner as default } from '@alltura/shell';

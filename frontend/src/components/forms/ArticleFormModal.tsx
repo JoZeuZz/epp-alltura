@@ -11,7 +11,7 @@ import type {
 interface ArticleFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (payload: ArticuloCreatePayload) => Promise<void>;
+  onSubmit: (payload: ArticuloCreatePayload, foto?: File) => Promise<void>;
   isSubmitting: boolean;
   mode?: 'create' | 'edit';
   initialValues?: Articulo | null;
@@ -156,6 +156,8 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
   const [formValues, setFormValues] = useState<ArticleFormValues>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [generalError, setGeneralError] = useState('');
+  const [fotoFile, setFotoFile] = useState<File | null>(null);
+  const [fotoPreviewUrl, setFotoPreviewUrl] = useState<string | null>(null);
 
   const isEditMode = mode === 'edit';
 
@@ -164,6 +166,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
       setFormValues(INITIAL_FORM);
       setErrors({});
       setGeneralError('');
+      setFotoFile(null);
       return;
     }
 
@@ -175,7 +178,18 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
 
     setErrors({});
     setGeneralError('');
+    setFotoFile(null);
   }, [initialValues, isEditMode, isOpen]);
+
+  useEffect(() => {
+    if (!fotoFile) {
+      setFotoPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(fotoFile);
+    setFotoPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [fotoFile]);
 
   const validateForm = useMemo(
     () => (values: ArticleFormValues): FormErrors => {
@@ -257,7 +271,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
     };
 
     try {
-      await onSubmit(payload);
+      await onSubmit(payload, fotoFile ?? undefined);
       onClose();
     } catch (error) {
       if (error instanceof Error && error.message) {
@@ -428,6 +442,39 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
               />
               Requiere control de vencimiento
             </label>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="label-base text-content-secondary">
+              Foto del artículo <span className="text-xs font-normal text-content-muted">(opcional)</span>
+            </label>
+            {fotoPreviewUrl ? (
+              <div className="mt-1 flex items-start gap-3">
+                <div className="relative inline-block">
+                  <img
+                    src={fotoPreviewUrl}
+                    alt="Vista previa"
+                    className="w-28 h-28 object-cover rounded-lg border border-edge"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFotoFile(null)}
+                    className="absolute -top-2 -right-2 bg-white border border-edge-strong rounded-full w-5 h-5 flex items-center justify-center text-xs text-danger hover:bg-danger-subtle leading-none"
+                    aria-label="Eliminar imagen seleccionada"
+                  >
+                    ×
+                  </button>
+                </div>
+                <p className="text-xs text-content-muted mt-1">{fotoFile?.name}</p>
+              </div>
+            ) : (
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setFotoFile(e.target.files?.[0] ?? null)}
+                className="mt-1 block text-sm text-content-secondary file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-surface-muted file:text-content-secondary hover:file:bg-edge cursor-pointer"
+              />
+            )}
           </div>
         </div>
 

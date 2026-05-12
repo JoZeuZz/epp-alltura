@@ -1,1 +1,1 @@
-export { useTour } from '../shell/hooks/useTour';
+export { useTour } from '@alltura/shell';

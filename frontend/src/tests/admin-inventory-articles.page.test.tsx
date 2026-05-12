@@ -142,7 +142,8 @@ describe('AdminInventoryArticlesPage', () => {
     expect(createArticuloMock).toHaveBeenCalledWith(
       expect.objectContaining({
         nombre: 'Casco ABS',
-      })
+      }),
+      undefined
     );
   });
 
@@ -176,7 +177,8 @@ describe('AdminInventoryArticlesPage', () => {
         subclasificacion: 'epp',
         especialidades: ['ooee'],
         nombre: 'Arnés Pro',
-      })
+      }),
+      undefined
     );
   });
 
@@ -250,7 +252,8 @@ describe('AdminInventoryArticlesPage', () => {
         expect.objectContaining({
           id: 'article-1',
           nombre: 'Guantes actualizados',
-        })
+        }),
+        undefined
       );
     });
   });
@@ -284,7 +287,8 @@ describe('AdminInventoryArticlesPage', () => {
           grupo_principal: 'herramienta',
           subclasificacion: 'electrica_cable',
           nombre: 'Taladro reformulado',
-        })
+        }),
+        undefined
       );
     });
   });
@@ -315,7 +319,8 @@ describe('AdminInventoryArticlesPage', () => {
         expect.objectContaining({
           id: 'article-2',
           estado: 'activo',
-        })
+        }),
+        undefined
       );
     });
 
