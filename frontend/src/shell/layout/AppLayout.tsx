@@ -2,16 +2,12 @@ import { useState, Fragment, useRef, useEffect, Suspense } from 'react';
 import type { ReactNode } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { useAuth } from '../../hooks/useAuth';
-import type { User } from '../../types/api';
-import { useTour } from '../../hooks/useTour';
+import { useAuth } from '../hooks/useAuth';
+import { useTour } from '../hooks/useTour';
 import TourOverlay from '../components/TourOverlay';
 import type { TourRole } from '../utils/tourSteps';
 import { getContextualStepsForRoute } from '../utils/tourSteps';
-import { useBreakpoints } from '../../hooks';
-import logoWhite from '../../assets/logo-alltura-white.png';
-import UserIcon from '../../components/icons/UserIcon';
-import NotificationBell from '../components/NotificationBell';
+import { useBreakpoints } from '../hooks/useBreakpoints';
 import { formatNameParts } from '../utils/name';
 
 // --- Icons ---
@@ -69,11 +65,12 @@ export interface NavItem {
 
 interface AppLayoutProps {
   navItems: NavItem[];
+  logoSrc: string;
+  notificationBell?: ReactNode;
 }
 
-const AppLayout = ({ navItems }: AppLayoutProps) => {
-  const { user: shellUser, logout } = useAuth();
-  const user = shellUser as User | null;
+const AppLayout = ({ navItems, logoSrc, notificationBell }: AppLayoutProps) => {
+  const { user, logout } = useAuth();
   const { startOnboarding, startContextual, isActive, steps, stepIndex } = useTour();
   const { isMobile } = useBreakpoints();
   const navigate = useNavigate();
@@ -294,7 +291,7 @@ const AppLayout = ({ navItems }: AppLayoutProps) => {
               aria-hidden={!isSidebarOpen}
             >
               <img
-                src={logoWhite}
+                src={logoSrc}
                 alt="Alltura"
                 className="h-9 w-auto max-w-[180px] flex-shrink-0 object-contain"
               />
@@ -377,7 +374,7 @@ const AppLayout = ({ navItems }: AppLayoutProps) => {
 
           {/* Logo */}
           <img
-            src={logoWhite}
+            src={logoSrc}
             alt="Alltura"
             data-tour="app-shell-logo"
             aria-hidden={!showHeaderLogo}
@@ -406,7 +403,7 @@ const AppLayout = ({ navItems }: AppLayoutProps) => {
               className={`p-[var(--shell-header-bell-p)] sm:p-[var(--shell-header-bell-p-sm)] rounded-lg hover:bg-white/10 transition-colors duration-150 ${darkFocusRing}`}
               data-tour="app-shell-notifications"
             >
-              <NotificationBell variant="dark" />
+              {notificationBell}
             </div>
 
             {/* Profile trigger */}
@@ -425,7 +422,20 @@ const AppLayout = ({ navItems }: AppLayoutProps) => {
                 {user.profile_picture_url ? (
                   <img src={user.profile_picture_url} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <UserIcon className="w-4 h-4 text-gray-300" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-5 h-5 text-gray-400"
+                    aria-hidden="true"
+                  >
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
                 )}
               </div>
               <span className="hidden lg:block text-sm font-medium max-w-[9rem] xl:max-w-[10rem] truncate">
@@ -456,7 +466,20 @@ const AppLayout = ({ navItems }: AppLayoutProps) => {
                     {user.profile_picture_url ? (
                       <img src={user.profile_picture_url} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <UserIcon className="w-5 h-5 text-gray-300" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="w-5 h-5 text-gray-400"
+                        aria-hidden="true"
+                      >
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
                     )}
                   </div>
                   <div className="min-w-0">
