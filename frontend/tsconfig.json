@@ -22,5 +22,6 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src", "vitest.config.ts", "src/setupTests.ts"],
+  "exclude": ["node_modules", "../../alltura-shell"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
