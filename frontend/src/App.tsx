@@ -5,6 +5,7 @@ import { AuthProvider } from './shell/context/AuthContext';
 import { post } from './services/apiService';
 import { NotificationProvider } from './shell/context/NotificationContext';
 import { TourProvider } from './shell/context/TourContext';
+import { onboardingStepsByRole, TOUR_VERSION } from './utils/tourSteps';
 import { router } from './router';
 
 // Servicios
@@ -58,7 +59,7 @@ function App() {
   return (
     <AuthProvider loginFn={(email, password) => post('/auth/login', { email, password })}>
       <NotificationProvider>
-        <TourProvider>
+        <TourProvider steps={onboardingStepsByRole} version={TOUR_VERSION}>
           <Toaster
             position="top-right"
             reverseOrder={false}
