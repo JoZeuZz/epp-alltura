@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiService } from '../shell/services/apiService';
+import { apiService } from '../services/apiService';
 import type { AxiosResponse } from 'axios';
 
 export function usePdfDownload() {

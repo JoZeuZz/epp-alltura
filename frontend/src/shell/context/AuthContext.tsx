@@ -1,6 +1,6 @@
 import React, { useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import * as api from '../services/apiService';
+import * as api from '../../services/apiService';
 import { jwtDecode } from 'jwt-decode';
 import { User } from '../../types/api';
 import {
