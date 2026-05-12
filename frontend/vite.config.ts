@@ -26,6 +26,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, 'src'),
     },
+    dedupe: ['react', 'react-dom', 'react-router-dom', 'react-router', 'axios'],
   },
   server: {
     port: 3000,
@@ -44,6 +45,9 @@ export default defineConfig({
     setupFiles: './src/setupTests.ts',
     css: true,
     exclude: ['tests/smoke/**', '**/node_modules/**', '**/dist/**'],
+    alias: {
+      '@alltura/shell': path.resolve(__dirname, '../../alltura-shell/src/index.ts'),
+    },
   },
   build: {
     outDir: 'dist',
