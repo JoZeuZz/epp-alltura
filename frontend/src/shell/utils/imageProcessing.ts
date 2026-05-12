@@ -1,5 +1,15 @@
 import imageCompression from 'browser-image-compression';
-import { IMAGE_MAX_BYTES, IMAGE_MAX_MB } from '../../config/imageLimits';
+const parseMaxMb = (value: string | undefined): number => {
+  if (!value) return 25;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 25;
+};
+
+const IMAGE_MAX_MB = parseMaxMb(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (typeof import.meta !== 'undefined' ? (import.meta as any).env?.VITE_IMAGE_MAX_MB : undefined)
+);
+const IMAGE_MAX_BYTES = Math.round(IMAGE_MAX_MB * 1024 * 1024);
 
 const ALLOWED_IMAGE_TYPES = [
   'image/jpeg',

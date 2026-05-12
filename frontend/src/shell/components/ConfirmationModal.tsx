@@ -1,7 +1,21 @@
 import Modal from './Modal';
 import { ReactNode, useId } from 'react';
-import WarningIcon from '../../components/icons/WarningIcon';
-import InfoIcon from '../../components/icons/InfoIcon';
+
+const WarningIconInline = ({ className = 'w-6 h-6' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 2L2 20h20L12 2z" fill="currentColor" fillOpacity="0.2" />
+    <path d="M12 2L2 20h20L12 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    <path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const InfoIconInline = ({ className = 'w-6 h-6' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <circle cx="12" cy="12" r="10" fill="currentColor" fillOpacity="0.2" />
+    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none" />
+    <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 export interface ConfirmationModalProps {
   isOpen: boolean;
@@ -38,7 +52,7 @@ export default function ConfirmationModal({
     switch (variant) {
       case 'danger':
         return {
-          icon: <WarningIcon className="w-7 h-7" />,
+          icon: <WarningIconInline className="w-7 h-7" />,
           iconBg: 'bg-gradient-to-br from-red-500 to-red-600',
           iconColor: 'text-white',
           iconRing: 'ring-red-500/20',
@@ -47,7 +61,7 @@ export default function ConfirmationModal({
         };
       case 'warning':
         return {
-          icon: <WarningIcon className="w-7 h-7" />,
+          icon: <WarningIconInline className="w-7 h-7" />,
           iconBg: 'bg-gradient-to-br from-yellow-400 to-yellow-500',
           iconColor: 'text-yellow-900',
           iconRing: 'ring-yellow-500/20',
@@ -56,7 +70,7 @@ export default function ConfirmationModal({
         };
       case 'info':
         return {
-          icon: <InfoIcon className="w-7 h-7" />,
+          icon: <InfoIconInline className="w-7 h-7" />,
           iconBg: 'bg-gradient-to-br from-blue-500 to-blue-600',
           iconColor: 'text-white',
           iconRing: 'ring-blue-500/20',
