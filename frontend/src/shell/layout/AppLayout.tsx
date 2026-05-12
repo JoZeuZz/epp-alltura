@@ -430,7 +430,7 @@ const AppLayout = ({ navItems, logoSrc, notificationBell }: AppLayoutProps) => {
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="w-5 h-5 text-gray-400"
+                    className="w-4 h-4 text-gray-300"
                     aria-hidden="true"
                   >
                     <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
@@ -474,7 +474,7 @@ const AppLayout = ({ navItems, logoSrc, notificationBell }: AppLayoutProps) => {
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="w-5 h-5 text-gray-400"
+                        className="w-5 h-5 text-gray-300"
                         aria-hidden="true"
                       >
                         <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
