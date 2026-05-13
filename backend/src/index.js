@@ -1,5 +1,5 @@
 // Cargar variables de entorno PRIMERO
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 const express = require('express');
 const compression = require('compression');

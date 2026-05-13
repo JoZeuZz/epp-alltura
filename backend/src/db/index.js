@@ -1,5 +1,5 @@
 const { Pool } = require('pg');
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const { logger } = require('../lib/logger');
 const { getPoolConfig } = require('./poolConfig');
 

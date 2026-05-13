@@ -1,11 +1,15 @@
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env'), quiet: true });
 const { Pool } = require('pg');
 const { logger } = require('../lib/logger');
 const { getPoolConfig } = require('./poolConfig');
 
 const pool = new Pool(getPoolConfig());
+
+pool.on('error', (err) => {
+  logger.warn('Unexpected error on idle client in initialize pool', { message: err.message });
+});
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
