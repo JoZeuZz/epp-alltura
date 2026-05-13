@@ -14,7 +14,7 @@
  */
 
 // IMPORTANTE: Cargar dotenv ANTES de validar
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 const Joi = require('joi');
 const path = require('path');
@@ -162,15 +162,11 @@ if (error) {
     type: detail.type,
   }));
 
-  // Usar console.error ya que logger aún no está disponible (dependencia circular)
-  console.error('❌ Error de configuración: Variables de entorno inválidas');
-  console.error('\nErrores encontrados:');
-  errors.forEach(err => {
-    console.error(`  - ${err.field}: ${err.message}`);
-  });
-  console.error('\nRevisa tu archivo .env y asegúrate de que todas las variables requeridas estén configuradas correctamente.');
-  
-  process.exit(1);
+  const msg = [
+    '❌ CONFIG ERROR: invalid env vars',
+    ...errors.map(err => `  - ${err.field}: ${err.message}`),
+  ].join('\n') + '\n';
+  process.stdout.write(msg, () => process.exit(1));
 }
 
 // Exportar configuración validada
