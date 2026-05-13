@@ -7,6 +7,7 @@ import type {
 } from '../../services/apiService';
 import AssetUnitSelector from './AssetUnitSelector';
 import { parseQuantityInteger } from '../../utils/quantity';
+import { IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../../config/imageLimits';
 
 interface TrabajadorOption {
   id: string;
@@ -126,6 +127,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [evidenciaFile, setEvidenciaFile] = useState<File | null>(null);
   const [evidenciaPreviewUrl, setEvidenciaPreviewUrl] = useState<string | null>(null);
+  const [evidenciaFileError, setEvidenciaFileError] = useState<string | null>(null);
 
   // Filtro de búsqueda de trabajador
   const [trabajadorSearch, setTrabajadorSearch] = useState('');
@@ -140,6 +142,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       setError(null);
       setTrabajadorSearch('');
       setEvidenciaFile(null);
+      setEvidenciaFileError(null);
     }
   }, [isOpen, initialActivoId, initialArticuloId]);
 
@@ -152,6 +155,27 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
     setEvidenciaPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [evidenciaFile]);
+
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/avif'];
+
+  const handleEvidenciaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) {
+      setEvidenciaFile(null);
+      setEvidenciaFileError(null);
+      return;
+    }
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setEvidenciaFileError('Solo se permiten imágenes JPG, PNG, WEBP o AVIF.');
+      return;
+    }
+    if (file.size > IMAGE_MAX_BYTES) {
+      setEvidenciaFileError(`La imagen supera el tamaño máximo permitido (${IMAGE_MAX_LABEL}).`);
+      return;
+    }
+    setEvidenciaFileError(null);
+    setEvidenciaFile(file);
+  };
 
   useEffect(() => {
     setDetalles((prev) =>
@@ -457,7 +481,10 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                   />
                   <button
                     type="button"
-                    onClick={() => setEvidenciaFile(null)}
+                    onClick={() => {
+                      setEvidenciaFile(null);
+                      setEvidenciaFileError(null);
+                    }}
                     className="absolute -top-2 -right-2 bg-white border border-edge-strong rounded-full w-5 h-5 flex items-center justify-center text-xs text-danger hover:bg-danger-subtle leading-none"
                     aria-label="Eliminar imagen seleccionada"
                   >
@@ -469,11 +496,12 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
             ) : (
               <input
                 type="file"
-                accept="image/*"
-                onChange={(e) => setEvidenciaFile(e.target.files?.[0] ?? null)}
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/avif"
+                onChange={handleEvidenciaChange}
                 className="block text-sm text-content-secondary file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-surface-muted file:text-content-secondary hover:file:bg-edge cursor-pointer"
               />
             )}
+            {evidenciaFileError && <p className="text-xs text-danger-text mt-1" role="alert">{evidenciaFileError}</p>}
           </div>
         </div>
       )}
