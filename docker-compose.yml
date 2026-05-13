@@ -47,8 +47,8 @@ services:
       start_period: 5s
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
       args:
         NODE_ENV: ${NODE_ENV:-production}
     environment:
