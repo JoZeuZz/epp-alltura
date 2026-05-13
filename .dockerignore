@@ -1,0 +1,13 @@
+# Exclude large directories not needed for backend Docker build
+frontend/
+docs/
+scripts/
+backups/
+node_modules/
+backend/node_modules/
+backend/uploads/
+backend/logs/
+backend/coverage/
+backend/.env
+backend/.env.*
+.git/

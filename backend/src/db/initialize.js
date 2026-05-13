@@ -30,9 +30,16 @@ const waitForDatabase = async (retries = 20, delay = 2000) => {
 };
 
 const loadSchemaSql = () => {
-  const initDir = path.resolve(__dirname, '../../../db/init');
-  if (!fs.existsSync(initDir)) {
-    logger.warn(`DB init directory not found, skipping schema initialization: ${initDir}`);
+  // In development: __dirname is backend/src/db → ../../../db/init resolves to monorepo db/init
+  // In Docker: __dirname is /usr/src/app/src/db → ../../db/init resolves to /usr/src/app/db/init
+  // (populated by `COPY db/init/ db/init/` in backend/Dockerfile)
+  const candidates = [
+    path.resolve(__dirname, '../../../db/init'),
+    path.resolve(__dirname, '../../db/init'),
+  ];
+  const initDir = candidates.find((p) => fs.existsSync(p));
+  if (!initDir) {
+    logger.warn(`DB init directory not found (tried: ${candidates.join(', ')}), skipping schema initialization`);
     return [];
   }
 
