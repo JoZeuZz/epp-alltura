@@ -1,5 +1,6 @@
 const db = require('../db');
 const ArticuloModel = require('../models/articulo');
+const { uploadFile, deleteFileByUrl, resolveImageUrl } = require('../lib/googleCloud');
 
 const PERMANENT_DELETE_DEPENDENCIES = [
   { key: 'compra_detalle', table: 'compra_detalle' },
@@ -12,8 +13,17 @@ const PERMANENT_DELETE_DEPENDENCIES = [
 ];
 
 class ArticulosService {
+  static async _resolveImage(articulo) {
+    if (!articulo) return articulo;
+    return {
+      ...articulo,
+      foto_url: await resolveImageUrl(articulo.foto_url),
+    };
+  }
+
   static async list(filters = {}) {
-    return ArticuloModel.findAll(filters);
+    const articulos = await ArticuloModel.findAll(filters);
+    return Promise.all(articulos.map((articulo) => this._resolveImage(articulo)));
   }
 
   static async getById(id) {
@@ -23,21 +33,62 @@ class ArticulosService {
       error.statusCode = 404;
       throw error;
     }
-    return articulo;
+    return this._resolveImage(articulo);
   }
 
-  static async create(data) {
-    return ArticuloModel.create(data);
-  }
+  static async create(data, imageFile = null) {
+    const payload = data || {};
+    let uploadedImageUrl = null;
+    try {
+      if (imageFile) {
+        uploadedImageUrl = await uploadFile(imageFile);
+      }
 
-  static async update(id, data) {
-    const updated = await ArticuloModel.update(id, data);
-    if (!updated) {
-      const error = new Error('Articulo not found');
-      error.statusCode = 404;
+      const created = await ArticuloModel.create({
+        ...payload,
+        foto_url: uploadedImageUrl || payload.foto_url,
+      });
+      return this._resolveImage(created);
+    } catch (error) {
+      if (uploadedImageUrl) {
+        await deleteFileByUrl(uploadedImageUrl);
+      }
       throw error;
     }
-    return updated;
+  }
+
+  static async update(id, data, imageFile = null) {
+    const payload = data || {};
+    let uploadedImageUrl = null;
+    let oldFotoUrl = null;
+    try {
+      if (imageFile) {
+        const existing = await ArticuloModel.findById(id);
+        oldFotoUrl = existing?.foto_url || null;
+        uploadedImageUrl = await uploadFile(imageFile);
+      }
+
+      const updated = await ArticuloModel.update(id, {
+        ...payload,
+        foto_url: uploadedImageUrl || payload.foto_url,
+      });
+      if (!updated) {
+        const error = new Error('Articulo not found');
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (uploadedImageUrl && oldFotoUrl) {
+        try { await deleteFileByUrl(oldFotoUrl); } catch { /* non-fatal */ }
+      }
+
+      return this._resolveImage(updated);
+    } catch (error) {
+      if (uploadedImageUrl) {
+        await deleteFileByUrl(uploadedImageUrl);
+      }
+      throw error;
+    }
   }
 
   static async remove(id) {

@@ -3,6 +3,7 @@ const Joi = require('joi');
 const ArticulosController = require('../controllers/articulos.controller');
 const { authMiddleware } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roles');
+const { imageUpload, validateImageMagic, buildError, parseMultipartPayload } = require('../middleware/upload');
 
 const {
   SUBCLASIFICACIONES_POR_GRUPO,
@@ -91,6 +92,7 @@ const articuloCreateSchema = Joi.object({
   nivel_control: Joi.string().valid('alto', 'medio', 'bajo', 'fuera_scope').required(),
   requiere_vencimiento: Joi.boolean().default(false),
   unidad_medida: Joi.string().trim().max(50).required(),
+  foto_url: Joi.string().trim().max(2048).allow('', null),
   estado: Joi.string().valid('activo', 'inactivo').default('activo'),
   tipo: Joi.any().forbidden().messages({ 'any.unknown': 'Use grupo_principal en lugar de tipo' }),
   tracking_mode: Joi.any().forbidden().messages({
@@ -121,6 +123,7 @@ const articuloUpdateSchema = Joi.object({
   nivel_control: Joi.string().valid('alto', 'medio', 'bajo', 'fuera_scope'),
   requiere_vencimiento: Joi.boolean(),
   unidad_medida: Joi.string().trim().max(50),
+  foto_url: Joi.string().trim().max(2048).allow('', null),
   estado: Joi.string().valid('activo', 'inactivo'),
   tipo: Joi.any().forbidden().messages({ 'any.unknown': 'Use grupo_principal en lugar de tipo' }),
   tracking_mode: Joi.any().forbidden().messages({
@@ -145,6 +148,9 @@ router.post(
   '/',
   authMiddleware,
   checkRole(['admin', 'supervisor']),
+  imageUpload.single('foto'),
+  validateImageMagic,
+  parseMultipartPayload,
   validateBody(articuloCreateSchema),
   ArticulosController.create
 );
@@ -152,6 +158,9 @@ router.put(
   '/:id',
   authMiddleware,
   checkRole(['admin', 'supervisor']),
+  imageUpload.single('foto'),
+  validateImageMagic,
+  parseMultipartPayload,
   validateBody(articuloUpdateSchema),
   ArticulosController.update
 );

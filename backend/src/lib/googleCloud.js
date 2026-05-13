@@ -407,6 +407,56 @@ const createLocalProxyToken = (imageUrl) => {
   );
 };
 
+const resolveImageUrl = async (imageUrl) => {
+  if (!imageUrl) return imageUrl;
+
+  if (resolvedProvider !== 'gcs') {
+    const token = createLocalProxyToken(imageUrl);
+    if (token) {
+      return `/api/image-proxy?token=${token}`;
+    }
+    return imageUrl;
+  }
+
+  if (proxyEnabled && isGcsUrl(imageUrl)) {
+    const token = createProxyToken(imageUrl);
+    if (token) {
+      return `/api/image-proxy?token=${token}`;
+    }
+  }
+
+  if (!signedUrlsEnabled) {
+    return imageUrl;
+  }
+
+  if (!isGCSConfigured || !storage) {
+    return imageUrl;
+  }
+
+  if (!isGcsUrl(imageUrl)) {
+    return imageUrl;
+  }
+
+  const gcsInfo = parseGcsUrl(imageUrl);
+  if (!gcsInfo) {
+    return imageUrl;
+  }
+
+  try {
+    const targetBucket = storage.bucket(gcsInfo.bucketName);
+    const file = targetBucket.file(gcsInfo.objectName);
+    const [signedUrl] = await file.getSignedUrl({
+      version: 'v4',
+      action: 'read',
+      expires: Date.now() + signedUrlTtlMs,
+    });
+    return signedUrl;
+  } catch (error) {
+    logger.warn(`No se pudo generar signed URL para ${imageUrl}: ${error.message}`);
+    return imageUrl;
+  }
+};
+
 /**
  * Uploads a file to Google Cloud Storage or saves locally if GCS is not configured.
  * @param {object} file The file object from multer.
@@ -593,6 +643,21 @@ const uploadDocument = async (file) => {
   }
 };
 
+const resolveHeaderImages = async (row) => {
+  if (!row) return row;
+  const detalles = Array.isArray(row.detalles)
+    ? await Promise.all(row.detalles.map(async (detail) => ({
+      ...detail,
+      foto_url: await resolveImageUrl(detail.foto_url),
+    })))
+    : row.detalles;
+  return {
+    ...row,
+    evidencia_foto_url: await resolveImageUrl(row.evidencia_foto_url),
+    detalles,
+  };
+};
+
 /**
  * Deletes a file stored either locally or on Google Cloud Storage.
  * @param {string} imageUrl URL or path of the image.
@@ -633,4 +698,10 @@ const deleteFileByUrl = async (imageUrl) => {
   }
 };
 
-module.exports = { uploadFile, uploadDocument, deleteFileByUrl };
+module.exports = {
+  uploadFile,
+  uploadDocument,
+  deleteFileByUrl,
+  resolveImageUrl,
+  resolveHeaderImages,
+};

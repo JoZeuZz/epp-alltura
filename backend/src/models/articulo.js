@@ -25,6 +25,7 @@ class ArticuloModel {
     this.nivel_control = data.nivel_control;
     this.requiere_vencimiento = data.requiere_vencimiento;
     this.unidad_medida = data.unidad_medida;
+    this.foto_url = data.foto_url || null;
     this.estado = data.estado;
     this.creado_en = data.creado_en;
   }
@@ -76,9 +77,10 @@ class ArticuloModel {
           nivel_control,
           requiere_vencimiento,
           unidad_medida,
+          foto_url,
           estado
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING id
         `,
         [
@@ -91,6 +93,7 @@ class ArticuloModel {
           fields.nivel_control,
           Boolean(fields.requiere_vencimiento),
           fields.unidad_medida,
+          fields.foto_url || null,
           fields.estado || 'activo',
         ]
       );
@@ -130,6 +133,7 @@ class ArticuloModel {
         a.nivel_control,
         a.requiere_vencimiento,
         a.unidad_medida,
+        a.foto_url,
         a.estado,
         a.creado_en,
         COALESCE(
@@ -229,6 +233,7 @@ class ArticuloModel {
         a.nivel_control,
         a.requiere_vencimiento,
         a.unidad_medida,
+        a.foto_url,
         a.estado,
         a.creado_en,
         COALESCE(
@@ -320,6 +325,7 @@ class ArticuloModel {
       nivel_control: fields.nivel_control,
       requiere_vencimiento: fields.requiere_vencimiento,
       unidad_medida: fields.unidad_medida,
+      foto_url: fields.foto_url,
       estado: fields.estado,
     };
 

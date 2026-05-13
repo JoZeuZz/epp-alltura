@@ -25,7 +25,7 @@ class ArticulosController {
 
   static async create(req, res, next) {
     try {
-      const data = await ArticulosService.create(req.body);
+      const data = await ArticulosService.create(req.body, req.file);
       return sendSuccess(res, { status: 201, message: 'Artículo creado correctamente', data });
     } catch (error) {
       logger.error('Error creating articulo:', error);
@@ -35,7 +35,7 @@ class ArticulosController {
 
   static async update(req, res, next) {
     try {
-      const data = await ArticulosService.update(req.params.id, req.body);
+      const data = await ArticulosService.update(req.params.id, req.body, req.file);
       return sendSuccess(res, { message: 'Artículo actualizado correctamente', data });
     } catch (error) {
       logger.error('Error updating articulo:', error);

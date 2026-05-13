@@ -82,7 +82,7 @@ class DevolucionesController {
 
   static async create(req, res, next) {
     try {
-      const data = await DevolucionesService.create(req.body, req.user.id);
+      const data = await DevolucionesService.create(req.body, req.user.id, req.file);
       return sendSuccess(res, {
         status: 201,
         message: 'Devolución creada correctamente',
