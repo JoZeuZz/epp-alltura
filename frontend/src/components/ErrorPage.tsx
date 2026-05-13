@@ -1,1 +1,1 @@
-export { ErrorPage as default } from '@alltura/ui';
+export { ErrorPage as default } from '@jozeuZz/alltura-ui';

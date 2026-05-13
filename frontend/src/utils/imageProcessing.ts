@@ -1,1 +1,1 @@
-export * from '@alltura/ui';
+export * from '@jozeuZz/alltura-ui';

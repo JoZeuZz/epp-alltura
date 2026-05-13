@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { getStoredAccessToken } from '@alltura/ui';
+import { getStoredAccessToken } from '@jozeuZz/alltura-ui';
 
 export interface DeliverySignedEvent {
   signature_id: string;

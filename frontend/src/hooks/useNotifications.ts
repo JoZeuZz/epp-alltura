@@ -8,7 +8,7 @@ import {
   deleteAllReadNotifications,
   getNotificationStats,
 } from '../services/apiService';
-import { frontendLogger } from '@alltura/ui';
+import { frontendLogger } from '@jozeuZz/alltura-ui';
 import type {
   InAppNotification,
   NotificationStats,

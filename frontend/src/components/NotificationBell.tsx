@@ -1,8 +1,8 @@
 import { useNotifications } from '../hooks/useNotifications';
 import { getNotificationItemPresentation } from '../config/notificationItemCompat';
-import { NotificationBell as ShellNotificationBell } from '@alltura/ui';
-import type { NotificationBellProps as ShellNotificationBellProps } from '@alltura/ui';
-import type { ShellNotification, ShellNotificationPresentation } from '@alltura/ui';
+import { NotificationBell as ShellNotificationBell } from '@jozeuZz/alltura-ui';
+import type { NotificationBellProps as ShellNotificationBellProps } from '@jozeuZz/alltura-ui';
+import type { ShellNotification, ShellNotificationPresentation } from '@jozeuZz/alltura-ui';
 
 export type NotificationBellProps = Pick<ShellNotificationBellProps, 'variant' | 'previewLimit'>;
 
