@@ -7,7 +7,7 @@ ENV VITE_IMAGE_MAX_MB=${VITE_IMAGE_MAX_MB}
 # Install dependencies first (better layer caching)
 # Use --include=dev to ensure devDependencies (vite, etc) are installed
 # even when NODE_ENV=production is injected by Coolify
-COPY package*.json ./
+COPY package*.json .npmrc ./
 RUN npm ci --include=dev
 
 # Copy source code
