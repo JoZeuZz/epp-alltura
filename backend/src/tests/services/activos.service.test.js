@@ -56,7 +56,7 @@ describe('ActivosService', () => {
 
       const result = await ActivosService.entregar(ACTIVO_ID, basePayload, USER_ID);
 
-      expect(EntregasService.create).toHaveBeenCalledWith(basePayload, USER_ID);
+      expect(EntregasService.create).toHaveBeenCalledWith(basePayload, USER_ID, null);
       expect(result).toEqual(mockResult);
     });
 
@@ -130,7 +130,7 @@ describe('ActivosService', () => {
 
       const result = await ActivosService.devolver(ACTIVO_ID, basePayload, USER_ID);
 
-      expect(DevolucionesService.create).toHaveBeenCalledWith(basePayload, USER_ID);
+      expect(DevolucionesService.create).toHaveBeenCalledWith(basePayload, USER_ID, null);
       expect(result).toEqual(mockResult);
     });
 
