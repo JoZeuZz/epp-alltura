@@ -40,6 +40,9 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
       setShowCreateArticle(false);
       void queryClient.invalidateQueries({ queryKey: ['admin-inventory', 'articulos'] });
     },
+    onError: () => {
+      toast.error('No se pudo crear el artículo. Inténtalo de nuevo.');
+    },
   });
 
   const handleExportPdf = async () => {

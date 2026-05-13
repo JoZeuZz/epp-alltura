@@ -10,3 +10,6 @@ const parseMaxMb = (value: string | undefined) => {
 export const IMAGE_MAX_MB = parseMaxMb(import.meta.env.VITE_IMAGE_MAX_MB);
 export const IMAGE_MAX_BYTES = Math.round(IMAGE_MAX_MB * 1024 * 1024);
 export const IMAGE_MAX_LABEL = `${IMAGE_MAX_MB}MB`;
+
+export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/avif'] as const;
+export const ALLOWED_IMAGE_ACCEPT = ALLOWED_IMAGE_TYPES.join(',');

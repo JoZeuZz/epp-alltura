@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import Modal from '../Modal';
 import { useGet } from '../../hooks';
 import { devolverActivo, type DevolucionRow } from '../../services/apiService';
-import { IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../../config/imageLimits';
+import { ALLOWED_IMAGE_ACCEPT, ALLOWED_IMAGE_TYPES, IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../../config/imageLimits';
 
 interface BodegaOption {
   id: string;
@@ -72,8 +72,6 @@ const DevolucionActivoModal: React.FC<Props> = ({
     };
   }, []);
 
-  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/avif'];
-
   const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
     if (!file) {
@@ -81,7 +79,7 @@ const DevolucionActivoModal: React.FC<Props> = ({
       setFotoFileError(null);
       return;
     }
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
       setFotoFileError('Solo se permiten imágenes JPG, PNG, WEBP o AVIF.');
       return;
     }
@@ -239,7 +237,7 @@ const DevolucionActivoModal: React.FC<Props> = ({
           ) : (
             <input
               type="file"
-              accept="image/jpeg,image/jpg,image/png,image/webp,image/avif"
+              accept={ALLOWED_IMAGE_ACCEPT}
               onChange={handleFotoChange}
               className="block text-sm text-content-secondary file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-surface-muted file:text-content-secondary hover:file:bg-edge cursor-pointer"
             />
