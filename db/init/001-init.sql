@@ -127,6 +127,7 @@ CREATE TABLE IF NOT EXISTS articulo (
   nivel_control VARCHAR(20) NOT NULL CHECK (nivel_control IN ('alto', 'medio', 'bajo', 'fuera_scope')),
   requiere_vencimiento BOOLEAN NOT NULL DEFAULT FALSE,
   unidad_medida VARCHAR(50) NOT NULL,
+  foto_url TEXT,
   estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo')),
   creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT chk_articulo_grupo_subclasificacion CHECK (
@@ -214,6 +215,7 @@ CREATE TABLE IF NOT EXISTS activo (
 ALTER TABLE activo ADD COLUMN IF NOT EXISTS foto_url TEXT;
 
 -- Schema migrations for columns added after initial production deployment
+ALTER TABLE articulo ADD COLUMN IF NOT EXISTS foto_url TEXT;
 ALTER TABLE articulo ADD COLUMN IF NOT EXISTS grupo_principal VARCHAR(20) DEFAULT 'herramienta';
 ALTER TABLE articulo ADD COLUMN IF NOT EXISTS subclasificacion VARCHAR(120) DEFAULT 'manual';
 ALTER TABLE custodia_activo ADD COLUMN IF NOT EXISTS fecha_devolucion_esperada TIMESTAMPTZ;
@@ -257,6 +259,7 @@ CREATE TABLE IF NOT EXISTS entrega (
   deshecha_por_usuario_id UUID REFERENCES usuario(id) ON DELETE SET NULL,
   deshecha_en TIMESTAMPTZ,
   fecha_devolucion_esperada TIMESTAMPTZ,
+  evidencia_foto_url TEXT,
   CONSTRAINT chk_entrega_motivo_anulacion CHECK (
     estado <> 'anulada'
     OR (motivo_anulacion IS NOT NULL AND length(btrim(motivo_anulacion)) >= 5)
@@ -328,6 +331,7 @@ CREATE TABLE IF NOT EXISTS devolucion (
   confirmada_en TIMESTAMPTZ,
   notas TEXT,
   motivo_anulacion TEXT,
+  evidencia_foto_url TEXT,
   es_reversa_admin BOOLEAN NOT NULL DEFAULT FALSE,
   entrega_revertida_id UUID REFERENCES entrega(id) ON DELETE SET NULL,
   motivo_reversa TEXT,
@@ -371,6 +375,8 @@ CREATE TABLE IF NOT EXISTS firma_devolucion (
 -- Circular FK: entrega.devolucion_reversa_id -> devolucion (resolved after both tables exist)
 ALTER TABLE entrega
   ADD COLUMN IF NOT EXISTS devolucion_reversa_id UUID REFERENCES devolucion(id) ON DELETE SET NULL;
+ALTER TABLE entrega ADD COLUMN IF NOT EXISTS evidencia_foto_url TEXT;
+ALTER TABLE devolucion ADD COLUMN IF NOT EXISTS evidencia_foto_url TEXT;
 
 -- ============================================================
 -- EGRESOS
