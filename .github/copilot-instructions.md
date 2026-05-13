@@ -1,145 +1,70 @@
-# Copilot Instructions - Estandar Alltura (App Shell)
 
-## Fuente canonica y alcance
-- Este archivo es la fuente de verdad para cambios futuros en este repositorio.
-- Base obligatoria: `.serena/memories/FORMATO_MAESTRO_APP.md`.
-- Complemento opcional: `.serena/memories/FRONTEND_COMPONENTES.md` (si existe en el repo).
-- Si una practica local contradice este documento, prevalece este documento.
-- No cambies logica de negocio ni comportamiento funcional salvo requerimiento explicito del prompt.
+# epp-alltura — Copilot Code
 
-## 1) Reglas no negociables
-- Mantener stack y patrones existentes; no reemplazar librerias nucleares sin requerimiento explicito.
-- Frontend y backend deben trabajar con same-origin `/api`.
-- Mantener identidad visual Alltura con tokens y patrones definidos.
-- Seguridad por defecto: RBAC + validacion por recurso + logs redactados + requestId.
-- Priorizar mobile-first y componentes reutilizables del App Shell.
+## Copilot Skills & Disciplina
+- Antes de cualquier respuesta, identifica y usa los agentes/herramientas disponibles correctamente.
+- Usa modo comprimido (caveman) por defecto si el usuario lo solicita.
 
-## 2) API y same-origin `/api` (obligatorio)
-- Prohibido hardcodear hosts, dominios o puertos en cliente o servidor para llamadas internas.
-- Todas las llamadas del frontend deben usar rutas relativas same-origin (`/api/...`) o el servicio central existente.
-- No introducir `http://localhost:*`, `http://127.0.0.1:*`, `https://api.*` ni similares en codigo de aplicacion.
-- Para networking interno, reutiliza proxy/rewrite ya configurado en infraestructura.
+## Proyecto
+Gestión de herramientas/EPP: activos, asignaciones, devoluciones, estado, trazabilidad. Monorepo.
 
-### Do
-- `apiService.get('/api/entregas')`
-- `fetch('/api/inventario/stock-summary')`
+## Disciplina de contexto y tokens
+- Busca primero de forma dirigida (`rg`/`find`/glob), nunca escanees el repo completo.
+- Lee solo los archivos necesarios; omite dist/build/logs/node_modules.
+- Cambios en fases: planea antes de tareas grandes, espera aprobación.
+- Salida de comandos: filtra con `2>&1 | tail -120` o `| grep -iE "error|warn"`.
+- Al final de cada fase: reporta archivos cambiados, decisiones y pendientes.
 
-### Dont
-- `axios.get('http://localhost:5000/api/entregas')`
-- `fetch('https://api.midominio.com/inventario')`
+## Política MCP
+- Prioriza archivos locales → CLI → MCP solo si reduce contexto o mejora precisión.
+- Usa Serena para navegación de símbolos, estructura y decisiones duraderas. Evita para ediciones simples o detalles ruidosos.
+- Usa Context7 solo para docs externas (React/Vite/Express/Tailwind/Joi, versión específica).
 
-## 3) UI: tokens, tipografia y patrones
+## Decisiones de roles y producto
+- Login: `administrador` (máximo acceso), `supervisor` (+ bodega).
+- `trabajador` es entidad de dominio, no usuario login; sin flujo dedicado.
+- No existe login de `bodega`; fusionado en supervisor; preservar historial.
 
-### 3.1 Tokens de color (Tailwind)
-Usar solo tokens del sistema para colores base de UI:
-- `primary-blue`: `#2A64A4`
-- `dark-blue`: `#1E2A4A`
-- `neutral-gray`: `#6B7280`
-- `light-gray-bg`: `#F9FAFB`
+## Arquitectura
+- 3 capas: `controllers` (HTTP) → `services` (negocio) → `models` (datos).
+- Mantén monorepo, convenciones, middleware, rutas, UI y patrones existentes.
+- Lógica de roles/permisos centralizada, sin duplicación cruzada.
+- No introducir nuevos patrones sin justificación; evita refactors amplios si basta un cambio localizado.
 
-Reglas:
-- Evitar colores inline y hex sueltos en componentes nuevos.
-- Si falta un token, justificar extension de design tokens en vez de hardcodear.
+## Backend
+- Express/Node; reutiliza auth/authz middleware existente.
+- Toda entrada API: validación Joi antes de lógica de negocio.
+- RBAC en cada ruta protegida + validación de alcance de recurso.
+- Cada request: `requestId` trazable en middleware y logs; redacta `password`/`token`/`authorization`/cookies.
+- Cambios DB: explícitos y reversibles; explica impacto; nunca secretos productivos en código/commits.
 
-### 3.2 Tipografia
-- Mantener tipografia base Inter (definida en `frontend/src/index.css`).
-- Reutilizar clases tipograficas existentes (`heading-*`, `body-*`, `label-*`, `stat-*`).
+## Frontend
+- React + TypeScript + Vite; reutiliza layouts/guards/services/hooks/componentes.
+- Todas llamadas API: same-origin `/api/...` — nunca hosts/puertos hardcodeados.
+- Cambios de navegación: sidebar + rutas + guards + visibilidad de roles juntos.
+- No mostrar opciones UI de roles/funciones removidas; no dupliques clientes API.
 
-### 3.3 Patrones de UI
-- Cards: `rounded-lg`, `shadow-md`, padding compacto consistente.
-- Inputs: borde suave y foco visible con `focus:ring-primary-blue`.
-- Botones:
-  - Primario: variante basada en `primary-blue`.
-  - Secundario y danger: variantes existentes del sistema.
-- No crear variantes visuales paralelas si ya existe patron equivalente.
+## Checklist de refactor de roles (auth/roles/permisos)
+Revisar: modelo usuario, enum/constants de roles, middleware auth/authz, guards de rutas, visibilidad en sidebar, manejo de sesión, seeds, migraciones, tests/fixtures, checks frontend, rutas backend protegidas.
 
-## 4) Componentes obligatorios del App Shell
-Al crear o modificar pantallas, priorizar reutilizacion de estos componentes:
-- `AppLayout`
-- `NotificationBell`
-- `Modal`
-- `ConfirmationModal`
-- `ResponsiveGrid`
-- `ResponsiveTable`
-- `UploadProgress`
-- `TourOverlay`
+Esperado: `administrador` máximo acceso · `supervisor` + bodega · `trabajador` solo entidad · no login bodega · historial preservado.
 
-Contextos obligatorios del shell:
-- `AuthContext`
-- `NotificationContext`
-- `TourContext`
+## Estándares Alltura
+- App Shell: `AppLayout` (toda pantalla auth), `Modal`, `ConfirmationModal`, `ResponsiveTable`, `ResponsiveGrid`, `NotificationBell`, `TourOverlay`.
+- Contextos: `AuthContext`, `NotificationContext`, `TourContext`.
+- Tokens: `primary-blue #2A64A4`, `dark-blue #1E2A4A`; nunca hex inline; tipografía Inter; reutiliza clases `heading-*`/`body-*`/`label-*`.
+- Prioriza flujos de asignación, devolución, estado, ubicación; pantallas claras, acciones directas.
 
-Reglas:
-- No reemplazar estos componentes por implementaciones ad hoc sin justificacion tecnica explicita.
-- Toda pantalla autenticada debe vivir dentro de `AppLayout`.
-- Para tablas/listados con comportamiento responsive, usar `ResponsiveTable` y/o `ResponsiveGrid`.
-- Para flujos guiados, usar `TourOverlay` y atributos `data-tour` estables.
+## Disciplina Git
+- Edita solo el set mínimo de archivos necesario; no formatees ni renombres sin revisar referencias.
+- No hagas commits salvo que se indique; nunca agregues trailer Co-Authored-By.
+- Tras cambios: reporta archivos cambiados · verificación realizada · riesgos.
 
-## 5) Backend obligatorio: arquitectura, validacion y seguridad
+## Orden de verificación
+1. typecheck (si existe)
+2. tests dirigidos
+3. lint
+4. build (solo si afecta rutas/código buildable)
+5. inspección manual de rutas/guards/contratos API si faltan tests
 
-### 5.1 Arquitectura 3 capas
-- Flujo obligatorio: `controllers -> services -> models`.
-- Controllers: solo capa HTTP (req/res), sin logica de negocio.
-- Services: reglas de negocio, orquestacion y validaciones de dominio.
-- Models: acceso a datos/CRUD y consultas.
-
-### 5.2 Validacion Joi
-- Toda entrada de API debe validarse con Joi antes de ejecutar logica de negocio.
-- Reutilizar esquemas/primitivos existentes cuando aplique.
-- No mover validaciones de seguridad a frontend como unica barrera.
-
-### 5.3 RBAC + validacion por recurso
-- Toda ruta protegida debe aplicar autorizacion por rol (RBAC).
-- Ademas del rol, validar pertenencia/alcance del recurso cuando corresponda.
-- No aceptar operaciones por "rol valido" si falta validacion del recurso especifico.
-
-### 5.4 Logs redactados + requestId
-- Cada request debe tener `requestId` trazable en middleware, respuesta y logs.
-- Prohibido registrar secretos o datos sensibles sin redaccion.
-- Redactar al menos: `password`, `token`, `authorization`, cookies y credenciales.
-- Mantener logging estructurado para auditoria y correlacion.
-
-## 6) Dependencias: politica estricta
-- No introducir dependencias nuevas sin justificacion tecnica explicita.
-- Antes de agregar una dependencia, documentar:
-  1. Problema concreto que no resuelve el stack actual.
-  2. Alternativas evaluadas con librerias ya presentes.
-  3. Impacto en seguridad, tamano de bundle e impacto operativo.
-  4. Plan de mantenimiento y riesgo de lock-in.
-- Si no hay justificacion, no agregar dependencia.
-
-## 7) Pruebas minimas antes de marcar "terminado"
-No declarar una tarea como terminada sin evidencia de pruebas minimas segun alcance.
-
-### 7.1 Cambios backend
-- Prueba de caso feliz (2xx).
-- Prueba de validacion Joi (4xx por input invalido).
-- Prueba de RBAC (403 para rol no autorizado).
-- Prueba de validacion por recurso (acceso denegado cuando no corresponde).
-
-### 7.2 Cambios frontend
-- Prueba de render/comportamiento del flujo principal afectado.
-- Verificacion de uso de componentes shell requeridos (si aplica).
-- Verificacion de rutas API same-origin (`/api`) sin hardcodeo de host.
-
-### 7.3 Cambios de seguridad/autorizacion
-- Pruebas positivas y negativas de permisos.
-- Confirmar presencia de `requestId` y ausencia de secretos en logs generados.
-
-## 8) Definicion de terminado (DoD operativo para Copilot)
-Antes de cerrar una implementacion, verifica y reporta:
-- Se respeto same-origin `/api`.
-- Se mantuvieron tokens, tipografia y patrones UI del estandar Alltura.
-- Se reutilizaron componentes/contextos obligatorios del App Shell cuando aplica.
-- Se respeto arquitectura backend de 3 capas con Joi, RBAC y validacion por recurso.
-- Se mantuvieron logs redactados y `requestId`.
-- No se agregaron dependencias sin justificacion aprobada.
-- Se ejecutaron pruebas minimas del alcance y se reportaron resultados.
-
-## 9) Regla anti-drift
-- Ante duda de implementacion, alinear primero con este archivo y con `FORMATO_MAESTRO_APP.md`.
-- Evitar crear patrones paralelos si ya existe una implementacion valida en el repo.
-- Priorizar consistencia del sistema sobre preferencias locales.
-
-## 10) Git
-- No incluir trailer `Co-authored-by: Copilot` en mensajes de commit.
+Si no puedes correr verificación, explica por qué.
