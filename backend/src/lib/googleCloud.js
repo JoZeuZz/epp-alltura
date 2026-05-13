@@ -483,8 +483,6 @@ const uploadFile = async (file) => {
     throw error;
   }
 
-  await validateImageSignature(file);
-
   if (resolvedProvider === 'gcs' && !isGCSConfigured) {
     throw new Error(
       'Google Cloud Storage no está configurado. Revisa GCS_PROJECT_ID, GCS_BUCKET_NAME y GOOGLE_APPLICATION_CREDENTIALS.'
