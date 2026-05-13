@@ -7,6 +7,7 @@ import type {
   ArticuloGrupoPrincipal,
   ArticuloSubclasificacion,
 } from '../../services/apiService';
+import { IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../../config/imageLimits';
 
 interface ArticleFormModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface ArticleFormModalProps {
   isSubmitting: boolean;
   mode?: 'create' | 'edit';
   initialValues?: Articulo | null;
+  lockedGrupoPrincipal?: ArticuloGrupoPrincipal;
 }
 
 interface ArticleFormValues {
@@ -49,6 +51,12 @@ const SUBCLASIFICACIONES_BY_GRUPO: Record<ArticuloGrupoPrincipal, ArticuloSubcla
   epp: ['epp'],
   equipo: ['medicion_ensayos'],
   herramienta: ['manual', 'electrica_cable', 'inalambrica_bateria'],
+};
+
+const GRUPO_LABELS: Record<ArticuloGrupoPrincipal, string> = {
+  epp: 'EPP',
+  equipo: 'Equipo',
+  herramienta: 'Herramienta',
 };
 
 const SUBCLASIFICACION_LABELS: Record<ArticuloSubclasificacion, string> = {
@@ -152,12 +160,14 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
   isSubmitting,
   mode = 'create',
   initialValues = null,
+  lockedGrupoPrincipal,
 }) => {
   const [formValues, setFormValues] = useState<ArticleFormValues>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
   const [generalError, setGeneralError] = useState('');
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoPreviewUrl, setFotoPreviewUrl] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
 
   const isEditMode = mode === 'edit';
 
@@ -167,19 +177,28 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
       setErrors({});
       setGeneralError('');
       setFotoFile(null);
+      setFileError(null);
       return;
     }
 
     if (isEditMode) {
       setFormValues(mapArticuloToFormValues(initialValues));
     } else {
-      setFormValues(INITIAL_FORM);
+      setFormValues({
+        ...INITIAL_FORM,
+        ...(lockedGrupoPrincipal
+          ? {
+              grupo_principal: lockedGrupoPrincipal,
+              subclasificacion: SUBCLASIFICACIONES_BY_GRUPO[lockedGrupoPrincipal][0],
+            }
+          : {}),
+      });
     }
 
     setErrors({});
     setGeneralError('');
     setFotoFile(null);
-  }, [initialValues, isEditMode, isOpen]);
+  }, [initialValues, isEditMode, isOpen, lockedGrupoPrincipal]);
 
   useEffect(() => {
     if (!fotoFile) {
@@ -190,6 +209,27 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
     setFotoPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [fotoFile]);
+
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/avif'];
+
+  const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) {
+      setFotoFile(null);
+      setFileError(null);
+      return;
+    }
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setFileError('Solo se permiten imágenes JPG, PNG, WEBP o AVIF.');
+      return;
+    }
+    if (file.size > IMAGE_MAX_BYTES) {
+      setFileError(`La imagen supera el tamaño máximo permitido (${IMAGE_MAX_LABEL}).`);
+      return;
+    }
+    setFileError(null);
+    setFotoFile(file);
+  };
 
   const validateForm = useMemo(
     () => (values: ArticleFormValues): FormErrors => {
@@ -258,7 +298,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
     }
 
     const payload: ArticuloCreatePayload = {
-      grupo_principal: formValues.grupo_principal,
+      grupo_principal: lockedGrupoPrincipal ?? formValues.grupo_principal,
       nombre: formValues.nombre.trim(),
       marca: formValues.marca.trim(),
       modelo: formValues.modelo.trim(),
@@ -317,17 +357,24 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
 
           <div>
             <label className="label-base text-content-secondary">Grupo principal *</label>
-            <select
-              className="w-full border rounded-md p-2"
-              value={formValues.grupo_principal}
-              onChange={(event) =>
-                handleFieldChange('grupo_principal', event.target.value as ArticuloGrupoPrincipal)
-              }
-            >
-              <option value="epp">EPP</option>
-              <option value="equipo">Equipo</option>
-              <option value="herramienta">Herramienta</option>
-            </select>
+            {lockedGrupoPrincipal ? (
+              <div className="mt-1 inline-flex items-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-800">
+                {GRUPO_LABELS[lockedGrupoPrincipal]}
+                <span className="text-xs font-normal text-gray-500">(fijado por la página)</span>
+              </div>
+            ) : (
+              <select
+                className="w-full border rounded-md p-2"
+                value={formValues.grupo_principal}
+                onChange={(event) =>
+                  handleFieldChange('grupo_principal', event.target.value as ArticuloGrupoPrincipal)
+                }
+              >
+                <option value="epp">EPP</option>
+                <option value="equipo">Equipo</option>
+                <option value="herramienta">Herramienta</option>
+              </select>
+            )}
           </div>
 
           <div>
@@ -458,7 +505,7 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
                   />
                   <button
                     type="button"
-                    onClick={() => setFotoFile(null)}
+                    onClick={() => { setFotoFile(null); setFileError(null); }}
                     className="absolute -top-2 -right-2 bg-white border border-edge-strong rounded-full w-5 h-5 flex items-center justify-center text-xs text-danger hover:bg-danger-subtle leading-none"
                     aria-label="Eliminar imagen seleccionada"
                   >
@@ -470,11 +517,12 @@ const ArticleFormModal: React.FC<ArticleFormModalProps> = ({
             ) : (
               <input
                 type="file"
-                accept="image/*"
-                onChange={(e) => setFotoFile(e.target.files?.[0] ?? null)}
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/avif"
+                onChange={handleFotoChange}
                 className="mt-1 block text-sm text-content-secondary file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-surface-muted file:text-content-secondary hover:file:bg-edge cursor-pointer"
               />
             )}
+            {fileError && <p className="text-xs text-danger-text mt-1" role="alert">{fileError}</p>}
           </div>
         </div>
 
