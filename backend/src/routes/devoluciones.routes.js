@@ -3,18 +3,9 @@ const Joi = require('joi');
 const DevolucionesController = require('../controllers/devoluciones.controller');
 const { authMiddleware } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roles');
-const { imageUpload, validateImageMagic } = require('../middleware/upload');
+const { imageUpload, validateImageMagic, buildError, parseMultipartPayload } = require('../middleware/upload');
 
 const router = express.Router();
-
-const buildError = (message, statusCode = 400, code = null) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  if (code) {
-    error.code = code;
-  }
-  return error;
-};
 
 const validateBody = (schema) => {
   return async (req, _res, next) => {
@@ -70,6 +61,7 @@ const createDevolucionSchema = Joi.object({
   trabajador_id: uuid.required(),
   ubicacion_recepcion_id: uuid.required(),
   notas: Joi.string().trim().max(1000).allow('', null),
+  evidencia_foto_url: Joi.string().trim().max(2048).allow('', null),
   detalles: Joi.array().items(devolucionDetailSchema).min(1).required(),
 });
 
@@ -195,6 +187,9 @@ router.post(
   '/',
   authMiddleware,
   checkRole(['admin', 'supervisor']),
+  imageUpload.single('foto'),
+  validateImageMagic,
+  parseMultipartPayload,
   validateBody(createDevolucionSchema),
   DevolucionesController.create
 );

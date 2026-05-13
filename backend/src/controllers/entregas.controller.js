@@ -32,7 +32,7 @@ class EntregasController {
 
   static async create(req, res, next) {
     try {
-      const data = await EntregasService.create(req.body, req.user.id);
+      const data = await EntregasService.create(req.body, req.user.id, req.file);
       return sendSuccess(res, {
         status: 201,
         message: 'Entrega creada correctamente',

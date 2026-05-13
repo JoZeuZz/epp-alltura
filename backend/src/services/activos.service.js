@@ -18,7 +18,7 @@ const extractActivoIds = (detalles) => {
 };
 
 class ActivosService {
-  static async entregar(activoId, payload, userId) {
+  static async entregar(activoId, payload, userId, imageFile = null) {
     const targetActivoId = String(activoId);
     const allActivoIds = extractActivoIds(payload?.detalles);
     if (!allActivoIds.includes(targetActivoId)) {
@@ -27,10 +27,10 @@ class ActivosService {
       err.code = 'ASSET_NOT_IN_DETAILS';
       throw err;
     }
-    return EntregasService.create(payload, userId);
+    return EntregasService.create(payload, userId, imageFile);
   }
 
-  static async devolver(activoId, payload, userId) {
+  static async devolver(activoId, payload, userId, imageFile = null) {
     const targetActivoId = String(activoId);
     const allActivoIds = extractActivoIds(payload?.detalles);
     if (!allActivoIds.includes(targetActivoId)) {
@@ -39,7 +39,7 @@ class ActivosService {
       err.code = 'ASSET_NOT_IN_DETAILS';
       throw err;
     }
-    return DevolucionesService.create(payload, userId);
+    return DevolucionesService.create(payload, userId, imageFile);
   }
 }
 

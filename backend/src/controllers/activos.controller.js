@@ -6,7 +6,7 @@ const { sendSuccess } = require('../lib/apiResponse');
 class ActivosController {
   static async entregar(req, res, next) {
     try {
-      const data = await ActivosService.entregar(req.params.id, req.body, req.user.id);
+      const data = await ActivosService.entregar(req.params.id, req.body, req.user.id, req.file);
       return sendSuccess(res, { status: 201, message: 'Activo entregado correctamente', data });
     } catch (error) {
       logger.error('Error entregando activo:', error);
@@ -16,7 +16,7 @@ class ActivosController {
 
   static async devolver(req, res, next) {
     try {
-      const data = await ActivosService.devolver(req.params.id, req.body, req.user.id);
+      const data = await ActivosService.devolver(req.params.id, req.body, req.user.id, req.file);
       return sendSuccess(res, { status: 201, message: 'Activo devuelto correctamente', data });
     } catch (error) {
       logger.error('Error devolviendo activo:', error);

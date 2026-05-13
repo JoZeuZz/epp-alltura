@@ -4,6 +4,7 @@ const Joi = require('joi');
 const ActivosController = require('../controllers/activos.controller');
 const { authMiddleware } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roles');
+const { imageUpload, validateImageMagic, buildError, parseMultipartPayload } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -38,6 +39,7 @@ const entregarSchema = Joi.object({
   ubicacion_destino_id: uuid.required(),
   nota_destino: Joi.string().trim().max(1000).allow('', null),
   fecha_devolucion_esperada: Joi.date().iso().allow(null),
+  evidencia_foto_url: Joi.string().trim().max(2048).allow('', null),
   detalles: Joi.array().items(entregaDetalleSchema).min(1).required(),
 });
 
@@ -53,6 +55,7 @@ const devolverSchema = Joi.object({
   trabajador_id: uuid.required(),
   ubicacion_recepcion_id: uuid.required(),
   notas: Joi.string().trim().max(1000).allow('', null),
+  evidencia_foto_url: Joi.string().trim().max(2048).allow('', null),
   detalles: Joi.array().items(devolverDetalleSchema).min(1).required(),
 });
 
@@ -60,6 +63,9 @@ router.post(
   '/:id/entregar',
   authMiddleware,
   checkRole(['admin', 'supervisor']),
+  imageUpload.single('foto'),
+  validateImageMagic,
+  parseMultipartPayload,
   validateBody(entregarSchema),
   ActivosController.entregar
 );
@@ -68,6 +74,9 @@ router.post(
   '/:id/devolver',
   authMiddleware,
   checkRole(['admin', 'supervisor']),
+  imageUpload.single('foto'),
+  validateImageMagic,
+  parseMultipartPayload,
   validateBody(devolverSchema),
   ActivosController.devolver
 );
