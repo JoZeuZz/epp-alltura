@@ -1,1 +1,1 @@
-export { TourOverlay as default } from '@alltura/ui';
+export { TourOverlay as default } from '@jozeuZz/alltura-ui';

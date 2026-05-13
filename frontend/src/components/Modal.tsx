@@ -1,1 +1,1 @@
-export { Modal as default } from '@alltura/ui';
+export { Modal as default } from '@jozeuZz/alltura-ui';

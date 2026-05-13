@@ -1,7 +1,7 @@
 import { useNotifications } from '../hooks/useNotifications';
 import NotificationItem from '../components/NotificationItem';
 import { useState } from 'react';
-import { frontendLogger } from '@alltura/ui';
+import { frontendLogger } from '@jozeuZz/alltura-ui';
 
 const ITEMS_PER_PAGE = 10;
 const NOTIFICATIONS_REFRESH_INTERVAL_MS = 30000;
