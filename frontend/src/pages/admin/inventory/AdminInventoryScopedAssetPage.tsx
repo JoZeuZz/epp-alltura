@@ -1,6 +1,14 @@
 import React, { useState } from 'react';
-import { getInventoryActivosAll } from '../../../services/apiService';
-import type { InventoryActivoTypeScope } from '../../../services/apiService';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import ArticleFormModal from '../../../components/forms/ArticleFormModal';
+import {
+  createArticulo,
+  getInventoryActivosAll,
+  type ArticuloCreatePayload,
+  type ArticuloGrupoPrincipal,
+  type InventoryActivoTypeScope,
+} from '../../../services/apiService';
 import AdminInventoryScopedAssetCards from './AdminInventoryScopedAssetCards';
 import { INVENTORY_ASSET_SCOPE_COPY } from './inventoryAssetScope.constants';
 import { useExcelExport } from '../../../hooks/useExcelExport';
@@ -10,11 +18,29 @@ interface AdminInventoryScopedAssetPageProps {
   scope: InventoryActivoTypeScope;
 }
 
+const SCOPE_TO_GRUPO: Record<InventoryActivoTypeScope, ArticuloGrupoPrincipal> = {
+  epp: 'epp',
+  equipos: 'equipo',
+  herramientas: 'herramienta',
+};
+
 const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps> = ({ scope }) => {
   const copy = INVENTORY_ASSET_SCOPE_COPY[scope];
   const { exportToExcel } = useExcelExport();
   const { downloadPdf, isLoading: isPdfLoading } = usePdfDownload();
   const [isExcelLoading, setIsExcelLoading] = useState(false);
+  const [showCreateArticle, setShowCreateArticle] = useState(false);
+  const queryClient = useQueryClient();
+
+  const createArticleMutation = useMutation({
+    mutationFn: ({ payload, foto }: { payload: ArticuloCreatePayload; foto?: File }) =>
+      createArticulo(payload, foto),
+    onSuccess: () => {
+      toast.success('Artículo creado correctamente.');
+      setShowCreateArticle(false);
+      void queryClient.invalidateQueries({ queryKey: ['admin-inventory', 'articulos'] });
+    },
+  });
 
   const handleExportPdf = async () => {
     const timestamp = new Date().toISOString().slice(0, 10);
@@ -73,8 +99,28 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
         >
           {isExcelLoading ? '…' : '↓'} Exportar Excel
         </button>
+        <button
+          type="button"
+          onClick={() => setShowCreateArticle(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary-blue text-sm text-white bg-primary-blue hover:bg-blue-700 transition-colors"
+          aria-label="Nuevo artículo"
+        >
+          + Nuevo artículo
+        </button>
       </div>
       <AdminInventoryScopedAssetCards scope={scope} />
+      {showCreateArticle && (
+        <ArticleFormModal
+          isOpen={showCreateArticle}
+          onClose={() => setShowCreateArticle(false)}
+          onSubmit={async (payload, foto) => {
+            await createArticleMutation.mutateAsync({ payload, foto });
+          }}
+          isSubmitting={createArticleMutation.isPending}
+          mode="create"
+          lockedGrupoPrincipal={SCOPE_TO_GRUPO[scope]}
+        />
+      )}
     </div>
   );
 };
