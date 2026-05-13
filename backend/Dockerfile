@@ -1,17 +1,19 @@
 # Builder stage: install dependencies
 FROM node:20-alpine AS builder
 WORKDIR /usr/src/app
-COPY package*.json ./
+COPY backend/package*.json ./
 # Use modern npm flag to omit dev dependencies and keep layer caching small
 RUN npm ci --silent --omit=dev
-COPY . .
+COPY backend/ .
+# Copy DB schema so initialize.js can apply migrations on startup
+COPY db/init/ db/init/
 
 # Runtime stage: smaller image using only production files
 FROM node:20-alpine AS runtime
 WORKDIR /usr/src/app
 COPY --from=builder /usr/src/app .
 # Install curl for healthchecks
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl vips
 # Create non-root user for safer runtime
 RUN addgroup -S app && adduser -S app -G app
 # Ensure runtime writable dirs exist and are owned by app
