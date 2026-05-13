@@ -50,6 +50,16 @@ Inspect: user model, role enum/constants, auth middleware, authz middleware, rou
 
 Expected: `administrador` max access · `supervisor` + bodega · `trabajador` entity not login · no bodega login · preserve history.
 
+## @jozeuZz/alltura-ui
+
+Shared UI package. Source: `/home/proyectos/alltura-ui/`. Registry: GitHub Packages.
+
+- **Local dev**: installed via `file:../../alltura-ui` — no registry needed
+- **New app**: add `.npmrc` with `@jozeuZz:registry=https://npm.pkg.github.com` + token, then `npm install @jozeuZz/alltura-ui`
+- **Publish new version**: `npm version patch && npm run build && npm publish && git push` (in `/home/proyectos/alltura-ui`)
+- **Vitest alias**: `vite.config.ts → test.alias` points `@jozeuZz/alltura-ui` → source `src/index.ts` for per-module mocking
+- **Tailwind**: add `./node_modules/@jozeuZz/alltura-ui/src/**/*.{js,jsx,ts,tsx}` to content
+
 ## Alltura standards
 - App Shell: `AppLayout` (every auth screen), `Modal`, `ConfirmationModal`, `ResponsiveTable`, `ResponsiveGrid`, `NotificationBell`, `TourOverlay`
 - Contexts: `AuthContext`, `NotificationContext`, `TourContext`
