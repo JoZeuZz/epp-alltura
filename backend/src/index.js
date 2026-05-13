@@ -1,5 +1,10 @@
 // Cargar variables de entorno PRIMERO
 process.stdout.write('[BACKEND] process start\n');
+
+process.on('uncaughtException', (err) => {
+  process.stdout.write(`[BACKEND] uncaughtException: ${err.stack || err.message}\n`, () => process.exit(1));
+});
+
 require('dotenv').config({ quiet: true });
 
 const express = require('express');
