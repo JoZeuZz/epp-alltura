@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import Modal from '../Modal';
 import { useGet } from '../../hooks';
 import { devolverActivo, type DevolucionRow } from '../../services/apiService';
+import { IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../../config/imageLimits';
 
 interface BodegaOption {
   id: string;
@@ -52,6 +53,7 @@ const DevolucionActivoModal: React.FC<Props> = ({
   const [formError, setFormError] = useState<string | null>(null);
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoPreviewUrl, setFotoPreviewUrl] = useState<string | null>(null);
+  const [fotoFileError, setFotoFileError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!fotoFile) {
@@ -62,6 +64,34 @@ const DevolucionActivoModal: React.FC<Props> = ({
     setFotoPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [fotoFile]);
+
+  useEffect(() => {
+    return () => {
+      setFotoFile(null);
+      setFotoFileError(null);
+    };
+  }, []);
+
+  const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/avif'];
+
+  const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (!file) {
+      setFotoFile(null);
+      setFotoFileError(null);
+      return;
+    }
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setFotoFileError('Solo se permiten imágenes JPG, PNG, WEBP o AVIF.');
+      return;
+    }
+    if (file.size > IMAGE_MAX_BYTES) {
+      setFotoFileError(`La imagen supera el tamaño máximo permitido (${IMAGE_MAX_LABEL}).`);
+      return;
+    }
+    setFotoFileError(null);
+    setFotoFile(file);
+  };
 
   const { data: bodegas = [] } = useGet<BodegaOption[]>(['bodegas'], '/bodegas');
   const activasBodegas = (bodegas as BodegaOption[]).filter((b) => !b.estado || b.estado === 'activo');
@@ -194,7 +224,10 @@ const DevolucionActivoModal: React.FC<Props> = ({
                 />
                 <button
                   type="button"
-                  onClick={() => setFotoFile(null)}
+                  onClick={() => {
+                    setFotoFile(null);
+                    setFotoFileError(null);
+                  }}
                   className="absolute -top-2 -right-2 bg-white border border-edge-strong rounded-full w-5 h-5 flex items-center justify-center text-xs text-danger hover:bg-danger-subtle leading-none"
                   aria-label="Eliminar imagen seleccionada"
                 >
@@ -206,11 +239,12 @@ const DevolucionActivoModal: React.FC<Props> = ({
           ) : (
             <input
               type="file"
-              accept="image/*"
-              onChange={(e) => setFotoFile(e.target.files?.[0] ?? null)}
+              accept="image/jpeg,image/jpg,image/png,image/webp,image/avif"
+              onChange={handleFotoChange}
               className="block text-sm text-content-secondary file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-surface-muted file:text-content-secondary hover:file:bg-edge cursor-pointer"
             />
           )}
+          {fotoFileError && <p className="text-xs text-danger-text mt-1" role="alert">{fotoFileError}</p>}
         </div>
 
         {formError && (
