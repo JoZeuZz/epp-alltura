@@ -143,7 +143,35 @@ describe('Articulos API Route Integration', () => {
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
     expect(response.body.message).toBe('Artículo creado correctamente');
-    expect(ArticulosService.create).toHaveBeenCalledWith(expect.objectContaining(payload));
+    expect(ArticulosService.create).toHaveBeenCalledWith(expect.objectContaining(payload), undefined);
+  });
+
+  it('acepta foto_url opcional en payload JSON de artículo', async () => {
+    ArticulosService.create.mockResolvedValue({
+      id: 'articulo-foto-1',
+      grupo_principal: 'epp',
+      subclasificacion: 'epp',
+      nombre: 'Casco con foto',
+      estado: 'activo',
+      foto_url: '/api/image-proxy?token=abc',
+    });
+
+    const app = buildApp();
+    const payload = {
+      grupo_principal: 'epp',
+      subclasificacion: 'epp',
+      nombre: 'Casco con foto',
+      marca: '3M',
+      modelo: 'X1',
+      nivel_control: 'alto',
+      unidad_medida: 'unidad',
+      foto_url: 'uploads/catalogo/casco.jpg',
+    };
+
+    const response = await request(app).post('/api/articulos').send(payload);
+
+    expect(response.status).toBe(201);
+    expect(ArticulosService.create).toHaveBeenCalledWith(expect.objectContaining(payload), undefined);
   });
 
   it('crea un artículo de herramienta con múltiples especialidades', async () => {
@@ -172,7 +200,7 @@ describe('Articulos API Route Integration', () => {
 
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
-    expect(ArticulosService.create).toHaveBeenCalledWith(expect.objectContaining(payload));
+    expect(ArticulosService.create).toHaveBeenCalledWith(expect.objectContaining(payload), undefined);
   });
 
   it('edita un artículo con grupo/subclasificación compatibles', async () => {
@@ -197,7 +225,7 @@ describe('Articulos API Route Integration', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    expect(ArticulosService.update).toHaveBeenCalledWith('articulo-1', expect.objectContaining(payload));
+    expect(ArticulosService.update).toHaveBeenCalledWith('articulo-1', expect.objectContaining(payload), undefined);
   });
 
   it('rechaza subclasificación incompatible para grupo_principal', async () => {
