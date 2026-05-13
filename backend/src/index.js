@@ -1,4 +1,5 @@
 // Cargar variables de entorno PRIMERO
+process.stdout.write('[BACKEND] process start\n');
 require('dotenv').config({ quiet: true });
 
 const express = require('express');

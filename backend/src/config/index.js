@@ -115,11 +115,14 @@ const envSchema = Joi.object({
   // URLs
   CLIENT_URL: Joi.string()
     .uri()
+    .allow('')
+    .optional()
     .default('http://localhost:3000')
     .description('URL del cliente frontend'),
-  
+
   BACKEND_URL: Joi.string()
     .uri()
+    .allow('')
     .optional()
     .description('URL del backend (para construir URLs absolutas)'),
 
