@@ -5,6 +5,11 @@ process.on('uncaughtException', (err) => {
   process.stdout.write(`[BACKEND] uncaughtException: ${err.stack || err.message}\n`, () => process.exit(1));
 });
 
+process.on('unhandledRejection', (reason) => {
+  const msg = reason instanceof Error ? reason.stack || reason.message : String(reason);
+  process.stdout.write(`[BACKEND] unhandledRejection: ${msg}\n`, () => process.exit(1));
+});
+
 require('dotenv').config({ quiet: true });
 
 const express = require('express');
@@ -254,34 +259,29 @@ app.use(errorHandler);
 // Inicializar base de datos y luego iniciar el servidor
 const startServer = async () => {
   try {
-    // 1. Inicializar base de datos
+    process.stdout.write('[BACKEND] step 1: db init\n');
     await initializeDatabase();
-    
-    // 2. Conectar a Redis
-    logger.info('Conectando a Redis...');
+
+    process.stdout.write('[BACKEND] step 2: redis connect\n');
     await redisClient.connect();
-    logger.info('✅ Redis conectado exitosamente');
-    
-    // 3. Programar cron jobs
-    // Verificación diaria de custodias a las 08:00
+
+    process.stdout.write('[BACKEND] step 3: cron jobs\n');
     cron.schedule('0 8 * * *', () => {
       CustodyCheckService.runDailyCheck();
     });
-    logger.info('⏰ Cron: verificación diaria de custodias programada (08:00)');
 
-    // Limpieza semanal de notificaciones leídas (domingos 03:00)
     cron.schedule('0 3 * * 0', () => {
       const NotificationService = require('./services/notification.service');
       NotificationService.cleanOldInAppNotifications(30);
     });
-    logger.info('⏰ Cron: limpieza semanal de notificaciones programada (dom 03:00)');
 
-    // 4. Iniciar servidor
+    process.stdout.write(`[BACKEND] step 4: listen on ${PORT}\n`);
     app.listen(PORT, () => {
+      process.stdout.write('[BACKEND] server ready\n');
       logger.info(`🚀 Servidor corriendo en puerto ${PORT}`);
-      logger.info(`📊 Entorno: ${process.env.NODE_ENV || 'development'}`);
     });
   } catch (error) {
+    process.stdout.write(`[BACKEND] STARTUP ERROR: ${error.stack || error.message}\n`);
     logger.error('❌ Error al iniciar el servidor:', error);
     process.exit(1);
   }
@@ -300,4 +300,5 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+process.stdout.write('[BACKEND] calling startServer\n');
 startServer();
