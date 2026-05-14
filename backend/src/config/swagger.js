@@ -18,8 +18,7 @@ const swaggerSpec = {
     { name: 'Entregas', description: 'Gestión de entregas y confirmación' },
     { name: 'Firmas', description: 'Firma en dispositivo y por token/QR' },
     { name: 'Devoluciones', description: 'Borrador, confirmación y cierre de custodia' },
-    { name: 'Compras', description: 'Ingreso de inventario por compra' },
-    { name: 'Inventario', description: 'Stock y movimientos' },
+{ name: 'Inventario', description: 'Stock y movimientos' },
     { name: 'Dashboard', description: 'Indicadores operativos' },
   ],
   components: {
@@ -525,24 +524,7 @@ const swaggerSpec = {
         },
       },
     },
-    '/api/compras': {
-      post: {
-        tags: ['Compras'],
-        summary: 'Registrar compra e ingreso de inventario',
-        security: [{ bearerAuth: [] }],
-        responses: {
-          201: {
-            description: 'Compra registrada',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ApiSuccess' },
-              },
-            },
-          },
-        },
-      },
-    },
-    '/api/inventario/ingresos': {
+'/api/inventario/ingresos': {
       get: {
         tags: ['Inventario'],
         summary: 'Listar ingresos de inventario',
