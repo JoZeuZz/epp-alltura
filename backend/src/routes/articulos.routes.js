@@ -90,9 +90,9 @@ router.get('/:id', ArticulosController.getById);
 router.post('/',
   checkRole(['admin', 'supervisor']),
   imageUpload.single('foto'),
+  validateImageMagic,
   parseMultipartPayload,
   validateBody(createSchema),
-  validateImageMagic,
   ArticulosController.create
 );
 
@@ -100,9 +100,9 @@ router.post('/',
 router.put('/:id',
   checkRole(['admin', 'supervisor']),
   imageUpload.single('foto'),
+  validateImageMagic,
   parseMultipartPayload,
   validateBody(updateSchema),
-  validateImageMagic,
   ArticulosController.update
 );
 

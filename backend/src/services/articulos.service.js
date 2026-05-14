@@ -204,7 +204,7 @@ class ArticulosService {
            codigo            = $6,
            valor             = COALESCE($7, valor),
            foto_url          = $8,
-           fecha_vencimiento = $9
+           fecha_vencimiento = COALESCE($9, fecha_vencimiento)
          WHERE id = $10`,
         [
           payload.nombre || null, payload.marca || null,
@@ -212,7 +212,7 @@ class ArticulosService {
           newNroSerie, newCodigo,
           payload.valor ?? null,
           newFotoUrl,
-          payload.fecha_vencimiento || null,
+          payload.fecha_vencimiento ?? null,
           id,
         ]
       );
@@ -243,6 +243,10 @@ class ArticulosService {
     } catch (error) {
       await client.query('ROLLBACK');
       if (uploadedUrl) await deleteFileByUrl(uploadedUrl);
+      if (error.code === '23505') {
+        const field = error.constraint?.includes('nro_serie') ? 'nro_serie' : 'codigo';
+        throw buildError(`El ${field} ya existe en otro artículo`, 409, 'DUPLICATE_NRO_SERIE');
+      }
       throw error;
     } finally {
       client.release();
@@ -287,7 +291,7 @@ class ArticulosService {
       await client.query('BEGIN');
 
       const result = await client.query(
-        `SELECT id, estado, bodega_actual_id FROM articulo WHERE id = $1 FOR UPDATE`, [id]
+        `SELECT id, estado, bodega_actual_id, proyecto_actual_id FROM articulo WHERE id = $1 FOR UPDATE`, [id]
       );
       if (!result.rows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
 
@@ -324,14 +328,19 @@ class ArticulosService {
         nuevaBodega = bodega_destino_id;
       }
 
-      const returnsToStock = nuevo_estado === 'en_stock';
+      const clearProyecto = nuevo_estado === 'en_stock';
       await client.query(
         `UPDATE articulo SET
            estado             = $1,
            bodega_actual_id   = $2,
-           proyecto_actual_id = NULL
-         WHERE id = $3`,
-        [nuevo_estado, returnsToStock ? nuevaBodega : null, id]
+           proyecto_actual_id = $3
+         WHERE id = $4`,
+        [
+          nuevo_estado,
+          transicion.cambia_bodega ? nuevaBodega : art.bodega_actual_id,
+          clearProyecto ? null : (art.proyecto_actual_id ?? null),
+          id,
+        ]
       );
 
       await client.query(
@@ -341,7 +350,7 @@ class ArticulosService {
         [
           id, transicion.mov_tipo,
           art.bodega_actual_id,
-          returnsToStock ? nuevaBodega : null,
+          transicion.cambia_bodega ? nuevaBodega : null,
           userId, motivo || null,
         ]
       );
@@ -352,8 +361,9 @@ class ArticulosService {
         diff: { estado: nuevo_estado, motivo },
       });
 
+      const updated = await ArticulosService._getByIdWithClient(client, id);
       await client.query('COMMIT');
-      return await ArticulosService.getById(id);
+      return updated;
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
