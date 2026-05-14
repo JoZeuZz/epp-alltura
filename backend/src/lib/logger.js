@@ -44,15 +44,13 @@ const logger = winston.createLogger({
       maxFiles: 5,
     }),
     
-    // Console en desarrollo
-    ...(config.IS_DEVELOPMENT ? [
-      new winston.transports.Console({
-        format: winston.format.combine(
-          winston.format.colorize(),
-          winston.format.simple()
-        )
-      })
-    ] : [])
+    // Console: colorize en desarrollo, stderr en producción para visibilidad en Docker
+    new winston.transports.Console({
+      stderrLevels: config.IS_DEVELOPMENT ? [] : ['error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly'],
+      format: config.IS_DEVELOPMENT
+        ? winston.format.combine(winston.format.colorize(), winston.format.simple())
+        : winston.format.combine(winston.format.timestamp(), winston.format.simple()),
+    }),
   ],
 });
 
