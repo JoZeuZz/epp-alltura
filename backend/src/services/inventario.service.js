@@ -1,6 +1,4 @@
 const db = require('../db');
-const ComprasService = require('./compras.service');
-const EgresosService = require('./egresos.service');
 const { resolveImageUrl } = require('../lib/googleCloud');
 
 // ── Transiciones directas de estado (admin) ────────────────
@@ -102,18 +100,6 @@ class InventarioService {
       ...row,
       foto_url: await resolveImageUrl(row.foto_url),
     })));
-  }
-
-  static async getIngresos(filters = {}) {
-    return ComprasService.list(filters);
-  }
-
-  static async createIngreso(payload, userId) {
-    return ComprasService.create(payload, userId);
-  }
-
-  static async deleteIngreso(id, userId) {
-    return ComprasService.deleteIngreso(id, userId);
   }
 
   static async getStock(filters = {}) {
@@ -899,22 +885,6 @@ class InventarioService {
 
     const { rows } = await db.query(query, values);
     return rows;
-  }
-
-  static async getEgresos(filters = {}) {
-    return EgresosService.list(filters);
-  }
-
-  static async getEgresoById(id) {
-    return EgresosService.getById(id);
-  }
-
-  static async createEgreso(payload, userId) {
-    return EgresosService.create(payload, userId);
-  }
-
-  static async deleteEgreso(id, userId) {
-    return EgresosService.deleteEgreso(id, userId);
   }
 
   /**
