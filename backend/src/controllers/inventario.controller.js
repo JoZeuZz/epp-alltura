@@ -4,71 +4,6 @@ const { sendSuccess } = require('../lib/apiResponse');
 const { createDoc, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
 
 class InventarioController {
-  static async getStock(req, res, next) {
-    try {
-      const data = await InventarioService.getStock(req.query || {});
-      return sendSuccess(res, { message: 'Stock obtenido correctamente', data });
-    } catch (error) {
-      logger.error('Error fetching stock:', error);
-      return next(error);
-    }
-  }
-
-  static async getStockSummary(req, res, next) {
-    try {
-      const data = await InventarioService.getStockSummary(req.query || {});
-      return sendSuccess(res, { message: 'Resumen de stock obtenido correctamente', data });
-    } catch (error) {
-      logger.error('Error fetching stock summary:', error);
-      return next(error);
-    }
-  }
-
-  static async getStockPaged(req, res, next) {
-    try {
-      const data = await InventarioService.getStockPaged(req.query || {});
-      return sendSuccess(res, { message: 'Detalle de stock obtenido correctamente', data });
-    } catch (error) {
-      logger.error('Error fetching paged stock detail:', error);
-      return next(error);
-    }
-  }
-
-  static async getStockMovements(req, res, next) {
-    try {
-      const data = await InventarioService.getStockMovements(req.query || {});
-      return sendSuccess(res, { message: 'Movimientos de stock obtenidos correctamente', data });
-    } catch (error) {
-      logger.error('Error fetching stock movements:', error);
-      return next(error);
-    }
-  }
-
-  static async exportStockMovementsCsv(req, res, next) {
-    try {
-      const csvContent = await InventarioService.exportStockMovementsCsv(req.query || {});
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-      const filename = `movimientos-stock-${timestamp}.csv`;
-
-      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      return res.status(200).send(`\uFEFF${csvContent}`);
-    } catch (error) {
-      logger.error('Error exporting stock movements CSV:', error);
-      return next(error);
-    }
-  }
-
-  static async getAssetMovements(req, res, next) {
-    try {
-      const data = await InventarioService.getAssetMovements(req.query || {});
-      return sendSuccess(res, { message: 'Movimientos de activos obtenidos correctamente', data });
-    } catch (error) {
-      logger.error('Error fetching asset movements:', error);
-      return next(error);
-    }
-  }
-
   static async getActivos(req, res, next) {
     try {
       const data = await InventarioService.getActivos(req.query || {});
@@ -119,12 +54,12 @@ class InventarioController {
     }
   }
 
-  static async cambiarEstadoActivo(req, res, next) {
+  static async getAssetMovements(req, res, next) {
     try {
-      const data = await InventarioService.cambiarEstadoActivo(req.params.id, req.body, req.user.id);
-      return sendSuccess(res, { message: 'Estado del activo actualizado correctamente', data });
+      const data = await InventarioService.getAssetMovements(req.params.id, req.query || {});
+      return sendSuccess(res, { message: 'Movimientos del activo obtenidos correctamente', data });
     } catch (error) {
-      logger.error('Error changing activo state:', error);
+      logger.error('Error fetching asset movements:', error);
       return next(error);
     }
   }
@@ -139,20 +74,11 @@ class InventarioController {
     }
   }
 
-  static async editarActivo(req, res, next) {
-    try {
-      const data = await InventarioService.editarActivo(req.params.id, req.body);
-      return sendSuccess(res, { message: 'Activo actualizado correctamente', data });
-    } catch (error) {
-      logger.error('Error updating activo:', error);
-      return next(error);
-    }
-  }
-
   static async exportInventarioPdf(req, res, next) {
     try {
       const { categoria } = req.query;
-      const activos = await InventarioService.getActivos({ tipo_activo: categoria, limit: 500 });
+      // categoria maps to articulo.tipo
+      const activos = await InventarioService.getActivos({ tipo: categoria, limit: 500 });
       const timestamp = new Date().toISOString().slice(0, 10);
       const label = { epp: 'EPP', herramientas: 'Herramientas', equipos: 'Equipos' }[categoria] ?? categoria;
       const filename = `inventario-${categoria}-${timestamp}.pdf`;
@@ -164,17 +90,16 @@ class InventarioController {
         return;
       }
 
-      const headers = ['Código', 'Artículo', 'Estado', 'Ubicación', 'Asignado a'];
+      const headers = ['Código', 'Nombre', 'Estado', 'Ubicación'];
       const rows = activos.map((a) => [
         a.codigo ?? '—',
-        a.articulo_nombre ?? '—',
+        a.nombre ?? '—',
         a.estado ?? '—',
-        a.bodega_nombre ?? '—',
-        a.custodio_nombres ? `${a.custodio_nombres} ${a.custodio_apellidos}` : '—',
+        a.bodega_nombre ?? a.proyecto_nombre ?? '—',
       ]);
 
       await doc.table({ headers, rows }, {
-        columnsSize: [80, 150, 70, 100, 120],
+        columnsSize: [80, 200, 70, 130],
         prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
         prepareRow: () => doc.font('Helvetica').fontSize(8),
       });
@@ -194,7 +119,7 @@ class InventarioController {
       const profile = await InventarioService.getActivoProfile(id);
       const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `ficha-activo-${profile.codigo}-${timestamp}.pdf`;
-      const doc = createDoc(`Ficha de Activo: ${profile.articulo_nombre}`, res, filename);
+      const doc = createDoc(`Ficha de Activo: ${profile.nombre}`, res, filename);
 
       doc.fontSize(9).fillColor(BODY_TEXT)
         .text(`Código: ${profile.codigo}`)
@@ -208,7 +133,7 @@ class InventarioController {
         const ca = profile.custodia_activa;
         doc.fontSize(10).fillColor(DARK_BLUE).text('Custodia activa', { underline: true });
         doc.fontSize(9).fillColor(BODY_TEXT)
-          .text(`Custodio: ${ca.custodio_nombres} ${ca.custodio_apellidos}`)
+          .text(`Custodio: ${ca.trabajador_nombre ?? '—'}`)
           .text(`Días en custodia: ${ca.dias_en_custodia ?? 0}`)
           .moveDown(0.5);
       }
@@ -219,8 +144,8 @@ class InventarioController {
         const rows = profile.timeline.slice(0, 50).map((m) => [
           m.tipo,
           new Date(m.fecha_movimiento).toLocaleDateString('es-CL'),
-          m.origen_nombre ?? '—',
-          m.destino_nombre ?? '—',
+          m.bodega_origen_nombre ?? m.proyecto_origen_nombre ?? '—',
+          m.bodega_destino_nombre ?? m.proyecto_destino_nombre ?? '—',
           m.responsable_email ?? '—',
         ]);
         await doc.table({ headers, rows }, {

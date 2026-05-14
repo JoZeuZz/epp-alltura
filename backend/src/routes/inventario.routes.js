@@ -45,57 +45,27 @@ const exportPdfQuerySchema = Joi.object({
 });
 
 const activosQuerySchema = Joi.object({
-  articulo_id: uuid,
-  ubicacion_id: uuid,
+  tipo: Joi.string().trim().lowercase().valid('epp', 'herramienta', 'equipo'),
   estado: Joi.string().trim().max(40),
+  bodega_id: uuid,
+  proyecto_id: uuid,
   search: Joi.string().trim().max(120),
   limit: Joi.number().integer().min(1).max(200),
   cursor: Joi.string().trim().max(300),
-  solo_entregados: Joi.boolean(),
-  tipo_activo: Joi.string().trim().lowercase().valid('herramientas', 'herramienta', 'epp', 'equipos', 'equipo', 'all'),
+  offset: Joi.number().integer().min(0),
 });
 
-router.get(
-  '/stock',
-  authMiddleware,
-  checkRole(['admin', 'supervisor']),
-  InventarioController.getStock
-);
+const movimientosQuerySchema = Joi.object({
+  limit: Joi.number().integer().min(1).max(500),
+  offset: Joi.number().integer().min(0),
+});
 
-router.get(
-  '/stock-summary',
-  authMiddleware,
-  checkRole(['admin', 'supervisor']),
-  InventarioController.getStockSummary
-);
+const reubicarActivoSchema = Joi.object({
+  bodega_destino_id: uuid.required(),
+  notas: Joi.string().trim().max(500).allow('', null),
+});
 
-router.get(
-  '/stock-paged',
-  authMiddleware,
-  checkRole(['admin', 'supervisor']),
-  InventarioController.getStockPaged
-);
-
-router.get(
-  '/movimientos-stock',
-  authMiddleware,
-  checkRole(['admin', 'supervisor']),
-  InventarioController.getStockMovements
-);
-
-router.get(
-  '/movimientos-stock/export',
-  authMiddleware,
-  checkRole(['admin', 'supervisor']),
-  InventarioController.exportStockMovementsCsv
-);
-
-router.get(
-  '/movimientos-activo',
-  authMiddleware,
-  checkRole(['admin', 'supervisor']),
-  InventarioController.getAssetMovements
-);
+// ── Read routes ────────────────────────────────────────────────
 
 router.get(
   '/activos',
@@ -121,17 +91,18 @@ router.get(
 );
 
 router.get(
-  '/auditoria',
-  authMiddleware,
-  checkRole(['admin', 'supervisor']),
-  InventarioController.getAuditoria
-);
-
-router.get(
   '/activos/:id/perfil',
   authMiddleware,
   checkRole(['admin', 'supervisor']),
   InventarioController.getActivoProfile
+);
+
+router.get(
+  '/activos/:id/movimientos',
+  authMiddleware,
+  checkRole(['admin', 'supervisor']),
+  validateQuery(movimientosQuerySchema),
+  InventarioController.getAssetMovements
 );
 
 router.get(
@@ -141,51 +112,11 @@ router.get(
   InventarioController.exportActivoPdf
 );
 
-// ── Gestión de activos (admin) ─────────────────────────────
-const cambiarEstadoActivoSchema = Joi.object({
-  nuevo_estado: Joi.string()
-    .valid('en_stock', 'asignado', 'mantencion', 'dado_de_baja', 'perdido')
-    .required(),
-  motivo: Joi.string().trim().min(3).max(500).required(),
-  bodega_destino_id: uuid.when('nuevo_estado', {
-    is: 'en_stock',
-    then: Joi.required(),
-    otherwise: Joi.optional().allow(null),
-  }),
-});
-
-const reubicarActivoSchema = Joi.object({
-  bodega_destino_id: uuid.required(),
-  motivo: Joi.string().trim().max(500).allow('', null),
-});
-
-const editarActivoSchema = Joi.object({
-  valor: Joi.number().integer().min(0).allow(null),
-  fecha_vencimiento: Joi.date().iso().allow(null),
-}).min(1);
-
-router.patch(
-  '/activos/:id/estado',
+router.get(
+  '/auditoria',
   authMiddleware,
-  checkRole(['admin']),
-  validateBody(cambiarEstadoActivoSchema),
-  InventarioController.cambiarEstadoActivo
-);
-
-router.patch(
-  '/activos/:id/reubicar',
-  authMiddleware,
-  checkRole(['admin']),
-  validateBody(reubicarActivoSchema),
-  InventarioController.reubicarActivo
-);
-
-router.patch(
-  '/activos/:id',
-  authMiddleware,
-  checkRole(['admin']),
-  validateBody(editarActivoSchema),
-  InventarioController.editarActivo
+  checkRole(['admin', 'supervisor']),
+  InventarioController.getAuditoria
 );
 
 router.get(
@@ -194,6 +125,16 @@ router.get(
   checkRole(['admin', 'supervisor']),
   validateQuery(exportPdfQuerySchema),
   InventarioController.exportInventarioPdf
+);
+
+// ── Write routes ───────────────────────────────────────────────
+
+router.post(
+  '/activos/:id/reubicar',
+  authMiddleware,
+  checkRole(['admin']),
+  validateBody(reubicarActivoSchema),
+  InventarioController.reubicarActivo
 );
 
 module.exports = router;
