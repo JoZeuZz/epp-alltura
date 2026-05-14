@@ -218,7 +218,7 @@ CREATE TABLE IF NOT EXISTS custodia_activo (
   desde_en                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   hasta_en                  TIMESTAMPTZ,
   fecha_devolucion_esperada TIMESTAMPTZ,
-  estado                    VARCHAR(20) NOT NULL
+  estado                    VARCHAR(20) NOT NULL DEFAULT 'activa'
     CHECK (estado IN ('activa', 'devuelta', 'perdida', 'baja', 'mantencion'))
 );
 
@@ -330,7 +330,7 @@ CREATE TABLE IF NOT EXISTS inspeccion_activo (
 
 CREATE TABLE IF NOT EXISTS documento (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tipo VARCHAR(25) NOT NULL CHECK (tipo IN ('acta_entrega', 'acta_devolucion', 'informe', 'compra')),
+  tipo VARCHAR(25) NOT NULL CHECK (tipo IN ('acta_entrega', 'acta_devolucion', 'informe')),
   archivo_url TEXT NOT NULL,
   archivo_hash VARCHAR(255),
   creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -339,7 +339,7 @@ CREATE TABLE IF NOT EXISTS documento (
 
 CREATE TABLE IF NOT EXISTS documento_referencia (
   documento_id UUID NOT NULL REFERENCES documento(id) ON DELETE CASCADE,
-  entidad_tipo VARCHAR(20) NOT NULL CHECK (entidad_tipo IN ('entrega', 'devolucion', 'compra', 'activo', 'trabajador')),
+  entidad_tipo VARCHAR(20) NOT NULL CHECK (entidad_tipo IN ('entrega', 'devolucion', 'articulo', 'trabajador')),
   entidad_id UUID NOT NULL,
   PRIMARY KEY (documento_id, entidad_tipo, entidad_id)
 );
@@ -404,8 +404,6 @@ CREATE INDEX IF NOT EXISTS idx_articulo_tipo ON articulo(tipo);
 CREATE INDEX IF NOT EXISTS idx_articulo_estado ON articulo(estado);
 CREATE INDEX IF NOT EXISTS idx_articulo_bodega_actual_id ON articulo(bodega_actual_id) WHERE bodega_actual_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_articulo_proyecto_actual_id ON articulo(proyecto_actual_id) WHERE proyecto_actual_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_articulo_nro_serie ON articulo(nro_serie);
-CREATE INDEX IF NOT EXISTS idx_articulo_codigo ON articulo(codigo);
 CREATE INDEX IF NOT EXISTS idx_articulo_especialidad_especialidad ON articulo_especialidad(especialidad);
 
 -- Delivery / custody
@@ -424,7 +422,7 @@ CREATE INDEX IF NOT EXISTS idx_firma_token_expira_en ON firma_token(expira_en);
 CREATE INDEX IF NOT EXISTS idx_firma_token_usado_en ON firma_token(usado_en);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_firma_token_token_publico ON firma_token(token_publico) WHERE token_publico IS NOT NULL;
 
-CREATE INDEX IF NOT EXISTS idx_custodia_activo_articulo_id ON custodia_activo(articulo_id);
+CREATE INDEX IF NOT EXISTS idx_custodia_activo_articulo_estado_desde ON custodia_activo(articulo_id, estado, desde_en DESC);
 CREATE INDEX IF NOT EXISTS idx_custodia_activo_trabajador_id ON custodia_activo(trabajador_id);
 CREATE INDEX IF NOT EXISTS idx_custodia_activo_estado ON custodia_activo(estado);
 CREATE INDEX IF NOT EXISTS idx_custodia_activo_entrega_id ON custodia_activo(entrega_id);
