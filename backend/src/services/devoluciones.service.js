@@ -13,7 +13,7 @@ const CUSTODIA_STATE_BY_DISPOSICION = {
   mantencion: 'mantencion',
 };
 
-const ACTIVO_STATE_BY_DISPOSICION = {
+const ARTICULO_STATE_BY_DISPOSICION = {
   devuelto: 'en_stock',
   perdido: 'perdido',
   baja: 'dado_de_baja',
@@ -135,136 +135,56 @@ class DevolucionesService {
     }
 
     const normalized = [];
-    const selectedAssetIds = new Set();
+    const selectedCustodiaIds = new Set();
 
     for (const detail of detalles) {
-      const articuloId = String(detail?.articulo_id || '').trim();
-      if (!isUuid(articuloId)) {
-        throw buildError('Artículo inválido en detalle de devolución', 400, 'DETAIL_ARTICLE_INVALID');
+      const custodiaId = String(detail?.custodia_id || '').trim();
+      if (!isUuid(custodiaId)) {
+        throw buildError('custodia_id inválido en detalle de devolución', 400, 'DETAIL_CUSTODIA_INVALID');
       }
 
-      const articuloResult = await client.query(
-        `SELECT id, nombre, tracking_mode
-         FROM articulo
-         WHERE id = $1
-         LIMIT 1`,
-        [articuloId]
+      if (selectedCustodiaIds.has(custodiaId)) {
+        throw buildError(
+          'No puedes repetir la misma custodia en más de un ítem',
+          409,
+          'DUPLICATED_CUSTODIA'
+        );
+      }
+      selectedCustodiaIds.add(custodiaId);
+
+      const custodyResult = await client.query(
+        `SELECT ca.id, ca.articulo_id, ca.trabajador_id, ca.proyecto_id, ca.estado, ca.entrega_id
+         FROM custodia_activo ca
+         WHERE ca.id = $1
+           AND ca.estado = 'activa'
+         FOR UPDATE`,
+        [custodiaId]
       );
 
-      if (!articuloResult.rows.length) {
-        throw buildError('Artículo no encontrado en detalle de devolución', 400, 'DETAIL_ARTICLE_NOT_FOUND');
-      }
-
-      const articulo = articuloResult.rows[0];
-      if (articulo.tracking_mode !== 'serial') {
+      if (!custodyResult.rows.length) {
         throw buildError(
-          `El artículo ${articulo.nombre} no cumple política V2: solo serializados`,
+          `La custodia ${custodiaId} no está activa o no existe`,
           400,
-          'NON_SERIAL_NOT_SUPPORTED'
+          'NO_ACTIVE_CUSTODY'
         );
       }
 
-      const assetIds = Array.isArray(detail?.activo_ids)
-        ? detail.activo_ids.map((item) => String(item || '').trim()).filter(Boolean)
-        : [];
-
-      if (!assetIds.length) {
+      const custody = custodyResult.rows[0];
+      if (custody.trabajador_id !== trabajadorId) {
         throw buildError(
-          `El artículo ${articulo.nombre} requiere al menos un activo serializado`,
-          400,
-          'SERIAL_ASSETS_REQUIRED'
+          `La custodia ${custodiaId} no pertenece al trabajador seleccionado`,
+          409,
+          'WORKER_CUSTODY_MISMATCH'
         );
       }
 
-      for (const assetId of assetIds) {
-        if (!isUuid(assetId)) {
-          throw buildError('Activo inválido en detalle de devolución', 400, 'DETAIL_ASSET_INVALID');
-        }
-
-        if (selectedAssetIds.has(assetId)) {
-          throw buildError(
-            'No puedes repetir el mismo activo en más de un ítem',
-            409,
-            'DUPLICATED_ASSET'
-          );
-        }
-        selectedAssetIds.add(assetId);
-
-        const assetResult = await client.query(
-          `SELECT id, articulo_id, estado, proyecto_actual_id
-           FROM activo
-           WHERE id = $1
-           FOR UPDATE`,
-          [assetId]
-        );
-
-        if (!assetResult.rows.length) {
-          throw buildError('Activo no encontrado en detalle de devolución', 404, 'ASSET_NOT_FOUND');
-        }
-
-        const asset = assetResult.rows[0];
-        if (asset.articulo_id !== articulo.id) {
-          throw buildError(
-            `El activo ${assetId} no corresponde al artículo ${articulo.nombre}`,
-            409,
-            'ASSET_ARTICLE_MISMATCH'
-          );
-        }
-
-        if (asset.estado !== 'asignado') {
-          throw buildError(
-            `El activo ${assetId} no está asignado para devolución`,
-            409,
-            'ASSET_NOT_ASSIGNED'
-          );
-        }
-
-        const custodyResult = await client.query(
-          `SELECT id, trabajador_id, proyecto_id, estado, entrega_id
-           FROM custodia_activo
-           WHERE activo_id = $1
-             AND estado = 'activa'
-           ORDER BY desde_en DESC
-           LIMIT 1
-           FOR UPDATE`,
-          [assetId]
-        );
-
-        if (!custodyResult.rows.length) {
-          throw buildError(
-            `El activo ${assetId} no tiene custodia activa`,
-            400,
-            'NO_ACTIVE_CUSTODY'
-          );
-        }
-
-        const custody = custodyResult.rows[0];
-        if (custody.trabajador_id !== trabajadorId) {
-          throw buildError(
-            `El activo ${assetId} no pertenece al trabajador seleccionado`,
-            409,
-            'WORKER_CUSTODY_MISMATCH'
-          );
-        }
-
-        if (asset.proyecto_actual_id !== custody.proyecto_id) {
-          throw buildError(
-            `El activo ${assetId} no está en el proyecto esperado`,
-            409,
-            'ASSET_WRONG_PROJECT'
-          );
-        }
-
-        normalized.push({
-          custodia_activo_id: custody.id,
-          articulo_id: articulo.id,
-          activo_id: asset.id,
-          cantidad: 1,
-          condicion_entrada: detail?.condicion_entrada || 'ok',
-          disposicion: detail?.disposicion,
-          notas: detail?.notas || null,
-        });
-      }
+      normalized.push({
+        custodia_id: custody.id,
+        articulo_id: custody.articulo_id,
+        condicion_entrada: detail?.condicion_entrada || 'ok',
+        disposicion: detail?.disposicion,
+        notas: detail?.notas || null,
+      });
     }
 
     return normalized;
@@ -308,24 +228,22 @@ class DevolucionesService {
       `SELECT
          dd.id,
          dd.devolucion_id,
-         dd.custodia_activo_id,
+         dd.custodia_id,
          dd.articulo_id,
          a.nombre AS articulo_nombre,
-         dd.activo_id,
-         ac.codigo AS activo_codigo,
-         ac.nro_serie AS activo_nro_serie,
-         COALESCE(ac.foto_url, a.foto_url) AS foto_url,
-         dd.cantidad,
+         a.nro_serie,
+         a.codigo,
+         a.foto_url,
+         a.valor,
          dd.condicion_entrada,
          dd.disposicion,
          dd.notas,
          ca.entrega_id AS entrega_origen_id,
          e.creado_en AS entrega_origen_fecha
        FROM devolucion_detalle dd
-       LEFT JOIN custodia_activo ca ON ca.id = dd.custodia_activo_id
+       LEFT JOIN custodia_activo ca ON ca.id = dd.custodia_id
        LEFT JOIN entrega e ON e.id = ca.entrega_id
        LEFT JOIN articulo a ON a.id = dd.articulo_id
-       LEFT JOIN activo ac ON ac.id = dd.activo_id
        WHERE dd.devolucion_id = $1
        ORDER BY dd.id ASC`,
       [id]
@@ -338,7 +256,7 @@ class DevolucionesService {
 
   static async listEligibleAssets(filters = {}) {
     const values = [];
-    const conditions = ["ca.estado = 'activa'", "ac.estado = 'asignado'"];
+    const conditions = ["ca.estado = 'activa'"];
 
     if (!isUuid(filters?.trabajador_id)) {
       throw buildError('trabajador_id es requerido', 400, 'WORKER_ID_REQUIRED');
@@ -349,12 +267,12 @@ class DevolucionesService {
 
     if (filters?.articulo_id) {
       values.push(filters.articulo_id);
-      conditions.push(`ac.articulo_id = $${values.length}`);
+      conditions.push(`ca.articulo_id = $${values.length}`);
     }
 
     if (filters?.search) {
       values.push(`%${filters.search}%`);
-      conditions.push(`(ac.codigo ILIKE $${values.length} OR COALESCE(ac.nro_serie, '') ILIKE $${values.length})`);
+      conditions.push(`(a.codigo ILIKE $${values.length} OR COALESCE(a.nro_serie, '') ILIKE $${values.length})`);
     }
 
     const limitRaw = Number(filters?.limit);
@@ -364,28 +282,26 @@ class DevolucionesService {
 
     const query = `
       SELECT
-        ca.id AS custodia_activo_id,
+        ca.id AS custodia_id,
         ca.trabajador_id,
         ca.desde_en,
-        ac.id AS activo_id,
-        ac.codigo,
-        ac.nro_serie,
-        ac.estado AS activo_estado,
-        ac.articulo_id,
-        ar.nombre AS articulo_nombre,
-        COALESCE(ac.foto_url, ar.foto_url) AS foto_url,
-        ac.proyecto_actual_id AS ubicacion_actual_id,
+        ca.articulo_id,
+        a.codigo,
+        a.nro_serie,
+        a.estado AS articulo_estado,
+        a.nombre AS articulo_nombre,
+        a.foto_url,
+        a.proyecto_actual_id AS ubicacion_actual_id,
         pr.nombre AS ubicacion_actual_nombre
       FROM custodia_activo ca
-      INNER JOIN activo ac ON ac.id = ca.activo_id
-      INNER JOIN articulo ar ON ar.id = ac.articulo_id
-      LEFT JOIN proyectos pr ON pr.id = ac.proyecto_actual_id
+      JOIN articulo a ON a.id = ca.articulo_id
+      LEFT JOIN proyectos pr ON pr.id = a.proyecto_actual_id
       WHERE ${conditions.join(' AND ')}
         AND NOT EXISTS (
           SELECT 1
           FROM devolucion_detalle dd
           INNER JOIN devolucion d ON d.id = dd.devolucion_id
-          WHERE dd.custodia_activo_id = ca.id
+          WHERE dd.custodia_id = ca.id
             AND d.estado <> 'anulada'
         )
       ORDER BY ca.desde_en ASC
@@ -453,24 +369,22 @@ class DevolucionesService {
       `SELECT
          dd.id,
          dd.devolucion_id,
-         dd.custodia_activo_id,
+         dd.custodia_id,
          dd.articulo_id,
          a.nombre AS articulo_nombre,
-         dd.activo_id,
-         ac.codigo AS activo_codigo,
-         ac.nro_serie AS activo_nro_serie,
-         COALESCE(ac.foto_url, a.foto_url) AS foto_url,
-         dd.cantidad,
+         a.nro_serie,
+         a.codigo,
+         a.foto_url,
+         a.valor,
          dd.condicion_entrada,
          dd.disposicion,
          dd.notas,
          ca.entrega_id AS entrega_origen_id,
          e.creado_en AS entrega_origen_fecha
        FROM devolucion_detalle dd
-       LEFT JOIN custodia_activo ca ON ca.id = dd.custodia_activo_id
+       LEFT JOIN custodia_activo ca ON ca.id = dd.custodia_id
        LEFT JOIN entrega e ON e.id = ca.entrega_id
        LEFT JOIN articulo a ON a.id = dd.articulo_id
-       LEFT JOIN activo ac ON ac.id = dd.activo_id
        WHERE dd.devolucion_id = ANY($1::uuid[])
        ORDER BY dd.devolucion_id ASC, dd.id ASC`,
       [ids]
@@ -541,26 +455,16 @@ class DevolucionesService {
 
       for (const detail of normalizedDetails) {
         await client.query(
-          `INSERT INTO devolucion_detalle (
-             devolucion_id,
-             custodia_activo_id,
-             articulo_id,
-             activo_id,
-             cantidad,
-             condicion_entrada,
-             disposicion,
-             notas
-           )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          `INSERT INTO devolucion_detalle
+             (devolucion_id, custodia_id, articulo_id, condicion_entrada, disposicion, notas)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
           [
             devolucionId,
-            detail.custodia_activo_id,
+            detail.custodia_id,
             detail.articulo_id,
-            detail.activo_id,
-            detail.cantidad,
             detail.condicion_entrada,
             detail.disposicion,
-            detail.notas,
+            detail.notas || null,
           ]
         );
       }
@@ -760,7 +664,7 @@ class DevolucionesService {
       }
 
       const detailResult = await client.query(
-        `SELECT id, custodia_activo_id, activo_id, disposicion, notas
+        `SELECT id, custodia_id, articulo_id, disposicion, notas
          FROM devolucion_detalle
          WHERE devolucion_id = $1
          ORDER BY id ASC
@@ -773,20 +677,12 @@ class DevolucionesService {
       }
 
       for (const detail of detailResult.rows) {
-        if (!detail.custodia_activo_id || !detail.activo_id) {
-          throw buildError(
-            'No se puede confirmar una devolución sin activos serializados',
-            409,
-            'NON_SERIAL_CONFIRM_NOT_SUPPORTED'
-          );
-        }
-
         const custodyResult = await client.query(
-          `SELECT id, activo_id, trabajador_id, proyecto_id, estado
+          `SELECT id, articulo_id, trabajador_id, proyecto_id, estado
            FROM custodia_activo
            WHERE id = $1
            FOR UPDATE`,
-          [detail.custodia_activo_id]
+          [detail.custodia_id]
         );
 
         if (!custodyResult.rows.length) {
@@ -808,20 +704,20 @@ class DevolucionesService {
 
         const assetResult = await client.query(
           `SELECT id, estado, proyecto_actual_id
-           FROM activo
+           FROM articulo
            WHERE id = $1
            FOR UPDATE`,
-          [detail.activo_id]
+          [detail.articulo_id]
         );
 
         if (!assetResult.rows.length) {
-          throw buildError('Activo no encontrado al confirmar devolución', 404, 'ASSET_NOT_FOUND');
+          throw buildError('Artículo no encontrado al confirmar devolución', 404, 'ASSET_NOT_FOUND');
         }
 
         const asset = assetResult.rows[0];
         if (asset.estado !== 'asignado') {
           throw buildError(
-            `El activo ${asset.id} no está en estado asignado`,
+            `El artículo ${asset.id} no está en estado asignado`,
             409,
             'ASSET_NOT_ASSIGNED'
           );
@@ -829,7 +725,7 @@ class DevolucionesService {
 
         if (asset.proyecto_actual_id !== custody.proyecto_id) {
           throw buildError(
-            `El activo ${asset.id} no está en el proyecto esperado`,
+            `El artículo ${asset.id} no está en el proyecto esperado`,
             409,
             'ASSET_WRONG_PROJECT'
           );
@@ -837,7 +733,7 @@ class DevolucionesService {
 
         const disposicion = detail.disposicion;
         const nextCustodyState = CUSTODIA_STATE_BY_DISPOSICION[disposicion];
-        const nextAssetState = ACTIVO_STATE_BY_DISPOSICION[disposicion];
+        const nextAssetState = ARTICULO_STATE_BY_DISPOSICION[disposicion];
         const movementType = MOVIMIENTO_TYPE_BY_DISPOSICION[disposicion];
         const returnsToStock = disposicion === 'devuelto' || disposicion === 'mantencion';
 
@@ -851,7 +747,7 @@ class DevolucionesService {
 
         if (returnsToStock) {
           await client.query(
-            `UPDATE activo
+            `UPDATE articulo
              SET estado = $1,
                  bodega_actual_id = $2,
                  proyecto_actual_id = NULL
@@ -860,7 +756,7 @@ class DevolucionesService {
           );
         } else {
           await client.query(
-            `UPDATE activo
+            `UPDATE articulo
              SET estado = $1,
                  bodega_actual_id = NULL,
                  proyecto_actual_id = NULL
@@ -871,7 +767,7 @@ class DevolucionesService {
 
         await client.query(
           `INSERT INTO movimiento_activo (
-             activo_id,
+             articulo_id,
              tipo,
              proyecto_origen_id,
              bodega_destino_id,
