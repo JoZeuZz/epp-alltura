@@ -105,7 +105,7 @@ class EntregasService {
     }
 
     const normalized = [];
-    const selectedAssetIds = new Set();
+    const selectedArticuloIds = new Set();
 
     for (const detail of detalles) {
       const articuloId = String(detail?.articulo_id || '').trim();
@@ -113,119 +113,68 @@ class EntregasService {
         throw buildError('Artículo inválido en detalle de entrega', 400, 'DETAIL_ARTICLE_INVALID');
       }
 
-      const articuloResult = await client.query(
-        `SELECT id, nombre, tracking_mode
+      if (selectedArticuloIds.has(articuloId)) {
+        throw buildError(
+          'No puedes repetir el mismo artículo en más de un ítem',
+          409,
+          'DUPLICATED_ARTICULO'
+        );
+      }
+      selectedArticuloIds.add(articuloId);
+
+      const assetResult = await client.query(
+        `SELECT id, estado, bodega_actual_id
          FROM articulo
          WHERE id = $1
-         LIMIT 1`,
+         FOR UPDATE`,
         [articuloId]
       );
 
-      if (!articuloResult.rows.length) {
-        throw buildError('Artículo no encontrado en detalle de entrega', 400, 'DETAIL_ARTICLE_NOT_FOUND');
+      if (!assetResult.rows.length) {
+        throw buildError('Artículo no encontrado en detalle de entrega', 404, 'ASSET_NOT_FOUND');
       }
 
-      const articulo = articuloResult.rows[0];
-      const assetIds = Array.isArray(detail?.activo_ids)
-        ? detail.activo_ids.map((item) => String(item || '').trim()).filter(Boolean)
-        : [];
+      const asset = assetResult.rows[0];
 
-      if (articulo.tracking_mode !== 'serial') {
+      if (asset.estado !== 'en_stock') {
         throw buildError(
-          `El artículo ${articulo.nombre} no cumple política V2: solo serializados`,
-          400,
-          'NON_SERIAL_NOT_SUPPORTED'
+          `El artículo ${articuloId} no está disponible para entregar`,
+          409,
+          'ASSET_NOT_AVAILABLE'
         );
       }
 
-      if (!assetIds.length) {
+      if (asset.bodega_actual_id !== ubicacionOrigenId) {
         throw buildError(
-          `El artículo ${articulo.nombre} requiere al menos un activo serializado`,
-          400,
-          'SERIAL_ASSETS_REQUIRED'
+          `El artículo ${articuloId} no se encuentra en la bodega de origen`,
+          409,
+          'ASSET_WRONG_LOCATION'
         );
       }
 
-      for (const assetId of assetIds) {
-        if (!isUuid(assetId)) {
-          throw buildError('Activo inválido en detalle de entrega', 400, 'DETAIL_ASSET_INVALID');
-        }
+      const custodyResult = await client.query(
+        `SELECT id
+         FROM custodia_activo
+         WHERE articulo_id = $1
+           AND estado = 'activa'
+         LIMIT 1
+         FOR UPDATE`,
+        [articuloId]
+      );
 
-        if (selectedAssetIds.has(assetId)) {
-          throw buildError(
-            'No puedes repetir el mismo activo en más de un ítem',
-            409,
-            'DUPLICATED_ASSET'
-          );
-        }
-
-        selectedAssetIds.add(assetId);
-
-        const assetResult = await client.query(
-          `SELECT id, articulo_id, estado, bodega_actual_id
-           FROM activo
-           WHERE id = $1
-           FOR UPDATE`,
-          [assetId]
+      if (custodyResult.rows.length) {
+        throw buildError(
+          `El artículo ${articuloId} ya tiene custodia activa`,
+          409,
+          'ACTIVE_CUSTODY_EXISTS'
         );
-
-        if (!assetResult.rows.length) {
-          throw buildError('Activo no encontrado en detalle de entrega', 404, 'ASSET_NOT_FOUND');
-        }
-
-        const asset = assetResult.rows[0];
-        if (asset.articulo_id !== articulo.id) {
-          throw buildError(
-            `El activo ${assetId} no corresponde al artículo ${articulo.nombre}`,
-            409,
-            'ASSET_ARTICLE_MISMATCH'
-          );
-        }
-
-        if (asset.estado !== 'en_stock') {
-          throw buildError(
-            `El activo ${assetId} no está disponible para entregar`,
-            409,
-            'ASSET_NOT_AVAILABLE'
-          );
-        }
-
-        if (asset.bodega_actual_id !== ubicacionOrigenId) {
-          throw buildError(
-            `El activo ${assetId} no se encuentra en la bodega de origen`,
-            409,
-            'ASSET_WRONG_LOCATION'
-          );
-        }
-
-        const custodyResult = await client.query(
-          `SELECT id
-           FROM custodia_activo
-           WHERE activo_id = $1
-             AND estado = 'activa'
-           LIMIT 1
-           FOR UPDATE`,
-          [assetId]
-        );
-
-        if (custodyResult.rows.length) {
-          throw buildError(
-            `El activo ${assetId} ya tiene custodia activa`,
-            409,
-            'ACTIVE_CUSTODY_EXISTS'
-          );
-        }
-
-        normalized.push({
-          articulo_id: articulo.id,
-          activo_id: asset.id,
-          lote_id: null,
-          cantidad: 1,
-          tipo_item_entrega: 'retornable',
-          condicion_salida: detail?.condicion_salida || 'ok',
-          notas: detail?.notas || null,
-        });
       }
+
+      normalized.push({
+        articulo_id: articuloId,
+        condicion_salida: detail?.condicion_salida || 'ok',
+        notas: detail?.notas || null,
+      });
     }
 
     return normalized;
@@ -278,17 +227,15 @@ class EntregasService {
          ed.articulo_id,
          a.nombre AS articulo_nombre,
          a.grupo_principal AS articulo_tipo,
-         ed.activo_id,
-         ac.codigo AS activo_codigo,
-         COALESCE(ac.foto_url, a.foto_url) AS foto_url,
-         ed.lote_id,
-         ed.cantidad,
-         ed.tipo_item_entrega,
+         a.nro_serie,
+         a.codigo,
+         a.valor,
+         a.foto_url,
+         a.estado AS articulo_estado,
          ed.condicion_salida,
          ed.notas
        FROM entrega_detalle ed
-       INNER JOIN articulo a ON a.id = ed.articulo_id
-       LEFT JOIN activo ac ON ac.id = ed.activo_id
+       JOIN articulo a ON a.id = ed.articulo_id
        WHERE ed.entrega_id = $1
        ORDER BY ed.id ASC`,
       [id]
@@ -347,27 +294,9 @@ class EntregasService {
 
       for (const detail of normalizedDetails) {
         await client.query(
-          `INSERT INTO entrega_detalle (
-             entrega_id,
-             articulo_id,
-             activo_id,
-             lote_id,
-             cantidad,
-             tipo_item_entrega,
-             condicion_salida,
-             notas
-           )
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [
-            entregaId,
-            detail.articulo_id,
-            detail.activo_id,
-            detail.lote_id,
-            detail.cantidad,
-            detail.tipo_item_entrega,
-            detail.condicion_salida,
-            detail.notas,
-          ]
+          `INSERT INTO entrega_detalle (entrega_id, articulo_id, condicion_salida, notas)
+           VALUES ($1, $2, $3, $4)`,
+          [entregaId, detail.articulo_id, detail.condicion_salida, detail.notas || null]
         );
       }
 
@@ -461,17 +390,15 @@ class EntregasService {
          ed.articulo_id,
          a.nombre AS articulo_nombre,
          a.grupo_principal AS articulo_tipo,
-         ed.activo_id,
-         ac.codigo AS activo_codigo,
-         COALESCE(ac.foto_url, a.foto_url) AS foto_url,
-         ed.lote_id,
-         ed.cantidad,
-         ed.tipo_item_entrega,
+         a.nro_serie,
+         a.codigo,
+         a.valor,
+         a.foto_url,
+         a.estado AS articulo_estado,
          ed.condicion_salida,
          ed.notas
        FROM entrega_detalle ed
-       INNER JOIN articulo a ON a.id = ed.articulo_id
-       LEFT JOIN activo ac ON ac.id = ed.activo_id
+       JOIN articulo a ON a.id = ed.articulo_id
        WHERE ed.entrega_id = ANY($1::uuid[])
        ORDER BY ed.entrega_id ASC, ed.id ASC`,
       [ids]
@@ -544,7 +471,7 @@ class EntregasService {
       }
 
       const detailResult = await client.query(
-        `SELECT id, activo_id, notas
+        `SELECT id, articulo_id, notas
          FROM entrega_detalle
          WHERE entrega_id = $1
          ORDER BY id ASC
@@ -557,31 +484,23 @@ class EntregasService {
       }
 
       for (const detail of detailResult.rows) {
-        if (!detail.activo_id) {
-          throw buildError(
-            'No se puede confirmar una entrega sin activos serializados',
-            409,
-            'NON_SERIAL_CONFIRM_NOT_SUPPORTED'
-          );
-        }
-
         const assetResult = await client.query(
           `SELECT id, estado, bodega_actual_id
-           FROM activo
+           FROM articulo
            WHERE id = $1
            FOR UPDATE`,
-          [detail.activo_id]
+          [detail.articulo_id]
         );
 
         if (!assetResult.rows.length) {
-          throw buildError('Activo no encontrado al confirmar la entrega', 404, 'ASSET_NOT_FOUND');
+          throw buildError('Artículo no encontrado al confirmar la entrega', 404, 'ASSET_NOT_FOUND');
         }
 
         const asset = assetResult.rows[0];
 
         if (asset.estado !== 'en_stock') {
           throw buildError(
-            `El activo ${asset.id} ya no está disponible para confirmar`,
+            `El artículo ${asset.id} ya no está disponible para confirmar`,
             409,
             'ASSET_NOT_AVAILABLE'
           );
@@ -589,7 +508,7 @@ class EntregasService {
 
         if (asset.bodega_actual_id !== entrega.bodega_origen_id) {
           throw buildError(
-            `El activo ${asset.id} ya no se encuentra en la bodega de origen`,
+            `El artículo ${asset.id} ya no se encuentra en la bodega de origen`,
             409,
             'ASSET_WRONG_LOCATION'
           );
@@ -598,7 +517,7 @@ class EntregasService {
         const custodyResult = await client.query(
           `SELECT id
            FROM custodia_activo
-           WHERE activo_id = $1
+           WHERE articulo_id = $1
              AND estado = 'activa'
            LIMIT 1
            FOR UPDATE`,
@@ -607,14 +526,14 @@ class EntregasService {
 
         if (custodyResult.rows.length) {
           throw buildError(
-            `El activo ${asset.id} ya tiene custodia activa`,
+            `El artículo ${asset.id} ya tiene custodia activa`,
             409,
             'ACTIVE_CUSTODY_EXISTS'
           );
         }
 
         await client.query(
-          `UPDATE activo
+          `UPDATE articulo
            SET estado = 'asignado',
                bodega_actual_id = NULL,
                proyecto_actual_id = $1
@@ -624,7 +543,7 @@ class EntregasService {
 
         await client.query(
           `INSERT INTO custodia_activo (
-             activo_id,
+             articulo_id,
              trabajador_id,
              proyecto_id,
              entrega_id,
@@ -642,7 +561,7 @@ class EntregasService {
 
         await client.query(
           `INSERT INTO movimiento_activo (
-             activo_id,
+             articulo_id,
              tipo,
              bodega_origen_id,
              proyecto_destino_id,
