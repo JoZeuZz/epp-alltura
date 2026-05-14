@@ -571,40 +571,6 @@ class FirmasService {
 
   // ─── QR / Token para DEVOLUCIONES ─────────────────────────────────────────
 
-  static async ensureReturnTokenTable(client) {
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS firma_token_devolucion (
-        id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        devolucion_id         UUID NOT NULL REFERENCES devolucion(id) ON DELETE CASCADE,
-        trabajador_id         UUID NOT NULL REFERENCES trabajador(id),
-        creado_por_usuario_id UUID NOT NULL REFERENCES usuario(id),
-        token_hash            TEXT NOT NULL,
-        token_publico         TEXT NOT NULL,
-        expira_en             TIMESTAMPTZ NOT NULL,
-        usado_en              TIMESTAMPTZ,
-        usado_ip              TEXT,
-        usado_user_agent      TEXT,
-        creado_en             TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
-    `);
-    await client.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS uidx_firma_token_devolucion_hash
-        ON firma_token_devolucion (token_hash)
-    `);
-    await client.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS uidx_firma_token_devolucion_publico
-        ON firma_token_devolucion (token_publico)
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_firma_token_devolucion_devolucion
-        ON firma_token_devolucion (devolucion_id)
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_firma_token_devolucion_expira
-        ON firma_token_devolucion (expira_en)
-    `);
-  }
-
   static async generateReturnToken(devolucionId, creadoPorUsuarioId, payload = {}) {
     const expiryMinutes = Math.min(Math.max(Number(payload.expira_minutos || 60), 5), 24 * 60);
 
@@ -614,8 +580,6 @@ class FirmasService {
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
-
-      await this.ensureReturnTokenTable(client);
 
       const devolucionResult = await client.query(
         `SELECT * FROM devolucion WHERE id = $1 FOR UPDATE`,
@@ -741,13 +705,6 @@ class FirmasService {
     }
 
     const tokenHash = hashValue(token);
-    const client = await db.pool.connect();
-    try {
-      await this.ensureReturnTokenTable(client);
-      await client.query('COMMIT').catch(() => {});
-    } finally {
-      client.release();
-    }
 
     const { rows } = await db.query(
       `SELECT
@@ -818,8 +775,6 @@ class FirmasService {
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
-
-      await this.ensureReturnTokenTable(client);
 
       const tokenResult = await client.query(
         `SELECT ftd.*, d.estado AS devolucion_estado, d.trabajador_id AS devolucion_trabajador_id
