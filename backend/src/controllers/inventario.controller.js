@@ -77,8 +77,10 @@ class InventarioController {
   static async exportInventarioPdf(req, res, next) {
     try {
       const { categoria } = req.query;
-      // categoria maps to articulo.tipo
-      const activos = await InventarioService.getActivos({ tipo: categoria, limit: 500 });
+      // Normalize plural query param to singular articulo.tipo values
+      const TIPO_MAP = { herramientas: 'herramienta', equipos: 'equipo', epp: 'epp' };
+      const tipoFiltro = TIPO_MAP[categoria] ?? categoria;
+      const activos = await InventarioService.getActivos({ tipo: tipoFiltro, limit: 500 });
       const timestamp = new Date().toISOString().slice(0, 10);
       const label = { epp: 'EPP', herramientas: 'Herramientas', equipos: 'Equipos' }[categoria] ?? categoria;
       const filename = `inventario-${categoria}-${timestamp}.pdf`;

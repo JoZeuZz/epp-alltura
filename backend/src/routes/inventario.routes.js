@@ -129,7 +129,7 @@ router.get(
 
 // ── Write routes ───────────────────────────────────────────────
 
-router.post(
+router.patch(
   '/activos/:id/reubicar',
   authMiddleware,
   checkRole(['admin']),
