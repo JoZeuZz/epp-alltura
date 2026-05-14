@@ -1,173 +1,120 @@
+'use strict';
+
 const express = require('express');
 const Joi = require('joi');
 const ArticulosController = require('../controllers/articulos.controller');
 const { authMiddleware } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roles');
-const { imageUpload, validateImageMagic, buildError, parseMultipartPayload } = require('../middleware/upload');
-
-const {
-  SUBCLASIFICACIONES_POR_GRUPO,
-  normalizeGrupoPrincipal,
-  normalizeSubclasificacion,
-} = require('../lib/articuloValidation');
+const { imageUpload, validateImageMagic, parseMultipartPayload } = require('../middleware/upload');
 
 const router = express.Router();
 
-const validateBody = (schema) => {
-  return async (req, res, next) => {
-    try {
-      req.body = await schema.validateAsync(req.body, { abortEarly: false });
-      return next();
-    } catch (error) {
-      return next(error);
-    }
-  };
+const validateBody = (schema) => async (req, _res, next) => {
+  try {
+    req.body = await schema.validateAsync(req.body, { abortEarly: false });
+    return next();
+  } catch (error) {
+    return next(error);
+  }
 };
 
-const validateGrupoSubclasificacionCreate = (value, helpers) => {
-  const grupoPrincipal = normalizeGrupoPrincipal(value.grupo_principal);
-  const subclasificacion = normalizeSubclasificacion(value.subclasificacion);
-  const subclasificacionesPermitidas = SUBCLASIFICACIONES_POR_GRUPO[grupoPrincipal];
-
-  if (!subclasificacionesPermitidas || !subclasificacionesPermitidas.has(subclasificacion)) {
-    return helpers.error('any.custom', {
-      message: `La subclasificación "${subclasificacion}" no es válida para grupo_principal "${grupoPrincipal}"`,
-    });
+const validateQuery = (schema) => async (req, _res, next) => {
+  try {
+    req.query = await schema.validateAsync(req.query, { abortEarly: false, allowUnknown: true });
+    return next();
+  } catch (error) {
+    return next(error);
   }
-
-  return {
-    ...value,
-    grupo_principal: grupoPrincipal,
-    subclasificacion,
-  };
 };
 
-const validateGrupoSubclasificacionUpdate = (value, helpers) => {
-  const hasGrupo = Object.prototype.hasOwnProperty.call(value, 'grupo_principal');
-  const hasSubclasificacion = Object.prototype.hasOwnProperty.call(value, 'subclasificacion');
+const TIPOS = ['epp', 'herramienta', 'equipo'];
+const ESPECIALIDADES = ['oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida'];
+const ESTADOS = ['en_stock', 'asignado', 'mantencion', 'dado_de_baja', 'perdido'];
+const ESTADOS_DIRECTOS = ['en_stock', 'mantencion', 'dado_de_baja', 'perdido'];
 
-  if (hasGrupo && !hasSubclasificacion) {
-    return helpers.error('any.custom', {
-      message: 'Si actualiza grupo_principal debe enviar subclasificacion compatible',
-    });
-  }
+const createSchema = Joi.object({
+  tipo:               Joi.string().valid(...TIPOS).required(),
+  nombre:             Joi.string().min(2).max(150).required(),
+  marca:              Joi.string().max(120).optional(),
+  modelo:             Joi.string().max(120).optional(),
+  descripcion:        Joi.string().optional(),
+  nro_serie:          Joi.string().min(3).max(120).required(),
+  valor:              Joi.number().integer().min(0).optional().default(0),
+  bodega_id:          Joi.string().uuid().required(),
+  especialidades:     Joi.array().items(Joi.string().valid(...ESPECIALIDADES)).optional(),
+  fecha_vencimiento:  Joi.string().isoDate().optional(),
+  foto_url:           Joi.string().uri().optional(),
+});
 
-  const grupoPrincipal = hasGrupo ? normalizeGrupoPrincipal(value.grupo_principal) : undefined;
-  const subclasificacion = hasSubclasificacion
-    ? normalizeSubclasificacion(value.subclasificacion)
-    : undefined;
+const updateSchema = Joi.object({
+  nombre:             Joi.string().min(2).max(150).optional(),
+  marca:              Joi.string().max(120).optional(),
+  modelo:             Joi.string().max(120).optional(),
+  descripcion:        Joi.string().optional(),
+  nro_serie:          Joi.string().min(3).max(120).optional(),
+  valor:              Joi.number().integer().min(0).optional(),
+  especialidades:     Joi.array().items(Joi.string().valid(...ESPECIALIDADES)).optional(),
+  fecha_vencimiento:  Joi.string().isoDate().optional().allow(null, ''),
+  foto_url:           Joi.string().uri().optional(),
+}).min(1);
 
-  if (hasGrupo && hasSubclasificacion) {
-    const subclasificacionesPermitidas = SUBCLASIFICACIONES_POR_GRUPO[grupoPrincipal];
-    if (!subclasificacionesPermitidas || !subclasificacionesPermitidas.has(subclasificacion)) {
-      return helpers.error('any.custom', {
-        message: `La subclasificación "${subclasificacion}" no es válida para grupo_principal "${grupoPrincipal}"`,
-      });
-    }
-  }
+const cambiarEstadoSchema = Joi.object({
+  nuevo_estado:      Joi.string().valid(...ESTADOS_DIRECTOS).required(),
+  motivo:            Joi.string().min(3).optional(),
+  bodega_destino_id: Joi.string().uuid().optional(),
+});
 
-  return {
-    ...value,
-    grupo_principal: hasGrupo ? grupoPrincipal : value.grupo_principal,
-    subclasificacion: hasSubclasificacion ? subclasificacion : value.subclasificacion,
-  };
-};
+const listQuerySchema = Joi.object({
+  tipo:        Joi.string().valid(...TIPOS).optional(),
+  estado:      Joi.string().valid(...ESTADOS).optional(),
+  bodega_id:   Joi.string().uuid().optional(),
+  proyecto_id: Joi.string().uuid().optional(),
+  especialidad: Joi.string().valid(...ESPECIALIDADES).optional(),
+  search:      Joi.string().optional(),
+  limit:       Joi.number().integer().min(1).max(200).optional(),
+  offset:      Joi.number().integer().min(0).optional(),
+}).options({ allowUnknown: true });
 
-const especialidadSchema = Joi.string()
-  .trim()
-  .lowercase()
-  .valid('oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida');
+router.use(authMiddleware);
 
-const articuloCreateSchema = Joi.object({
-  grupo_principal: Joi.string().trim().lowercase().valid('epp', 'equipo', 'herramienta').required(),
-  subclasificacion: Joi.string()
-    .trim()
-    .lowercase()
-    .valid('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria')
-    .required(),
-  especialidades: Joi.array().items(especialidadSchema).unique().default([]),
-  nombre: Joi.string().trim().min(2).max(150).required(),
-  marca: Joi.string().trim().min(1).max(120).required(),
-  modelo: Joi.string().trim().min(1).max(120).required(),
-  nivel_control: Joi.string().valid('alto', 'medio', 'bajo', 'fuera_scope').required(),
-  requiere_vencimiento: Joi.boolean().default(false),
-  unidad_medida: Joi.string().trim().max(50).required(),
-  foto_url: Joi.string().trim().max(2048).allow('', null),
-  estado: Joi.string().valid('activo', 'inactivo').default('activo'),
-  tipo: Joi.any().forbidden().messages({ 'any.unknown': 'Use grupo_principal en lugar de tipo' }),
-  tracking_mode: Joi.any().forbidden().messages({
-    'any.unknown': 'tracking_mode ya no se recibe en el payload de artículo',
-  }),
-  retorno_mode: Joi.any().forbidden().messages({
-    'any.unknown': 'retorno_mode ya no se recibe en el payload de artículo',
-  }),
-  categoria: Joi.any().forbidden().messages({
-    'any.unknown': 'Use subclasificacion en lugar de categoria',
-  }),
-})
-  .custom(validateGrupoSubclasificacionCreate, 'group-subclassification validation')
-  .messages({
-    'any.custom': '{{#message}}',
-  });
+// List articles
+router.get('/',
+  validateQuery(listQuerySchema),
+  ArticulosController.list
+);
 
-const articuloUpdateSchema = Joi.object({
-  grupo_principal: Joi.string().trim().lowercase().valid('epp', 'equipo', 'herramienta'),
-  subclasificacion: Joi.string()
-    .trim()
-    .lowercase()
-    .valid('epp', 'medicion_ensayos', 'manual', 'electrica_cable', 'inalambrica_bateria'),
-  especialidades: Joi.array().items(especialidadSchema).unique(),
-  nombre: Joi.string().trim().min(2).max(150),
-  marca: Joi.string().trim().min(1).max(120),
-  modelo: Joi.string().trim().min(1).max(120),
-  nivel_control: Joi.string().valid('alto', 'medio', 'bajo', 'fuera_scope'),
-  requiere_vencimiento: Joi.boolean(),
-  unidad_medida: Joi.string().trim().max(50),
-  foto_url: Joi.string().trim().max(2048).allow('', null),
-  estado: Joi.string().valid('activo', 'inactivo'),
-  tipo: Joi.any().forbidden().messages({ 'any.unknown': 'Use grupo_principal en lugar de tipo' }),
-  tracking_mode: Joi.any().forbidden().messages({
-    'any.unknown': 'tracking_mode ya no se recibe en el payload de artículo',
-  }),
-  retorno_mode: Joi.any().forbidden().messages({
-    'any.unknown': 'retorno_mode ya no se recibe en el payload de artículo',
-  }),
-  categoria: Joi.any().forbidden().messages({
-    'any.unknown': 'Use subclasificacion en lugar de categoria',
-  }),
-})
-  .min(1)
-  .custom(validateGrupoSubclasificacionUpdate, 'group-subclassification validation')
-  .messages({
-    'any.custom': '{{#message}}',
-  });
+// Get single article
+router.get('/:id', ArticulosController.getById);
 
-router.get('/', authMiddleware, ArticulosController.list);
-router.get('/:id', authMiddleware, ArticulosController.getById);
-router.post(
-  '/',
-  authMiddleware,
+// Create article (admin + supervisor)
+router.post('/',
   checkRole(['admin', 'supervisor']),
   imageUpload.single('foto'),
-  validateImageMagic,
   parseMultipartPayload,
-  validateBody(articuloCreateSchema),
+  validateBody(createSchema),
+  validateImageMagic,
   ArticulosController.create
 );
-router.put(
-  '/:id',
-  authMiddleware,
+
+// Update article (admin + supervisor)
+router.put('/:id',
   checkRole(['admin', 'supervisor']),
   imageUpload.single('foto'),
-  validateImageMagic,
   parseMultipartPayload,
-  validateBody(articuloUpdateSchema),
+  validateBody(updateSchema),
+  validateImageMagic,
   ArticulosController.update
 );
-router.delete('/:id', authMiddleware, checkRole(['admin']), ArticulosController.remove);
-router.delete(
-  '/:id/permanent',
-  authMiddleware,
+
+// Change state directly (admin + supervisor)
+router.post('/:id/estado',
+  checkRole(['admin', 'supervisor']),
+  validateBody(cambiarEstadoSchema),
+  ArticulosController.cambiarEstado
+);
+
+// Permanent delete (admin only)
+router.delete('/:id',
   checkRole(['admin']),
   ArticulosController.removePermanent
 );
