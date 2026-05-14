@@ -218,7 +218,6 @@ ALTER TABLE activo ADD COLUMN IF NOT EXISTS foto_url TEXT;
 ALTER TABLE articulo ADD COLUMN IF NOT EXISTS foto_url TEXT;
 ALTER TABLE articulo ADD COLUMN IF NOT EXISTS grupo_principal VARCHAR(20) DEFAULT 'herramienta';
 ALTER TABLE articulo ADD COLUMN IF NOT EXISTS subclasificacion VARCHAR(120) DEFAULT 'manual';
-ALTER TABLE custodia_activo ADD COLUMN IF NOT EXISTS fecha_devolucion_esperada TIMESTAMPTZ;
 
 CREATE TABLE IF NOT EXISTS stock (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -377,6 +376,7 @@ ALTER TABLE entrega
   ADD COLUMN IF NOT EXISTS devolucion_reversa_id UUID REFERENCES devolucion(id) ON DELETE SET NULL;
 ALTER TABLE entrega ADD COLUMN IF NOT EXISTS evidencia_foto_url TEXT;
 ALTER TABLE devolucion ADD COLUMN IF NOT EXISTS evidencia_foto_url TEXT;
+ALTER TABLE custodia_activo ADD COLUMN IF NOT EXISTS fecha_devolucion_esperada TIMESTAMPTZ;
 
 -- ============================================================
 -- EGRESOS
