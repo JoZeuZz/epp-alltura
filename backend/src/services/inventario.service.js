@@ -252,11 +252,12 @@ class InventarioService {
       SELECT
         ca.id, ca.trabajador_id, ca.entrega_id,
         ca.proyecto_id, ca.desde_en, ca.hasta_en, ca.estado,
-        t.nombre AS trabajador_nombre,
+        (p.nombres || ' ' || p.apellidos) AS trabajador_nombre,
         proj.nombre AS custodia_proyecto_nombre,
         EXTRACT(DAY FROM NOW() - ca.desde_en)::int AS dias_en_custodia
       FROM custodia_activo ca
       LEFT JOIN trabajador t ON t.id = ca.trabajador_id
+      LEFT JOIN persona p ON p.id = t.persona_id
       LEFT JOIN proyectos proj ON proj.id = ca.proyecto_id
       WHERE ca.articulo_id = $1 AND ca.estado = 'activa'
       LIMIT 1
@@ -298,7 +299,7 @@ class InventarioService {
       SELECT
         ca.id, ca.trabajador_id, ca.entrega_id,
         ca.proyecto_id, ca.desde_en, ca.hasta_en, ca.estado,
-        t.nombre AS trabajador_nombre,
+        (p.nombres || ' ' || p.apellidos) AS trabajador_nombre,
         proj.nombre AS custodia_proyecto_nombre,
         CASE
           WHEN ca.hasta_en IS NOT NULL THEN EXTRACT(DAY FROM ca.hasta_en - ca.desde_en)::int
@@ -306,6 +307,7 @@ class InventarioService {
         END AS dias_en_custodia
       FROM custodia_activo ca
       LEFT JOIN trabajador t ON t.id = ca.trabajador_id
+      LEFT JOIN persona p ON p.id = t.persona_id
       LEFT JOIN proyectos proj ON proj.id = ca.proyecto_id
       WHERE ca.articulo_id = $1
       ORDER BY ca.desde_en ASC
