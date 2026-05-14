@@ -1,4 +1,6 @@
-const ArticulosService = require('../services/articulos.service');
+'use strict';
+
+const { ArticulosService } = require('../services/articulos.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
 
@@ -25,7 +27,7 @@ class ArticulosController {
 
   static async create(req, res, next) {
     try {
-      const data = await ArticulosService.create(req.body, req.file);
+      const data = await ArticulosService.create(req.body, req.user.id, req.file || null);
       return sendSuccess(res, { status: 201, message: 'Artículo creado correctamente', data });
     } catch (error) {
       logger.error('Error creating articulo:', error);
@@ -35,7 +37,7 @@ class ArticulosController {
 
   static async update(req, res, next) {
     try {
-      const data = await ArticulosService.update(req.params.id, req.body, req.file);
+      const data = await ArticulosService.update(req.params.id, req.body, req.user.id, req.file || null);
       return sendSuccess(res, { message: 'Artículo actualizado correctamente', data });
     } catch (error) {
       logger.error('Error updating articulo:', error);
@@ -43,22 +45,22 @@ class ArticulosController {
     }
   }
 
-  static async remove(req, res, next) {
+  static async removePermanent(req, res, next) {
     try {
-      const data = await ArticulosService.remove(req.params.id);
-      return sendSuccess(res, { message: 'Artículo desactivado correctamente', data });
+      await ArticulosService.deletePermanent(req.params.id, req.user.id);
+      return sendSuccess(res, { message: 'Artículo eliminado permanentemente' });
     } catch (error) {
-      logger.error('Error deleting articulo:', error);
+      logger.error('Error deleting articulo permanently:', error);
       return next(error);
     }
   }
 
-  static async removePermanent(req, res, next) {
+  static async cambiarEstado(req, res, next) {
     try {
-      const data = await ArticulosService.removePermanent(req.params.id);
-      return sendSuccess(res, { message: 'Artículo eliminado permanentemente', data });
+      const data = await ArticulosService.cambiarEstado(req.params.id, req.body, req.user.id);
+      return sendSuccess(res, { message: 'Estado del artículo actualizado', data });
     } catch (error) {
-      logger.error('Error deleting articulo permanently:', error);
+      logger.error('Error changing articulo state:', error);
       return next(error);
     }
   }
