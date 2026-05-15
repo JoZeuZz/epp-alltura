@@ -14,6 +14,17 @@
 - Supervisor: dashboard, operaciones.
 - Módulo admin inventario: rutas activas epp/equipos/herramientas (con `ArticuloCreateModal`). Eliminadas: stock, ingresos, egresos, activos (ruta independiente).
 
+## Emoji removal (completed 2026-05-15)
+All emoji characters removed from frontend codebase (commit 18f3274):
+- `notificationItemCompat.ts` — LEGACY_NOTIFICATION_ICONS all `''`, fallback `''`
+- `NotificationsPage.tsx` — trash button cleaned
+- `ProfilePage.tsx` — stop icon toast cleaned
+- `UnauthorizedPage.tsx` — SVG lock icon (was 🚫), plain text button (was 🏠)
+- `inventoryAssetScope.constants.ts` — icon fields `''` (EPP/herramientas/equipos)
+- `AdminInventoryScopedAssetCards.tsx` — SVG box icon replaces 📦 fallback
+- `ActivoProfileModal.tsx` — MOV_ICONS uses Unicode arrows (↓↑→←≡×↺); 📍 → SVG pin
+- Tests updated: `notification-item-compat.test.ts` assertions use `''`
+
 ## Calidad
 - CI con lint + guardias + tests + build frontend.
 - Integration DB existe pero no bloquea PR (manual).

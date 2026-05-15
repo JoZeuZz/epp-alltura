@@ -22,11 +22,12 @@ const validateBody = (schema) => async (req, _res, next) => {
 
 const validateQuery = (schema) => async (req, _res, next) => {
   try {
-    req.query = await schema.validateAsync(req.query, {
+    const validated = await schema.validateAsync(req.query, {
       abortEarly: false,
       stripUnknown: true,
       convert: true,
     });
+    Object.defineProperty(req, 'query', { value: validated, writable: true, configurable: true });
     return next();
   } catch (error) {
     return next(error);
