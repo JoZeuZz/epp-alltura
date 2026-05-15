@@ -40,8 +40,6 @@ const uuid = Joi.string()
 
 const entregaDetailSchema = Joi.object({
   articulo_id: uuid.required(),
-  activo_ids: Joi.array().items(uuid).min(1).required(),
-  cantidad: Joi.number().integer().positive().optional(),
   condicion_salida: Joi.string().valid('ok', 'usado', 'danado').default('ok'),
   notas: Joi.string().trim().max(1000).allow('', null),
 });

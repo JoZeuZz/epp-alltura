@@ -22,7 +22,10 @@ shell/
 
 La capa shell es el paquete publicado `@jozeuZz/alltura-ui`. Version actual: **1.1.1**.
 - `src/layouts/AppLayout.tsx` y `src/components/NotificationBell.tsx` en herramientas son re-exportadores delgados. Patrón correcto y funcionando.
-- Instalación local dev: `npm install file:../../alltura-ui` (no requiere token de registro).
+- **Instalación en `package.json`:** `"@jozeuZz/alltura-ui": "1.1.1"` desde GitHub Packages — NUNCA `file:../../alltura-ui` en código committeado.
+  - `file:` rompe Docker build en Coolify (el path `../../alltura-ui` no existe en el build context).
+  - Para hot-reload local sobre alltura-ui: `npm link` temporal, sin commitear.
+  - Tests siguen funcionando vía alias en `vite.config.ts → test.alias`.
 - Registry en `.npmrc`: `@jozeuZz:registry=https://npm.pkg.github.com` + `NODE_AUTH_TOKEN`.
 
 ### Exports públicos del paquete (src/index.ts)

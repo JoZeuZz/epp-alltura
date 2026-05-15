@@ -220,3 +220,13 @@ En el repo aparece el ajuste de instalar `devDependencies` durante el build (par
 
 Si tu build falla por “vite not found” o dependencias faltantes en producción, este patrón es el que lo evita.
 
+
+### CRÍTICO — dependencias `file:` en Docker (incluyendo `@jozeuZz/alltura-ui`)
+
+**Nunca usar `"file:../../ruta"` en `package.json` para ninguna dependencia en código committeado.**
+
+- El build context de Docker para `frontend` es `./frontend` solamente.
+- Rutas como `../../alltura-ui` no existen dentro del contenedor → `npm ci` falla con `EUSAGE: no package-lock.json`.
+- Solución aplicada (2026-05-15, commit `74d3046`): `"@jozeuZz/alltura-ui": "1.1.1"` desde GitHub Packages.
+- El `package-lock.json` debe tener `"resolved": "https://npm.pkg.github.com/..."` — nunca `"link": true` ni `"resolved": "../../..."`.
+- Para regenerar lockfile limpio tras cambiar de `file:` a registro: eliminar symlink `node_modules/@jozeuZz`, luego `NODE_AUTH_TOKEN=<token> npm install @jozeuZz/alltura-ui@1.1.1 --save-exact --package-lock-only`.

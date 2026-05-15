@@ -56,7 +56,11 @@ Tokens activos: `bg-surface`, `bg-surface-overlay`, `bg-surface-muted`, `text-co
 
 ## Consumo en herramientas/frontend
 
-- Instalado vía `file:../../alltura-ui` (dev local — no requiere token)
+- **`package.json` SIEMPRE debe usar versión de registro:** `"@jozeuZz/alltura-ui": "1.1.1"` (nunca `file:../../alltura-ui` en código committeado)
+  - Razón: `file:` rompe el build Docker de Coolify — la ruta `../../alltura-ui` no existe dentro del build context del contenedor
+  - Fix aplicado 2026-05-15: commit `74d3046` en `epp/main`
+- **Para tests:** `vite.config.ts → test.alias` apunta a `../../alltura-ui/src/index.ts` → funciona aunque `package.json` use registro
+- **Para hot-reload local sobre alltura-ui:** usar `npm link` temporalmente, NUNCA commitear `file:` en `package.json`
 - `tailwind.config.js` incluye `./node_modules/@jozeuZz/alltura-ui/src/**/*.{js,jsx,ts,tsx}` en `content`
 - `NotificationBell` se pasa con `variant="dark"` en `router/index.tsx:286`
 - `index.css` importa Plus Jakarta Sans desde Google Fonts (pesos 400;500;600;700)

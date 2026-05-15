@@ -92,6 +92,13 @@ Estado: borrador → [firma obligatoria] → confirmada | anulada
 - `/firma/:token` — sin auth; trabajador firma y acepta entrega
 - `firma_token_devolucion` — tabla en schema (no creada en runtime)
 
+## Rutas Inventario Dashboard (agregadas 2026-05-15)
+- `GET /api/inventario/stock` — admin + supervisor; devuelve `[{ articulo_nombre, ubicacion_nombre, cantidad_disponible, cantidad_reservada }]`; GROUP BY articulo.nombre + bodegas.nombre; HAVING al menos 1 en en_stock o asignado
+- `GET /api/inventario/movimientos-activo?limit=N` — admin + supervisor; devuelve `[{ id, fecha_movimiento, tipo, activo_codigo, articulo_nombre, ubicacion_destino_nombre }]`; JOIN articulo + bodegas/proyectos; ORDER BY fecha DESC
+- Tipos de movimiento actuales en movimiento_activo: `entrada` | `entrega` | `devolucion` | `reubicacion` | `mantencion` | `ajuste` | `baja`
+- AdminDashboard StatsCard "Stock" lee de `summary.activos` (en_stock, asignado, mantencion) — `summary.stock` no existe; `registros_agotados` eliminado del modelo
+- `movimientosStock` siempre vacío en loaders — `movimiento_stock` tabla ELIMINADA; la sección muestra mensaje vacío
+
 ## Rutas API Activas (post-refactor)
 - `GET/POST /api/articulos` — CRUD
 - `POST /api/articulos/:id/estado` — cambiar estado
