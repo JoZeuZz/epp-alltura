@@ -1,238 +1,239 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { keepPreviousData } from '@tanstack/react-query';
-import { ToolGrid } from '../../../components/tools';
+import React, { useMemo, useState } from 'react';
 import ActivoProfileModal from '../../../components/forms/ActivoProfileModal';
-import { useGet, useTour } from '../../../hooks';
+import { useTour } from '../../../hooks';
 import TourDemoActivoModal from '../../../components/forms/TourDemoActivoModal';
-import {
-  getInventoryActivosPaged,
-  type InventoryActivoDetailRow,
-  type InventoryActivoTypeScope,
-} from '../../../services/apiService';
-import {
-  getToolRawStatus,
-  getToolVisibleCode,
-  getToolVisibleLocation,
-  getToolVisibleMonetaryValue,
-  getToolVisibleName,
-  getToolVisibleResponsible,
-  toToolVisualStatus,
-  type ToolPresentationSource,
-} from '../../../utils/toolPresentation';
-import { INVENTORY_ASSET_SCOPE_COPY } from './inventoryAssetScope.constants';
+import type { Articulo, ArticuloEstado } from '../../../services/apiService';
+import type { AssetScopeKey, InventoryAssetScopeCopy } from './inventoryAssetScope.constants';
 
-interface PagedResponseLike<T> {
-  items?: T[];
-  rows?: T[];
-  data?:
-    | T[]
-    | {
-        items?: T[];
-        rows?: T[];
-        data?: T[];
-        total?: number;
-        nextCursor?: string | null;
-        hasMore?: boolean;
-      };
-  total?: number;
-  nextCursor?: string | null;
-  hasMore?: boolean;
-}
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-const ESTADO_FILTERS = [
-  { label: 'Todos', value: 'all' },
-  { label: 'Disponibles', value: 'available' },
-  { label: 'Asignadas', value: 'assigned' },
-  { label: 'Mantención', value: 'maintenance' },
-  { label: 'Baja', value: 'decommissioned' },
-  { label: 'Perdidas', value: 'lost' },
-  { label: 'Dañadas', value: 'damaged' },
-  { label: 'Otros', value: 'unknown' },
-] as const;
-
-const normalizePagedResponse = (payload: unknown): {
-  items: InventoryActivoDetailRow[];
-  total: number | null;
-  nextCursor: string | null;
-  hasMore: boolean;
-} => {
-  const src = (payload || {}) as PagedResponseLike<InventoryActivoDetailRow>;
-  const nested = Array.isArray(src.data) ? null : src.data;
-
-  const items =
-    src.items ?? src.rows ?? (Array.isArray(src.data) ? src.data : undefined) ?? nested?.items ?? nested?.rows ?? nested?.data ?? [];
-
-  return {
-    items: Array.isArray(items) ? items : [],
-    total: typeof src.total === 'number' ? src.total : typeof nested?.total === 'number' ? nested.total : null,
-    nextCursor: src.nextCursor ?? nested?.nextCursor ?? null,
-    hasMore: Boolean(src.hasMore ?? nested?.hasMore ?? false),
-  };
-};
-
-const moneyToNumber = (value: string): number | null => {
-  if (!value || value.toLowerCase().includes('sin valor')) return null;
-  const normalized = value.replace(/[^\d-]/g, '');
-  if (!normalized) return null;
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
-const formatCompactCLP = (value: number): string =>
+const formatCLP = (value: number): string =>
   new Intl.NumberFormat('es-CL', {
     style: 'currency',
     currency: 'CLP',
     maximumFractionDigits: 0,
   }).format(Math.round(value));
 
-const PAGE_SIZE = 25;
+const ESTADO_BADGE: Record<ArticuloEstado, { label: string; classes: string }> = {
+  en_stock: { label: 'En stock', classes: 'bg-green-100 text-green-800' },
+  asignado: { label: 'Asignado', classes: 'bg-blue-100 text-blue-800' },
+  mantencion: { label: 'Mantención', classes: 'bg-yellow-100 text-yellow-800' },
+  dado_de_baja: { label: 'Dado de baja', classes: 'bg-gray-100 text-gray-600' },
+  perdido: { label: 'Perdido', classes: 'bg-red-100 text-red-800' },
+};
+
+const ESTADO_FILTERS = [
+  { label: 'Todos', value: 'all' },
+  { label: 'En stock', value: 'en_stock' },
+  { label: 'Asignado', value: 'asignado' },
+  { label: 'Mantención', value: 'mantencion' },
+  { label: 'Dado de baja', value: 'dado_de_baja' },
+  { label: 'Perdido', value: 'perdido' },
+] as const;
+
+const ESP_LABELS: Record<string, string> = {
+  oocc: 'OOCC',
+  ooee: 'OOEE',
+  equipos: 'Equipos',
+  trabajos_verticales_lineas_de_vida: 'Verticales',
+};
+
+// ── KPI card ───────────────────────────────────────────────────────────────────
+
+const KpiCard: React.FC<{ label: string; value: string; accent?: string }> = ({
+  label,
+  value,
+  accent = 'text-dark-blue',
+}) => (
+  <article className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
+    <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
+    <p className={`text-2xl font-bold mt-1 ${accent}`}>{value}</p>
+  </article>
+);
+
+// ── Article card ───────────────────────────────────────────────────────────────
+
+const ArticuloCard: React.FC<{ articulo: Articulo; onClick: () => void }> = ({
+  articulo,
+  onClick,
+}) => {
+  const badge = ESTADO_BADGE[articulo.estado] ?? { label: articulo.estado, classes: 'bg-gray-100 text-gray-600' };
+  const ubicacion = articulo.bodega_nombre ?? articulo.proyecto_nombre ?? null;
+
+  return (
+    <article
+      className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 flex flex-col gap-3 cursor-pointer hover:border-primary-blue hover:shadow-md transition-all"
+      onClick={onClick}
+      tabIndex={0}
+      role="button"
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
+      aria-label={`Ver perfil de ${articulo.nombre}`}
+    >
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        {articulo.foto_url ? (
+          <img
+            src={articulo.foto_url}
+            alt={articulo.nombre}
+            className="h-12 w-12 rounded object-cover flex-shrink-0 border border-gray-200"
+          />
+        ) : (
+          <div className="h-12 w-12 rounded bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400 text-lg select-none">
+            📦
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-dark-blue truncate">{articulo.nombre}</p>
+          {(articulo.marca || articulo.modelo) && (
+            <p className="text-xs text-gray-500 truncate">
+              {[articulo.marca, articulo.modelo].filter(Boolean).join(' · ')}
+            </p>
+          )}
+        </div>
+        <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${badge.classes}`}>
+          {badge.label}
+        </span>
+      </div>
+
+      {/* Details */}
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+        <div>
+          <dt className="text-gray-400 uppercase tracking-wide">Código</dt>
+          <dd className="font-mono font-medium text-gray-700">{articulo.codigo}</dd>
+        </div>
+        <div>
+          <dt className="text-gray-400 uppercase tracking-wide">N° Serie</dt>
+          <dd className="font-mono font-medium text-gray-700 truncate">{articulo.nro_serie}</dd>
+        </div>
+        <div>
+          <dt className="text-gray-400 uppercase tracking-wide">Valor</dt>
+          <dd className="font-medium text-gray-700">{articulo.valor > 0 ? formatCLP(articulo.valor) : '—'}</dd>
+        </div>
+        {ubicacion && (
+          <div>
+            <dt className="text-gray-400 uppercase tracking-wide">Ubicación</dt>
+            <dd className="font-medium text-gray-700 truncate">{ubicacion}</dd>
+          </div>
+        )}
+      </dl>
+
+      {/* Especialidades */}
+      {articulo.especialidades.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {articulo.especialidades.map((esp) => (
+            <span
+              key={esp}
+              className="text-xs px-2 py-0.5 rounded-full bg-primary-blue/10 text-primary-blue"
+            >
+              {ESP_LABELS[esp] ?? esp}
+            </span>
+          ))}
+        </div>
+      )}
+    </article>
+  );
+};
+
+// ── Main component ─────────────────────────────────────────────────────────────
 
 interface AdminInventoryScopedAssetCardsProps {
-  scope: InventoryActivoTypeScope;
+  scope: AssetScopeKey;
+  items: Articulo[];
+  isLoading: boolean;
+  isError: boolean;
+  onRefetch: () => void;
+  copy: InventoryAssetScopeCopy;
 }
 
-const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsProps> = ({ scope }) => {
-  const copy = INVENTORY_ASSET_SCOPE_COPY[scope];
+const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsProps> = ({
+  scope,
+  items,
+  isLoading,
+  isError,
+  onRefetch,
+  copy,
+}) => {
   const [search, setSearch] = useState('');
   const [estadoFilter, setEstadoFilter] = useState<string>('all');
-  const [ubicacionFilter, setUbicacionFilter] = useState<string>('all');
-
-  const [rows, setRows] = useState<InventoryActivoDetailRow[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-
-  const [selectedAsset, setSelectedAsset] = useState<ToolPresentationSource | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showDemoModal, setShowDemoModal] = useState(false);
-  const { isActive, currentDemoAction } = useTour();
 
+  const { isActive, currentDemoAction } = useTour();
   const isDemoStep = isActive && currentDemoAction === 'open-activo-demo' && scope === 'epp';
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isDemoStep) {
-      if (rows.length > 0) {
-        setSelectedAsset(rows[0] as ToolPresentationSource);
+      if (items.length > 0) {
+        setSelectedId(items[0].id);
       } else {
         setShowDemoModal(true);
       }
     } else {
       setShowDemoModal(false);
     }
-  }, [isDemoStep, rows]);
+  }, [isDemoStep, items]);
 
-  const queryParams = useMemo(
-    () => ({
-      limit: PAGE_SIZE,
-      tipo_activo: scope,
-    }),
-    [scope]
-  );
-
-  const { data, isLoading, error, refetch } = useGet<unknown>(
-    ['inventory-activos-paged', queryParams],
-    '/inventario/activos-paged',
-    queryParams,
-    { placeholderData: keepPreviousData }
-  );
-
-  useEffect(() => {
-    const normalized = normalizePagedResponse(data);
-    setRows(normalized.items);
-    setNextCursor(normalized.nextCursor);
-    setHasMore(normalized.hasMore);
-  }, [data]);
-
-  const loadMore = async () => {
-    if (!hasMore || !nextCursor || isLoadingMore) return;
-
-    setIsLoadingMore(true);
-    try {
-      const moreRaw = await getInventoryActivosPaged({
-        limit: PAGE_SIZE,
-        cursor: nextCursor,
-        tipo_activo: scope,
-      });
-      const normalized = normalizePagedResponse(moreRaw);
-      setRows((prev) => [...prev, ...normalized.items]);
-      setNextCursor(normalized.nextCursor);
-      setHasMore(normalized.hasMore);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
-
-  const ubicaciones = useMemo(() => {
-    const values = new Set<string>();
-    rows.forEach((row) => {
-      const location = getToolVisibleLocation(row);
-      if (location && location !== 'Sin ubicación') values.add(location);
-    });
-    return Array.from(values).sort((a, b) => a.localeCompare(b));
-  }, [rows]);
-
-  const filteredAssets = useMemo(() => {
+  const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
-
-    return rows.filter((row) => {
-      const code = getToolVisibleCode(row).toLowerCase();
-      const name = getToolVisibleName(row).toLowerCase();
-      const serial = String(row.nro_serie || '').toLowerCase();
-      const location = getToolVisibleLocation(row);
-      const visualStatus = toToolVisualStatus(getToolRawStatus(row));
-
-      const matchesSearch = !term || code.includes(term) || name.includes(term) || serial.includes(term);
-      const matchesStatus = estadoFilter === 'all' || visualStatus === estadoFilter;
-      const matchesLocation = ubicacionFilter === 'all' || location === ubicacionFilter;
-
-      return matchesSearch && matchesStatus && matchesLocation;
+    return items.filter((a) => {
+      const matchesSearch =
+        !term ||
+        a.nombre.toLowerCase().includes(term) ||
+        a.codigo.toLowerCase().includes(term) ||
+        a.nro_serie.toLowerCase().includes(term);
+      const matchesEstado = estadoFilter === 'all' || a.estado === estadoFilter;
+      return matchesSearch && matchesEstado;
     });
-  }, [rows, search, estadoFilter, ubicacionFilter]);
+  }, [items, search, estadoFilter]);
 
   const kpis = useMemo(() => {
-    const total = filteredAssets.length;
-    let available = 0;
-    let assigned = 0;
+    const total = filtered.length;
+    let enStock = 0;
+    let asignado = 0;
     let liabilityValue = 0;
-
-    filteredAssets.forEach((tool) => {
-      const visualStatus = toToolVisualStatus(getToolRawStatus(tool));
-      if (visualStatus === 'available') available += 1;
-      if (visualStatus === 'assigned') {
-        assigned += 1;
-        const responsible = getToolVisibleResponsible(tool);
-        const value = moneyToNumber(getToolVisibleMonetaryValue(tool));
-        if (responsible !== 'Sin responsable' && value != null) {
-          liabilityValue += value;
-        }
+    filtered.forEach((a) => {
+      if (a.estado === 'en_stock') enStock += 1;
+      if (a.estado === 'asignado') {
+        asignado += 1;
+        if (a.valor > 0) liabilityValue += a.valor;
       }
     });
-
-    return { total, available, assigned, liabilityValue };
-  }, [filteredAssets]);
+    return { total, enStock, asignado, liabilityValue };
+  }, [filtered]);
 
   return (
     <div className="space-y-4">
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" aria-label={`KPIs de ${scope}`} data-tour="admin-inventory-kpis">
+      {/* KPIs */}
+      <section
+        className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"
+        aria-label={`KPIs de ${scope}`}
+        data-tour="admin-inventory-kpis"
+      >
         <KpiCard label={copy.totalLabel} value={String(kpis.total)} />
-        <KpiCard label="Disponibles" value={String(kpis.available)} accent="text-green-600" />
-        <KpiCard label="Asignadas" value={String(kpis.assigned)} accent="text-blue-600" />
+        <KpiCard label="En stock" value={String(kpis.enStock)} accent="text-green-600" />
+        <KpiCard label="Asignados" value={String(kpis.asignado)} accent="text-blue-600" />
         <KpiCard
           label="Valor bajo responsabilidad"
-          value={kpis.liabilityValue > 0 ? formatCompactCLP(kpis.liabilityValue) : 'Sin valor registrado'}
+          value={kpis.liabilityValue > 0 ? formatCLP(kpis.liabilityValue) : 'Sin valor registrado'}
           accent="text-amber-600"
         />
       </section>
 
-      <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-3" aria-label={`Filtros de ${scope}`} data-tour="admin-inventory-filters">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {/* Filters */}
+      <section
+        className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-3"
+        aria-label={`Filtros de ${scope}`}
+        data-tour="admin-inventory-filters"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="space-y-1">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Buscar</span>
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Código, serie o artículo"
-              aria-label="Buscar por código, serie o artículo"
+              placeholder="Nombre, código o serie"
+              aria-label="Buscar por nombre, código o serie"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
             />
           </label>
@@ -252,83 +253,86 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
               ))}
             </select>
           </label>
-
-          <label className="space-y-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Ubicación</span>
-            <select
-              value={ubicacionFilter}
-              onChange={(e) => setUbicacionFilter(e.target.value)}
-              aria-label="Filtrar por ubicación"
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
-            >
-              <option value="all">Todas las ubicaciones</option>
-              {ubicaciones.map((ubicacion) => (
-                <option key={ubicacion} value={ubicacion}>
-                  {ubicacion}
-                </option>
-              ))}
-            </select>
-          </label>
         </div>
       </section>
 
-      {error ? (
-        <section className="bg-white rounded-lg shadow-sm border border-red-100 p-4 space-y-3" role="alert">
+      {/* Content */}
+      {isError ? (
+        <section
+          className="bg-white rounded-lg shadow-sm border border-red-100 p-4 space-y-3"
+          role="alert"
+        >
           <p className="text-sm text-red-600">{copy.errorMessage}</p>
           <button
             type="button"
-            onClick={() => {
-              void refetch();
-            }}
+            onClick={onRefetch}
             className="inline-flex items-center px-3 py-2 text-sm rounded-md border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
           >
             Reintentar
           </button>
         </section>
+      ) : isLoading ? (
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
+          aria-live="polite"
+          data-tour="admin-inventory-grid"
+        >
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <div
+              key={`skeleton-${idx}`}
+              className="bg-white rounded-lg border border-gray-100 p-4 animate-pulse space-y-3"
+            >
+              <div className="flex gap-3">
+                <div className="h-12 w-12 rounded bg-gray-200 flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-3/4" />
+                  <div className="h-3 bg-gray-200 rounded w-1/2" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="h-3 bg-gray-200 rounded" />
+                <div className="h-3 bg-gray-200 rounded" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div
+          className="bg-white rounded-lg border border-gray-100 p-8 text-center"
+          aria-live="polite"
+          data-tour="admin-inventory-grid"
+        >
+          <p className="text-sm text-gray-500">{copy.emptyMessage}</p>
+        </div>
       ) : (
-        <div data-tour="admin-inventory-grid">
-          <ToolGrid
-            tools={filteredAssets}
-            loading={isLoading}
-            emptyMessage={copy.emptyMessage}
-            selectedToolId={selectedAsset?.id ?? null}
-            onToolSelect={setSelectedAsset}
-          />
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
+          data-tour="admin-inventory-grid"
+        >
+          {filtered.map((articulo) => (
+            <ArticuloCard
+              key={articulo.id}
+              articulo={articulo}
+              onClick={() => setSelectedId(articulo.id)}
+            />
+          ))}
         </div>
       )}
 
-      {!isLoading && hasMore && (
-        <div className="bg-white rounded-lg shadow-sm p-4 text-center">
-          <button
-            type="button"
-            onClick={loadMore}
-            disabled={isLoadingMore}
-            className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50"
-          >
-            {isLoadingMore ? 'Cargando...' : copy.loadMoreLabel}
-          </button>
-        </div>
-      )}
-
-      {selectedAsset && (
+      {/* Profile modal */}
+      {selectedId && (
         <ActivoProfileModal
-          activoId={String(selectedAsset.id)}
-          onClose={() => setSelectedAsset(null)}
-          onRefresh={() => { void refetch(); }}
+          activoId={selectedId}
+          onClose={() => setSelectedId(null)}
+          onRefresh={onRefetch}
         />
       )}
+
       {showDemoModal && (
         <TourDemoActivoModal onClose={() => setShowDemoModal(false)} />
       )}
     </div>
   );
 };
-
-const KpiCard: React.FC<{ label: string; value: string; accent?: string }> = ({ label, value, accent = 'text-dark-blue' }) => (
-  <article className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-    <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
-    <p className={`text-2xl font-bold mt-1 ${accent}`}>{value}</p>
-  </article>
-);
 
 export default AdminInventoryScopedAssetCards;
