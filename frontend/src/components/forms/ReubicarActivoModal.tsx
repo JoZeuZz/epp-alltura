@@ -36,7 +36,7 @@ const ReubicarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) =>
     '/bodegas'
   );
 
-  const currentBodegaId = activo.ubicacion_id ?? activo.custodia_ubicacion_id ?? '';
+  const currentBodegaId = activo.bodega_actual_id ?? '';
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -60,7 +60,7 @@ const ReubicarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) =>
     <Modal isOpen onClose={onClose} title={`Reubicar — ${activo.codigo}`}>
       <div className="space-y-4">
         <p className="text-sm text-content-secondary">
-          Ubicación actual: <strong>{activo.ubicacion_nombre ?? activo.custodia_ubicacion_nombre ?? '—'}</strong>
+          Ubicación actual: <strong>{activo.bodega_nombre ?? activo.proyecto_nombre ?? '—'}</strong>
         </p>
 
         <div>

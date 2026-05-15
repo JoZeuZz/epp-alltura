@@ -61,7 +61,7 @@ const AssetUnitSelector: React.FC<AssetUnitSelectorProps> = ({
       try {
         const nextAssets = await getInventoryAvailableAssets({
           articulo_id: articuloId,
-          ubicacion_id: ubicacionId,
+          bodega_id: ubicacionId,
           search: search.trim() || undefined,
           limit,
         });
