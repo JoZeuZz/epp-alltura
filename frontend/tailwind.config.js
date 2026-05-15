@@ -95,7 +95,7 @@ module.exports = {
       },
 
       fontFamily: {
-        sans: ['Inter', 'Poppins', 'sans-serif'],
+        sans: ['Plus Jakarta Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
 
       // ── Semantic elevation scale ─────────────────────────────────────────────
