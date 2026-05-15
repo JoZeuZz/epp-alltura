@@ -31,11 +31,11 @@ class CustodyCheckService {
     const { rows } = await db.query(`
       SELECT
         ca.id            AS custodia_id,
-        ca.activo_id,
+        ca.articulo_id,
         ca.trabajador_id,
         ca.desde_en,
         ca.fecha_devolucion_esperada,
-        a.codigo         AS activo_codigo,
+        art.codigo       AS activo_codigo,
         art.nombre       AS articulo_nombre,
         p.nombres        AS trabajador_nombres,
         p.apellidos      AS trabajador_apellidos,
@@ -45,8 +45,7 @@ class CustodyCheckService {
         GREATEST(0, EXTRACT(DAY FROM (ca.fecha_devolucion_esperada - NOW())))::int
           AS dias_restantes
       FROM custodia_activo ca
-      JOIN activo a ON a.id = ca.activo_id
-      JOIN articulo art ON art.id = a.articulo_id
+      JOIN articulo art ON art.id = ca.articulo_id
       JOIN trabajador t ON t.id = ca.trabajador_id
       JOIN persona p ON p.id = t.persona_id
       WHERE ca.estado = 'activa'
@@ -109,7 +108,7 @@ class CustodyCheckService {
             message,
             metadata: {
               custodia_id: alerta.custodia_id,
-              activo_id: alerta.activo_id,
+              articulo_id: alerta.articulo_id,
               trabajador_id: alerta.trabajador_id,
               semaforo,
               fecha: new Date().toISOString().split('T')[0],

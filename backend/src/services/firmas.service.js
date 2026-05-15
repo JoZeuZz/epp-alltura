@@ -450,16 +450,13 @@ class FirmasService {
       `
       SELECT
         ed.id,
-        ed.cantidad,
-        ed.tipo_item_entrega,
         ed.condicion_salida,
         ed.notas,
         a.nombre AS articulo_nombre,
-        a.grupo_principal AS articulo_tipo,
-        ac.codigo AS activo_codigo
+        a.tipo AS articulo_tipo,
+        a.codigo AS activo_codigo
       FROM entrega_detalle ed
       INNER JOIN articulo a ON a.id = ed.articulo_id
-      LEFT JOIN activo ac ON ac.id = ed.activo_id
       WHERE ed.entrega_id = $1
       ORDER BY ed.id
       `,
@@ -747,17 +744,15 @@ class FirmasService {
     }
 
     const detallesResult = await db.query(
-      `SELECT
+       `SELECT
          dd.id,
-         dd.cantidad,
          dd.condicion_entrada,
          dd.disposicion,
          dd.notas,
          a.nombre AS articulo_nombre,
-         ac.codigo AS activo_codigo
+         a.codigo AS activo_codigo
        FROM devolucion_detalle dd
        INNER JOIN articulo a ON a.id = dd.articulo_id
-       LEFT JOIN activo ac ON ac.id = dd.activo_id
        WHERE dd.devolucion_id = $1
        ORDER BY dd.id`,
       [tokenInfo.devolucion_id]

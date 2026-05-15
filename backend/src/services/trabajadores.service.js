@@ -211,16 +211,16 @@ class TrabajadoresService {
       `
       SELECT
         ca.id AS custodia_id,
-        ca.activo_id,
+        ca.articulo_id,
         ca.entrega_id,
         ca.desde_en,
         ca.fecha_devolucion_esperada,
-        a.codigo,
-        a.nro_serie,
-        a.estado AS activo_estado,
+        ar.codigo,
+        ar.nro_serie,
+        ar.estado AS activo_estado,
         ar.id AS articulo_id,
         ar.nombre AS articulo_nombre,
-        ar.grupo_principal AS articulo_tipo,
+        ar.tipo AS articulo_tipo,
 
         GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - ca.desde_en)) / 86400))::int AS dias_en_custodia,
         CASE
@@ -242,8 +242,7 @@ class TrabajadoresService {
           ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (ca.fecha_devolucion_esperada - NOW())) / 86400))::int
         END AS dias_restantes
       FROM custodia_activo ca
-      INNER JOIN activo a ON a.id = ca.activo_id
-      INNER JOIN articulo ar ON ar.id = a.articulo_id
+      INNER JOIN articulo ar ON ar.id = ca.articulo_id
 
       WHERE ca.trabajador_id = $1 AND ca.estado = 'activa'
       ORDER BY
