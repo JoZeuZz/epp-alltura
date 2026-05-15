@@ -69,15 +69,17 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
   const mutation = useMutation({
     mutationFn: (data: FormOutput) =>
       createArticulo({ ...data, tipo }),
-    onSuccess: (res: any) => {
-      const articulo: Articulo = res?.data ?? res;
+    onSuccess: (articulo) => {
       toast.success(`${TIPO_LABELS[tipo]} creado correctamente`);
-      queryClient.invalidateQueries({ queryKey: ['articulos', tipo] });
+      queryClient.invalidateQueries({ queryKey: ['articulos'] });
       reset();
       onClose();
       onSuccess?.(articulo);
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Error al crear'),
+    onError: (err) => {
+      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+      toast.error(msg ?? 'Error al crear');
+    },
   });
 
   const onSubmit = (data: FormOutput) => mutation.mutate(data);
