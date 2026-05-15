@@ -33,14 +33,7 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
     queryFn: () => getArticulos({ tipo: copy.tipo, limit: 500 }),
   });
 
-  // getArticulos may return { data: { items, total } } or { items, total } depending on axios wrapper
-  const rawData = data as unknown as
-    | { data?: { items: Articulo[]; total: number } }
-    | { items: Articulo[]; total: number }
-    | undefined;
-  const resolved =
-    rawData && 'data' in rawData && rawData.data ? rawData.data : (rawData as { items?: Articulo[] } | undefined);
-  const items: Articulo[] = resolved?.items ?? [];
+  const items: Articulo[] = data?.items ?? [];
 
   const handleCreateSuccess = () => {
     setShowCreate(false);
