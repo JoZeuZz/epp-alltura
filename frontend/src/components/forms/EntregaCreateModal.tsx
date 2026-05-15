@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Modal from '../Modal';
-import type {
-  EntregaCreatePayload,
-  EntregaDetallePayload,
-  CondicionSalida,
+import {
+  getArticulos,
+  type Articulo,
+  type EntregaCreatePayload,
+  type EntregaDetallePayload,
+  type CondicionSalida,
 } from '../../services/apiService';
-import AssetUnitSelector from './AssetUnitSelector';
-import { parseQuantityInteger } from '../../utils/quantity';
+import { formatCLP } from '../../utils/currency';
 import { ALLOWED_IMAGE_ACCEPT, ALLOWED_IMAGE_TYPES, IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../../config/imageLimits';
 
 interface TrabajadorOption {
@@ -24,10 +26,10 @@ interface UbicacionOption {
   tipo?: 'bodega' | 'planta' | 'proyecto' | 'taller_mantencion';
 }
 
-interface ArticuloOption {
-  id: string;
-  nombre: string;
-  tracking_mode: 'serial' | 'lote';
+interface DetalleState {
+  articulo_id: string;
+  condicion_salida: CondicionSalida;
+  notas: string;
 }
 
 interface EntregaCreateModalProps {
@@ -37,13 +39,12 @@ interface EntregaCreateModalProps {
   isSubmitting: boolean;
   trabajadores: TrabajadorOption[];
   ubicaciones: UbicacionOption[];
-  articulos: ArticuloOption[];
-  initialActivoId?: string | number;
+  /** Pre-selecciona y bloquea un artículo físico concreto (flujo desde perfil del activo). */
   initialArticuloId?: string | number;
-  lockActivoSelection?: boolean;
-  initialActivoCode?: string;
-  initialActivoName?: string;
-  initialActivoValue?: string;
+  lockArticuloSelection?: boolean;
+  initialArticuloCode?: string;
+  initialArticuloName?: string;
+  initialArticuloValue?: string;
   onSuccess?: () => void;
 }
 
@@ -53,20 +54,18 @@ const CONDICION_LABELS: Record<CondicionSalida, string> = {
   danado: 'Dañado',
 };
 
-const EMPTY_DETALLE: EntregaDetallePayload = {
-  articulo_id: '',
-  cantidad: 1,
+const buildEmptyDetalle = (articuloId = ''): DetalleState => ({
+  articulo_id: articuloId,
   condicion_salida: 'ok',
-  activo_ids: [],
-  notas: null,
-};
+  notas: '',
+});
 
 const buildEntregaPayload = (
   trabajadorId: string,
   ubicacionOrigenId: string,
   ubicacionDestinoId: string,
   notaDestino: string,
-  detalles: EntregaDetallePayload[]
+  detalles: DetalleState[]
 ): EntregaCreatePayload => ({
   trabajador_id: trabajadorId,
   ubicacion_origen_id: ubicacionOrigenId,
@@ -74,12 +73,10 @@ const buildEntregaPayload = (
   nota_destino: notaDestino || null,
   detalles: detalles
     .filter((d) => Boolean(d.articulo_id))
-    .map((d) => ({
+    .map<EntregaDetallePayload>((d) => ({
       articulo_id: d.articulo_id,
-      activo_ids: d.activo_ids?.length ? d.activo_ids : undefined,
-      cantidad: d.activo_ids?.length ? undefined : Number(d.cantidad),
-      condicion_salida: d.condicion_salida || 'ok',
-      notas: d.notas || null,
+      condicion_salida: d.condicion_salida,
+      notas: d.notas.trim() || null,
     })),
 });
 
@@ -90,40 +87,27 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   isSubmitting,
   trabajadores,
   ubicaciones,
-  articulos,
-  initialActivoId,
   initialArticuloId,
-  lockActivoSelection = false,
-  initialActivoCode,
-  initialActivoName,
-  initialActivoValue,
+  lockArticuloSelection = false,
+  initialArticuloCode,
+  initialArticuloName,
+  initialArticuloValue,
   onSuccess,
 }) => {
-  const normalizedInitialActivoId =
-    initialActivoId != null && initialActivoId !== '' ? String(initialActivoId) : '';
   const normalizedInitialArticuloId =
     initialArticuloId != null && initialArticuloId !== '' ? String(initialArticuloId) : '';
-  const shouldPrefillSingleAsset = Boolean(normalizedInitialActivoId && normalizedInitialArticuloId);
+  const shouldPrefillSingleAsset = Boolean(normalizedInitialArticuloId);
 
-  const buildInitialDetalles = (): EntregaDetallePayload[] => {
-    if (!shouldPrefillSingleAsset) {
-      return [{ ...EMPTY_DETALLE }];
-    }
-
-    return [{
-      ...EMPTY_DETALLE,
-      articulo_id: normalizedInitialArticuloId,
-      activo_ids: [normalizedInitialActivoId],
-      cantidad: 1,
-    }];
-  };
+  const buildInitialDetalles = (): DetalleState[] => [
+    buildEmptyDetalle(shouldPrefillSingleAsset ? normalizedInitialArticuloId : ''),
+  ];
 
   const [step, setStep] = useState<1 | 2>(1);
   const [trabajadorId, setTrabajadorId] = useState('');
   const [ubicacionOrigenId, setUbicacionOrigenId] = useState('');
   const [ubicacionDestinoId, setUbicacionDestinoId] = useState('');
   const [notaDestino, setNotaDestino] = useState('');
-  const [detalles, setDetalles] = useState<EntregaDetallePayload[]>(buildInitialDetalles);
+  const [detalles, setDetalles] = useState<DetalleState[]>(buildInitialDetalles);
   const [error, setError] = useState<string | null>(null);
   const [evidenciaFile, setEvidenciaFile] = useState<File | null>(null);
   const [evidenciaPreviewUrl, setEvidenciaPreviewUrl] = useState<string | null>(null);
@@ -131,6 +115,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 
   // Filtro de búsqueda de trabajador
   const [trabajadorSearch, setTrabajadorSearch] = useState('');
+
   useEffect(() => {
     if (!isOpen) {
       setStep(1);
@@ -144,7 +129,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       setEvidenciaFile(null);
       setEvidenciaFileError(null);
     }
-  }, [isOpen, initialActivoId, initialArticuloId]);
+  }, [isOpen, initialArticuloId]);
 
   useEffect(() => {
     if (!evidenciaFile) {
@@ -175,21 +160,30 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
     setEvidenciaFile(file);
   };
 
+  // Artículos físicos disponibles en la bodega de origen seleccionada.
+  const { data: articulosData, isLoading: isLoadingArticulos, error: articulosError } = useQuery({
+    queryKey: ['articulos', { estado: 'en_stock', bodega_id: ubicacionOrigenId }],
+    queryFn: () => getArticulos({ estado: 'en_stock', bodega_id: ubicacionOrigenId }),
+    enabled: isOpen && Boolean(ubicacionOrigenId),
+  });
+  const articulosDisponibles = useMemo<Articulo[]>(
+    () => articulosData?.items ?? [],
+    [articulosData]
+  );
+  const articuloOf = (id: string) => articulosDisponibles.find((a) => a.id === id);
+
+  // Cuando cambia la bodega de origen, los artículos elegibles cambian: limpia
+  // selecciones que ya no aplican (excepto la fila bloqueada de prefill).
   useEffect(() => {
     setDetalles((prev) =>
-      prev.map((detalle) => {
-        const art = articuloOf(detalle.articulo_id);
-        if (art?.tracking_mode !== 'serial') {
-          return detalle;
+      prev.map((d, idx) => {
+        if (lockArticuloSelection && shouldPrefillSingleAsset && idx === 0) {
+          return d;
         }
-
-        return {
-          ...detalle,
-          activo_ids: [],
-        };
+        return d.articulo_id ? buildEmptyDetalle() : d;
       })
     );
-  }, [ubicacionOrigenId]);
+  }, [ubicacionOrigenId, lockArticuloSelection, shouldPrefillSingleAsset]);
 
   const filteredTrabajadores = trabajadores.filter((t) => {
     const q = trabajadorSearch.toLowerCase();
@@ -220,37 +214,18 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
     ubicacionOrigenId !== ubicacionDestinoId;
 
   // Step 2 helpers
-  const addDetalle = () =>
-    setDetalles((prev) => [...prev, { ...EMPTY_DETALLE }]);
+  const addDetalle = () => setDetalles((prev) => [...prev, buildEmptyDetalle()]);
 
   const removeDetalle = (idx: number) =>
     setDetalles((prev) => prev.filter((_, i) => i !== idx));
 
-  const updateDetalle = (idx: number, field: keyof EntregaDetallePayload, value: unknown) =>
+  const updateDetalle = <K extends keyof DetalleState>(idx: number, field: K, value: DetalleState[K]) =>
     setDetalles((prev) =>
       prev.map((d, i) => (i === idx ? { ...d, [field]: value } : d))
     );
 
-  const articuloOf = (id: string) => articulos.find((a) => a.id === id);
-
   const isLockedPrefilledRow = (idx: number) =>
-    lockActivoSelection && shouldPrefillSingleAsset && idx === 0;
-
-  const updateArticuloDetalle = (idx: number, articuloId: string) => {
-    const art = articuloOf(articuloId);
-    setDetalles((prev) =>
-      prev.map((d, i) => {
-        if (i !== idx) return d;
-
-        return {
-          ...d,
-          articulo_id: articuloId,
-          activo_ids: art?.tracking_mode === 'serial' ? [] : [],
-          cantidad: art?.tracking_mode === 'serial' ? 1 : d.cantidad,
-        };
-      })
-    );
-  };
+    lockArticuloSelection && shouldPrefillSingleAsset && idx === 0;
 
   const handleSubmit = async () => {
     if (isSubmitting) {
@@ -258,52 +233,23 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
     }
 
     setError(null);
-    // Validate detalles
     if (ubicacionOrigenId === ubicacionDestinoId) {
       setError('La ubicación de origen y destino no puede ser la misma.');
       return;
     }
 
-    const selectedAssetIds = new Set<string>();
+    const selectedArticuloIds = new Set<string>();
 
     for (const d of detalles) {
       if (!d.articulo_id) {
         setError('Todos los ítems deben tener un artículo seleccionado.');
         return;
       }
-
-      const art = articuloOf(d.articulo_id);
-      if (!art) {
-        setError('Hay artículos inválidos en los ítems.');
+      if (selectedArticuloIds.has(d.articulo_id)) {
+        setError('No puedes repetir el mismo artículo en más de un ítem.');
         return;
       }
-
-      if (art.tracking_mode !== 'serial' && (!d.cantidad || Number(d.cantidad) <= 0)) {
-        setError('La cantidad de cada ítem debe ser mayor a 0.');
-        return;
-      }
-
-      if (art.tracking_mode === 'serial') {
-        const serialIds = Array.isArray(d.activo_ids) ? d.activo_ids.filter(Boolean) : [];
-        if (serialIds.length === 0) {
-          setError(`El artículo "${art.nombre}" requiere al menos un activo por ser serial.`);
-          return;
-        }
-
-        if (new Set(serialIds).size !== serialIds.length) {
-          setError(`El artículo "${art.nombre}" tiene activos duplicados.`);
-          return;
-        }
-
-        for (const serialId of serialIds) {
-          if (selectedAssetIds.has(serialId)) {
-            setError(`No puedes repetir el mismo activo (${serialId}) en más de un ítem.`);
-            return;
-          }
-          selectedAssetIds.add(serialId);
-        }
-      }
-
+      selectedArticuloIds.add(d.articulo_id);
     }
 
     const payload = buildEntregaPayload(
@@ -331,15 +277,15 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
         <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
           <p className="text-xs font-semibold text-blue-900 uppercase tracking-wide">Resumen de herramienta</p>
           <p className="text-sm text-blue-900">
-            <span className="font-medium">Código:</span> {initialActivoCode || normalizedInitialActivoId}
+            <span className="font-medium">Código:</span> {initialArticuloCode || normalizedInitialArticuloId}
           </p>
-          {initialActivoName && (
+          {initialArticuloName && (
             <p className="text-sm text-blue-900">
-              <span className="font-medium">Herramienta:</span> {initialActivoName}
+              <span className="font-medium">Herramienta:</span> {initialArticuloName}
             </p>
           )}
           <p className="text-sm text-blue-900">
-            <span className="font-medium">Valor bajo responsabilidad:</span> {initialActivoValue || 'Sin valor registrado'}
+            <span className="font-medium">Valor bajo responsabilidad:</span> {initialArticuloValue || 'Sin valor registrado'}
           </p>
           <p className="text-xs text-blue-800 mt-1">
             Al entregar esta herramienta, el trabajador queda asociado a su devolución.
@@ -507,15 +453,31 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       {/* STEP 2 */}
       {step === 2 && (
         <div className="space-y-4">
+          {isLoadingArticulos && (
+            <p className="text-sm text-content-muted">Cargando artículos disponibles en la bodega de origen...</p>
+          )}
+          {articulosError && (
+            <p className="text-sm text-danger-text">No se pudieron cargar los artículos disponibles.</p>
+          )}
+          {!isLoadingArticulos && !articulosError && articulosDisponibles.length === 0 && (
+            <p className="text-sm text-content-muted">
+              No hay artículos en stock en la bodega de origen seleccionada.
+            </p>
+          )}
+
           {detalles.map((detalle, idx) => {
             const art = articuloOf(detalle.articulo_id);
-            const needsSerial = art?.tracking_mode === 'serial';
+            const locked = isLockedPrefilledRow(idx);
+            const yaSeleccionados = detalles
+              .filter((_, i) => i !== idx)
+              .map((d) => d.articulo_id)
+              .filter(Boolean);
 
             return (
               <div key={idx} className="border border-edge rounded-lg p-4 space-y-3 bg-surface-muted">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold text-content-secondary">Ítem {idx + 1}</span>
-                  {detalles.length > 1 && (
+                  {detalles.length > 1 && !locked && (
                     <button
                       type="button"
                       onClick={() => removeDetalle(idx)}
@@ -527,7 +489,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                   )}
                 </div>
 
-                {/* Artículo */}
+                {/* Artículo físico */}
                 <div>
                   <label htmlFor={`entrega-detalle-articulo-${idx}`} className="block text-xs font-medium text-content-secondary mb-1">
                     Artículo <span className="text-danger">*</span>
@@ -535,80 +497,59 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                   <select
                     id={`entrega-detalle-articulo-${idx}`}
                     value={detalle.articulo_id}
-                    onChange={(e) =>
-                      updateArticuloDetalle(idx, e.target.value)
-                    }
-                    disabled={isLockedPrefilledRow(idx)}
-                    className="w-full border border-edge-strong rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+                    onChange={(e) => updateDetalle(idx, 'articulo_id', e.target.value)}
+                    disabled={locked}
+                    className="w-full border border-edge-strong rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none disabled:bg-surface-overlay disabled:text-content-disabled"
                   >
                     <option value="">— Seleccionar artículo —</option>
-                    {articulos.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.nombre}
+                    {locked && art == null && detalle.articulo_id && (
+                      <option value={detalle.articulo_id}>
+                        {initialArticuloName || initialArticuloCode || detalle.articulo_id}
+                      </option>
+                    )}
+                    {articulosDisponibles
+                      .filter(
+                        (a) => a.id === detalle.articulo_id || !yaSeleccionados.includes(a.id)
+                      )
+                      .map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.nombre} · {a.codigo}
+                          {a.nro_serie ? ` · S/N ${a.nro_serie}` : ''}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+                {/* Resumen del artículo seleccionado */}
+                {art && (
+                  <div className="rounded-md border border-edge bg-surface px-3 py-2 text-xs text-content-secondary space-y-0.5">
+                    <p><span className="font-medium">Nombre:</span> {art.nombre}</p>
+                    <p><span className="font-medium">Código:</span> {art.codigo}</p>
+                    {art.nro_serie && <p><span className="font-medium">N° serie:</span> {art.nro_serie}</p>}
+                    <p><span className="font-medium">Valor:</span> {formatCLP(art.valor)}</p>
+                  </div>
+                )}
+
+                {/* Condición de salida */}
+                <div>
+                  <label htmlFor={`entrega-detalle-condicion-${idx}`} className="block text-xs font-medium text-content-secondary mb-1">
+                    Condición de salida
+                  </label>
+                  <select
+                    id={`entrega-detalle-condicion-${idx}`}
+                    value={detalle.condicion_salida}
+                    onChange={(e) =>
+                      updateDetalle(idx, 'condicion_salida', e.target.value as CondicionSalida)
+                    }
+                    className="w-full border border-edge-strong rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+                  >
+                    {(Object.keys(CONDICION_LABELS) as CondicionSalida[]).map((c) => (
+                      <option key={c} value={c}>
+                        {CONDICION_LABELS[c]}
                       </option>
                     ))}
                   </select>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Cantidad */}
-                  <div>
-                    <label htmlFor={`entrega-detalle-cantidad-${idx}`} className="block text-xs font-medium text-content-secondary mb-1">
-                      Cantidad <span className="text-danger">*</span>
-                    </label>
-                    <input
-                      id={`entrega-detalle-cantidad-${idx}`}
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={detalle.cantidad}
-                      disabled={needsSerial}
-                      onChange={(e) =>
-                        updateDetalle(idx, 'cantidad', parseQuantityInteger(e.target.value, 1))
-                      }
-                      className="w-full border border-edge-strong rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-                    />
-                  </div>
-
-                  {/* Condición */}
-                  <div>
-                    <label htmlFor={`entrega-detalle-condicion-${idx}`} className="block text-xs font-medium text-content-secondary mb-1">
-                      Condición inicial
-                    </label>
-                    <select
-                      id={`entrega-detalle-condicion-${idx}`}
-                      value={detalle.condicion_salida ?? 'ok'}
-                      onChange={(e) =>
-                        updateDetalle(idx, 'condicion_salida', e.target.value as CondicionSalida)
-                      }
-                      className="w-full border border-edge-strong rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
-                    >
-                      {(Object.keys(CONDICION_LABELS) as CondicionSalida[]).map((c) => (
-                        <option key={c} value={c}>
-                          {CONDICION_LABELS[c]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {needsSerial && (
-                  <>
-                    <AssetUnitSelector
-                      value={detalle.activo_ids ?? []}
-                      onChange={(next) => updateDetalle(idx, 'activo_ids', next)}
-                      articuloId={detalle.articulo_id || undefined}
-                      ubicacionId={ubicacionOrigenId || undefined}
-                      excludedIds={detalles.flatMap((row, rowIdx) =>
-                        rowIdx === idx ? [] : (row.activo_ids ?? []).filter(Boolean)
-                      )}
-                      label="Seleccionar activo"
-                      required
-                      disabled={isLockedPrefilledRow(idx)}
-                    />
-                    <p className="text-xs text-content-muted">Selecciona al menos un activo para este ítem.</p>
-                  </>
-                )}
 
                 {/* Notas */}
                 <div>
@@ -618,8 +559,8 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
                   <input
                     id={`entrega-detalle-notas-${idx}`}
                     type="text"
-                    value={detalle.notas ?? ''}
-                    onChange={(e) => updateDetalle(idx, 'notas', e.target.value || null)}
+                    value={detalle.notas}
+                    onChange={(e) => updateDetalle(idx, 'notas', e.target.value)}
                     placeholder="Observaciones opcionales..."
                     className="w-full border border-edge-strong rounded-md px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
                   />
@@ -628,14 +569,16 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
             );
           })}
 
-          <button
-            type="button"
-            onClick={addDetalle}
-            className="w-full py-2 border-2 border-dashed border-edge-strong rounded-lg text-sm text-content-muted hover:border-primary hover:text-primary transition-colors"
-            aria-label="Agregar un nuevo ítem de artículo"
-          >
-            + Agregar artículo
-          </button>
+          {!lockArticuloSelection && (
+            <button
+              type="button"
+              onClick={addDetalle}
+              className="w-full py-2 border-2 border-dashed border-edge-strong rounded-lg text-sm text-content-muted hover:border-primary hover:text-primary transition-colors"
+              aria-label="Agregar un nuevo ítem de artículo"
+            >
+              + Agregar artículo
+            </button>
+          )}
         </div>
       )}
 

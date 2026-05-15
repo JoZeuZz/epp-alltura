@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Modal from '../Modal';
 import { useGet } from '../../hooks';
-import { devolverActivo, type DevolucionRow } from '../../services/apiService';
+import { createDevolucion, type DevolucionRow } from '../../services/apiService';
 import { ALLOWED_IMAGE_ACCEPT, ALLOWED_IMAGE_TYPES, IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../../config/imageLimits';
 
 interface BodegaOption {
@@ -13,10 +13,10 @@ interface BodegaOption {
 }
 
 interface Props {
-  /** ID del activo a devolver */
-  activoId: string;
-  /** UUID del artículo al que pertenece el activo */
+  /** UUID del artículo físico a devolver (cada artículo es un ítem serializado) */
   articuloId: string;
+  /** UUID de la custodia activa que se está cerrando */
+  custodiaId: string;
   trabajadorId: string;
   trabajadorNombre: string;
   onClose: () => void;
@@ -39,8 +39,8 @@ const DISPOSICION_LABELS = {
 } as const;
 
 const DevolucionActivoModal: React.FC<Props> = ({
-  activoId,
   articuloId,
+  custodiaId,
   trabajadorId,
   trabajadorNombre,
   onClose,
@@ -96,16 +96,15 @@ const DevolucionActivoModal: React.FC<Props> = ({
 
   const mutation = useMutation({
     mutationFn: () =>
-      devolverActivo(
-        activoId,
+      createDevolucion(
         {
           trabajador_id: trabajadorId,
           ubicacion_recepcion_id: ubicacionId,
           notas: notas.trim() || null,
           detalles: [
             {
+              custodia_id: custodiaId,
               articulo_id: articuloId,
-              activo_ids: [activoId],
               condicion_entrada: condicion,
               disposicion,
               notas: notas.trim() || null,

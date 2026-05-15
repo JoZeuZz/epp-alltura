@@ -16,28 +16,26 @@ const getReturnEligibleAssetsMock = vi.mocked(apiService.getReturnEligibleAssets
 
 const eligibleAssets = [
   {
-    custodia_activo_id: 'custodia-1',
+    custodia_id: 'custodia-1',
+    articulo_id: 'art-1',
     trabajador_id: 'worker-1',
     desde_en: '2026-01-01T00:00:00.000Z',
-    activo_id: 'activo-1',
+    nombre: 'Taladro',
+    tipo: 'herramienta',
     codigo: 'TAL-001',
     nro_serie: 'SER-001',
-    articulo_id: 'art-1',
-    articulo_nombre: 'Taladro',
-    ubicacion_actual_id: 'ubic-1',
-    ubicacion_actual_nombre: 'Bodega Central',
+    valor: 100000,
   },
   {
-    custodia_activo_id: 'custodia-2',
+    custodia_id: 'custodia-2',
+    articulo_id: 'art-2',
     trabajador_id: 'worker-1',
     desde_en: '2026-01-01T00:00:00.000Z',
-    activo_id: 'activo-2',
+    nombre: 'Taladro',
+    tipo: 'herramienta',
     codigo: 'TAL-002',
     nro_serie: 'SER-002',
-    articulo_id: 'art-1',
-    articulo_nombre: 'Taladro',
-    ubicacion_actual_id: 'ubic-1',
-    ubicacion_actual_nombre: 'Bodega Central',
+    valor: 100000,
   },
 ];
 
@@ -52,7 +50,7 @@ describe('ReturnAssetSelector', () => {
 
     const { rerender } = render(
       <ReturnAssetSelector
-        value={['activo-1']}
+        value={['custodia-1']}
         onChange={onChange}
         trabajadorId="worker-1"
         articuloId="art-1"
@@ -61,7 +59,7 @@ describe('ReturnAssetSelector', () => {
 
     rerender(
       <ReturnAssetSelector
-        value={['activo-1']}
+        value={['custodia-1']}
         onChange={onChange}
         trabajadorId="worker-2"
         articuloId="art-1"
@@ -83,7 +81,7 @@ describe('ReturnAssetSelector', () => {
         onChange={onChange}
         trabajadorId="worker-1"
         articuloId="art-1"
-        excludedIds={['activo-2']}
+        excludedIds={['custodia-2']}
       />
     );
 
@@ -92,8 +90,8 @@ describe('ReturnAssetSelector', () => {
 
     await user.click(screen.getByText('TAL-001'));
 
-    expect(onChange).toHaveBeenCalledWith(['activo-1']);
-    expect(onChange).not.toHaveBeenCalledWith(['activo-2']);
+    expect(onChange).toHaveBeenCalledWith(['custodia-1']);
+    expect(onChange).not.toHaveBeenCalledWith(['custodia-2']);
   });
 
   it('conserva selección si el activo sigue visible', async () => {
@@ -101,7 +99,7 @@ describe('ReturnAssetSelector', () => {
 
     const { rerender } = render(
       <ReturnAssetSelector
-        value={['activo-1']}
+        value={['custodia-1']}
         onChange={onChange}
         trabajadorId="worker-1"
         articuloId="art-1"
@@ -113,11 +111,11 @@ describe('ReturnAssetSelector', () => {
 
     rerender(
       <ReturnAssetSelector
-        value={['activo-1']}
+        value={['custodia-1']}
         onChange={onChange}
         trabajadorId="worker-1"
         articuloId="art-1"
-        excludedIds={['activo-2']}
+        excludedIds={['custodia-2']}
       />
     );
 
