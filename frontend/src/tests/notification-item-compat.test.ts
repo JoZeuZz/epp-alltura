@@ -8,12 +8,12 @@ import {
 
 describe('notificationItemCompat', () => {
   it('returns fallback icon and color for unknown types', () => {
-    expect(resolveNotificationItemIcon('unknown_type')).toBe('ℹ️');
+    expect(resolveNotificationItemIcon('unknown_type')).toBe('');
     expect(resolveNotificationItemUnreadColorClass('unknown_type')).toBe('bg-gray-50');
   });
 
   it('returns known icon and color for legacy custody type', () => {
-    expect(resolveNotificationItemIcon('custodia_vencida')).toBe('🚨');
+    expect(resolveNotificationItemIcon('custodia_vencida')).toBe('');
     expect(resolveNotificationItemUnreadColorClass('custodia_vencida')).toBe(
       'bg-red-50 border-red-200'
     );
@@ -48,7 +48,7 @@ describe('notificationItemCompat', () => {
     });
 
     expect(presentation).toEqual({
-      icon: 'ℹ️',
+      icon: '',
       unreadColorClass: 'bg-gray-50 border-gray-200',
       navigationLink: '/notifications',
     });

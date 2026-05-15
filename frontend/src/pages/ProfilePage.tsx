@@ -143,7 +143,7 @@ const ProfilePage: React.FC = () => {
       setUploadProgress(0);
       const cancelError = err as { code?: string; name?: string };
       if (cancelError?.code === 'ERR_CANCELED' || cancelError?.name === 'CanceledError') {
-        toast('Subida cancelada', { icon: '🛑' });
+        toast('Subida cancelada');
         return;
       }
       console.error(err);
