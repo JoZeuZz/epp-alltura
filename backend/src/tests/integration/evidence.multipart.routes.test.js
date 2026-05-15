@@ -36,6 +36,7 @@ const UUID = {
   recepcion: '44444444-4444-4444-8444-444444444444',
   articulo: '55555555-5555-4555-8555-555555555555',
   activo: '66666666-6666-4666-8666-666666666666',
+  custodia: '77777777-7777-4777-8777-777777777777',
 };
 
 const buildApp = () => {
@@ -81,8 +82,8 @@ describe('multipart payload routes for evidence photos', () => {
       ubicacion_recepcion_id: UUID.recepcion,
       detalles: [
         {
+          custodia_id: UUID.custodia,
           articulo_id: UUID.articulo,
-          activo_ids: [UUID.activo],
           condicion_entrada: 'ok',
           disposicion: 'devuelto',
         },
@@ -95,6 +96,20 @@ describe('multipart payload routes for evidence photos', () => {
       .field('payload', JSON.stringify(payload));
 
     expect(response.status).toBe(201);
-    expect(DevolucionesService.create).toHaveBeenCalledWith(expect.objectContaining(payload), 'user-1', undefined);
+    expect(DevolucionesService.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trabajador_id: UUID.trabajador,
+        ubicacion_recepcion_id: UUID.recepcion,
+        detalles: expect.arrayContaining([
+          expect.objectContaining({
+            custodia_id: UUID.custodia,
+            articulo_id: UUID.articulo,
+            disposicion: 'devuelto',
+          }),
+        ]),
+      }),
+      'user-1',
+      undefined
+    );
   });
 });
