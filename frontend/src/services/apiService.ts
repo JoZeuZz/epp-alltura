@@ -90,62 +90,86 @@ export const updateUser = <T = unknown>({ id, ...payload }: UserUpdatePayload) =
   put<T>(`/users/${id}`, payload);
 export const deactivateUser = <T = unknown>(id: string) => del<T>(`/users/${id}`);
 
+// TODO Task 12: ArticuloGrupoPrincipal kept for components being updated in Task 12+
 export type ArticuloGrupoPrincipal = 'epp' | 'equipo' | 'herramienta';
+// TODO Task 12: ArticuloSubclasificacion kept for components being updated in Task 12+
 export type ArticuloSubclasificacion =
   | 'epp'
   | 'medicion_ensayos'
   | 'manual'
   | 'electrica_cable'
   | 'inalambrica_bateria';
+
+export type ArticuloTipo = 'epp' | 'herramienta' | 'equipo';
+export type ArticuloEstado = 'en_stock' | 'asignado' | 'mantencion' | 'dado_de_baja' | 'perdido';
 export type ArticuloEspecialidad =
   | 'oocc'
   | 'ooee'
   | 'equipos'
   | 'trabajos_verticales_lineas_de_vida';
-export type ArticuloNivelControl = 'alto' | 'medio' | 'bajo' | 'fuera_scope';
-type ArticuloEstado = 'activo' | 'inactivo';
 
 export interface Articulo {
   id: string;
-  grupo_principal: ArticuloGrupoPrincipal;
-  subclasificacion?: ArticuloSubclasificacion | string | null;
-  especialidades: ArticuloEspecialidad[];
+  tipo: ArticuloTipo;
   nombre: string;
-  marca: string;
-  modelo: string;
-  nivel_control?: ArticuloNivelControl;
-  requiere_vencimiento: boolean;
-  unidad_medida: string;
-  estado: ArticuloEstado;
+  marca?: string;
+  modelo?: string;
+  descripcion?: string;
+  nro_serie: string;
+  codigo: string;
+  valor: number;
   foto_url?: string | null;
-  creado_en?: string;
+  estado: ArticuloEstado;
+  bodega_actual_id?: string | null;
+  bodega_nombre?: string | null;
+  proyecto_actual_id?: string | null;
+  proyecto_nombre?: string | null;
+  especialidades: ArticuloEspecialidad[];
+  fecha_vencimiento?: string | null;
+  creado_en: string;
+  creado_por_email?: string | null;
 }
 
 export interface ArticuloQueryParams {
-  grupo_principal?: ArticuloGrupoPrincipal;
-  subclasificacion?: ArticuloSubclasificacion;
-  especialidad?: ArticuloEspecialidad;
+  tipo?: ArticuloTipo;
   estado?: ArticuloEstado;
+  bodega_id?: string;
+  proyecto_id?: string;
+  especialidad?: ArticuloEspecialidad;
   search?: string;
   limit?: number;
   offset?: number;
 }
 
 export interface ArticuloCreatePayload {
-  grupo_principal: ArticuloGrupoPrincipal;
-  subclasificacion: ArticuloSubclasificacion;
-  especialidades: ArticuloEspecialidad[];
+  tipo: ArticuloTipo;
   nombre: string;
-  marca: string;
-  modelo: string;
-  nivel_control?: ArticuloNivelControl;
-  requiere_vencimiento?: boolean;
-  unidad_medida: string;
-  estado?: ArticuloEstado;
+  marca?: string;
+  modelo?: string;
+  descripcion?: string;
+  nro_serie: string;
+  valor?: number;
+  bodega_id: string;
+  especialidades?: ArticuloEspecialidad[];
+  fecha_vencimiento?: string;
 }
 
-export interface ArticuloUpdatePayload extends Partial<ArticuloCreatePayload> {
+export interface ArticuloUpdatePayload {
   id: string;
+  nombre?: string;
+  marca?: string;
+  modelo?: string;
+  descripcion?: string;
+  nro_serie?: string;
+  valor?: number;
+  especialidades?: ArticuloEspecialidad[];
+  fecha_vencimiento?: string | null;
+}
+
+export interface CambiarEstadoArticuloPayload {
+  nuevo_estado: 'en_stock' | 'mantencion' | 'dado_de_baja' | 'perdido';
+  motivo?: string;
+  bodega_destino_id?: string;
 }
 
 function buildMultipartIfFile<T extends object>(data: T, file?: File): T | FormData {
@@ -156,19 +180,24 @@ function buildMultipartIfFile<T extends object>(data: T, file?: File): T | FormD
   return fd;
 }
 
-export const getArticulos = (params?: ArticuloQueryParams) => get<Articulo[]>('/articulos', params);
-export const createArticulo = <T = Articulo>(payload: ArticuloCreatePayload, foto?: File) =>
-  post<T>('/articulos', buildMultipartIfFile(payload, foto));
-export const updateArticulo = <T = Articulo>({ id, ...payload }: ArticuloUpdatePayload, foto?: File) =>
-  put<T>(`/articulos/${id}`, buildMultipartIfFile(payload, foto));
-export const deactivateArticulo = <T = Articulo>(id: string) => del<T>(`/articulos/${id}`);
-export const permanentDeleteArticulo = <T = unknown>(id: string) =>
-  del<T>(`/articulos/${id}/permanent`);
+export const getArticulos = (params?: ArticuloQueryParams) =>
+  get<{ items: Articulo[]; total: number }>('/articulos', params);
+export const getArticuloById = (id: string) =>
+  get<Articulo>(`/articulos/${id}`);
+export const createArticulo = (payload: ArticuloCreatePayload, foto?: File) =>
+  post<Articulo>('/articulos', buildMultipartIfFile(payload, foto));
+export const updateArticulo = ({ id, ...payload }: ArticuloUpdatePayload, foto?: File) =>
+  put<Articulo>(`/articulos/${id}`, buildMultipartIfFile(payload, foto));
+export const permanentDeleteArticulo = (id: string) =>
+  del<unknown>(`/articulos/${id}`);
+export const cambiarEstadoArticulo = (id: string, payload: CambiarEstadoArticuloPayload) =>
+  post<Articulo>(`/articulos/${id}/estado`, payload);
 
+// TODO Task 12: InventoryStockQueryParams kept for components being updated in Task 12+
 export interface InventoryStockQueryParams {
   search?: string;
   articulo_id?: string;
-  ubicacion_id?: string;
+  bodega_id?: string;
   limit?: number;
   offset?: number;
 }
@@ -185,10 +214,11 @@ export interface CursorPaginatedResponse<T> {
 }
 
 
+// TODO Task 12: InventoryActivoDetailQueryParams kept for components being updated in Task 12+
 export interface InventoryActivoDetailQueryParams extends CursorPaginationParams {
   search?: string;
   articulo_id?: string;
-  ubicacion_id?: string;
+  bodega_id?: string;
   estado?: string;
   solo_entregados?: boolean;
   tipo_activo?: InventoryActivoTypeScope;
@@ -196,6 +226,7 @@ export interface InventoryActivoDetailQueryParams extends CursorPaginationParams
 
 export type InventoryActivoTypeScope = 'herramientas' | 'epp' | 'equipos';
 
+// TODO Task 12: InventoryActivoDetailRow will be replaced after inventory pages are updated
 export interface InventoryActivoDetailRow {
   id: string;
   codigo?: string;
@@ -203,8 +234,10 @@ export interface InventoryActivoDetailRow {
   articulo_id?: string;
   articulo_nombre?: string;
   foto_url?: string | null;
-  ubicacion_id?: string | null;
-  ubicacion_nombre?: string | null;
+  bodega_actual_id?: string | null;
+  bodega_nombre?: string | null;
+  proyecto_actual_id?: string | null;
+  proyecto_nombre?: string | null;
   estado?: string;
   valor?: number | null;
   fecha_vencimiento?: string | null;
@@ -214,8 +247,6 @@ export interface InventoryActivoDetailRow {
   custodio_trabajador_id?: string | null;
   custodio_nombres?: string | null;
   custodio_apellidos?: string | null;
-  custodia_ubicacion_id?: string | null;
-  custodia_ubicacion_nombre?: string | null;
   custodia_entrega_id?: string | null;
   ultima_entrega_id?: string | null;
   entrega_confirmada_en?: string | null;
@@ -230,22 +261,26 @@ export interface InventoryActivoDetailRow {
   ultimo_movimiento_destino_nombre?: string | null;
 }
 
+// TODO Task 12: InventoryAvailableAssetQueryParams will be updated after inventory pages update
 export interface InventoryAvailableAssetQueryParams {
   articulo_id: string;
-  ubicacion_id: string;
+  bodega_id: string;
   search?: string;
   limit?: number;
 }
 
+// TODO Task 12: InventoryAvailableAssetRow will be updated after inventory pages update
 export interface InventoryAvailableAssetRow {
   id: string;
   codigo: string;
   nro_serie?: string | null;
-  estado: 'en_stock' | 'entregado' | 'mantencion' | 'baja' | string;
+  estado: ArticuloEstado | string;
   articulo_id: string;
   articulo_nombre?: string;
-  ubicacion_id: string;
-  ubicacion_nombre?: string;
+  bodega_actual_id?: string | null;
+  bodega_nombre?: string | null;
+  proyecto_actual_id?: string | null;
+  proyecto_nombre?: string | null;
 }
 
 export interface ReturnEligibleAssetQueryParams {
@@ -256,17 +291,16 @@ export interface ReturnEligibleAssetQueryParams {
 }
 
 export interface ReturnEligibleAssetRow {
-  custodia_activo_id: string;
+  custodia_id: string;       // renamed from custodia_activo_id
+  articulo_id: string;       // was activo_id
   trabajador_id: string;
   desde_en: string;
-  activo_id: string;
+  nombre: string;
+  tipo: ArticuloTipo;
+  nro_serie: string;
   codigo: string;
-  nro_serie?: string | null;
-  activo_estado?: string;
-  articulo_id: string;
-  articulo_nombre?: string;
-  ubicacion_actual_id?: string | null;
-  ubicacion_actual_nombre?: string | null;
+  foto_url?: string | null;
+  valor: number;
 }
 
 export type DevolucionEstado = 'borrador' | 'pendiente_firma' | 'confirmada' | 'anulada';
@@ -276,13 +310,11 @@ export type DevolucionCondicionEntrada = 'ok' | 'usado' | 'danado' | 'perdido';
 export interface DevolucionDetalleRow {
   id: string;
   devolucion_id: string;
-  custodia_activo_id?: string | null;
-  articulo_id?: string | null;
+  custodia_id: string;
+  articulo_id: string;
   articulo_nombre?: string;
-  activo_id?: string | null;
-  activo_codigo?: string | null;
-  activo_nro_serie?: string | null;
-  cantidad: number;
+  articulo_codigo?: string | null;
+  articulo_nro_serie?: string | null;
   condicion_entrada: DevolucionCondicionEntrada;
   disposicion: DevolucionDisposicion;
   notas?: string | null;
@@ -312,10 +344,8 @@ export interface DevolucionRow {
 }
 
 export interface DevolucionDetallePayload {
-  custodia_activo_id?: string | null;
-  articulo_id?: string | null;
-  activo_ids?: string[];
-  cantidad: number;
+  custodia_id: string;
+  articulo_id: string;
   condicion_entrada?: DevolucionCondicionEntrada;
   disposicion: DevolucionDisposicion;
   notas?: string | null;
@@ -331,8 +361,6 @@ export interface DevolucionCreatePayload {
 export interface InventoryMovementQueryParams {
   articulo_id?: string;
   tipo?: string;
-  compra_id?: string;
-  egreso_id?: string;
   entrega_id?: string;
   devolucion_id?: string;
   desde?: string;
@@ -342,12 +370,11 @@ export interface InventoryMovementQueryParams {
 
 
 
-export const getInventoryStock = (params?: InventoryStockQueryParams) =>
-  get('/inventario/stock', params);
-
+// TODO Task 12: getInventoryActivosPaged kept for components being updated in Task 12+
 export const getInventoryActivosPaged = (params?: InventoryActivoDetailQueryParams) =>
   get<CursorPaginatedResponse<InventoryActivoDetailRow>>('/inventario/activos-paged', params);
 
+// TODO Task 12: getInventoryActivosAll kept for components being updated in Task 12+
 export const getInventoryActivosAll = (scope: InventoryActivoTypeScope) =>
   get<InventoryActivoDetailRow[]>('/inventario/activos', { tipo_activo: scope, limit: 500 });
 
@@ -379,14 +406,16 @@ export interface ActivoCustodiaEntry {
   dias_en_custodia?: number | null;
 }
 
+// TODO Task 12: DevolverActivoDetallePayload kept for devolucion components updated in Task 12+
 export interface DevolverActivoDetallePayload {
+  custodia_id: string;
   articulo_id: string;
-  activo_ids: string[];
   condicion_entrada?: 'ok' | 'usado' | 'danado' | 'perdido';
   disposicion: 'devuelto' | 'perdido' | 'baja' | 'mantencion';
   notas?: string | null;
 }
 
+// TODO Task 12: DevolverActivoPayload kept for devolucion components updated in Task 12+
 export interface DevolverActivoPayload {
   trabajador_id: string;
   ubicacion_recepcion_id: string;
@@ -396,25 +425,20 @@ export interface DevolverActivoPayload {
 
 export interface ActivoProfileResponse {
   id: string;
+  tipo: ArticuloTipo;
+  nombre: string;
   codigo: string;
-  nro_serie?: string | null;
-  estado: string;
+  nro_serie: string;
+  estado: ArticuloEstado;
   foto_url?: string | null;
-  ubicacion_actual_id?: string | null;
-  ubicacion_nombre?: string | null;
-  fecha_compra?: string | null;
+  bodega_actual_id?: string | null;
+  bodega_nombre?: string | null;
+  proyecto_actual_id?: string | null;
+  proyecto_nombre?: string | null;
   fecha_vencimiento?: string | null;
-  valor?: number | null;
+  valor: number;
   creado_en: string;
-  articulo_id: string;
-  articulo_nombre: string;
   custodia_activa?: ActivoCustodiaEntry | null;
-  compra?: {
-    compra_id: string;
-    fecha_compra: string;
-    proveedor_nombre?: string | null;
-    precio_unitario?: number | null;
-  } | null;
   timeline: ActivoTimelineEntry[];
   custodias: ActivoCustodiaEntry[];
   estadisticas: {
@@ -428,36 +452,37 @@ export const getActivoProfile = (id: string) =>
   get<ActivoProfileResponse>(`/inventario/activos/${id}/perfil`);
 
 // ── Gestión de activos ─────────────────────────────────────
+// TODO Task 12: CambiarEstadoActivoPayload kept for modal components updated in Task 12+
+// Use CambiarEstadoArticuloPayload + cambiarEstadoArticulo for new code
 export interface CambiarEstadoActivoPayload {
   nuevo_estado: string;
   motivo: string;
   bodega_destino_id?: string;
 }
 
+// TODO Task 12: ReubicarActivoPayload kept for ReubicarActivoModal updated in Task 12+
 export interface ReubicarActivoPayload {
   bodega_destino_id: string;
   motivo?: string;
 }
 
+// TODO Task 12: EditarActivoPayload kept for EditarActivoModal updated in Task 12+
 export interface EditarActivoPayload {
   valor?: number | null;
   fecha_vencimiento?: string | null;
 }
 
+// TODO Task 12: cambiarEstadoActivo kept for CambiarEstadoActivoModal updated in Task 12+
 export const cambiarEstadoActivo = (id: string, payload: CambiarEstadoActivoPayload) =>
-  patch<{ id: string; estado: string; ubicacion_actual_id: string }>(`/inventario/activos/${id}/estado`, payload);
+  patch<{ id: string; estado: string; bodega_actual_id: string }>(`/inventario/activos/${id}/estado`, payload);
 
+// TODO Task 12: reubicarActivo kept for ReubicarActivoModal updated in Task 12+
 export const reubicarActivo = (id: string, payload: ReubicarActivoPayload) =>
-  patch<{ id: string; ubicacion_actual_id: string }>(`/inventario/activos/${id}/reubicar`, payload);
+  patch<{ id: string; bodega_actual_id: string }>(`/inventario/activos/${id}/reubicar`, payload);
 
+// TODO Task 12: editarActivo kept for EditarActivoModal updated in Task 12+
 export const editarActivo = (id: string, payload: EditarActivoPayload) =>
   patch<{ id: string; valor: number | null; fecha_vencimiento: string | null }>(`/inventario/activos/${id}`, payload);
-
-export const devolverActivo = (id: string, payload: DevolverActivoPayload, foto?: File) =>
-  post<DevolucionRow>(`/activos/${id}/devolver`, buildMultipartIfFile(payload, foto));
-
-export const entregarActivo = (activoId: string, payload: EntregarActivoPayload, foto?: File) =>
-  post<EntregaRow>(`/activos/${activoId}/entregar`, buildMultipartIfFile(payload, foto));
 
 export const getInventoryAvailableAssets = (params: InventoryAvailableAssetQueryParams) =>
   get<InventoryAvailableAssetRow[]>('/inventario/activos-disponibles', params);
@@ -477,9 +502,6 @@ export const createDevolucion = (payload: DevolucionCreatePayload, foto?: File) 
 export const confirmDevolucion = (id: string) =>
   post<DevolucionRow>(`/devoluciones/${id}/confirm`);
 
-export const getInventoryStockMovements = (params?: InventoryMovementQueryParams) =>
-  get('/inventario/movimientos-stock', params);
-
 // ============ ENTREGAS ============
 
 type EntregaTipo = 'entrega';
@@ -496,13 +518,12 @@ export interface EntregaDetalleRow {
   entrega_id: string;
   articulo_id: string;
   articulo_nombre?: string;
-  activo_id?: string | null;
-  activo_codigo?: string | null;
-  tipo_item_entrega?: 'retornable' | 'asignacion';
-  cantidad: number;
+  articulo_codigo?: string | null;
+  articulo_nro_serie?: string | null;
   condicion_salida: CondicionSalida;
   notas?: string | null;
   /* trazabilidad cruzada: estado devolución por ítem */
+  custodia_id?: string | null;
   custodia_estado?: string | null;
   custodia_cerrada_en?: string | null;
   devuelto?: boolean | null;
@@ -538,8 +559,6 @@ export interface EntregaRow {
 
 export interface EntregaDetallePayload {
   articulo_id: string;
-  activo_ids?: string[];
-  cantidad?: number;
   condicion_salida?: CondicionSalida;
   notas?: string | null;
 }
@@ -554,6 +573,7 @@ export interface EntregaCreatePayload {
   detalles: EntregaDetallePayload[];
 }
 
+// TODO Task 12: EntregarActivoPayload kept for entrega components updated in Task 12+
 export interface EntregarActivoPayload {
   trabajador_id: string;
   ubicacion_origen_id: string;
@@ -700,17 +720,17 @@ export const deleteAllReadNotifications = () =>
 // ── Perfil Trabajador ──────────────────────────────────────
 export interface TrabajadorCustodiaRow {
   custodia_id: string;
-  activo_id: string;
+  articulo_id: string;
   entrega_id: string;
   desde_en: string;
   fecha_devolucion_esperada: string | null;
   codigo: string;
-  nro_serie: string | null;
-  activo_estado: string;
-  articulo_id: string;
-  articulo_nombre: string;
-  articulo_tipo: string;
-  ubicacion_nombre: string;
+  nro_serie: string;
+  estado: ArticuloEstado;
+  nombre: string;
+  tipo: ArticuloTipo;
+  bodega_nombre?: string | null;
+  proyecto_nombre?: string | null;
   dias_en_custodia: number;
   semaforo: 'verde' | 'amarillo' | 'rojo' | 'sin_plazo';
   dias_restantes: number | null;
