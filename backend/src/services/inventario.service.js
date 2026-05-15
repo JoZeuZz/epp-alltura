@@ -430,6 +430,51 @@ class InventarioService {
     }
   }
 
+  // ── Stock summary grouped by article name + location ────────
+  static async getStockSummary(filters = {}) {
+    const limit = parseBoundedInteger(filters.limit, { min: 1, max: 200, fallback: 50 });
+
+    const query = `
+      SELECT
+        a.nombre                                                       AS articulo_nombre,
+        COALESCE(b.nombre, '—')                                        AS ubicacion_nombre,
+        COUNT(*) FILTER (WHERE a.estado = 'en_stock')::int             AS cantidad_disponible,
+        COUNT(*) FILTER (WHERE a.estado = 'asignado')::int             AS cantidad_reservada
+      FROM articulo a
+      LEFT JOIN bodegas b ON b.id = a.bodega_actual_id
+      GROUP BY a.nombre, b.nombre
+      HAVING COUNT(*) FILTER (WHERE a.estado IN ('en_stock', 'asignado')) > 0
+      ORDER BY cantidad_disponible DESC, a.nombre ASC
+      LIMIT $1
+    `;
+
+    const { rows } = await db.query(query, [limit]);
+    return rows;
+  }
+
+  // ── Recent movements across all activos ─────────────────────
+  static async getMovimientosActivo(filters = {}) {
+    const limit = parseBoundedInteger(filters.limit, { min: 1, max: 200, fallback: 25 });
+
+    const query = `
+      SELECT
+        ma.fecha_movimiento,
+        ma.tipo,
+        a.codigo                                               AS activo_codigo,
+        a.nombre                                               AS articulo_nombre,
+        COALESCE(b_dest.nombre, p_dest.nombre, '—')            AS ubicacion_destino_nombre
+      FROM movimiento_activo ma
+      JOIN articulo a ON a.id = ma.articulo_id
+      LEFT JOIN bodegas   b_dest ON b_dest.id = ma.bodega_destino_id
+      LEFT JOIN proyectos p_dest ON p_dest.id = ma.proyecto_destino_id
+      ORDER BY ma.fecha_movimiento DESC
+      LIMIT $1
+    `;
+
+    const { rows } = await db.query(query, [limit]);
+    return rows;
+  }
+
   // ── Audit log ────────────────────────────────────────────────
   static async getAuditoria(filters = {}) {
     const values = [];

@@ -65,7 +65,27 @@ const reubicarActivoSchema = Joi.object({
   notas: Joi.string().trim().max(500).allow('', null),
 });
 
+const dashboardQuerySchema = Joi.object({
+  limit: Joi.number().integer().min(1).max(200),
+});
+
 // ── Read routes ────────────────────────────────────────────────
+
+router.get(
+  '/stock',
+  authMiddleware,
+  checkRole(['admin', 'supervisor']),
+  validateQuery(dashboardQuerySchema),
+  InventarioController.getStock
+);
+
+router.get(
+  '/movimientos-activo',
+  authMiddleware,
+  checkRole(['admin', 'supervisor']),
+  validateQuery(dashboardQuerySchema),
+  InventarioController.getMovimientosActivo
+);
 
 router.get(
   '/activos',

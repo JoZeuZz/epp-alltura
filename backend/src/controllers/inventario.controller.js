@@ -64,6 +64,26 @@ class InventarioController {
     }
   }
 
+  static async getStock(req, res, next) {
+    try {
+      const data = await InventarioService.getStockSummary(req.query || {});
+      return sendSuccess(res, { message: 'Stock obtenido correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching stock summary:', error);
+      return next(error);
+    }
+  }
+
+  static async getMovimientosActivo(req, res, next) {
+    try {
+      const data = await InventarioService.getMovimientosActivo(req.query || {});
+      return sendSuccess(res, { message: 'Movimientos de activo obtenidos correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching activo movements:', error);
+      return next(error);
+    }
+  }
+
   static async reubicarActivo(req, res, next) {
     try {
       const data = await InventarioService.reubicarActivo(req.params.id, req.body, req.user.id);
