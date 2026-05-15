@@ -142,7 +142,6 @@ const getDeleteAssignmentSummary = async (client, targetUserId) => {
     SELECT
       (SELECT COUNT(*)::int FROM entrega WHERE creado_por_usuario_id = $1) AS entregas,
       (SELECT COUNT(*)::int FROM devolucion WHERE recibido_por_usuario_id = $1) AS devoluciones,
-      (SELECT COUNT(*)::int FROM movimiento_stock WHERE responsable_usuario_id = $1) AS movimientos_stock,
       (SELECT COUNT(*)::int FROM movimiento_activo WHERE responsable_usuario_id = $1) AS movimientos_activo,
       (SELECT COUNT(*)::int FROM inspeccion_activo WHERE responsable_usuario_id = $1) AS inspecciones,
       (SELECT COUNT(*)::int FROM documento WHERE creado_por_usuario_id = $1) AS documentos,
@@ -155,7 +154,6 @@ const getDeleteAssignmentSummary = async (client, targetUserId) => {
   const activity = activityResult.rows[0] || {};
   const entregas = activity.entregas || 0;
   const devoluciones = activity.devoluciones || 0;
-  const movimientosStock = activity.movimientos_stock || 0;
   const movimientosActivo = activity.movimientos_activo || 0;
   const inspecciones = activity.inspecciones || 0;
   const documentos = activity.documentos || 0;
@@ -165,7 +163,6 @@ const getDeleteAssignmentSummary = async (client, targetUserId) => {
   return {
     entregas,
     devoluciones,
-    movimientos_stock: movimientosStock,
     movimientos_activo: movimientosActivo,
     inspecciones,
     documentos,
@@ -174,7 +171,6 @@ const getDeleteAssignmentSummary = async (client, targetUserId) => {
     hasAssignments:
       entregas > 0 ||
       devoluciones > 0 ||
-      movimientosStock > 0 ||
       movimientosActivo > 0 ||
       inspecciones > 0 ||
       documentos > 0 ||
