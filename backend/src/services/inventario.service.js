@@ -458,6 +458,7 @@ class InventarioService {
 
     const query = `
       SELECT
+        ma.id,
         ma.fecha_movimiento,
         ma.tipo,
         a.codigo                                               AS activo_codigo,
