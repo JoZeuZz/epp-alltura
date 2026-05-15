@@ -14,12 +14,15 @@ jest.mock('../../middleware/roles', () => ({
 }));
 
 jest.mock('../../services/articulos.service', () => ({
-  list: jest.fn(),
-  getById: jest.fn(),
-  create: jest.fn(),
-  update: jest.fn(),
-  remove: jest.fn(),
-  removePermanent: jest.fn(),
+  ArticulosService: {
+    list: jest.fn(),
+    getById: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    deletePermanent: jest.fn(),
+    cambiarEstado: jest.fn(),
+  },
+  deriveCodigo: jest.fn(),
 }));
 
 jest.mock('../../lib/logger', () => ({
@@ -36,7 +39,9 @@ const express = require('express');
 const request = require('supertest');
 const errorHandler = require('../../middleware/errorHandler');
 const articulosRoutes = require('../../routes/articulos.routes');
-const ArticulosService = require('../../services/articulos.service');
+const { ArticulosService } = require('../../services/articulos.service');
+
+const BODEGA_ID = '22222222-2222-4222-8222-222222222222';
 
 describe('Articulos API Route Integration', () => {
   const buildApp = () => {
@@ -51,91 +56,68 @@ describe('Articulos API Route Integration', () => {
     jest.clearAllMocks();
   });
 
-  it('desactiva un artículo con DELETE /api/articulos/:id', async () => {
-    ArticulosService.remove.mockResolvedValue({
-      id: 'articulo-1',
-      estado: 'inactivo',
-    });
+  it('elimina permanentemente un artículo con DELETE /api/articulos/:id', async () => {
+    ArticulosService.deletePermanent.mockResolvedValue(undefined);
 
     const app = buildApp();
     const response = await request(app).delete('/api/articulos/articulo-1');
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    expect(response.body.message).toBe('Artículo desactivado correctamente');
-    expect(response.body.data.estado).toBe('inactivo');
-  });
-
-  it('elimina permanentemente un artículo sin trazabilidad', async () => {
-    ArticulosService.removePermanent.mockResolvedValue({
-      id: 'articulo-2',
-      deleted_permanently: true,
-    });
-
-    const app = buildApp();
-    const response = await request(app).delete('/api/articulos/articulo-2/permanent');
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
     expect(response.body.message).toBe('Artículo eliminado permanentemente');
-    expect(response.body.data.deleted_permanently).toBe(true);
+    expect(ArticulosService.deletePermanent).toHaveBeenCalledWith('articulo-1', 'user-1');
   });
 
-  it('retorna 409 cuando el borrado permanente está bloqueado por trazabilidad', async () => {
+  it('retorna 409 cuando el borrado permanente está bloqueado por custodia activa', async () => {
     const blockedError = new Error(
-      'No se puede eliminar permanentemente un artículo con trazabilidad.'
+      'No se puede eliminar un artículo con custodia activa'
     );
     blockedError.statusCode = 409;
     blockedError.errors = [
       {
-        code: 'ARTICULO_REFERENCIADO',
-        details: {
-          movimiento_stock: 2,
-          compra_detalle: 1,
-        },
+        code: 'ARTICULO_ASSIGNED',
       },
     ];
-    ArticulosService.removePermanent.mockRejectedValue(blockedError);
+    ArticulosService.deletePermanent.mockRejectedValue(blockedError);
 
     const app = buildApp();
-    const response = await request(app).delete('/api/articulos/articulo-3/permanent');
+    const response = await request(app).delete('/api/articulos/articulo-3');
 
     expect(response.status).toBe(409);
     expect(response.body.success).toBe(false);
     expect(response.body.message).toBe(
-      'No se puede eliminar permanentemente un artículo con trazabilidad.'
+      'No se puede eliminar un artículo con custodia activa'
     );
     expect(response.body.errors).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          code: 'ARTICULO_REFERENCIADO',
+          code: 'ARTICULO_ASSIGNED',
         }),
       ])
     );
   });
 
-  it('crea un artículo con contrato V2 grupo/subclasificación/especialidades', async () => {
+  it('crea un artículo físico con contrato tipo/nro_serie/bodega', async () => {
     ArticulosService.create.mockResolvedValue({
       id: 'articulo-v2-1',
-        grupo_principal: 'epp',
-      subclasificacion: 'epp',
-      especialidades: ['ooee'],
+      tipo: 'epp',
       nombre: 'Arnés dieléctrico',
-      estado: 'activo',
+      nro_serie: 'ARN-0001',
+      codigo: '001',
+      estado: 'en_stock',
+      especialidades: ['ooee'],
     });
 
     const app = buildApp();
     const payload = {
-        grupo_principal: 'epp',
-      subclasificacion: 'epp',
-      especialidades: ['ooee'],
+      tipo: 'epp',
       nombre: 'Arnés dieléctrico',
       marca: '3M',
       modelo: 'Protecta',
-      nivel_control: 'alto',
-      requiere_vencimiento: true,
-      unidad_medida: 'unidad',
-      estado: 'activo',
+      nro_serie: 'ARN-0001',
+      valor: 150000,
+      bodega_id: BODEGA_ID,
+      especialidades: ['ooee'],
     };
 
     const response = await request(app).post('/api/articulos').send(payload);
@@ -143,124 +125,152 @@ describe('Articulos API Route Integration', () => {
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
     expect(response.body.message).toBe('Artículo creado correctamente');
-    expect(ArticulosService.create).toHaveBeenCalledWith(expect.objectContaining(payload), undefined);
+    expect(ArticulosService.create).toHaveBeenCalledWith(
+      expect.objectContaining(payload),
+      'user-1',
+      null
+    );
   });
 
   it('acepta foto_url opcional en payload JSON de artículo', async () => {
     ArticulosService.create.mockResolvedValue({
       id: 'articulo-foto-1',
-      grupo_principal: 'epp',
-      subclasificacion: 'epp',
+      tipo: 'epp',
       nombre: 'Casco con foto',
-      estado: 'activo',
+      nro_serie: 'CAS-0001',
+      estado: 'en_stock',
       foto_url: '/api/image-proxy?token=abc',
     });
 
     const app = buildApp();
     const payload = {
-      grupo_principal: 'epp',
-      subclasificacion: 'epp',
+      tipo: 'epp',
       nombre: 'Casco con foto',
       marca: '3M',
       modelo: 'X1',
-      nivel_control: 'alto',
-      unidad_medida: 'unidad',
-      foto_url: 'uploads/catalogo/casco.jpg',
+      nro_serie: 'CAS-0001',
+      bodega_id: BODEGA_ID,
+      foto_url: 'https://example.com/uploads/catalogo/casco.jpg',
     };
 
     const response = await request(app).post('/api/articulos').send(payload);
 
     expect(response.status).toBe(201);
-    expect(ArticulosService.create).toHaveBeenCalledWith(expect.objectContaining(payload), undefined);
+    expect(ArticulosService.create).toHaveBeenCalledWith(
+      expect.objectContaining(payload),
+      'user-1',
+      null
+    );
   });
 
   it('crea un artículo de herramienta con múltiples especialidades', async () => {
     ArticulosService.create.mockResolvedValue({
       id: 'articulo-v2-2',
-      grupo_principal: 'herramienta',
-      subclasificacion: 'manual',
-      especialidades: ['oocc', 'equipos'],
+      tipo: 'herramienta',
       nombre: 'Llave de impacto',
-      estado: 'activo',
+      nro_serie: 'LLV-0001',
+      estado: 'en_stock',
+      especialidades: ['oocc', 'equipos'],
     });
 
     const app = buildApp();
     const payload = {
-      grupo_principal: 'herramienta',
-      subclasificacion: 'manual',
-      especialidades: ['oocc', 'equipos'],
+      tipo: 'herramienta',
       nombre: 'Llave de impacto',
       marca: 'Makita',
       modelo: 'TW1000',
-      nivel_control: 'medio',
-      unidad_medida: 'unidad',
+      nro_serie: 'LLV-0001',
+      bodega_id: BODEGA_ID,
+      especialidades: ['oocc', 'equipos'],
     };
 
     const response = await request(app).post('/api/articulos').send(payload);
 
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
-    expect(ArticulosService.create).toHaveBeenCalledWith(expect.objectContaining(payload), undefined);
+    expect(ArticulosService.create).toHaveBeenCalledWith(
+      expect.objectContaining(payload),
+      'user-1',
+      null
+    );
   });
 
-  it('edita un artículo con grupo/subclasificación compatibles', async () => {
+  it('edita un artículo con campos físicos compatibles', async () => {
     ArticulosService.update.mockResolvedValue({
       id: 'articulo-1',
-      grupo_principal: 'herramienta',
-      subclasificacion: 'electrica_cable',
-      especialidades: ['ooee'],
+      tipo: 'herramienta',
       nombre: 'Taladro renovado',
-      estado: 'activo',
+      nro_serie: 'TAL-0009',
+      estado: 'en_stock',
+      especialidades: ['ooee'],
     });
 
     const app = buildApp();
     const payload = {
-      grupo_principal: 'herramienta',
-      subclasificacion: 'electrica_cable',
-      especialidades: ['ooee'],
       nombre: 'Taladro renovado',
+      nro_serie: 'TAL-0009',
+      especialidades: ['ooee'],
     };
 
     const response = await request(app).put('/api/articulos/articulo-1').send(payload);
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    expect(ArticulosService.update).toHaveBeenCalledWith('articulo-1', expect.objectContaining(payload), undefined);
+    expect(ArticulosService.update).toHaveBeenCalledWith(
+      'articulo-1',
+      expect.objectContaining(payload),
+      'user-1',
+      null
+    );
   });
 
-  it('rechaza subclasificación incompatible para grupo_principal', async () => {
+  it('rechaza tipo inválido en la creación', async () => {
     const app = buildApp();
 
     const response = await request(app)
       .post('/api/articulos')
       .send({
-        grupo_principal: 'herramienta',
-        subclasificacion: 'epp',
-        especialidades: ['oocc'],
+        tipo: 'invalido',
         nombre: 'Payload inválido',
-        marca: 'Marca',
-        modelo: 'Modelo',
-        nivel_control: 'medio',
-        unidad_medida: 'unidad',
+        nro_serie: 'INV-0001',
+        bodega_id: BODEGA_ID,
       });
 
     expect(response.status).toBe(400);
     expect(response.body.success).toBe(false);
-    expect(JSON.stringify(response.body.errors || [])).toMatch(/subclasificaci[oó]n|grupo_principal/i);
+    expect(JSON.stringify(response.body.errors || [])).toMatch(/tipo/i);
   });
 
-  it('rechaza actualización de grupo_principal sin subclasificación', async () => {
+  it('rechaza creación sin nro_serie', async () => {
     const app = buildApp();
 
     const response = await request(app)
-      .put('/api/articulos/articulo-1')
+      .post('/api/articulos')
       .send({
-        grupo_principal: 'equipo',
+        tipo: 'epp',
+        nombre: 'Sin serie',
+        bodega_id: BODEGA_ID,
       });
 
     expect(response.status).toBe(400);
     expect(response.body.success).toBe(false);
-    expect(JSON.stringify(response.body.errors || [])).toMatch(/subclasificacion compatible/i);
+    expect(JSON.stringify(response.body.errors || [])).toMatch(/nro_serie/i);
+  });
+
+  it('rechaza creación sin bodega_id', async () => {
+    const app = buildApp();
+
+    const response = await request(app)
+      .post('/api/articulos')
+      .send({
+        tipo: 'epp',
+        nombre: 'Sin bodega',
+        nro_serie: 'SB-0001',
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(JSON.stringify(response.body.errors || [])).toMatch(/bodega_id/i);
   });
 
   it('rechaza especialidades con marcadores inválidos', async () => {
@@ -269,14 +279,11 @@ describe('Articulos API Route Integration', () => {
     const response = await request(app)
       .post('/api/articulos')
       .send({
-        grupo_principal: 'epp',
-        subclasificacion: 'epp',
-        especialidades: ['ooee', 'marcador_invalido'],
+        tipo: 'epp',
         nombre: 'Artículo inválido',
-        marca: 'Marca',
-        modelo: 'Modelo',
-        nivel_control: 'medio',
-        unidad_medida: 'unidad',
+        nro_serie: 'AI-0001',
+        bodega_id: BODEGA_ID,
+        especialidades: ['ooee', 'marcador_invalido'],
       });
 
     expect(response.status).toBe(400);
@@ -284,45 +291,36 @@ describe('Articulos API Route Integration', () => {
     expect(JSON.stringify(response.body.errors || [])).toMatch(/especialidades|marcador_invalido/i);
   });
 
-  it('rechaza payload legacy cuando se envía tipo', async () => {
+  it('rechaza update con payload vacío', async () => {
     const app = buildApp();
 
     const response = await request(app)
-      .post('/api/articulos')
-      .send({
-        tipo: 'epp',
-        subclasificacion: 'epp',
-        especialidades: ['ooee'],
-        nombre: 'Payload Legacy',
-        nivel_control: 'medio',
-        unidad_medida: 'unidad',
-      });
+      .put('/api/articulos/articulo-1')
+      .send({});
 
     expect(response.status).toBe(400);
     expect(response.body.success).toBe(false);
-    expect(Array.isArray(response.body.errors)).toBe(true);
-    expect(JSON.stringify(response.body.errors)).toMatch(/grupo_principal|tipo/i);
   });
 
-  it('rechaza payload legacy cuando se envía retorno_mode', async () => {
+  it('cambia el estado de un artículo con POST /api/articulos/:id/estado', async () => {
+    ArticulosService.cambiarEstado.mockResolvedValue({
+      id: 'articulo-1',
+      estado: 'mantencion',
+    });
+
     const app = buildApp();
-
     const response = await request(app)
-      .post('/api/articulos')
-      .send({
-        grupo_principal: 'equipo',
-        subclasificacion: 'epp',
-        especialidades: ['ooee'],
-        nombre: 'Payload Legacy retorno',
-        marca: 'Marca',
-        modelo: 'Modelo',
-        nivel_control: 'medio',
-        unidad_medida: 'unidad',
-        retorno_mode: 'retornable',
-      });
+      .post('/api/articulos/articulo-1/estado')
+      .send({ nuevo_estado: 'mantencion', motivo: 'Revisión preventiva' });
 
-    expect(response.status).toBe(400);
-    expect(response.body.success).toBe(false);
-    expect(JSON.stringify(response.body.errors || [])).toMatch(/retorno_mode/i);
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.message).toBe('Estado del artículo actualizado');
+    expect(response.body.data.estado).toBe('mantencion');
+    expect(ArticulosService.cambiarEstado).toHaveBeenCalledWith(
+      'articulo-1',
+      expect.objectContaining({ nuevo_estado: 'mantencion' }),
+      'user-1'
+    );
   });
 });

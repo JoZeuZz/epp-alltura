@@ -7,29 +7,21 @@ vi.mock('../pages/admin/inventory/AdminInventoryScopedAssetCards', () => ({
   default: () => <div data-testid="asset-cards" />,
 }));
 
-vi.mock('../hooks/useExcelExport', () => ({
-  useExcelExport: () => ({ exportToExcel: vi.fn() }),
-}));
-
-const mockDownloadPdf = vi.fn().mockResolvedValue(undefined);
-vi.mock('../hooks/usePdfDownload', () => ({
-  usePdfDownload: () => ({ downloadPdf: mockDownloadPdf, isLoading: false }),
-}));
-
-const mockGetAll = vi.hoisted(() =>
-  vi.fn().mockResolvedValue([{ codigo: 'A1', articulo_nombre: 'Casco', estado: 'ok' }])
-);
-const mockCreateArticulo = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({ id: 'art-new', nombre: 'Casco' })
+const mockGetArticulos = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ items: [], total: 0 })
 );
 vi.mock('../services/apiService', () => ({
-  getInventoryActivosAll: mockGetAll,
-  createArticulo: mockCreateArticulo,
+  getArticulos: mockGetArticulos,
 }));
 
-vi.mock('../components/forms/ArticleFormModal', () => ({
-  default: ({ isOpen }: { isOpen: boolean }) =>
-    isOpen ? <div data-testid="article-form-modal" /> : null,
+const mockUseGet = vi.hoisted(() => vi.fn(() => ({ data: [] })));
+vi.mock('../hooks', () => ({
+  useGet: mockUseGet,
+}));
+
+vi.mock('../components/ArticuloCreateModal', () => ({
+  ArticuloCreateModal: ({ isOpen, tipo }: { isOpen: boolean; tipo: string }) =>
+    isOpen ? <div data-testid="articulo-create-modal">{tipo}</div> : null,
 }));
 
 import AdminInventoryScopedAssetPage from '../pages/admin/inventory/AdminInventoryScopedAssetPage';
@@ -42,22 +34,19 @@ const createWrapper = () => {
   return Wrapper;
 };
 
-describe('AdminInventoryScopedAssetPage export toolbar', () => {
+describe('AdminInventoryScopedAssetPage — scoped header', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders PDF and Excel export buttons', () => {
+  it('renders the scoped page title for epp', () => {
     render(<AdminInventoryScopedAssetPage scope="epp" />, { wrapper: createWrapper() });
-    expect(screen.getByRole('button', { name: /exportar pdf/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /exportar excel/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /gestor de epp/i })).toBeInTheDocument();
   });
 
-  it('calls downloadPdf with correct URL when PDF button clicked', async () => {
-    render(<AdminInventoryScopedAssetPage scope="epp" />, { wrapper: createWrapper() });
-    fireEvent.click(screen.getByRole('button', { name: /exportar pdf/i }));
+  it('queries articulos with the scoped tipo', async () => {
+    render(<AdminInventoryScopedAssetPage scope="herramientas" />, { wrapper: createWrapper() });
     await waitFor(() => {
-      expect(mockDownloadPdf).toHaveBeenCalledWith(
-        '/inventario/export/pdf?categoria=epp',
-        expect.stringMatching(/inventario-epp/)
+      expect(mockGetArticulos).toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'herramienta' })
       );
     });
   });
@@ -66,18 +55,25 @@ describe('AdminInventoryScopedAssetPage export toolbar', () => {
 describe('AdminInventoryScopedAssetPage — Nuevo artículo button', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('renders "Nuevo artículo" button for epp scope', () => {
+  it('renders "Nuevo" button for epp scope', () => {
     render(<AdminInventoryScopedAssetPage scope="epp" />, { wrapper: createWrapper() });
-    expect(screen.getByRole('button', { name: /nuevo artículo/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /nuevo epp/i })).toBeInTheDocument();
   });
 
-  it('renders "Nuevo artículo" button for herramientas scope', () => {
+  it('renders "Nuevo" button for herramientas scope', () => {
     render(<AdminInventoryScopedAssetPage scope="herramientas" />, { wrapper: createWrapper() });
-    expect(screen.getByRole('button', { name: /nuevo artículo/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /nuevo herramienta/i })).toBeInTheDocument();
   });
 
-  it('renders "Nuevo artículo" button for equipos scope', () => {
+  it('renders "Nuevo" button for equipos scope', () => {
     render(<AdminInventoryScopedAssetPage scope="equipos" />, { wrapper: createWrapper() });
-    expect(screen.getByRole('button', { name: /nuevo artículo/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /nuevo equipo/i })).toBeInTheDocument();
+  });
+
+  it('opens the ArticuloCreateModal when the button is clicked', () => {
+    render(<AdminInventoryScopedAssetPage scope="epp" />, { wrapper: createWrapper() });
+    expect(screen.queryByTestId('articulo-create-modal')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /nuevo epp/i }));
+    expect(screen.getByTestId('articulo-create-modal')).toBeInTheDocument();
   });
 });
