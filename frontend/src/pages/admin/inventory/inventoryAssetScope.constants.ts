@@ -17,7 +17,7 @@ export const INVENTORY_ASSET_SCOPE_COPY: Record<AssetScopeKey, InventoryAssetSco
   epp: {
     tipo: 'epp',
     pageTitle: 'Gestor de EPP',
-    pageSubtitle: 'Elementos de Protección Personal — cada fila es un ítem físico.',
+    pageSubtitle: 'Elementos de Protección Personal',
     totalLabel: 'Total EPP',
     emptyMessage: 'No hay EPP registrados.',
     errorMessage: 'No fue posible cargar EPP. Intenta nuevamente.',
@@ -27,7 +27,7 @@ export const INVENTORY_ASSET_SCOPE_COPY: Record<AssetScopeKey, InventoryAssetSco
   herramientas: {
     tipo: 'herramienta',
     pageTitle: 'Gestor de Herramientas',
-    pageSubtitle: 'Herramientas manuales y eléctricas — cada fila es un ítem físico.',
+    pageSubtitle: 'Herramientas manuales y eléctricas',
     totalLabel: 'Total herramientas',
     emptyMessage: 'No hay herramientas registradas.',
     errorMessage: 'No fue posible cargar herramientas. Intenta nuevamente.',
@@ -37,7 +37,7 @@ export const INVENTORY_ASSET_SCOPE_COPY: Record<AssetScopeKey, InventoryAssetSco
   equipos: {
     tipo: 'equipo',
     pageTitle: 'Gestor de Equipos',
-    pageSubtitle: 'Equipos de medición y ensayos — cada fila es un ítem físico.',
+    pageSubtitle: 'Equipos de medición y ensayos',
     totalLabel: 'Total equipos',
     emptyMessage: 'No hay equipos registrados.',
     errorMessage: 'No fue posible cargar equipos. Intenta nuevamente.',

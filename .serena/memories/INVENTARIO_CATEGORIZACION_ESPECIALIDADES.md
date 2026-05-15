@@ -1,37 +1,33 @@
-# Categorización e inventario por tipo de activo (2026-04-28)
+# Inventario: tipos, estados y especialidades (post-refactor 2026-05-15)
 
-## Campo `subclasificacion` (API) / `categoria` (DB)
-La API usa el nombre `subclasificacion`; el campo interno en DB es `categoria`.
-La validación Joi **rechaza** el campo `categoria` en requests y redirige a usar `subclasificacion`.
+> Reemplaza categorización anterior basada en subclasificacion/tracking_mode/categoria.
 
-Valores válidos de categoria (DB):
-- `epp` — Equipos de Protección Personal
-- `medicion_ensayos` — Equipos de medición y ensayos
-- `manual` — Herramientas manuales
-- `electrica_cable` — Herramientas eléctricas con cable
-- `inalambrica_bateria` — Herramientas inalámbricas con batería
+## Tipos de artículo (`tipo`)
+3 valores: `epp` | `herramienta` | `equipo`.
+Campo directo en tabla `articulo`. Reemplaza grupo_principal + subclasificacion + categoria (todos eliminados).
+tracking_mode ELIMINADO — todos los artículos son entidades físicas individuales (serial).
+
+## Estados de artículo (`estado`)
+5 valores: `en_stock` | `asignado` | `mantencion` | `dado_de_baja` | `perdido`.
+Transiciones: ver REGLAS_NEGOCIO_FLUJOS_2026_05_14.
 
 ## `articulo_especialidad` (tabla N:M)
-Relaciona artículos con especialidades de obra.
 Valores: `oocc`, `ooee`, `equipos`, `trabajos_verticales_lineas_de_vida`.
-Un artículo puede tener múltiples especialidades.
-Filtro disponible en API: `especialidades[]`.
+Un artículo puede tener múltiples. Filtro API: `especialidad`.
 
-## `ubicacion.tipo`
-Valores: `bodega`, `planta`, `proyecto`, `taller_mantencion`.
-- `bodega`: almacén físico (usa AdminBodegasPage)
-- `proyecto`: obras o faenas (usa AdminProyectosPage)
-- `planta` / `taller_mantencion`: otras ubicaciones operativas.
+## Páginas de inventario
+- `/admin/inventario/epp` → `AdminInventoryScopedAssetPage` con tipo='epp'
+- `/admin/inventario/equipos` → tipo='equipo'
+- `/admin/inventario/herramientas` → tipo='herramienta'
+- Constante de configuración: `INVENTORY_ASSET_SCOPE_COPY` en `inventoryAssetScope.constants.ts`
+- `AssetScopeKey`: `'epp' | 'herramientas' | 'equipos'` (plural para key URL)
+- Creación de artículo: `ArticuloCreateModal` (wired en cada scope page)
 
-## Páginas de inventario por categoría
-- `/admin/inventario/epp` → AdminInventoryEppPage → filtra `categoria=epp`
-- `/admin/inventario/equipos` → AdminInventoryEquiposPage → filtra por categoria de equipos
-- `/admin/inventario/herramientas` → AdminInventoryHerramientasPage → filtra herramientas manuales/eléctricas
-- Patrón genérico: `AdminInventoryScopedAssetPage` + `AdminInventoryScopedAssetCards`
-- Constantes de UI de cada scope: `INVENTORY_ASSET_SCOPE_COPY` en `inventoryAssetScope.constants.ts`
+## Ubicaciones vigentes
+- `bodega`: almacén físico — artículos en_stock. Tabla independiente.
+- `proyecto`: obra/faena — artículos asignados. Tabla independiente.
+- `planta` y `taller_mantencion` eliminados del dominio activo.
+- `articulo.bodega_actual_id` XOR `proyecto_actual_id` — nunca ambos.
 
 ## `inspeccion_activo`
-Nueva tabla para trazabilidad de mantenimiento.
-- `tipo`: `inspeccion` | `calibracion`
-- Índices: por `activo_id`, por `fecha_inspeccion DESC`, por `responsable_usuario_id`
-- Flujo UI aún no completamente mapeado (servicio existe, pendiente verificar endpoints).
+Tabla conservada (usa `articulo_id`). Flujo UI pendiente.
