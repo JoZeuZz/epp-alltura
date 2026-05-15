@@ -71,7 +71,7 @@ const listQuerySchema = Joi.object({
   proyecto_id: Joi.string().uuid().optional(),
   especialidad: Joi.string().valid(...ESPECIALIDADES).optional(),
   search:      Joi.string().optional(),
-  limit:       Joi.number().integer().min(1).max(200).optional(),
+  limit:       Joi.number().integer().min(1).max(1000).optional(),
   offset:      Joi.number().integer().min(0).optional(),
 }).options({ allowUnknown: true });
 
