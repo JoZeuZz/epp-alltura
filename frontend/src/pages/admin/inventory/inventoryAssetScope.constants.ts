@@ -1,48 +1,47 @@
-import type { InventoryActivoTypeScope } from '../../../services/apiService';
+import type { ArticuloTipo } from '../../../services/apiService';
 
 export interface InventoryAssetScopeCopy {
+  tipo: ArticuloTipo;
   pageTitle: string;
   pageSubtitle: string;
-  managerTitle: string;
-  managerDescription: string;
   totalLabel: string;
   emptyMessage: string;
   errorMessage: string;
   loadMoreLabel: string;
+  icon: string;
 }
 
-export const INVENTORY_ASSET_SCOPE_COPY: Record<InventoryActivoTypeScope, InventoryAssetScopeCopy> = {
+export type AssetScopeKey = 'epp' | 'herramientas' | 'equipos';
+
+export const INVENTORY_ASSET_SCOPE_COPY: Record<AssetScopeKey, InventoryAssetScopeCopy> = {
+  epp: {
+    tipo: 'epp',
+    pageTitle: 'Gestor de EPP',
+    pageSubtitle: 'Elementos de Protección Personal — cada fila es un ítem físico.',
+    totalLabel: 'Total EPP',
+    emptyMessage: 'No hay EPP registrados.',
+    errorMessage: 'No fue posible cargar EPP. Intenta nuevamente.',
+    loadMoreLabel: 'Cargar más EPP',
+    icon: '🦺',
+  },
   herramientas: {
+    tipo: 'herramienta',
     pageTitle: 'Gestor de Herramientas',
-    pageSubtitle: 'Gestión de herramientas con filtros y acciones operativas.',
-    managerTitle: 'Gestión de Herramientas',
-    managerDescription:
-      'Administra cada herramienta como una entidad individual, revisando responsable, ubicación, estado y valor asociado.',
+    pageSubtitle: 'Herramientas manuales y eléctricas — cada fila es un ítem físico.',
     totalLabel: 'Total herramientas',
-    emptyMessage: 'No se encontraron herramientas para los filtros seleccionados.',
+    emptyMessage: 'No hay herramientas registradas.',
     errorMessage: 'No fue posible cargar herramientas. Intenta nuevamente.',
     loadMoreLabel: 'Cargar más herramientas',
-  },
-  epp: {
-    pageTitle: 'Gestor de EPP',
-    pageSubtitle: 'Gestión de EPP con filtros y acciones operativas.',
-    managerTitle: 'Gestión de EPP',
-    managerDescription:
-      'Administra cada EPP serializado en formato de tarjetas, revisando custodio, ubicación, estado y valor asociado.',
-    totalLabel: 'Total EPP',
-    emptyMessage: 'No se encontraron activos EPP para los filtros seleccionados.',
-    errorMessage: 'No fue posible cargar activos EPP. Intenta nuevamente.',
-    loadMoreLabel: 'Cargar más EPP',
+    icon: '🔧',
   },
   equipos: {
+    tipo: 'equipo',
     pageTitle: 'Gestor de Equipos',
-    pageSubtitle: 'Gestión de equipos con filtros y acciones operativas.',
-    managerTitle: 'Gestión de Equipos',
-    managerDescription:
-      'Administra cada equipo serializado en formato de tarjetas, revisando custodio, ubicación, estado y valor asociado.',
+    pageSubtitle: 'Equipos de medición y ensayos — cada fila es un ítem físico.',
     totalLabel: 'Total equipos',
-    emptyMessage: 'No se encontraron equipos para los filtros seleccionados.',
+    emptyMessage: 'No hay equipos registrados.',
     errorMessage: 'No fue posible cargar equipos. Intenta nuevamente.',
     loadMoreLabel: 'Cargar más equipos',
+    icon: '📡',
   },
 };
