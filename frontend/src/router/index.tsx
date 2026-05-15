@@ -91,9 +91,6 @@ const AdminInventoryEquiposPage = lazy(() => import('../pages/admin/inventory/Ad
 const AdminInventoryHerramientasPage = lazy(
   () => import('../pages/admin/inventory/AdminInventoryHerramientasPage')
 );
-const AdminInventoryArticlesPage = lazy(
-  () => import('../pages/admin/inventory/AdminInventoryArticlesPage')
-);
 const AdminProyectosPage = lazy(() => import('../pages/admin/AdminProyectosPage'));
 const AdminBodegasPage = lazy(() => import('../pages/admin/AdminBodegasPage'));
 
@@ -230,10 +227,9 @@ const requireRole = (allowedRoles: RouteRole[]) => async () => {
 async function adminDashboardLoader() {
   const { user } = (await requireRole(['admin'])()) as { user: User };
 
-  const [summary, stock, movimientosStock, movimientosActivo] = await Promise.all([
+  const [summary, stock, movimientosActivo] = await Promise.all([
     loaderGetOrThrow('/dashboard/summary'),
     loaderGetOrThrow('/inventario/stock'),
-    loaderGetOrThrow('/inventario/movimientos-stock?limit=25'),
     loaderGetOrThrow('/inventario/movimientos-activo?limit=25'),
   ]);
 
@@ -241,7 +237,6 @@ async function adminDashboardLoader() {
     user,
     summary,
     stock,
-    movimientosStock,
     movimientosActivo,
   };
 }
@@ -344,11 +339,6 @@ export const router = createBrowserRouter([
         path: 'admin/inventario/herramientas',
         loader: requireRole(['admin']),
         element: <AdminInventoryHerramientasPage />,
-      },
-      {
-        path: 'admin/inventario/articulos',
-        loader: requireRole(['admin']),
-        element: <AdminInventoryArticlesPage />,
       },
       {
         path: 'supervisor/dashboard',
