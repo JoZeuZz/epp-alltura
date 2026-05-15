@@ -86,9 +86,9 @@ services:
       - "5000"
     depends_on:
       postgres_db:
-        condition: service_healthy
+        condition: service_started
       redis:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
     networks:
       - alltura_network
@@ -114,7 +114,7 @@ services:
       - "80"
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
     networks:
       - alltura_network
