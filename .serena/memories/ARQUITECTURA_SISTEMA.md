@@ -16,12 +16,14 @@
 - TanStack Query para estado servidor en páginas/módulos.
 - API axios central con refresh interceptor (coexiste `fetchAPI` para loaders en router).
 
-## Datos
-- SQL consolidado en `db/init/001-init.sql` (idempotente, fusión de migraciones 001-013) + `002-dev-seed.sql`.
-- Nuevas tablas: `articulo_especialidad`, `inspeccion_activo`, `documento*`, `notifications`, `push_subscriptions`.
-- `articulo.categoria`: clasificación por tipo EPP (`epp`, `medicion_ensayos`, `manual`, `electrica_cable`, `inalambrica_bateria`).
-- `ubicacion.tipo`: `bodega` | `planta` | `proyecto` | `taller_mantencion`.
-- Reglas de movimiento y estados reforzadas por SQL y validaciones de servicio.
+## Datos (actualizado 2026-05-15 — refactor modelo artículo)
+- SQL consolidado en `db/init/001-init.sql` (idempotente) + `002-dev-seed.sql`.
+- Tablas activas clave: `articulo`, `articulo_especialidad`, `entrega`, `entrega_detalle`, `devolucion`, `devolucion_detalle`, `custodia_activo`, `movimiento_activo`, `bodega`, `proyecto`, `trabajador`, `inspeccion_activo`, `notifications`, `push_subscriptions`, `documento*`.
+- Tablas ELIMINADAS (2026-05-14): `activo`, `lote`, `stock`, `movimiento_stock`, `compra`, `compra_detalle`, `egreso`, `egreso_detalle`.
+- `articulo.tipo`: `epp` | `herramienta` | `equipo` — cada fila es objeto físico individual; reemplaza `activo` + `articulo` catálogo del modelo anterior.
+- `ubicacion.tipo` activos: `bodega` | `proyecto` (`planta` y `taller_mantencion` eliminados del dominio activo).
+- `articulo` tiene `bodega_actual_id` XOR `proyecto_actual_id` (nunca ambos simultáneos).
+- Reglas de estado y movimiento reforzadas en SQL y servicios; ver REGLAS_NEGOCIO_FLUJOS_2026_05_14.
 
 ## Referencias canónicas
 - Estado técnico validado: `REPO_ACTUAL_2026_03_16`.

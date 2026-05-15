@@ -118,10 +118,9 @@ export const getToolVisibleSerial = (tool: ToolPresentationSource): string | nul
 };
 
 export const getToolVisibleLocation = (tool: ToolPresentationSource): string => {
-  // Compatibilidad: algunas respuestas devuelven ubicación en custodias y otras en activo actual.
   const location =
-    safeText(tool.ubicacion_nombre) ||
-    safeText(tool.custodia_ubicacion_nombre) ||
+    safeText(tool.bodega_nombre) ||
+    safeText(tool.proyecto_nombre) ||
     safeText(tool.ubicacion_actual_nombre) ||
     safeText(tool.location_name);
 

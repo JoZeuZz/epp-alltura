@@ -18,10 +18,30 @@ shell/
   index.ts       — barrel con todos los primitivos exportados (ver sección Estado actual)
 ```
 
-## Estado actual (actualizado 2026-05-11)
-- `shell/index.ts` exporta: Modal, ConfirmationModal, ErrorMessage, ErrorPage, Spinner, UploadProgress (+ UploadStage), NotificationBell, NotificationItem, TourOverlay, AppLayout, layout types, context providers/values, todos los services (apiService, authRefresh, httpClient, notificationService, performanceService, frontendLogger), imageProcessing utils, name utils.
-- Las páginas importan desde `src/components/`, `src/services/`, `src/context/` — re-exportadores delgados hacia `src/shell/`. Patrón correcto y funcionando.
-- **NO exportados desde shell** (limpieza de dead code 2026-05-11): ConfirmationModalProps, NotificationBellProps, UploadProgressProps, NotificationItemProps; tipos de layout (ContainerProps, SectionProps, GridVariant, etc.); ToolRawStatus, ToolVisualStatus, ToolActionFlags, BarcodeMatchAsset.
+## Estado actual (actualizado 2026-05-15) — @jozeuZz/alltura-ui@1.1.1
+
+La capa shell es el paquete publicado `@jozeuZz/alltura-ui`. Version actual: **1.1.1**.
+- `src/layouts/AppLayout.tsx` y `src/components/NotificationBell.tsx` en herramientas son re-exportadores delgados. Patrón correcto y funcionando.
+- Instalación local dev: `npm install file:../../alltura-ui` (no requiere token de registro).
+- Registry en `.npmrc`: `@jozeuZz:registry=https://npm.pkg.github.com` + `NODE_AUTH_TOKEN`.
+
+### Exports públicos del paquete (src/index.ts)
+**Componentes:**
+- Modal, ConfirmationModal (+ ConfirmationModalProps)
+- ErrorMessage, ErrorPage, Spinner
+- UploadProgress (+ UploadStage, UploadProgressProps)
+- NotificationBell (+ NotificationBellProps), NotificationItem (+ NotificationItemProps)
+- TourOverlay
+- **Button** (+ ButtonProps, ButtonVariant, ButtonSize) — nuevo v1.1.0
+- **StatusBadge** (+ StatusBadgeProps, StatusVariant) — nuevo v1.1.0
+- **PageHeader** (+ PageHeaderProps) — nuevo v1.1.0
+- **EmptyState** (+ EmptyStateProps) — nuevo v1.1.0
+
+**Layout:** AppLayout (+ NavItem), Container/Section, ResponsiveGrid/CustomGrid, ResponsiveTable
+**Context:** AuthProvider, NotificationProvider, TourProvider + shared types
+**Hooks:** useAuth, useTour, useBreakpoints, useMediaQuery
+**Services:** authRefresh, httpClient, notificationService, performanceService, frontendLogger
+**Utils:** imageProcessing, name, tourSteps
 
 ## Riesgo activo
 - Los re-exportadores en `src/components/`, `src/services/`, `src/context/`, `src/layouts/` son la interfaz pública. Borrarlos sin migrar imports rompe todo.

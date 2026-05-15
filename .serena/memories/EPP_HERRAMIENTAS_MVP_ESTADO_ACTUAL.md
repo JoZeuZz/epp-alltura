@@ -1,18 +1,18 @@
 # Estado MVP EPP/Herramientas (resumen depurado)
 
-## Operativo hoy (actualizado 2026-04-28)
-- Catálogos: articulos (con categoria + especialidades), ubicaciones (por tipo), trabajadores, proveedores.
-- Flujos: ingreso/compra, entrega, firma (token + dispositivo), confirmación, devolución, egreso.
-- Trazabilidad: movimientos de stock/activo, custodia y auditoría.
-- Documentos: adjuntos a compras/actas con subida de archivos.
+## Operativo hoy (actualizado 2026-05-15 — post refactor modelo artículo)
+- Catálogos: artículos físicos individuales (tipo epp/herramienta/equipo + especialidades), bodegas, proyectos, trabajadores.
+- Flujos: creación de artículo, entrega (borrador→firma→confirmar), devolución (borrador→firma→confirmar), cambio de estado directo.
+- ELIMINADOS: compra/ingreso/egreso como flujos separados — la creación de artículo los reemplaza.
+- Trazabilidad: movimiento_activo, custodia_activo, auditoría.
 - Notificaciones: Web Push + persistencia en DB; cron diario de custodia (`CustodyCheckService`).
-- Inspecciones: tabla `inspeccion_activo` para calibraciones/inspecciones (endpoints a confirmar).
+- Inspecciones: tabla `inspeccion_activo` para calibraciones/inspecciones (pendiente flujo UI completo).
 
-## Frontend por rol (actualizado 2026-04-28)
+## Frontend por rol (actualizado 2026-05-15)
 - Roles activos: `admin` y `supervisor` únicamente.
-- Admin: dashboard, trabajadores, users, entregas, devoluciones, ubicaciones, bodegas, proyectos, inventario/*.
-- Supervisor: dashboard, operaciones (hereda el flujo operativo antes en /bodega).
-- Módulo admin inventario: articulos, stock, movimientos, ingresos, egresos, activos, epp, equipos, herramientas.
+- Admin: dashboard, trabajadores, users, entregas, devoluciones, bodegas, proyectos, inventario/epp, inventario/equipos, inventario/herramientas.
+- Supervisor: dashboard, operaciones.
+- Módulo admin inventario: rutas activas epp/equipos/herramientas (con `ArticuloCreateModal`). Eliminadas: stock, ingresos, egresos, activos (ruta independiente).
 
 ## Calidad
 - CI con lint + guardias + tests + build frontend.

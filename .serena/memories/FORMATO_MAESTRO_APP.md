@@ -53,13 +53,14 @@ Si una decisión contradice alguno de estos puntos, se descarta.
 - `light-gray-bg` #F9FAFB
 
 ### Tipografía
-- Inter (importada en `frontend/src/index.css`)
+- **Plus Jakarta Sans** (Google Fonts, pesos 400–700) — importada en `frontend/src/index.css`
 - Clases tipográficas existentes: `heading-*`, `body-*`, `label-*`, `stat-*`
 
 ### Layout base
 - `AppLayout`: sidebar + header + contenido central.
 - Sidebar colapsable (desktop) + off‑canvas (móvil).
-- Header con logo, notificaciones y perfil.
+- **Header azul** (`bg-primary`) — mismo color que el sidebar, generando un "marco" azul que rodea el área de contenido. NO usar `bg-surface` (blanco) en el header.
+- Elementos del header (toggle mobile, bell, perfil) usan `hover:bg-white/10`, `text-gray-300/white`, `darkFocusRing` (ring-white) — coherente con sidebar.
 
 ### UI patterns
 - Cards: `rounded-lg`, `shadow-md`, padding 3–6.

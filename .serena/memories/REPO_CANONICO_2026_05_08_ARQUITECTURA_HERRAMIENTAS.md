@@ -3,4 +3,4 @@
 - Backend 3 capas vigente; rutas clave activas para articulos/inventario/entregas/devoluciones/firmas/documentos.
 - Entregas y devoluciones en servicios actuales son serial-only para flujo operativo principal.
 - Firmas con tokens reutilizables + SSE (delivery-signed y return-signed).
-- Contrato articulo actual usa grupo_principal/subclasificacion/especialidades; tracking_mode se deriva en backend.
+- Contrato articulo (post 2026-05-14): tipo (epp|herramienta|equipo) + especialidades[]; grupo_principal/subclasificacion/tracking_mode ELIMINADOS.

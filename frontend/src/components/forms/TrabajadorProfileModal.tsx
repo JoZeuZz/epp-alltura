@@ -136,12 +136,12 @@ const CustodiaTable: React.FC<{
           {custodias.map((c) => (
             <tr key={c.custodia_id} className="hover:bg-surface-muted">
               <td className="px-3 py-2 font-mono text-xs text-content-primary">{c.codigo}</td>
-              <td className="px-3 py-2 text-content-secondary">{c.articulo_nombre}</td>
+              <td className="px-3 py-2 text-content-secondary">{c.nombre}</td>
               <td className="px-3 py-2 text-content-muted text-xs">{formatDate(c.desde_en)}</td>
               <td className="px-3 py-2">
                 {onOpenActivoProfile && (
                   <button
-                    onClick={() => onOpenActivoProfile(c.activo_id)}
+                    onClick={() => onOpenActivoProfile(c.articulo_id)}
                     className="text-primary hover:text-blue-800 text-xs font-medium"
                   >
                     Ver

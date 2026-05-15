@@ -1,6 +1,6 @@
 - Frontend rutas activas se concentran en dashboard/trabajadores/usuarios/ubicaciones/inventario por scope (epp,equipos,herramientas) y firma publica /firma/:token.
 - Flujo entrega/devolucion UI no vive en paginas dedicadas admin; se ejecuta desde perfil de activo (ActivoProfileModal y modales asociados).
 - Backend mantiene 3 capas y validacion Joi por rutas; negocio principal en entregas.service, devoluciones.service, firmas.service.
-- ApiService frontend: `permanentDeleteArticulo` (`DELETE /articulos/:id/permanent`) sigue activo y tiene ruta backend. Métodos legacy de entrega (deshacer, recibir, templates) fueron ELIMINADOS.
+- ApiService frontend: `permanentDeleteArticulo` → renombrado `permanentDeleteArticulo` a `DELETE /articulos/:id` (sin sufijo /permanent). Métodos legacy de entrega (deshacer, recibir, templates) ELIMINADOS. `cambiarEstadoArticulo` (`POST /articulos/:id/estado`) añadido.
 - Roles login efectivos: admin/supervisor; trabajador solo entidad operacional.
 - SSE de firmas incluye dos eventos consumidos por frontend: delivery-signed y return-signed.
