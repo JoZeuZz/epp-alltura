@@ -7,12 +7,11 @@ import BarcodeScannerModal from './BarcodeScannerModal';
 import { findAssetByScannedCode, parseScannedCode } from '../../utils/barcode';
 
 export interface ReturnAssetSelection {
-  activo_id: string;
-  custodia_activo_id: string;
+  custodia_id: string;
+  articulo_id: string;
   codigo: string;
   nro_serie?: string | null;
-  articulo_id: string;
-  articulo_nombre?: string;
+  nombre: string;
 }
 
 interface ReturnAssetSelectorProps {
@@ -52,7 +51,7 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
   const selectedId = useMemo(() => (Array.isArray(value) ? value.find(Boolean) ?? null : null), [value]);
   const excludedIdsSet = useMemo(() => new Set((excludedIds || []).filter(Boolean)), [excludedIds]);
   const visibleAssets = useMemo(
-    () => assets.filter((item) => item.activo_id === selectedId || !excludedIdsSet.has(item.activo_id)),
+    () => assets.filter((item) => item.custodia_id === selectedId || !excludedIdsSet.has(item.custodia_id)),
     [assets, excludedIdsSet, selectedId]
   );
 
@@ -62,12 +61,11 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
   };
 
   const toSelection = (item: ReturnEligibleAssetRow): ReturnAssetSelection => ({
-    activo_id: item.activo_id,
-    custodia_activo_id: item.custodia_activo_id,
+    custodia_id: item.custodia_id,
+    articulo_id: item.articulo_id,
     codigo: item.codigo,
     nro_serie: item.nro_serie ?? null,
-    articulo_id: item.articulo_id,
-    articulo_nombre: item.articulo_nombre,
+    nombre: item.nombre,
   });
 
   const applyScannedCode = (rawCode: string) => {
@@ -81,7 +79,7 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
       return;
     }
 
-    onChange([matchedAsset.activo_id]);
+    onChange([matchedAsset.custodia_id]);
     onChangeSelection?.([toSelection(matchedAsset)]);
   };
 
@@ -147,7 +145,7 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
     if (!selectedId) return;
     if (visibleAssets.length === 0) return;
 
-    const stillAvailable = visibleAssets.some((item) => item.activo_id === selectedId);
+    const stillAvailable = visibleAssets.some((item) => item.custodia_id === selectedId);
     if (!stillAvailable) {
       onChange([]);
       onChangeSelection?.([]);
@@ -210,14 +208,14 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
       {canSelect && visibleAssets.length > 0 ? (
         <div className="max-h-44 overflow-y-auto border border-edge rounded-md divide-y divide-edge bg-surface">
           {visibleAssets.map((item) => {
-            const isSelected = item.activo_id === selectedId;
+            const isSelected = item.custodia_id === selectedId;
 
             return (
               <button
                 type="button"
-                key={item.activo_id}
+                key={item.custodia_id}
                   onClick={() => {
-                      if (excludedIdsSet.has(item.activo_id) && !isSelected) {
+                      if (excludedIdsSet.has(item.custodia_id) && !isSelected) {
                         return;
                       }
 
@@ -226,7 +224,7 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
                       return;
                     }
 
-                    onChange([item.activo_id]);
+                    onChange([item.custodia_id]);
                     onChangeSelection?.([toSelection(item)]);
                   }}
                 className={`w-full text-left px-3 py-2 text-sm transition-colors ${
@@ -238,10 +236,10 @@ const ReturnAssetSelector: React.FC<ReturnAssetSelectorProps> = ({
                   {isSelected ? <span className="text-xs font-semibold">Seleccionado</span> : null}
                 </div>
                 <p className="text-xs text-content-muted">
-                    {item.articulo_nombre || 'Sin artículo'}
+                    {item.nombre || 'Sin artículo'}
                   {item.nro_serie ? ` · Serie: ${item.nro_serie}` : ''}
                 </p>
-                  <p className="text-[11px] text-content-disabled">Custodia: {item.custodia_activo_id.slice(0, 8)}</p>
+                  <p className="text-[11px] text-content-disabled">Custodia: {item.custodia_id.slice(0, 8)}</p>
               </button>
             );
           })}
