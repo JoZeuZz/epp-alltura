@@ -25,11 +25,14 @@ const fmtDate = (d: string) => {
 };
 
 const TIPO_BADGE: Record<string, string> = {
-  ingreso:       'badge badge-success',
-  egreso:        'badge badge-danger',
-  transferencia: 'badge badge-info',
-  asignacion:    'badge badge-warning',
-  devolucion:    'badge badge-default',
+  // post-refactor movement types
+  entrada:      'badge badge-success',
+  entrega:      'badge badge-warning',
+  devolucion:   'badge badge-default',
+  reubicacion:  'badge badge-info',
+  mantencion:   'badge badge-info',
+  ajuste:       'badge badge-danger',
+  baja:         'badge badge-danger',
 };
 
 const renderTipo = (v: string) => (
@@ -135,7 +138,6 @@ const AdminDashboard: React.FC = () => {
   const entregas      = summary.entregas   || {};
   const devoluciones  = summary.devoluciones || {};
   const firmas        = summary.firmas     || {};
-  const stock         = summary.stock      || {};
 
   const stockMovData: StockMovRow[] = (data.movimientosStock || []).slice(0, 12).map(i => ({
     fecha:    fmtDate(i.fecha_movimiento),
@@ -160,7 +162,7 @@ const AdminDashboard: React.FC = () => {
     reservada:  Number(i.cantidad_reservada  || 0),
   }));
 
-  const agotados = Number(stock.registros_agotados || 0);
+  const agotados = Number(activos.mantencion || 0);
   const pendFirma = Number(entregas.pendiente_firma || 0);
 
   const subtitle =
@@ -214,12 +216,12 @@ const AdminDashboard: React.FC = () => {
           title="Stock"
           icon={IconLayers}
           items={[
-            { label: 'Disponible',         value: stock.total_disponible || 0, color: 'text-success' },
-            { label: 'Reservado',          value: stock.total_reservado  || 0, color: 'text-warning' },
+            { label: 'En Stock',      value: activos.en_stock  || 0, color: 'text-success' },
+            { label: 'Asignados',     value: activos.asignado  || 0, color: 'text-warning' },
             {
-              label: 'Registros agotados',
+              label: 'En Mantención',
               value: agotados,
-              color: agotados > 0 ? 'text-danger' : 'text-content-muted',
+              color: agotados > 0 ? 'text-info' : 'text-content-muted',
             },
           ]}
         />
