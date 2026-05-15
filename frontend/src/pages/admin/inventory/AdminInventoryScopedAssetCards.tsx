@@ -78,8 +78,10 @@ const ArticuloCard: React.FC<{ articulo: Articulo; onClick: () => void }> = ({
             className="h-12 w-12 rounded object-cover flex-shrink-0 border border-gray-200"
           />
         ) : (
-          <div className="h-12 w-12 rounded bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400 text-lg select-none">
-            📦
+          <div className="h-12 w-12 rounded bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-400 select-none">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
           </div>
         )}
         <div className="flex-1 min-w-0">

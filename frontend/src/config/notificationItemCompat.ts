@@ -7,15 +7,15 @@ export interface NotificationItemPresentation {
 }
 
 const LEGACY_NOTIFICATION_ICONS: Record<string, string> = {
-  new_client_note: '📝',
-  note_resolved: '✅',
-  asset_updated: '🔄',
-  asset_modification_added: '➕',
-  project_assigned: '📋',
-  note_urgent: '⚠️',
-  custodia_vencida: '🚨',
-  custodia_proxima_vencer: '⏰',
-  system: 'ℹ️',
+  new_client_note: '',
+  note_resolved: '',
+  asset_updated: '',
+  asset_modification_added: '',
+  project_assigned: '',
+  note_urgent: '',
+  custodia_vencida: '',
+  custodia_proxima_vencer: '',
+  system: '',
 };
 
 const LEGACY_NOTIFICATION_COLORS: Record<string, string> = {
@@ -41,7 +41,7 @@ export const ALLOWED_NOTIFICATION_PATHS = new Set([
 ]);
 
 export const resolveNotificationItemIcon = (type: string): string => {
-  return LEGACY_NOTIFICATION_ICONS[type] || 'ℹ️';
+  return LEGACY_NOTIFICATION_ICONS[type] ?? '';
 };
 
 export const resolveNotificationItemUnreadColorClass = (type: string): string => {

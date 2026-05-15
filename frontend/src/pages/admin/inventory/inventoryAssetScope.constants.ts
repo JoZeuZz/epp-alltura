@@ -22,7 +22,7 @@ export const INVENTORY_ASSET_SCOPE_COPY: Record<AssetScopeKey, InventoryAssetSco
     emptyMessage: 'No hay EPP registrados.',
     errorMessage: 'No fue posible cargar EPP. Intenta nuevamente.',
     loadMoreLabel: 'Cargar más EPP',
-    icon: '🦺',
+    icon: '',
   },
   herramientas: {
     tipo: 'herramienta',
@@ -32,7 +32,7 @@ export const INVENTORY_ASSET_SCOPE_COPY: Record<AssetScopeKey, InventoryAssetSco
     emptyMessage: 'No hay herramientas registradas.',
     errorMessage: 'No fue posible cargar herramientas. Intenta nuevamente.',
     loadMoreLabel: 'Cargar más herramientas',
-    icon: '🔧',
+    icon: '',
   },
   equipos: {
     tipo: 'equipo',
@@ -42,6 +42,6 @@ export const INVENTORY_ASSET_SCOPE_COPY: Record<AssetScopeKey, InventoryAssetSco
     emptyMessage: 'No hay equipos registrados.',
     errorMessage: 'No fue posible cargar equipos. Intenta nuevamente.',
     loadMoreLabel: 'Cargar más equipos',
-    icon: '📡',
+    icon: '',
   },
 };
