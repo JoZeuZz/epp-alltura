@@ -7,9 +7,6 @@ class DashboardService {
       entregasResult,
       devolucionesResult,
       firmasResult,
-      stockResult,
-      movimientosStockRecentResult,
-      movimientosActivoRecentResult,
       articulosTopResult,
     ] = await Promise.all([
       db.query(
@@ -21,7 +18,7 @@ class DashboardService {
           COUNT(*) FILTER (WHERE estado = 'mantencion')::int AS mantencion,
           COUNT(*) FILTER (WHERE estado = 'perdido')::int AS perdido,
           COUNT(*) FILTER (WHERE estado = 'dado_de_baja')::int AS dado_de_baja
-        FROM activo
+        FROM articulo
         `
       ),
       db.query(
@@ -57,67 +54,20 @@ class DashboardService {
       db.query(
         `
         SELECT
-          COALESCE(SUM(cantidad_disponible), 0) AS total_disponible,
-          COALESCE(SUM(cantidad_reservada), 0) AS total_reservado,
-          COUNT(*) FILTER (WHERE cantidad_disponible <= 0)::int AS registros_agotados
-        FROM stock
-        `
-      ),
-      db.query(
-        `
-        SELECT
-          ms.id,
-          'stock' AS origen,
-          ms.fecha_movimiento,
-          ms.tipo,
-          ms.cantidad,
-          a.nombre AS articulo_nombre,
-          COALESCE(bo.nombre, po.nombre) AS ubicacion_origen_nombre,
-          COALESCE(bd.nombre, pd.nombre) AS ubicacion_destino_nombre
-        FROM movimiento_stock ms
-        INNER JOIN articulo a ON a.id = ms.articulo_id
-        LEFT JOIN bodegas bo ON bo.id = ms.bodega_origen_id
-        LEFT JOIN proyectos po ON po.id = ms.proyecto_origen_id
-        LEFT JOIN bodegas bd ON bd.id = ms.bodega_destino_id
-        LEFT JOIN proyectos pd ON pd.id = ms.proyecto_destino_id
-        ORDER BY ms.fecha_movimiento DESC
-        LIMIT 8
-        `
-      ),
-      db.query(
-        `
-        SELECT
-          ma.id,
-          'activo' AS origen,
-          ma.fecha_movimiento,
-          ma.tipo,
-          a.codigo AS activo_codigo,
-          ar.nombre AS articulo_nombre,
-          COALESCE(bo.nombre, po.nombre) AS ubicacion_origen_nombre,
-          COALESCE(bd.nombre, pd.nombre) AS ubicacion_destino_nombre
-        FROM movimiento_activo ma
-        INNER JOIN activo a ON a.id = ma.activo_id
-        INNER JOIN articulo ar ON ar.id = a.articulo_id
-        LEFT JOIN bodegas bo ON bo.id = ma.bodega_origen_id
-        LEFT JOIN proyectos po ON po.id = ma.proyecto_origen_id
-        LEFT JOIN bodegas bd ON bd.id = ma.bodega_destino_id
-        LEFT JOIN proyectos pd ON pd.id = ma.proyecto_destino_id
-        ORDER BY ma.fecha_movimiento DESC
-        LIMIT 8
-        `
-      ),
-      db.query(
-        `
-        SELECT
           a.id,
           a.nombre,
-          COUNT(ms.id)::int AS movimientos_30d,
-          COALESCE(SUM(ms.cantidad), 0) AS cantidad_30d
+          a.tipo,
+          COUNT(e.id)::int AS entregas_30d,
+          COUNT(d.id)::int AS devoluciones_30d
         FROM articulo a
-        LEFT JOIN movimiento_stock ms ON ms.articulo_id = a.id
-          AND ms.fecha_movimiento >= NOW() - INTERVAL '30 days'
+        LEFT JOIN entrega_detalle ed ON ed.articulo_id = a.id
+        LEFT JOIN entrega e ON e.id = ed.entrega_id
+          AND e.confirmada_en >= NOW() - INTERVAL '30 days'
+        LEFT JOIN devolucion_detalle dd ON dd.articulo_id = a.id
+        LEFT JOIN devolucion d ON d.id = dd.devolucion_id
+          AND d.confirmada_en >= NOW() - INTERVAL '30 days'
         GROUP BY a.id
-        ORDER BY movimientos_30d DESC, cantidad_30d DESC
+        ORDER BY (COUNT(e.id) + COUNT(d.id)) DESC
         LIMIT 8
         `
       ),
@@ -127,7 +77,6 @@ class DashboardService {
     const entregas = entregasResult.rows[0];
     const devoluciones = devolucionesResult.rows[0];
     const firmas = firmasResult.rows[0];
-    const stock = stockResult.rows[0];
 
     return {
       activos: {
@@ -156,54 +105,47 @@ class DashboardService {
         total: firmas.total || 0,
         firmadas_30d: firmas.firmadas_30d || 0,
       },
-      stock: {
-        total_disponible: Number(stock.total_disponible || 0),
-        total_reservado: Number(stock.total_reservado || 0),
-        registros_agotados: stock.registros_agotados || 0,
-      },
-      movimientos_recientes: {
-        stock: movimientosStockRecentResult.rows,
-        activos: movimientosActivoRecentResult.rows,
-      },
       articulos_top_movimiento_30d: articulosTopResult.rows,
     };
   }
 
   static async getOperationalIndicators() {
-    const [stockMovementsResult, assetMovementsResult, noSerializadosResult, ubicacionesResult, firmasResult] = await Promise.all([
+    const [entregasResult, devolucionesResult, articulosResult, ubicacionesResult, firmasResult] = await Promise.all([
       db.query(
         `
         SELECT
-          COUNT(*)::int AS total_movimientos,
-          COUNT(*) FILTER (WHERE tipo = 'entrada')::int AS entradas,
-          COUNT(*) FILTER (WHERE tipo = 'entrega')::int AS entregas,
-          COUNT(*) FILTER (WHERE tipo = 'devolucion')::int AS devoluciones,
-          COUNT(*) FILTER (WHERE tipo = 'baja')::int AS bajas,
-          COALESCE(SUM(cantidad), 0) AS cantidad_total
-        FROM movimiento_stock
-        WHERE fecha_movimiento >= NOW() - INTERVAL '30 days'
+          COUNT(*)::int AS total_entregas,
+          COUNT(*) FILTER (WHERE estado = 'confirmada')::int AS confirmadas,
+          COUNT(*) FILTER (WHERE estado = 'pendiente_firma')::int AS pendientes_firma,
+          COUNT(*) FILTER (WHERE confirmada_en >= NOW() - INTERVAL '30 days')::int AS confirmadas_30d
+        FROM entrega
+        WHERE creado_en >= NOW() - INTERVAL '30 days'
+           OR confirmada_en >= NOW() - INTERVAL '30 days'
         `
       ),
       db.query(
         `
         SELECT
-          COUNT(*)::int AS total_movimientos,
-          COUNT(*) FILTER (WHERE tipo = 'entrada')::int AS entradas,
-          COUNT(*) FILTER (WHERE tipo = 'entrega')::int AS entregas,
-          COUNT(*) FILTER (WHERE tipo = 'devolucion')::int AS devoluciones,
-          COUNT(*) FILTER (WHERE tipo = 'mantencion')::int AS mantenciones,
-          COUNT(*) FILTER (WHERE tipo = 'baja')::int AS bajas
-        FROM movimiento_activo
-        WHERE fecha_movimiento >= NOW() - INTERVAL '30 days'
+          COUNT(*)::int AS total_devoluciones,
+          COUNT(*) FILTER (WHERE estado = 'confirmada')::int AS confirmadas,
+          COUNT(*) FILTER (WHERE estado = 'anulada')::int AS anuladas,
+          COUNT(*) FILTER (WHERE confirmada_en >= NOW() - INTERVAL '30 days')::int AS confirmadas_30d
+        FROM devolucion
+        WHERE creado_en >= NOW() - INTERVAL '30 days'
+           OR confirmada_en >= NOW() - INTERVAL '30 days'
         `
       ),
       db.query(
         `
         SELECT
-          COUNT(*)::int AS movimientos_no_serializados_30d,
-          COALESCE(SUM(ms.cantidad), 0) AS cantidad_no_serializados_30d
-        FROM movimiento_stock ms
-        WHERE ms.fecha_movimiento >= NOW() - INTERVAL '30 days'
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE estado = 'en_stock')::int AS en_stock,
+          COUNT(*) FILTER (WHERE estado = 'asignado')::int AS asignado,
+          COUNT(*) FILTER (WHERE estado = 'mantencion')::int AS mantencion,
+          COUNT(*) FILTER (WHERE estado = 'dado_de_baja')::int AS dado_de_baja,
+          COUNT(*) FILTER (WHERE estado = 'perdido')::int AS perdido,
+          COALESCE(SUM(valor), 0) AS valor_total
+        FROM articulo
         `
       ),
       db.query(
@@ -223,33 +165,34 @@ class DashboardService {
       ),
     ]);
 
-    const stock = stockMovementsResult.rows[0];
-    const activos = assetMovementsResult.rows[0];
-    const noSerializados = noSerializadosResult.rows[0];
+    const entregas = entregasResult.rows[0];
+    const devoluciones = devolucionesResult.rows[0];
+    const articulos = articulosResult.rows[0];
     const ubicaciones = ubicacionesResult.rows[0];
     const firmas = firmasResult.rows[0];
 
     return {
       periodo: '30d',
-      movimientos_stock: {
-        total: stock.total_movimientos || 0,
-        entradas: stock.entradas || 0,
-        entregas: stock.entregas || 0,
-        devoluciones: stock.devoluciones || 0,
-        bajas: stock.bajas || 0,
-        cantidad_total: Number(stock.cantidad_total || 0),
+      entregas_recientes: {
+        total: entregas.total_entregas || 0,
+        confirmadas: entregas.confirmadas || 0,
+        pendientes_firma: entregas.pendientes_firma || 0,
+        confirmadas_30d: entregas.confirmadas_30d || 0,
       },
-      movimientos_activo: {
-        total: activos.total_movimientos || 0,
-        entradas: activos.entradas || 0,
-        entregas: activos.entregas || 0,
-        devoluciones: activos.devoluciones || 0,
-        mantenciones: activos.mantenciones || 0,
-        bajas: activos.bajas || 0,
+      devoluciones_recientes: {
+        total: devoluciones.total_devoluciones || 0,
+        confirmadas: devoluciones.confirmadas || 0,
+        anuladas: devoluciones.anuladas || 0,
+        confirmadas_30d: devoluciones.confirmadas_30d || 0,
       },
-      no_serializados: {
-        movimientos_30d: noSerializados.movimientos_no_serializados_30d || 0,
-        cantidad_30d: Number(noSerializados.cantidad_no_serializados_30d || 0),
+      articulos: {
+        total: articulos.total || 0,
+        en_stock: articulos.en_stock || 0,
+        asignado: articulos.asignado || 0,
+        mantencion: articulos.mantencion || 0,
+        dado_de_baja: articulos.dado_de_baja || 0,
+        perdido: articulos.perdido || 0,
+        valor_total: Number(articulos.valor_total || 0),
       },
       ubicaciones: {
         total: ubicaciones.bodegas_activas || 0,
@@ -262,26 +205,16 @@ class DashboardService {
   }
 
   static async getLocationDashboardSummary(ubicacionId) {
-    const [stockResult, activosResult, entregasResult] = await Promise.all([
+    const [articulosResult, entregasResult] = await Promise.all([
       db.query(
         `
         SELECT
-          COUNT(*)::int AS registros_stock,
-          COALESCE(SUM(cantidad_disponible), 0) AS total_disponible,
-          COALESCE(SUM(cantidad_reservada), 0) AS total_reservado
-        FROM stock
-        WHERE bodega_id = $1
-        `,
-        [ubicacionId]
-      ),
-      db.query(
-        `
-        SELECT
-          COUNT(*)::int AS total_activos,
+          COUNT(*)::int AS total_articulos,
           COUNT(*) FILTER (WHERE estado = 'en_stock')::int AS en_stock,
           COUNT(*) FILTER (WHERE estado = 'asignado')::int AS asignado,
-          COUNT(*) FILTER (WHERE estado = 'mantencion')::int AS mantencion
-        FROM activo
+          COUNT(*) FILTER (WHERE estado = 'mantencion')::int AS mantencion,
+          COALESCE(SUM(valor), 0) AS valor_total
+        FROM articulo
         WHERE bodega_actual_id = $1
         `,
         [ubicacionId]
@@ -301,16 +234,12 @@ class DashboardService {
 
     return {
       bodega_id: ubicacionId,
-      stock: {
-        registros_stock: stockResult.rows[0].registros_stock || 0,
-        total_disponible: Number(stockResult.rows[0].total_disponible || 0),
-        total_reservado: Number(stockResult.rows[0].total_reservado || 0),
-      },
-      activos: {
-        total: activosResult.rows[0].total_activos || 0,
-        en_stock: activosResult.rows[0].en_stock || 0,
-        asignado: activosResult.rows[0].asignado || 0,
-        mantencion: activosResult.rows[0].mantencion || 0,
+      articulos: {
+        total: articulosResult.rows[0].total_articulos || 0,
+        en_stock: articulosResult.rows[0].en_stock || 0,
+        asignado: articulosResult.rows[0].asignado || 0,
+        mantencion: articulosResult.rows[0].mantencion || 0,
+        valor_total: Number(articulosResult.rows[0].valor_total || 0),
       },
       entregas: {
         total: entregasResult.rows[0].total_entregas || 0,
