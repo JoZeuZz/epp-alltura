@@ -17,7 +17,7 @@ module.exports = {
     extend: {
       colors: {
         // ── Legacy tokens — backward-compat, keep existing class names working ─
-        'primary-blue':  '#2A64A4',
+        'primary-blue':  '#1E2A4A',
         'dark-blue':     '#1E2A4A',
         'neutral-gray':  '#6B7280',
         'light-gray-bg': '#F9FAFB',
@@ -26,10 +26,10 @@ module.exports = {
         // bg-primary · text-primary · border-primary
         // bg-primary-hover · bg-primary-light · bg-primary-dark
         primary: {
-          DEFAULT: 'var(--c-primary)',        // #2A64A4 — 6.07:1 on white ✓ AA
-          hover:   'var(--c-primary-hover)',  // #1D4F87 — pressed/hover state
+          DEFAULT: 'var(--c-primary)',        // #1E2A4A — brand navy, 13.0:1 on white ✓ AAA
+          hover:   'var(--c-primary-hover)',  // #2A3C66 — lighter navy hover/pressed
           light:   'var(--c-primary-light)',  // #EBF3FC — selections, highlights
-          dark:    'var(--c-primary-dark)',   // #1E2A4A — headings, sidebar bg
+          dark:    'var(--c-primary-dark)',   // #141E34 — deeper navy, hover text
         },
 
         // ── Semantic: Surfaces ────────────────────────────────────────────────
@@ -57,7 +57,7 @@ module.exports = {
           DEFAULT: 'var(--c-border)',         // #E5E7EB — default dividers
           subtle:  'var(--c-border-subtle)',  // #F3F4F6 — very soft separation
           strong:  'var(--c-border-strong)',  // #D1D5DB — strong/active borders
-          focus:   'var(--c-border-focus)',   // #2A64A4 — focus indicator border
+          focus:   'var(--c-border-focus)',   // #1E2A4A — focus indicator border
         },
 
         // ── Semantic: Feedback states ─────────────────────────────────────────
