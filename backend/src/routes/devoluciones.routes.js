@@ -50,8 +50,8 @@ const eligibleAssetsQuerySchema = Joi.object({
 });
 
 const devolucionDetailSchema = Joi.object({
+  custodia_id: uuid.required(),
   articulo_id: uuid.required(),
-  activo_ids: Joi.array().items(uuid).min(1).required(),
   condicion_entrada: Joi.string().valid('ok', 'usado', 'danado', 'perdido').default('ok'),
   disposicion: Joi.string().valid('devuelto', 'perdido', 'baja', 'mantencion').required(),
   notas: Joi.string().trim().max(1000).allow('', null),
