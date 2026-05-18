@@ -38,19 +38,6 @@ const ESP_LABELS: Record<string, string> = {
   trabajos_verticales_lineas_de_vida: 'Verticales',
 };
 
-// ── KPI card ───────────────────────────────────────────────────────────────────
-
-const KpiCard: React.FC<{ label: string; value: string; accent?: string }> = ({
-  label,
-  value,
-  accent = 'text-dark-blue',
-}) => (
-  <article className="bg-white rounded-lg shadow-sm border border-gray-100 p-4">
-    <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
-    <p className={`text-2xl font-bold mt-1 ${accent}`}>{value}</p>
-  </article>
-);
-
 // ── Article card ───────────────────────────────────────────────────────────────
 
 const ArticuloCard: React.FC<{ articulo: Articulo; onClick: () => void }> = ({
@@ -188,39 +175,8 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
     });
   }, [items, search, estadoFilter]);
 
-  const kpis = useMemo(() => {
-    const total = filtered.length;
-    let enStock = 0;
-    let asignado = 0;
-    let liabilityValue = 0;
-    filtered.forEach((a) => {
-      if (a.estado === 'en_stock') enStock += 1;
-      if (a.estado === 'asignado') {
-        asignado += 1;
-        if (a.valor > 0) liabilityValue += a.valor;
-      }
-    });
-    return { total, enStock, asignado, liabilityValue };
-  }, [filtered]);
-
   return (
     <div className="space-y-4">
-      {/* KPIs */}
-      <section
-        className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"
-        aria-label={`KPIs de ${scope}`}
-        data-tour="admin-inventory-kpis"
-      >
-        <KpiCard label={copy.totalLabel} value={String(kpis.total)} />
-        <KpiCard label="En stock" value={String(kpis.enStock)} accent="text-green-600" />
-        <KpiCard label="Asignados" value={String(kpis.asignado)} accent="text-blue-600" />
-        <KpiCard
-          label="Valor bajo responsabilidad"
-          value={kpis.liabilityValue > 0 ? formatCLP(kpis.liabilityValue) : 'Sin valor registrado'}
-          accent="text-amber-600"
-        />
-      </section>
-
       {/* Filters */}
       <section
         className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 space-y-3"

@@ -15,8 +15,12 @@ vi.mock('../services/apiService', () => ({
 }));
 
 const mockUseGet = vi.hoisted(() => vi.fn(() => ({ data: [] })));
+const mockUseTour = vi.hoisted(() =>
+  vi.fn(() => ({ isActive: false, currentDemoAction: null }))
+);
 vi.mock('../hooks', () => ({
   useGet: mockUseGet,
+  useTour: mockUseTour,
 }));
 
 vi.mock('../components/ArticuloCreateModal', () => ({
@@ -75,5 +79,47 @@ describe('AdminInventoryScopedAssetPage — Nuevo artículo button', () => {
     expect(screen.queryByTestId('articulo-create-modal')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /nuevo epp/i }));
     expect(screen.getByTestId('articulo-create-modal')).toBeInTheDocument();
+  });
+});
+
+describe('AdminInventoryScopedAssetPage — tabs', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('renders Dashboard and Inventario tab buttons', () => {
+    render(<AdminInventoryScopedAssetPage scope="epp" />, { wrapper: createWrapper() });
+    expect(screen.getByRole('button', { name: /^dashboard$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^inventario$/i })).toBeInTheDocument();
+  });
+
+  it('shows KPI section by default (dashboard tab)', () => {
+    render(<AdminInventoryScopedAssetPage scope="epp" />, { wrapper: createWrapper() });
+    expect(screen.getByRole('region', { name: /kpis de epp/i })).toBeInTheDocument();
+    expect(screen.queryByTestId('asset-cards')).not.toBeInTheDocument();
+  });
+
+  it('shows asset cards after clicking Inventario tab', () => {
+    render(<AdminInventoryScopedAssetPage scope="epp" />, { wrapper: createWrapper() });
+    fireEvent.click(screen.getByRole('button', { name: /^inventario$/i }));
+    expect(screen.getByTestId('asset-cards')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /kpis de epp/i })).not.toBeInTheDocument();
+  });
+
+  it('returns to Dashboard KPIs after clicking Dashboard tab again', () => {
+    render(<AdminInventoryScopedAssetPage scope="epp" />, { wrapper: createWrapper() });
+    fireEvent.click(screen.getByRole('button', { name: /^inventario$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^dashboard$/i }));
+    expect(screen.getByRole('region', { name: /kpis de epp/i })).toBeInTheDocument();
+    expect(screen.queryByTestId('asset-cards')).not.toBeInTheDocument();
+  });
+
+  it('Nuevo button is visible on Dashboard tab', () => {
+    render(<AdminInventoryScopedAssetPage scope="epp" />, { wrapper: createWrapper() });
+    expect(screen.getByRole('button', { name: /nuevo epp/i })).toBeInTheDocument();
+  });
+
+  it('Nuevo button is visible on Inventario tab', () => {
+    render(<AdminInventoryScopedAssetPage scope="epp" />, { wrapper: createWrapper() });
+    fireEvent.click(screen.getByRole('button', { name: /^inventario$/i }));
+    expect(screen.getByRole('button', { name: /nuevo epp/i })).toBeInTheDocument();
   });
 });
