@@ -4,15 +4,9 @@ import { useTour } from '../../../hooks';
 import TourDemoActivoModal from '../../../components/forms/TourDemoActivoModal';
 import type { Articulo, ArticuloEstado } from '../../../services/apiService';
 import type { AssetScopeKey, InventoryAssetScopeCopy } from './inventoryAssetScope.constants';
+import { formatCLP } from '../../../utils/currency';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-const formatCLP = (value: number): string =>
-  new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: 'CLP',
-    maximumFractionDigits: 0,
-  }).format(Math.round(value));
 
 const ESTADO_BADGE: Record<ArticuloEstado, { label: string; classes: string }> = {
   en_stock: { label: 'En stock', classes: 'bg-green-100 text-green-800' },
