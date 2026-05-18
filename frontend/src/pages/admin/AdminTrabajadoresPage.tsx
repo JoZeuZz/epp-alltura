@@ -486,6 +486,7 @@ const AdminTrabajadoresPage: React.FC = () => {
     {
       key: 'id',
       header: 'Acciones',
+      hideOnMobile: true,
       render: (_v, t) => (
         <div className="flex gap-2 flex-wrap">
           <button
@@ -607,7 +608,20 @@ const AdminTrabajadoresPage: React.FC = () => {
               {filterEstado !== 'todos' || search ? ` (filtrado de ${trabajadores.length})` : ''}
             </p>
           </div>
-          <ResponsiveTable columns={columns} data={filtered} getRowKey={(t) => t.id} />
+          <ResponsiveTable
+            columns={columns}
+            data={filtered}
+            getRowKey={(t) => t.id}
+            mobileKebab={(t) => [
+              { label: 'Ver perfil', onClick: () => setProfileId(t.id) },
+              { label: 'Editar', onClick: () => handleOpenEdit(t), variant: 'primary' },
+              {
+                label: t.estado === 'activo' ? 'Desactivar' : 'Activar',
+                onClick: () => setConfirmAction({ type: 'toggle', trabajador: t }),
+                variant: t.estado === 'activo' ? 'danger' : 'default',
+              },
+            ]}
+          />
         </div>
       )}
 
