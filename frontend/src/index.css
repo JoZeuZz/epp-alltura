@@ -240,6 +240,46 @@
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
     --tw-ring-color: var(--c-focus-ring);
   }
+
+  /* ── Form primitives ─────────────────────────────────────────── */
+
+  .input {
+    @apply block w-full rounded-md px-3 py-2 text-sm min-h-[44px]
+           text-content-primary bg-surface
+           border border-edge-strong
+           placeholder:text-content-disabled
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1;
+    --tw-ring-color: var(--c-focus-ring);
+  }
+
+  .label-sm {
+    @apply text-xs font-medium text-content-secondary;
+  }
+
+  /* ── Button primitives ───────────────────────────────────────── */
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5
+           rounded-md px-4 py-2 text-sm font-medium min-h-[44px]
+           bg-primary text-white
+           hover:bg-primary-hover
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-colors
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+    --tw-ring-color: var(--c-focus-ring);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5
+           rounded-md px-4 py-2 text-sm font-medium min-h-[44px]
+           bg-surface text-content-secondary
+           border border-edge-strong
+           hover:bg-surface-overlay
+           disabled:opacity-50 disabled:cursor-not-allowed
+           transition-colors
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2;
+    --tw-ring-color: var(--c-focus-ring);
+  }
 }
 
 /* ============================================
