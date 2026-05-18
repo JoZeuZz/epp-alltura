@@ -1,10 +1,29 @@
 import React from 'react';
 import { useLoaderData, useLocation } from 'react-router-dom';
+import { ResponsiveTable } from '@jozeuZz/alltura-ui';
+import type { TableColumn } from '@jozeuZz/alltura-ui';
 
 interface SupervisorData {
   summary?: any;
   movimientosActivo?: any[];
 }
+
+const movimientoColumns: TableColumn[] = [
+  {
+    key: 'fecha_movimiento',
+    header: 'Fecha',
+    hideOnMobile: true,
+    render: (value: string) => new Date(value).toLocaleString(),
+  },
+  { key: 'activo_codigo', header: 'Activo', render: (v: string) => v || '-' },
+  { key: 'tipo', header: 'Tipo' },
+  {
+    key: 'ubicacion_destino_nombre',
+    header: 'Destino',
+    hideOnMobile: true,
+    render: (v: string) => v || '-',
+  },
+];
 
 const Stat: React.FC<{ label: string; value: number }> = ({ label, value }) => (
   <div className="bg-white rounded-lg shadow-md p-4">
@@ -39,30 +58,14 @@ const SupervisorDashboard: React.FC = () => {
       </div>
 
       {section === 'trazabilidad' && (
-        <section className="bg-white rounded-lg shadow-md p-5" data-tour="supervisor-dashboard-movements">
+        <section data-tour="supervisor-dashboard-movements">
           <h2 className="text-lg font-semibold text-dark-blue mb-3">Movimientos Recientes de Activos</h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-2">Fecha</th>
-                  <th className="text-left py-2 px-2">Activo</th>
-                  <th className="text-left py-2 px-2">Tipo</th>
-                  <th className="text-left py-2 px-2">Destino</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(data.movimientosActivo || []).slice(0, 12).map((item) => (
-                  <tr key={item.id} className="border-b last:border-b-0 border-gray-100">
-                    <td className="py-2 px-2">{new Date(item.fecha_movimiento).toLocaleString()}</td>
-                    <td className="py-2 px-2">{item.activo_codigo || '-'}</td>
-                    <td className="py-2 px-2">{item.tipo}</td>
-                    <td className="py-2 px-2">{item.ubicacion_destino_nombre || '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <ResponsiveTable
+            columns={movimientoColumns}
+            data={(data.movimientosActivo || []).slice(0, 12)}
+            getRowKey={(row) => row.id}
+            emptyMessage="Sin movimientos recientes"
+          />
         </section>
       )}
     </div>
