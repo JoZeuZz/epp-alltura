@@ -428,6 +428,7 @@ const AdminProyectosPage: React.FC = () => {
     {
       key: 'id',
       header: 'Acciones',
+      hideOnMobile: true,
       render: (_v, p) => (
         <div className="flex gap-2 flex-wrap">
           <button
@@ -531,7 +532,19 @@ const AdminProyectosPage: React.FC = () => {
               {filterEstado !== 'todos' || search ? ` (filtrado de ${proyectos.length})` : ''}
             </p>
           </div>
-          <ResponsiveTable columns={columns} data={filtered} getRowKey={(p) => p.id} />
+          <ResponsiveTable
+            columns={columns}
+            data={filtered}
+            getRowKey={(p) => p.id}
+            mobileKebab={(p) => [
+              { label: 'Editar', onClick: () => { setEditTarget(p); setModalOpen(true); }, variant: 'primary' },
+              ...(p.estado !== 'finalizado' ? [{
+                label: p.estado === 'activo' ? 'Desactivar' : 'Activar',
+                onClick: () => setConfirmState({ tipo: 'toggle', proyecto: p }),
+                variant: (p.estado === 'activo' ? 'danger' : 'default') as 'danger' | 'default',
+              }] : []),
+            ]}
+          />
         </div>
       )}
 
