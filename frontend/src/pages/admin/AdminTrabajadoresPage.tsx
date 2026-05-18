@@ -445,6 +445,7 @@ const AdminTrabajadoresPage: React.FC = () => {
     {
       key: 'cargo',
       header: 'Cargo',
+      hideOnMobile: true,
       render: (_v, t) => (
         <div>
           <p className="text-sm">{t.cargo || <span className="text-gray-400 italic">Sin cargo</span>}</p>
@@ -454,6 +455,7 @@ const AdminTrabajadoresPage: React.FC = () => {
     {
       key: 'email',
       header: 'Contacto',
+      hideOnMobile: true,
       render: (_v, t) => (
         <div>
           {t.email && <p className="text-xs text-gray-600">{t.email}</p>}
@@ -465,6 +467,7 @@ const AdminTrabajadoresPage: React.FC = () => {
     {
       key: 'fecha_ingreso',
       header: 'Ingreso',
+      hideOnMobile: true,
       render: (_v, t) =>
         t.fecha_ingreso ? (
           <span className="text-xs text-gray-600">
