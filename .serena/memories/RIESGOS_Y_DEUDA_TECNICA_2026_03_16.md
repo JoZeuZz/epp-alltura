@@ -28,9 +28,8 @@
 - `backend/src/validation/index.js` (proxy) eliminado.
 - Las 4 rutas estandarizadas a `require('../lib/validation')`.
 
-9. ~~Duplicación de constantes de validación en routes vs model~~ — RESUELTO 2026-04-29:
-- `backend/src/lib/articuloValidation.js` creado como módulo canónico.
-- `articulo.js` model y `articulos.routes.js` importan de él; ya no definen localmente.
+9. ~~Duplicación de constantes de validación~~ — RESUELTO → luego ELIMINADO:
+- `articuloValidation.js` creado 2026-04-29, luego **ELIMINADO en refactor 2026-05-14** (modelo físico ya no tiene subclasificacion/grupo_principal; validación directa en routes).
 
 10. ~~`articulo.tipo` se escribía igual que `grupo_principal`~~ — RESUELTO 2026-04-29:
 - `articulo.js` model ya no escribe la columna `tipo` en CREATE ni UPDATE.

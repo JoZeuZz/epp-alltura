@@ -4,7 +4,7 @@
 
 ### ✅ Resueltos (eliminados/corregidos)
 - ~~`backend/src/lib/responseMessages.js`~~ — ELIMINADO (era código muerto).
-- ~~Duplicación `SUBCLASIFICACIONES_POR_GRUPO`~~ — RESUELTO: `backend/src/lib/articuloValidation.js` es la fuente canónica; articulo.js y articulos.routes.js importan de ahí.
+- ~~Duplicación `SUBCLASIFICACIONES_POR_GRUPO`~~ — RESUELTO: `backend/src/lib/articuloValidation.js` fue creado y luego **ELIMINADO en refactor 2026-05-14** (modelo físico ya no requiere subclasificacion; validación directa en routes).
 - ~~`models/usuario.js` métodos muertos (create, findAll, update)~~ — ELIMINADOS; solo quedan `updateLastLogin` y `updatePasswordHash`.
 - ~~`middleware/roles.js` exports muertos~~ — RESUELTO: ahora exporta solo `isAdmin` y `checkRole`.
 
@@ -45,25 +45,20 @@ Endpoints SIN documentar en `backend/src/config/swagger.js`:
 - Único uso: `users.service.js` cuenta inspecciones para estadísticas de perfil.
 - Decisión pendiente: implementar CRUD o eliminar tabla.
 
-### 🔴 Tabla `lote` ghost
-- Existe en DB con campos: codigo_lote, fecha_fabricacion, fecha_vencimiento, proveedor_id.
-- `compras.service.js` siempre inserta `lote_id = NULL`.
-- `inventario.service.js` filtra con `WHERE s.lote_id IS NULL`.
-- NO hay modelo, servicio ni rutas para gestionar lotes.
-- Decisión pendiente: implementar sistema de lotes o eliminar tabla.
+### ✅ Tabla `lote` — ELIMINADA (refactor 2026-05-14)
+- `lote`, `stock`, `movimiento_stock`, `compra`, `compra_detalle`, `egreso`, `egreso_detalle` todas eliminadas del schema.
+- `compras.service.js`, `egresos.service.js` ELIMINADOS.
 
-### 🟡 Columna `articulo.categoria` nunca leída
-- Existe en DB (nullable, legacy).
-- Backend no la escribe (corregido 2026-04-28) ni la lee en ningún SELECT.
-- Frontend no la espera en tipos.
-- Candidata a DROP COLUMN en próxima migración.
+### ✅ Columna `articulo.categoria` — ELIMINADA (refactor 2026-05-14)
+- Columna eliminada del schema junto con `subclasificacion`, `grupo_principal`, `tracking_mode`, `nivel_control`, `requiere_vencimiento`, `unidad_medida`.
+- Artículo ahora tiene solo `tipo` (epp|herramienta|equipo).
 
 ### 🟡 Columnas sin uso aparente en DB
 - `persona.foto_url` — columna en DB, nunca populada ni consultada por ningún endpoint.
 - `trabajador.fecha_salida` — columna en DB, no usada en lógica operativa ni en ningún endpoint.
 
 ### ✅ documentos.service.js — ELIMINADO
-- El servicio fue eliminado completamente (código muerto). `documento_compra` sigue creándose implícitamente en `compras.service.js` mediante SQL directo.
+- El servicio fue eliminado. `compras.service.js` también ELIMINADO en refactor 2026-05-14. Las tablas `documento`, `documento_compra`, `documento_referencia` permanecen en schema pero sin código activo que las use.
 
 ### ✅ Resueltos en sesión 2026-05-11 (auditoría dead code)
 **Backend:**

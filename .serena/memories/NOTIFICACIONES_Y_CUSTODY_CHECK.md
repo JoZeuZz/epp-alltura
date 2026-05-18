@@ -14,6 +14,5 @@
 - Lógica: detecta activos con custodia activa sin devolución y notifica a admin/supervisor
 
 ## Documentos
-- `documentos.service.js` y `documentos.routes.js` fueron ELIMINADOS (código muerto — no había endpoints activos).
-- Las tablas `documento`, `documento_compra`, `documento_referencia` persisten en DB.
-- `documento_compra` se crea implícitamente desde `compras.service.js` vía SQL directo al crear una compra.
+- `documentos.service.js`, `documentos.routes.js` y `compras.service.js` ELIMINADOS (refactor 2026-05-14).
+- Las tablas `documento`, `documento_compra`, `documento_referencia` persisten en DB pero sin código activo que las use.

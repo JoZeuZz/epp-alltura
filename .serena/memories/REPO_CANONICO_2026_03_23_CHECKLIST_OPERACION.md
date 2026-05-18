@@ -15,20 +15,20 @@
 - Validar trust proxy de acuerdo con topología real.
 - Verificar rate-limit en login.
 
-## Integridad de negocio (smoke)
-- Entrega serial: crear -> firmar -> confirmar.
-- Devolución serial: crear -> firmar recepción (mismo usuario) -> confirmar.
-- Egreso e ingreso: validar reversión trazable al eliminar.
-- Confirmar rechazo de fracciones y visualización de enteros en UI.
+## Integridad de negocio (smoke) — actualizado 2026-05-15
+- Entrega: crear borrador -> firmar -> confirmar; validar artículo pasa a estado `asignado`.
+- Devolución: crear borrador -> firmar -> confirmar; validar disposición (devuelto/perdido/baja/mantencion).
+- Cambio de estado directo: `POST /api/articulos/:id/estado` con nuevo_estado válido.
+- ELIMINADOS: egreso/ingreso — ya no existen como flujos independientes.
 
 ## Firma remota
 - Generar token de firma y repetir llamada para validar reused=true.
 - Abrir stream SSE /api/firmas/events/deliveries y verificar evento delivery-signed al firmar remotamente.
 
-## Inventario/stock
-- Validar /stock-summary, /stock-paged y /activos-paged con cursor.
-- Verificar filtro solo_entregados y consistencia del modal de detalle serializado.
-- Revisar coherencia cross-tab sin hard refresh.
+## Inventario/artículos
+- Validar GET /api/articulos con filtros (tipo, estado, bodega_id).
+- Validar GET /api/inventario/activos-paged con cursor.
+- ELIMINADOS: /stock-summary, /stock-paged (stock eliminado del modelo).
 
 ## Frontend cache
 - Query keys deben incluir variables que afectan queryFn.
