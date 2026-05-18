@@ -1,7 +1,7 @@
 # alltura-ui Design Refresh — Mayo 2026
 
 **Paquete:** `@jozeuZz/alltura-ui`
-**Versión post-refresh:** 1.1.1
+**Versión post-refresh:** 1.1.2 (mobile responsiveness — 2026-05-18)
 **Repo:** `/home/proyectos/alltura-ui/`
 
 ---
@@ -56,14 +56,48 @@ Tokens activos: `bg-surface`, `bg-surface-overlay`, `bg-surface-muted`, `text-co
 
 ## Consumo en herramientas/frontend
 
-- **`package.json` SIEMPRE debe usar versión de registro:** `"@jozeuZz/alltura-ui": "1.1.1"` (nunca `file:../../alltura-ui` en código committeado)
+- **`package.json` SIEMPRE debe usar versión de registro:** `"@jozeuZz/alltura-ui": "1.1.2"` (nunca `file:../../alltura-ui` en código committeado)
   - Razón: `file:` rompe el build Docker de Coolify — la ruta `../../alltura-ui` no existe dentro del build context del contenedor
-  - Fix aplicado 2026-05-15: commit `74d3046` en `epp/main`
+  - Fix original: commit `74d3046` en `epp/main` (2026-05-15)
+  - **⚠️ PENDIENTE 2026-05-18:** sesión de mobile responsiveness volvió a commitear `file:` (commit `e884338`) porque `NODE_AUTH_TOKEN` no estaba seteado en el entorno. Necesita fix: con token activo, ejecutar `npm install @jozeuZz/alltura-ui@1.1.2` y commitear el package-lock.json resultante.
 - **Para tests:** `vite.config.ts → test.alias` apunta a `../../alltura-ui/src/index.ts` → funciona aunque `package.json` use registro
 - **Para hot-reload local sobre alltura-ui:** usar `npm link` temporalmente, NUNCA commitear `file:` en `package.json`
 - `tailwind.config.js` incluye `./node_modules/@jozeuZz/alltura-ui/src/**/*.{js,jsx,ts,tsx}` en `content`
 - `NotificationBell` se pasa con `variant="dark"` en `router/index.tsx:286`
 - `index.css` importa Plus Jakarta Sans desde Google Fonts (pesos 400;500;600;700)
+
+## Cambios v1.1.2 — Mobile Responsiveness (2026-05-18)
+
+### ResponsiveTable: prop `mobileKebab`
+
+```tsx
+mobileKebab?: (row: T, index: number) => KebabAction[]
+interface KebabAction { label: string; onClick: () => void; variant?: 'default' | 'danger' | 'primary'; }
+```
+
+- Mobile `< md`: columna ⋮ al final, dropdown con acciones. Cierra con click fuera / Escape.
+- Desktop `≥ md`: no renderiza la columna ⋮.
+- Touch target trigger: `min-w-[44px] min-h-[44px]`. Items: `min-h-[44px]`.
+- ARIA: `role="menu"` / `role="menuitem"` / `aria-label="Opciones de fila N"`.
+- Exportado en index.ts: `export type { ..., KebabAction } from './layout/ResponsiveTable'`
+- Reset automático: si `data` cambia, dropdown cierra.
+
+### Modal: prop `mobileFullscreen`
+
+```tsx
+mobileFullscreen?: boolean  // default: false
+```
+
+- Mobile `< sm`: `h-[100dvh] rounded-none`, header pinned `flex-shrink-0`, contenido scrollea independientemente con `env(safe-area-inset-bottom)` en padding.
+- Desktop `≥ sm`: comportamiento normal sin cambio.
+
+### AppLayout: safe-area-inset-bottom en `<main>`
+
+`<main>` usa `pb-[calc(Xrem+env(safe-area-inset-bottom,0px))]` responsive (1rem mobile, 1.5rem sm, 2.5rem lg). Evita que iPhone home indicator tape contenido.
+
+Ver detalle completo en `mem:RESPONSIVE_DESIGN`.
+
+---
 
 ## Spec y plan de implementación
 
