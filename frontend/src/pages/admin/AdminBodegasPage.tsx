@@ -332,6 +332,7 @@ const AdminBodegasPage: React.FC = () => {
     {
       key: 'id',
       header: 'Acciones',
+      hideOnMobile: true,
       render: (_v, b) => (
         <div className="flex gap-2 flex-wrap">
           <button
@@ -432,7 +433,19 @@ const AdminBodegasPage: React.FC = () => {
               {filterEstado !== 'todos' || search ? ` (filtrado de ${bodegas.length})` : ''}
             </p>
           </div>
-          <ResponsiveTable columns={columns} data={filtered} getRowKey={(b) => b.id} />
+          <ResponsiveTable
+            columns={columns}
+            data={filtered}
+            getRowKey={(b) => b.id}
+            mobileKebab={(b) => [
+              { label: 'Editar', onClick: () => { setEditTarget(b); setModalOpen(true); }, variant: 'primary' },
+              {
+                label: b.estado === 'activo' ? 'Desactivar' : 'Activar',
+                onClick: () => setConfirmState({ tipo: 'toggle', bodega: b }),
+                variant: b.estado === 'activo' ? 'danger' : 'default',
+              },
+            ]}
+          />
         </div>
       )}
 
