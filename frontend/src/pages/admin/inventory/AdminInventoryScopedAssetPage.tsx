@@ -53,7 +53,7 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary-blue text-sm text-white bg-primary-blue hover:bg-blue-700 transition-colors"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-primary-blue text-sm text-white bg-primary-blue hover:bg-blue-700 transition-colors min-h-[44px]"
           aria-label={`Nuevo ${copy.tipo}`}
         >
           + Nuevo {copy.tipo === 'epp' ? 'EPP' : copy.tipo}
