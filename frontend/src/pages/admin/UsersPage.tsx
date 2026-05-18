@@ -378,6 +378,7 @@ const UsersPage: React.FC = () => {
       {
         key: 'email',
         header: 'Email',
+        hideOnMobile: true,
         render: (v) => <span className="text-content-secondary">{v}</span>,
       },
       {
@@ -402,6 +403,7 @@ const UsersPage: React.FC = () => {
         key: 'actions',
         header: '',
         align: 'right',
+        hideOnMobile: true,
         render: (_v, row) => {
           const isSelf = currentUser?.id === row.id;
           return (
@@ -631,6 +633,12 @@ const UsersPage: React.FC = () => {
             emptyMessage="No hay usuarios que coincidan con los filtros."
             caption="Listado de usuarios del sistema"
             getRowKey={(row) => row.id}
+            mobileKebab={(row) => [
+              { label: 'Editar', onClick: () => openEditModal(row), variant: 'primary' },
+              ...(currentUser?.id !== row.id
+                ? [{ label: 'Eliminar', onClick: () => openDeleteModal(row), variant: 'danger' as const }]
+                : []),
+            ]}
           />
         </section>
       )}
