@@ -310,7 +310,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
     profile?.estado === 'perdido';
 
   return (
-    <Modal isOpen onClose={onClose} title="Perfil del activo">
+    <Modal isOpen onClose={onClose} title="Perfil del activo" mobileFullscreen>
       {isLoading && (
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />

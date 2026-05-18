@@ -272,7 +272,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   const selectedTrabajador = trabajadores.find((t) => t.id === trabajadorId);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Nueva entrega">
+    <Modal isOpen={isOpen} onClose={onClose} title="Nueva entrega" mobileFullscreen>
       {shouldPrefillSingleAsset && (
         <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
           <p className="text-xs font-semibold text-blue-900 uppercase tracking-wide">Resumen de herramienta</p>

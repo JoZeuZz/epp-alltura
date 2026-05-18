@@ -134,7 +134,7 @@ const DevolucionActivoModal: React.FC<Props> = ({
   };
 
   return (
-    <Modal isOpen onClose={onClose} title="Registrar devolución">
+    <Modal isOpen onClose={onClose} title="Registrar devolución" mobileFullscreen>
       <div className="space-y-4">
         {/* Trabajador locked */}
         <div>

@@ -57,7 +57,7 @@ const ReubicarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) =>
   const canSubmit = ubicacionId && ubicacionId !== currentBodegaId;
 
   return (
-    <Modal isOpen onClose={onClose} title={`Reubicar — ${activo.codigo}`}>
+    <Modal isOpen onClose={onClose} title={`Reubicar — ${activo.codigo}`} mobileFullscreen>
       <div className="space-y-4">
         <p className="text-sm text-content-secondary">
           Ubicación actual: <strong>{activo.bodega_nombre ?? activo.proyecto_nombre ?? '—'}</strong>
