@@ -29,11 +29,9 @@ Endpoints SIN documentar en `backend/src/config/swagger.js`:
 - Los SWs en `public/sw.js` y `public/sw-notifications.js` existen pero no se registran.
 - En desarrollo: `notificationService.unregisterAll()` se ejecuta activamente.
 
-### 🟡 Mismatches de tipos frontend vs DB/backend
-- `Trabajador.trabajador_id` en api.d.ts — el backend retorna `id`, no `trabajador_id`.
-- `Articulo.requiere_talla` en api.d.ts — campo que NO existe en la DB.
-- `Ubicacion.descripcion` en api.d.ts — campo que NO existe en la DB.
-- `Entrega` tiene campos `created_at` Y `creado_en` en el tipo — el backend solo devuelve `creado_en`.
+### ✅ Mismatches de tipos frontend vs DB/backend — RESUELTOS (refactor 2026-05-14)
+- `frontend/src/types/api.d.ts` reducida a solo `User` y `ApiError`. Todos los tipos de dominio (Articulo, Entrega, Devolucion, etc.) ahora viven en `apiService.ts` con campos correctos.
+- Los campos stale (`requiere_talla`, `trabajador_id`, `Ubicacion.descripcion`, `created_at`) ya no existen en los tipos.
 
 ---
 

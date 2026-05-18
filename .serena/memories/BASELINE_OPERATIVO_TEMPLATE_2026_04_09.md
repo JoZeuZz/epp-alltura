@@ -36,14 +36,13 @@ Se oficializa este baseline operativo como regla comun para nuevas apps y para c
 - epp-alltura: pendiente de verificacion formal contra R1..R5.
 - report-alltura: pendiente de verificacion formal contra R1..R5.
 
-## Evidencia local de esta decision
-- `docs/standardization/template-operational-baseline.md`
-- `docs/standardization/gap-report.md`
-- `.github/workflows/ci.yml`
-- `frontend/playwright.config.ts`
-- `frontend/playwright.real.config.ts`
-- `scripts/check-backend-validation-usage.js`
-- `scripts/check-legacy.js`
+## Evidencia local de esta decision (verificado 2026-05-15)
+- `docs/standardization/` — directorio NO existe; los archivos markdown de estandarización están en `docs/` directamente.
+- `.github/workflows/ci.yml` ✅
+- `frontend/playwright.config.ts` ✅
+- `frontend/playwright.real.config.ts` ✅
+- `scripts/check-backend-validation-usage.js` ✅
+- `scripts/check-legacy.js` ✅
 
 ## Criterio de cierre para futuras implementaciones
 No marcar un repo como alineado sin evidencia verificable de archivos y pipeline para R1..R5.

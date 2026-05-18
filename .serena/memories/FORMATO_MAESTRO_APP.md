@@ -251,11 +251,10 @@ Registrar entrega, recepción, devolución y trazabilidad de herramientas/EPP as
 - Historial
 - Alertas
 
-### Roles sugeridos
-- Admin
-- Bodega
-- Supervisor
-- Trabajador
+### Roles sugeridos (actualizado 2026-05-15)
+- Admin (máximo acceso)
+- Supervisor (acceso operacional — absorbe lo que antes era "Bodega")
+- Trabajador es entidad de dominio, NO rol de login (firma vía QR/token público)
 
 ### Flujo
 1) Crear activo.
@@ -280,11 +279,10 @@ Registrar entrega, recepción, devolución y trazabilidad de herramientas/EPP as
 - Alertas (vencimientos/faltantes)
 - Configuración (tipos de activos, estados)
 
-### Bodega
-- Dashboard (pendientes de entrega/devolución)
+### Supervisor (absorbe rol Bodega — no existe login Bodega)
+- Dashboard operacional
 - Entregas (crear asignación)
 - Devoluciones (registrar recepción)
-- Inventario (stock actualizado)
 
 ### Supervisor
 - Dashboard de cuadrilla
