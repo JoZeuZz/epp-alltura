@@ -22,13 +22,17 @@ if (isGCSConfigured) {
     projectId: process.env.GCS_PROJECT_ID,
   };
 
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
+    try {
+      storageOptions.credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+    } catch {
+      throw new Error('GOOGLE_APPLICATION_CREDENTIALS_JSON is not valid JSON');
+    }
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     storageOptions.keyFilename = process.env.GOOGLE_APPLICATION_CREDENTIALS;
   }
 
-  storage = new Storage({
-    ...storageOptions
-  });
+  storage = new Storage({ ...storageOptions });
   bucket = storage.bucket(process.env.GCS_BUCKET_NAME);
 }
 
@@ -52,6 +56,14 @@ const maxDocumentBytes = parseInt(process.env.DOCUMENT_MAX_BYTES || '26214400', 
 const jpegQuality = parseInt(process.env.IMAGE_JPEG_QUALITY || '92', 10);
 const cacheControl =
   process.env.IMAGE_CACHE_CONTROL || 'private, max-age=31536000, immutable';
+
+const sanitizeForFilename = (str) =>
+  String(str || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || 'archivo';
 
 const getSharp = () => {
   try {
@@ -460,9 +472,12 @@ const resolveImageUrl = async (imageUrl) => {
 /**
  * Uploads a file to Google Cloud Storage or saves locally if GCS is not configured.
  * @param {object} file The file object from multer.
+ * @param {object} [options={}] Upload options.
+ * @param {string} [options.folder] Subfolder within the bucket/uploads dir.
+ * @param {string} [options.filePrefix] Prefix for the filename (will be sanitized).
  * @returns {Promise<string>} The public URL of the uploaded file.
  */
-const uploadFile = async (file) => {
+const uploadFile = async (file, options = {}) => {
   if (!file) {
     throw new Error('Archivo inválido para carga de imagen.');
   }
@@ -501,23 +516,27 @@ const uploadFile = async (file) => {
   };
   const fallbackExt = path.extname(file.originalname || '') || '.img';
   const extension = extensionByMime[contentType] || fallbackExt;
-  const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${extension}`;
+
+  const { folder, filePrefix } = options;
+  const prefix = filePrefix ? `${sanitizeForFilename(filePrefix)}_` : '';
+  const baseFilename = `${prefix}${Date.now()}-${crypto.randomBytes(6).toString('hex')}${extension}`;
 
   try {
     if (resolvedProvider === 'local') {
-      if (!fs.existsSync(localUploadsDir)) {
-        fs.mkdirSync(localUploadsDir, { recursive: true });
+      const subdir = folder ? path.join(localUploadsDir, folder) : localUploadsDir;
+      if (!fs.existsSync(subdir)) {
+        fs.mkdirSync(subdir, { recursive: true });
       }
-
-      const filePath = path.join(localUploadsDir, filename);
+      const filePath = path.join(subdir, baseFilename);
       await pipeline(stream, limiter, fs.createWriteStream(filePath));
-
-      logger.debug('Imagen procesada localmente', { filename, size: getTotalBytes() });
+      logger.debug('Imagen procesada localmente', { baseFilename, size: getTotalBytes() });
       const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
-      return `${backendUrl}/uploads/${filename}`;
+      const relPath = folder ? `${folder}/${baseFilename}` : baseFilename;
+      return `${backendUrl}/uploads/${relPath}`;
     }
 
-    const objectName = gcsPrefix ? `${gcsPrefix}/${filename}` : filename;
+    const objectNameParts = [gcsPrefix, folder, baseFilename].filter(Boolean);
+    const objectName = objectNameParts.join('/');
     const blob = bucket.file(objectName);
     const blobStream = blob.createWriteStream({
       resumable: false,
@@ -545,9 +564,12 @@ const uploadFile = async (file) => {
 /**
  * Uploads a document file (PDF or image) to storage.
  * @param {object} file The file object from multer.
+ * @param {object} [options={}] Upload options.
+ * @param {string} [options.folder] Subfolder within the bucket/uploads dir.
+ * @param {string} [options.filePrefix] Prefix for the filename (will be sanitized).
  * @returns {Promise<string>} The public URL of the uploaded document.
  */
-const uploadDocument = async (file) => {
+const uploadDocument = async (file, options = {}) => {
   if (!file) {
     throw new Error('Archivo inválido para carga de documento.');
   }
@@ -573,7 +595,7 @@ const uploadDocument = async (file) => {
   const detectedMime = await validateDocumentSignature(file);
 
   if (detectedMime && detectedMime.startsWith('image/')) {
-    return uploadFile(file);
+    return uploadFile(file, options);
   }
 
   if (resolvedProvider === 'gcs' && !isGCSConfigured) {
@@ -592,7 +614,11 @@ const uploadDocument = async (file) => {
   const contentType = detectedMime || declaredMime || 'application/octet-stream';
   const fallbackExt = path.extname(file.originalname || '') || '.bin';
   const extension = extensionByMime[contentType] || fallbackExt;
-  const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${extension}`;
+
+  const { folder, filePrefix } = options;
+  const prefix = filePrefix ? `${sanitizeForFilename(filePrefix)}_` : '';
+  const baseFilename = `${prefix}${Date.now()}-${crypto.randomBytes(6).toString('hex')}${extension}`;
+
   const { limiter, getTotalBytes } = createSizeLimiter(maxDocumentBytes);
   const stream = file.buffer
     ? (() => {
@@ -604,19 +630,20 @@ const uploadDocument = async (file) => {
 
   try {
     if (resolvedProvider === 'local') {
-      if (!fs.existsSync(localUploadsDir)) {
-        fs.mkdirSync(localUploadsDir, { recursive: true });
+      const subdir = folder ? path.join(localUploadsDir, folder) : localUploadsDir;
+      if (!fs.existsSync(subdir)) {
+        fs.mkdirSync(subdir, { recursive: true });
       }
-
-      const filePath = path.join(localUploadsDir, filename);
+      const filePath = path.join(subdir, baseFilename);
       await pipeline(stream, limiter, fs.createWriteStream(filePath));
-
-      logger.debug('Documento almacenado localmente', { filename, size: getTotalBytes() });
+      logger.debug('Documento almacenado localmente', { baseFilename, size: getTotalBytes() });
       const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
-      return `${backendUrl}/uploads/${filename}`;
+      const relPath = folder ? `${folder}/${baseFilename}` : baseFilename;
+      return `${backendUrl}/uploads/${relPath}`;
     }
 
-    const objectName = gcsPrefix ? `${gcsPrefix}/${filename}` : filename;
+    const objectNameParts = [gcsPrefix, folder, baseFilename].filter(Boolean);
+    const objectName = objectNameParts.join('/');
     const blob = bucket.file(objectName);
     const blobStream = blob.createWriteStream({
       resumable: false,
