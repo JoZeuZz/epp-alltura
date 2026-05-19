@@ -249,8 +249,6 @@ export const getProveedores = () =>
   get<Proveedor[]>('/proveedores');
 export const createProveedor = (payload: { nombre: string; rut?: string; email?: string; telefono?: string }) =>
   post<Proveedor>('/proveedores', payload);
-export const permanentDeleteArticulo = (id: string) =>
-  del<unknown>(`/articulos/${id}`);
 export const cambiarEstadoArticulo = (id: string, payload: CambiarEstadoArticuloPayload) =>
   post<Articulo>(`/articulos/${id}/estado`, payload);
 
