@@ -19,7 +19,8 @@ const formatDate = (iso: string): string => {
 
 const renderVence = (fecha: string | null | undefined): React.ReactNode => {
   if (!fecha) return '—';
-  const diff = Math.ceil((new Date(fecha).getTime() - Date.now()) / 86_400_000);
+  const diffMs = new Date(fecha).setUTCHours(0, 0, 0, 0) - new Date().setUTCHours(0, 0, 0, 0);
+  const diff = Math.ceil(diffMs / 86_400_000);
   const label = formatDate(fecha);
   if (diff < 0) return <span className="text-red-600 font-medium">{label + ' ⚠'}</span>;
   if (diff <= 30) return <span className="text-amber-600 font-medium">{label + ' ⚠'}</span>;

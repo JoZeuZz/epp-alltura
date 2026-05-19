@@ -65,6 +65,19 @@ describe('AdminInventoryScopedAssetListView — rendering', () => {
     );
     expect(screen.getByText('Sin artículos')).toBeInTheDocument();
   });
+
+  it('renders without crashing when isLoading is true', () => {
+    render(
+      <AdminInventoryScopedAssetListView
+        items={[]}
+        onSelect={vi.fn()}
+        isLoading={true}
+        emptyMessage="Sin artículos"
+      />
+    );
+    // Component renders (no crash) — loading state owned by ResponsiveTable
+    expect(document.body).toBeTruthy();
+  });
 });
 
 describe('AdminInventoryScopedAssetListView — row click', () => {
