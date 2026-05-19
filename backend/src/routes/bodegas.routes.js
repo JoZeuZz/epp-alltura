@@ -18,6 +18,7 @@ const validateBody = (schema) => async (req, res, next) => {
 const bodegaCreateSchema = Joi.object({
   nombre: Joi.string().trim().min(2).max(150).required(),
   direccion: Joi.string().trim().max(500).allow('', null),
+  ciudad: Joi.string().trim().max(100).allow('', null),
   descripcion: Joi.string().trim().max(500).allow('', null),
   estado: Joi.string().valid('activo', 'inactivo').default('activo'),
 });
@@ -25,6 +26,7 @@ const bodegaCreateSchema = Joi.object({
 const bodegaUpdateSchema = Joi.object({
   nombre: Joi.string().trim().min(2).max(150),
   direccion: Joi.string().trim().max(500).allow('', null),
+  ciudad: Joi.string().trim().max(100).allow('', null),
   descripcion: Joi.string().trim().max(500).allow('', null),
   estado: Joi.string().valid('activo', 'inactivo'),
 }).min(1);
