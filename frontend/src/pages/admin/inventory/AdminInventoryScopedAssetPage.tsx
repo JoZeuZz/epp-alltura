@@ -8,6 +8,7 @@ import {
 import { useGet, useTour } from '../../../hooks';
 import { PageTabs } from '@jozeuZz/alltura-ui';
 import AdminInventoryScopedAssetCards from './AdminInventoryScopedAssetCards';
+import InventoryLocationPieChart from '../../../components/dashboard/InventoryLocationPieChart';
 
 const GESTOR_TABS = [
   { key: 'dashboard' as const, label: 'Dashboard' },
@@ -43,7 +44,13 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
   const copy = INVENTORY_ASSET_SCOPE_COPY[scope];
   const [showCreate, setShowCreate] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'inventario'>('dashboard');
+  const [ciudadFilter, setCiudadFilter] = useState<string | null | undefined>(undefined);
   const queryClient = useQueryClient();
+
+  const handleCityClick = (ciudad: string | null) => {
+    setCiudadFilter(ciudad);
+    setActiveTab('inventario');
+  };
 
   const { data: bodegas = [] } = useGet<BodegaOption[]>(['bodegas'], '/bodegas');
 
@@ -112,56 +119,65 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
         />
       </div>
 
-      {/* Dashboard tab: KPI cards */}
+      {/* Dashboard tab: KPI cards + city pie chart */}
       {activeTab === 'dashboard' && (
-        isError ? (
-          <section
-            className="bg-white rounded-lg shadow-sm border border-red-100 p-4 space-y-3"
-            role="alert"
-            aria-label={`KPIs de ${scope}`}
-          >
-            <p className="text-sm text-red-600">{copy.errorMessage}</p>
-            <button
-              type="button"
-              onClick={() => { void refetch(); }}
-              className="inline-flex items-center px-3 py-2 text-sm rounded-md border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
+        <>
+          {isError ? (
+            <section
+              className="bg-white rounded-lg shadow-sm border border-red-100 p-4 space-y-3"
+              role="alert"
+              aria-label={`KPIs de ${scope}`}
             >
-              Reintentar
-            </button>
-          </section>
-        ) : (
-          <section
-            className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"
-            aria-label={`KPIs de ${scope}`}
-            data-tour="admin-inventory-kpis"
-          >
-            <KpiCard
-              label={copy.totalLabel}
-              value={isLoading ? '—' : String(kpis.total)}
+              <p className="text-sm text-red-600">{copy.errorMessage}</p>
+              <button
+                type="button"
+                onClick={() => { void refetch(); }}
+                className="inline-flex items-center px-3 py-2 text-sm rounded-md border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2"
+              >
+                Reintentar
+              </button>
+            </section>
+          ) : (
+            <section
+              className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"
+              aria-label={`KPIs de ${scope}`}
+              data-tour="admin-inventory-kpis"
+            >
+              <KpiCard
+                label={copy.totalLabel}
+                value={isLoading ? '—' : String(kpis.total)}
+              />
+              <KpiCard
+                label="En stock"
+                value={isLoading ? '—' : String(kpis.enStock)}
+                accent="text-green-600"
+              />
+              <KpiCard
+                label="Asignados"
+                value={isLoading ? '—' : String(kpis.asignado)}
+                accent="text-blue-600"
+              />
+              <KpiCard
+                label="Valor bajo responsabilidad"
+                value={
+                  isLoading
+                    ? '—'
+                    : kpis.liabilityValue > 0
+                      ? formatCLP(kpis.liabilityValue)
+                      : 'Sin valor registrado'
+                }
+                accent="text-amber-600"
+              />
+            </section>
+          )}
+          {!isError && (
+            <InventoryLocationPieChart
+              items={items}
+              isLoading={isLoading}
+              onCityClick={handleCityClick}
             />
-            <KpiCard
-              label="En stock"
-              value={isLoading ? '—' : String(kpis.enStock)}
-              accent="text-green-600"
-            />
-            <KpiCard
-              label="Asignados"
-              value={isLoading ? '—' : String(kpis.asignado)}
-              accent="text-blue-600"
-            />
-            <KpiCard
-              label="Valor bajo responsabilidad"
-              value={
-                isLoading
-                  ? '—'
-                  : kpis.liabilityValue > 0
-                    ? formatCLP(kpis.liabilityValue)
-                    : 'Sin valor registrado'
-              }
-              accent="text-amber-600"
-            />
-          </section>
-        )
+          )}
+        </>
       )}
 
       {/* Inventario tab: filters + article grid */}
@@ -173,6 +189,8 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
           isError={isError}
           onRefetch={() => { void refetch(); }}
           copy={copy}
+          ciudadFilter={ciudadFilter}
+          onClearCiudad={() => setCiudadFilter(undefined)}
         />
       )}
 
