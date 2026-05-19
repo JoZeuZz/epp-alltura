@@ -27,7 +27,7 @@ BEGIN
   TRUNCATE TABLE auditoria, movimiento_activo, inspeccion_activo,
     firma_devolucion, firma_token_devolucion, devolucion_detalle, devolucion,
     firma_token, firma_entrega, entrega_detalle, entrega,
-    custodia_activo, articulo_especialidad, articulo,
+    custodia_activo, articulo_certificacion, articulo_especialidad, articulo,
     proyectos, bodegas, trabajador, usuario_rol, usuario, persona,
     notifications, push_subscriptions
     RESTART IDENTITY CASCADE;
@@ -110,6 +110,16 @@ BEGIN
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
+  -- 5b) PROVEEDORES (2 semilla)
+  -- ============================================================
+
+  INSERT INTO proveedor (id, nombre, rut, email, telefono, estado)
+  VALUES
+    ('00000000-0000-0000-0000-000000009001', 'MSA Safety Chile', '76.100.001-1', 'ventas@msasafety.cl', '+56222000001', 'activo'),
+    ('00000000-0000-0000-0000-000000009002', 'Bosch Tools Chile', '76.100.002-2', 'ventas@bosch.cl',    '+56222000002', 'activo')
+  ON CONFLICT (id) DO NOTHING;
+
+  -- ============================================================
   -- 6) ARTICULOS — 20 objetos físicos
   --
   --  EPP (7):
@@ -139,31 +149,33 @@ BEGIN
   --   art-020  Detector Fluke LVD2      en_stock    bodega3
   -- ============================================================
 
-  INSERT INTO articulo (id, tipo, nombre, marca, modelo, nro_serie, codigo, valor, estado, bodega_actual_id, proyecto_actual_id, fecha_vencimiento, creado_por_usuario_id)
+  INSERT INTO articulo (id, tipo, nombre, marca, modelo, nro_serie, codigo, valor, estado,
+                        bodega_actual_id, proyecto_actual_id, fecha_vencimiento,
+                        fecha_compra, proveedor_id, creado_por_usuario_id)
   VALUES
     -- EPP
-    ('00000000-0000-0000-0000-000000010001', 'epp',        'Casco de seguridad',         'MSA',     'V-Gard',     'MSA-VGARD-001',  '001', 15000,  'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NULL,                           '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010002', 'epp',        'Casco de seguridad',         'MSA',     'V-Gard',     'MSA-VGARD-002',  '002', 15000,  'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NULL,                           '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010003', 'epp',        'Arnes de seguridad',         'Petzl',   'C072BA',     'PET-C072-003',   '003', 85000,  'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NOW() + INTERVAL '18 months',   '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010004', 'epp',        'Arnes de seguridad',         'Petzl',   'C072BA',     'PET-C072-004',   '004', 85000,  'asignado',    NULL,                                    '00000000-0000-0000-0000-000000003003', NOW() + INTERVAL '18 months',   '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010005', 'epp',        'Arnes de seguridad',         'Petzl',   'C072BA',     'PET-C072-005',   '005', 85000,  'asignado',    NULL,                                    '00000000-0000-0000-0000-000000003003', NOW() + INTERVAL '18 months',   '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010006', 'epp',        'Guante anticorte',           'Ansell',  'HyFlex 11',  'ANS-GLOVE-006',  '006', 8500,   'mantencion',  '00000000-0000-0000-0000-000000003002', NULL,                                    NULL,                           '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010007', 'epp',        'Lentes de proteccion',       '3M',      'SecureFit',  '3M-LENTE-007',   '007', 5500,   'en_stock',    '00000000-0000-0000-0000-000000003002', NULL,                                    NULL,                           '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010001', 'epp',        'Casco de seguridad',         'MSA',     'V-Gard',     'MSA-VGARD-001',  '001', 15000,  'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NULL,                           NOW()-INTERVAL '90 days',  '00000000-0000-0000-0000-000000009001', '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010002', 'epp',        'Casco de seguridad',         'MSA',     'V-Gard',     'MSA-VGARD-002',  '002', 15000,  'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NULL,                           NOW()-INTERVAL '90 days',  '00000000-0000-0000-0000-000000009001', '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010003', 'epp',        'Arnes de seguridad',         'Petzl',   'C072BA',     'PET-C072-003',   '003', 85000,  'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NOW() + INTERVAL '18 months',   NOW()-INTERVAL '120 days', '00000000-0000-0000-0000-000000009001', '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010004', 'epp',        'Arnes de seguridad',         'Petzl',   'C072BA',     'PET-C072-004',   '004', 85000,  'asignado',    NULL,                                    '00000000-0000-0000-0000-000000003003', NOW() + INTERVAL '18 months',   NOW()-INTERVAL '120 days', '00000000-0000-0000-0000-000000009001', '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010005', 'epp',        'Arnes de seguridad',         'Petzl',   'C072BA',     'PET-C072-005',   '005', 85000,  'asignado',    NULL,                                    '00000000-0000-0000-0000-000000003003', NOW() + INTERVAL '18 months',   NOW()-INTERVAL '120 days', '00000000-0000-0000-0000-000000009001', '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010006', 'epp',        'Guante anticorte',           'Ansell',  'HyFlex 11',  'ANS-GLOVE-006',  '006', 8500,   'mantencion',  '00000000-0000-0000-0000-000000003002', NULL,                                    NULL,                           NOW()-INTERVAL '60 days',  NULL,                                    '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010007', 'epp',        'Lentes de proteccion',       '3M',      'SecureFit',  '3M-LENTE-007',   '007', 5500,   'en_stock',    '00000000-0000-0000-0000-000000003002', NULL,                                    NULL,                           NOW()-INTERVAL '60 days',  NULL,                                    '00000000-0000-0000-0000-000000001001'),
     -- Herramienta
-    ('00000000-0000-0000-0000-000000010008', 'herramienta','Taladro percutor',            'Bosch',   'GSB18',      'BSH-GSB18-008',  '008', 120000, 'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NULL,                           '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010009', 'herramienta','Taladro percutor',            'Bosch',   'GSB18',      'BSH-GSB18-009',  '009', 120000, 'asignado',    NULL,                                    '00000000-0000-0000-0000-000000003004', NULL,                           '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010010', 'herramienta','Sierra circular',             'DeWalt',  'DWE575',     'DEW-DWE575-010', '010', 185000, 'en_stock',    '00000000-0000-0000-0000-000000003002', NULL,                                    NULL,                           '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010011', 'herramienta','Sierra circular',             'DeWalt',  'DWE575',     'DEW-DWE575-011', '011', 185000, 'dado_de_baja',NULL,                                    NULL,                                    NULL,                           '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010012', 'herramienta','Esmeril angular',             'Makita',  'GA9020',     'MAK-GA9020-012', '012', 95000,  'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NULL,                           '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010013', 'herramienta','Llave de torque',             'Snap-On', 'QD2R200',    'SNP-QD200-013',  '013', 145000, 'asignado',    NULL,                                    '00000000-0000-0000-0000-000000003005', NULL,                           '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010014', 'herramienta','Atornillador inalambrico',    'Bosch',   'GSR18',      'BSH-GSR18-014',  '014', 78000,  'en_stock',    '00000000-0000-0000-0000-000000003006', NULL,                                    NULL,                           '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010008', 'herramienta','Taladro percutor',            'Bosch',   'GSB18',      'BSH-GSB18-008',  '008', 120000, 'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NULL,                           NOW()-INTERVAL '80 days',  '00000000-0000-0000-0000-000000009002', '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010009', 'herramienta','Taladro percutor',            'Bosch',   'GSB18',      'BSH-GSB18-009',  '009', 120000, 'asignado',    NULL,                                    '00000000-0000-0000-0000-000000003004', NULL,                           NOW()-INTERVAL '80 days',  '00000000-0000-0000-0000-000000009002', '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010010', 'herramienta','Sierra circular',             'DeWalt',  'DWE575',     'DEW-DWE575-010', '010', 185000, 'en_stock',    '00000000-0000-0000-0000-000000003002', NULL,                                    NULL,                           NOW()-INTERVAL '80 days',  NULL,                                    '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010011', 'herramienta','Sierra circular',             'DeWalt',  'DWE575',     'DEW-DWE575-011', '011', 185000, 'dado_de_baja',NULL,                                    NULL,                                    NULL,                           NOW()-INTERVAL '80 days',  NULL,                                    '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010012', 'herramienta','Esmeril angular',             'Makita',  'GA9020',     'MAK-GA9020-012', '012', 95000,  'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NULL,                           NOW()-INTERVAL '80 days',  NULL,                                    '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010013', 'herramienta','Llave de torque',             'Snap-On', 'QD2R200',    'SNP-QD200-013',  '013', 145000, 'asignado',    NULL,                                    '00000000-0000-0000-0000-000000003005', NULL,                           NOW()-INTERVAL '80 days',  NULL,                                    '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010014', 'herramienta','Atornillador inalambrico',    'Bosch',   'GSR18',      'BSH-GSR18-014',  '014', 78000,  'en_stock',    '00000000-0000-0000-0000-000000003006', NULL,                                    NULL,                           NOW()-INTERVAL '75 days',  '00000000-0000-0000-0000-000000009002', '00000000-0000-0000-0000-000000001001'),
     -- Equipo
-    ('00000000-0000-0000-0000-000000010015', 'equipo',     'Medidor de gas multigas',    'BW',      'GasAlert',   'BWG-ALERT-015',  '015', 450000, 'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NOW() + INTERVAL '24 months',   '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010016', 'equipo',     'Medidor de gas multigas',    'BW',      'GasAlert',   'BWG-ALERT-016',  '016', 450000, 'asignado',    NULL,                                    '00000000-0000-0000-0000-000000003003', NOW() + INTERVAL '24 months',   '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010017', 'equipo',     'Clamp amperimetrico',        'Fluke',   '376FC',      'FLK-376FC-017',  '017', 320000, 'en_stock',    '00000000-0000-0000-0000-000000003002', NULL,                                    NULL,                           '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010018', 'equipo',     'Multimetro digital',         'Fluke',   '115',        'FLK-115-018',    '018', 95000,  'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NULL,                           '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010019', 'equipo',     'Termometro infrarrojo',      'Fluke',   '62MAX',      'FLK-62MAX-019',  '019', 78000,  'perdido',     NULL,                                    NULL,                                    NULL,                           '00000000-0000-0000-0000-000000001001'),
-    ('00000000-0000-0000-0000-000000010020', 'equipo',     'Detector de voltaje',        'Fluke',   'LVD2',       'FLK-LVD2-020',   '020', 35000,  'en_stock',    '00000000-0000-0000-0000-000000003006', NULL,                                    NULL,                           '00000000-0000-0000-0000-000000001001')
+    ('00000000-0000-0000-0000-000000010015', 'equipo',     'Medidor de gas multigas',    'BW',      'GasAlert',   'BWG-ALERT-015',  '015', 450000, 'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NOW() + INTERVAL '24 months',   NOW()-INTERVAL '60 days',  NULL,                                    '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010016', 'equipo',     'Medidor de gas multigas',    'BW',      'GasAlert',   'BWG-ALERT-016',  '016', 450000, 'asignado',    NULL,                                    '00000000-0000-0000-0000-000000003003', NOW() + INTERVAL '24 months',   NOW()-INTERVAL '60 days',  NULL,                                    '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010017', 'equipo',     'Clamp amperimetrico',        'Fluke',   '376FC',      'FLK-376FC-017',  '017', 320000, 'en_stock',    '00000000-0000-0000-0000-000000003002', NULL,                                    NULL,                           NOW()-INTERVAL '60 days',  NULL,                                    '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010018', 'equipo',     'Multimetro digital',         'Fluke',   '115',        'FLK-115-018',    '018', 95000,  'en_stock',    '00000000-0000-0000-0000-000000003001', NULL,                                    NULL,                           NOW()-INTERVAL '60 days',  NULL,                                    '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010019', 'equipo',     'Termometro infrarrojo',      'Fluke',   '62MAX',      'FLK-62MAX-019',  '019', 78000,  'perdido',     NULL,                                    NULL,                                    NULL,                           NOW()-INTERVAL '55 days',  NULL,                                    '00000000-0000-0000-0000-000000001001'),
+    ('00000000-0000-0000-0000-000000010020', 'equipo',     'Detector de voltaje',        'Fluke',   'LVD2',       'FLK-LVD2-020',   '020', 35000,  'en_stock',    '00000000-0000-0000-0000-000000003006', NULL,                                    NULL,                           NOW()-INTERVAL '55 days',  NULL,                                    '00000000-0000-0000-0000-000000001001')
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
@@ -193,6 +205,19 @@ BEGIN
     ('00000000-0000-0000-0000-000000010017', 'ooee'),
     ('00000000-0000-0000-0000-000000010017', 'equipos')
   ON CONFLICT (articulo_id, especialidad) DO NOTHING;
+
+  -- ============================================================
+  -- 7b) CERTIFICACIONES (muestra — 3 artículos)
+  -- ============================================================
+
+  INSERT INTO articulo_certificacion (articulo_id, nombre, url)
+  VALUES
+    ('00000000-0000-0000-0000-000000010003', 'Certificado de conformidad EN361',        'https://example.local/certs/arnes-003-en361.pdf'),
+    ('00000000-0000-0000-0000-000000010003', 'Certificado ACHS 2024',                   'https://example.local/certs/arnes-003-achs.pdf'),
+    ('00000000-0000-0000-0000-000000010015', 'Certificado de calibración gas 2025',     'https://example.local/certs/medgas-015-calib.pdf'),
+    ('00000000-0000-0000-0000-000000010015', 'Certificado ATEX zona explosiva',         'https://example.local/certs/medgas-015-atex.pdf'),
+    ('00000000-0000-0000-0000-000000010008', 'Garantía extendida Bosch 3 años',         'https://example.local/certs/taladro-008-garantia.pdf')
+  ON CONFLICT DO NOTHING;
 
   -- ============================================================
   -- 8) MOVIMIENTOS DE ENTRADA — registro inicial de los 20 artículos
@@ -315,5 +340,5 @@ BEGIN
     ('00000000-0000-0000-0000-00000000e003', '00000000-0000-0000-0000-000000010006', NOW()-INTERVAL '5 days',  'mantencion', '00000000-0000-0000-0000-000000003002', NULL, '00000000-0000-0000-0000-000000003002', NULL, '00000000-0000-0000-0000-000000001001', NULL, NULL, 'Guante Ansell-006 enviado a revision de mantencion.')
   ON CONFLICT (id) DO NOTHING;
 
-  RAISE NOTICE '002-dev-seed.sql aplicado: 2 usuarios, 8 trabajadores, 3 bodegas, 3 proyectos, 20 artículos (7 epp + 7 herramienta + 6 equipo), 3 entregas confirmadas, 5 custodias activas, 28 movimientos.';
+  RAISE NOTICE '002-dev-seed.sql aplicado: 2 usuarios, 8 trabajadores, 2 proveedores, 3 bodegas, 3 proyectos, 20 artículos (7 epp + 7 herramienta + 6 equipo), 5 certificaciones, 3 entregas confirmadas, 5 custodias activas, 28 movimientos.';
 END $$;

@@ -136,6 +136,10 @@ CREATE TABLE IF NOT EXISTS articulo (
   bodega_actual_id      UUID REFERENCES bodegas(id),
   proyecto_actual_id    UUID REFERENCES proyectos(id),
   fecha_vencimiento     TIMESTAMPTZ,
+  fecha_compra          DATE,
+  proveedor_id          UUID REFERENCES proveedor(id) ON DELETE SET NULL,
+  factura_url           TEXT,
+  manual_url            TEXT,
   creado_por_usuario_id UUID REFERENCES usuario(id),
   creado_en             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT chk_articulo_ubicacion CHECK (
@@ -150,6 +154,33 @@ CREATE TABLE IF NOT EXISTS articulo_especialidad (
   creado_en    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (articulo_id, especialidad)
 );
+
+CREATE TABLE IF NOT EXISTS articulo_certificacion (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  articulo_id UUID        NOT NULL REFERENCES articulo(id) ON DELETE CASCADE,
+  nombre      VARCHAR(255),
+  url         TEXT        NOT NULL,
+  creado_en   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE OR REPLACE FUNCTION check_max_certificaciones()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (SELECT COUNT(*) FROM articulo_certificacion WHERE articulo_id = NEW.articulo_id) >= 5 THEN
+    RAISE EXCEPTION 'Máximo 5 certificaciones por artículo';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'trg_check_max_certificaciones') THEN
+    CREATE TRIGGER trg_check_max_certificaciones
+      BEFORE INSERT ON articulo_certificacion
+      FOR EACH ROW EXECUTE FUNCTION check_max_certificaciones();
+  END IF;
+END $$;
 
 -- ============================================================
 -- DELIVERY / CUSTODY
@@ -407,6 +438,7 @@ CREATE INDEX IF NOT EXISTS idx_articulo_estado ON articulo(estado);
 CREATE INDEX IF NOT EXISTS idx_articulo_bodega_actual_id ON articulo(bodega_actual_id) WHERE bodega_actual_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_articulo_proyecto_actual_id ON articulo(proyecto_actual_id) WHERE proyecto_actual_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_articulo_especialidad_especialidad ON articulo_especialidad(especialidad);
+CREATE INDEX IF NOT EXISTS idx_articulo_certificacion_articulo_id ON articulo_certificacion(articulo_id);
 
 -- Delivery / custody
 CREATE INDEX IF NOT EXISTS idx_entrega_trabajador_id ON entrega(trabajador_id);
