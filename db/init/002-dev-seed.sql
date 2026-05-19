@@ -95,18 +95,18 @@ BEGIN
   --    proyecto1 = 3003, proyecto2 = 3004, proyecto3 = 3005
   -- ============================================================
 
-  INSERT INTO bodegas (id, nombre, direccion, descripcion, estado)
+  INSERT INTO bodegas (id, nombre, direccion, ciudad, descripcion, estado)
   VALUES
-    ('00000000-0000-0000-0000-000000003001', 'Bodega Central',         'Camino Industrial 100', NULL,                    'activo'),
-    ('00000000-0000-0000-0000-000000003002', 'Bodega Transitoria Sur', 'Ruta 68 KM 12',         NULL,                    'activo'),
-    ('00000000-0000-0000-0000-000000003006', 'Taller Mantencion',      'Av. Talleres 45',        'Bodega de mantencion', 'activo')
+    ('00000000-0000-0000-0000-000000003001', 'Bodega Central',         'Camino Industrial 100', 'Santiago',       NULL,                    'activo'),
+    ('00000000-0000-0000-0000-000000003002', 'Bodega Transitoria Sur', 'Ruta 68 KM 12',         'Valparaíso',     NULL,                    'activo'),
+    ('00000000-0000-0000-0000-000000003006', 'Taller Mantencion',      'Av. Talleres 45',        'Antofagasta',    'Bodega de mantencion', 'activo')
   ON CONFLICT (id) DO NOTHING;
 
-  INSERT INTO proyectos (id, nombre, descripcion, cliente, presupuesto_clp, estado, fecha_inicio, fecha_fin)
+  INSERT INTO proyectos (id, nombre, descripcion, ciudad, cliente, presupuesto_clp, estado, fecha_inicio, fecha_fin)
   VALUES
-    ('00000000-0000-0000-0000-000000003003', 'Faena Norte',           NULL, 'Minera Norte SpA', NULL, 'activo', (NOW() - INTERVAL '18 months')::DATE, NULL),
-    ('00000000-0000-0000-0000-000000003004', 'Faena Sur',             NULL, 'Constructora Sur', NULL, 'activo', (NOW() - INTERVAL '12 months')::DATE, NULL),
-    ('00000000-0000-0000-0000-000000003005', 'Proyecto Minero Andes', NULL, 'Minera Andes SA',  NULL, 'activo', (NOW() - INTERVAL '8 months')::DATE,  NULL)
+    ('00000000-0000-0000-0000-000000003003', 'Faena Norte',           NULL, 'Concepción', 'Minera Norte SpA', NULL, 'activo', (NOW() - INTERVAL '18 months')::DATE, NULL),
+    ('00000000-0000-0000-0000-000000003004', 'Faena Sur',             NULL, 'Calama',     'Constructora Sur', NULL, 'activo', (NOW() - INTERVAL '12 months')::DATE, NULL),
+    ('00000000-0000-0000-0000-000000003005', 'Proyecto Minero Andes', NULL, 'Santiago',   'Minera Andes SA',  NULL, 'activo', (NOW() - INTERVAL '8 months')::DATE,  NULL)
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
