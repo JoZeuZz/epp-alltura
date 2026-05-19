@@ -6,18 +6,19 @@ class BodegaModel {
     this.id = data.id;
     this.nombre = data.nombre;
     this.direccion = data.direccion;
+    this.ciudad = data.ciudad ?? null;
     this.descripcion = data.descripcion;
     this.estado = data.estado;
     this.creado_en = data.creado_en;
     this.actualizado_en = data.actualizado_en;
   }
 
-  static async create({ nombre, direccion, descripcion, estado = 'activo' }) {
+  static async create({ nombre, direccion, ciudad, descripcion, estado = 'activo' }) {
     const { rows } = await db.query(
-      `INSERT INTO bodegas (nombre, direccion, descripcion, estado)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO bodegas (nombre, direccion, ciudad, descripcion, estado)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [nombre, direccion || null, descripcion || null, estado]
+      [nombre, direccion || null, ciudad || null, descripcion || null, estado]
     );
     return new BodegaModel(rows[0]);
   }
@@ -58,6 +59,7 @@ class BodegaModel {
     const { clause, values } = buildSetClause({
       nombre: fields.nombre,
       direccion: fields.direccion,
+      ciudad: fields.ciudad,
       descripcion: fields.descripcion,
       estado: fields.estado,
     });
