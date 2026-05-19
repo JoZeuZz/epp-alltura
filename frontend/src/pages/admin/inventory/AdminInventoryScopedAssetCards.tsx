@@ -189,6 +189,7 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
               className={`p-1.5 transition-colors ${viewMode === 'cards' ? 'bg-primary-blue text-white' : 'bg-white text-gray-400 hover:text-gray-600'}`}
               aria-label="Vista cards"
               title="Vista cards"
+              aria-pressed={viewMode === 'cards'}
             >
               <LayoutGrid size={15} />
             </button>
@@ -198,6 +199,7 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
               className={`p-1.5 transition-colors ${viewMode === 'list' ? 'bg-primary-blue text-white' : 'bg-white text-gray-400 hover:text-gray-600'}`}
               aria-label="Vista lista"
               title="Vista lista"
+              aria-pressed={viewMode === 'list'}
             >
               <List size={15} />
             </button>
