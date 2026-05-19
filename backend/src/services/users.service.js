@@ -266,7 +266,7 @@ class UserService {
       throw buildError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    const imageUrl = await uploadFile(file);
+    const imageUrl = await uploadFile(file, { folder: 'usuarios/fotos' });
 
     await db.query(
       `

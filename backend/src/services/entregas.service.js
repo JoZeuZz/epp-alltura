@@ -249,7 +249,7 @@ class EntregasService {
   static async create(payload, userId, imageFile = null) {
     let uploadedEvidenceUrl = null;
     if (imageFile) {
-      uploadedEvidenceUrl = await uploadFile(imageFile);
+      uploadedEvidenceUrl = await uploadFile(imageFile, { folder: 'entregas/evidencias' });
     }
 
     const client = await db.pool.connect();

@@ -415,7 +415,7 @@ class DevolucionesService {
   static async create(payload, userId, imageFile = null) {
     let uploadedEvidenceUrl = null;
     if (imageFile) {
-      uploadedEvidenceUrl = await uploadFile(imageFile);
+      uploadedEvidenceUrl = await uploadFile(imageFile, { folder: 'devoluciones/evidencias' });
     }
 
     const client = await db.pool.connect();
