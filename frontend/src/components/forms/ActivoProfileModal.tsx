@@ -98,6 +98,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
       toast.success('Artículo eliminado permanentemente.');
       queryClient.invalidateQueries({ queryKey: ['articulos'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-activos'] });
+      setShowDeleteConfirm(false);
       onClose();
     },
     onError: (err: unknown) => {
@@ -564,7 +565,9 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(true)}
-                  className="px-3 py-1.5 text-xs text-danger border border-danger rounded-md hover:bg-danger hover:text-white transition-colors"
+                  disabled={deleteMutation.isPending}
+                  aria-label={`Eliminar artículo ${profile?.nombre ?? ''}`}
+                  className="px-3 py-1.5 text-xs text-danger border border-danger rounded-md hover:bg-danger hover:text-white transition-colors disabled:opacity-50"
                 >
                   Eliminar artículo
                 </button>
