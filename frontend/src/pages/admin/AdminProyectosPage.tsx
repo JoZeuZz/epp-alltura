@@ -14,6 +14,7 @@ type EstadoProyecto = 'activo' | 'inactivo' | 'finalizado';
 interface Proyecto {
   id: string;
   nombre: string;
+  ciudad?: string | null;
   descripcion?: string | null;
   cliente?: string | null;
   presupuesto_clp?: number | null;
@@ -25,6 +26,7 @@ interface Proyecto {
 
 interface ProyectoFormValues {
   nombre: string;
+  ciudad: string;
   descripcion: string;
   cliente: string;
   presupuesto_clp: string;
@@ -39,6 +41,7 @@ type FormErrors = Partial<Record<keyof ProyectoFormValues, string>>;
 
 const INITIAL_FORM: ProyectoFormValues = {
   nombre: '',
+  ciudad: '',
   descripcion: '',
   cliente: '',
   presupuesto_clp: '',
@@ -56,24 +59,26 @@ const toErrorMessage = (error: unknown): string => {
 const mapToForm = (p?: Proyecto | null): ProyectoFormValues => {
   if (!p) return INITIAL_FORM;
   return {
-    nombre: p.nombre ?? '',
-    descripcion: p.descripcion ?? '',
-    cliente: p.cliente ?? '',
+    nombre:          p.nombre ?? '',
+    ciudad:          p.ciudad ?? '',
+    descripcion:     p.descripcion ?? '',
+    cliente:         p.cliente ?? '',
     presupuesto_clp: p.presupuesto_clp != null ? String(p.presupuesto_clp) : '',
-    estado: p.estado ?? 'activo',
-    fecha_inicio: p.fecha_inicio ? p.fecha_inicio.slice(0, 10) : '',
-    fecha_fin: p.fecha_fin ? p.fecha_fin.slice(0, 10) : '',
+    estado:          p.estado ?? 'activo',
+    fecha_inicio:    p.fecha_inicio ? p.fecha_inicio.slice(0, 10) : '',
+    fecha_fin:       p.fecha_fin ? p.fecha_fin.slice(0, 10) : '',
   };
 };
 
 const formToPayload = (v: ProyectoFormValues) => ({
-  nombre: v.nombre.trim(),
-  descripcion: v.descripcion.trim() || null,
-  cliente: v.cliente.trim() || null,
+  nombre:          v.nombre.trim(),
+  ciudad:          v.ciudad.trim() || null,
+  descripcion:     v.descripcion.trim() || null,
+  cliente:         v.cliente.trim() || null,
   presupuesto_clp: v.presupuesto_clp !== '' ? parseInt(v.presupuesto_clp, 10) : null,
-  estado: v.estado,
-  fecha_inicio: v.fecha_inicio || null,
-  fecha_fin: v.fecha_fin || null,
+  estado:          v.estado,
+  fecha_inicio:    v.fecha_inicio || null,
+  fecha_fin:       v.fecha_fin || null,
 });
 
 const formatClp = (value?: number | null): string => {
@@ -174,6 +179,19 @@ const ProyectoFormModal: React.FC<ProyectoFormModalProps> = ({
             onChange={(e) => setField('nombre', e.target.value)}
           />
           {errors.nombre && <p className="text-red-500 text-xs mt-1">{errors.nombre}</p>}
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Ciudad
+            <span className="text-gray-400 font-normal ml-1">(opcional)</span>
+          </label>
+          <input
+            className={inputClass('ciudad')}
+            placeholder="Ej: Antofagasta"
+            value={values.ciudad}
+            onChange={(e) => setField('ciudad', e.target.value)}
+          />
         </div>
 
         <div>
