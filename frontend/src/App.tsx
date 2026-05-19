@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider, NotificationProvider, TourProvider, notificationService, performanceService } from '@jozeuZz/alltura-ui';
+import { AuthProvider, NotificationProvider, TourProvider, notificationService, performanceService, GlobalStyles } from '@jozeuZz/alltura-ui';
 import { post } from './services/apiService';
 import { onboardingStepsByRole, TOUR_VERSION } from './utils/tourSteps';
 import { router } from './router';
@@ -52,6 +52,7 @@ const AppContent: React.FC = () => {
 function App() {
   return (
     <AuthProvider loginFn={(email, password) => post('/auth/login', { email, password })}>
+      <GlobalStyles />
       <NotificationProvider>
         <TourProvider steps={onboardingStepsByRole} version={TOUR_VERSION}>
           <Toaster
