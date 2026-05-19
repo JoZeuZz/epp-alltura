@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from 'react';
+import { LayoutGrid, List } from 'lucide-react';
 import ActivoProfileModal from '../../../components/forms/ActivoProfileModal';
 import { useTour } from '../../../hooks';
 import TourDemoActivoModal from '../../../components/forms/TourDemoActivoModal';
 import type { Articulo, ArticuloEstado } from '../../../services/apiService';
 import type { AssetScopeKey, InventoryAssetScopeCopy } from './inventoryAssetScope.constants';
 import { formatCLP } from '../../../utils/currency';
+import AdminInventoryScopedAssetListView from './AdminInventoryScopedAssetListView';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -140,6 +142,7 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
   const [estadoFilter, setEstadoFilter] = useState<string>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showDemoModal, setShowDemoModal] = useState(false);
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
 
   const { isActive, currentDemoAction } = useTour();
   const isDemoStep = isActive && currentDemoAction === 'open-activo-demo' && scope === 'epp';
@@ -177,6 +180,29 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
         aria-label={`Filtros de ${scope}`}
         data-tour="admin-inventory-filters"
       >
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Filtros</span>
+          <div className="flex rounded-md border border-gray-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`p-1.5 transition-colors ${viewMode === 'cards' ? 'bg-primary-blue text-white' : 'bg-white text-gray-400 hover:text-gray-600'}`}
+              aria-label="Vista cards"
+              title="Vista cards"
+            >
+              <LayoutGrid size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`p-1.5 transition-colors ${viewMode === 'list' ? 'bg-primary-blue text-white' : 'bg-white text-gray-400 hover:text-gray-600'}`}
+              aria-label="Vista lista"
+              title="Vista lista"
+            >
+              <List size={15} />
+            </button>
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="space-y-1">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Buscar</span>
@@ -223,6 +249,13 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
             Reintentar
           </button>
         </section>
+      ) : viewMode === 'list' ? (
+        <AdminInventoryScopedAssetListView
+          items={filtered}
+          onSelect={setSelectedId}
+          isLoading={isLoading}
+          emptyMessage={copy.emptyMessage}
+        />
       ) : isLoading ? (
         <div
           className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
