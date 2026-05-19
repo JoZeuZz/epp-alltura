@@ -59,7 +59,7 @@ const cacheControl =
 
 const sanitizeForFilename = (str) =>
   String(str || '')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
@@ -524,9 +524,10 @@ const uploadFile = async (file, options = {}) => {
   try {
     if (resolvedProvider === 'local') {
       const subdir = folder ? path.join(localUploadsDir, folder) : localUploadsDir;
-      if (!fs.existsSync(subdir)) {
-        fs.mkdirSync(subdir, { recursive: true });
+      if (!subdir.startsWith(localUploadsDir + path.sep) && subdir !== localUploadsDir) {
+        throw Object.assign(new Error('Invalid upload folder path'), { statusCode: 400 });
       }
+      await fs.promises.mkdir(subdir, { recursive: true });
       const filePath = path.join(subdir, baseFilename);
       await pipeline(stream, limiter, fs.createWriteStream(filePath));
       logger.debug('Imagen procesada localmente', { baseFilename, size: getTotalBytes() });
@@ -631,9 +632,10 @@ const uploadDocument = async (file, options = {}) => {
   try {
     if (resolvedProvider === 'local') {
       const subdir = folder ? path.join(localUploadsDir, folder) : localUploadsDir;
-      if (!fs.existsSync(subdir)) {
-        fs.mkdirSync(subdir, { recursive: true });
+      if (!subdir.startsWith(localUploadsDir + path.sep) && subdir !== localUploadsDir) {
+        throw Object.assign(new Error('Invalid upload folder path'), { statusCode: 400 });
       }
+      await fs.promises.mkdir(subdir, { recursive: true });
       const filePath = path.join(subdir, baseFilename);
       await pipeline(stream, limiter, fs.createWriteStream(filePath));
       logger.debug('Documento almacenado localmente', { baseFilename, size: getTotalBytes() });
