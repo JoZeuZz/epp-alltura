@@ -6,11 +6,12 @@ import EntregaCreateModal from './EntregaCreateModal';
 import EntregaFirmaModal from './EntregaFirmaModal';
 import DevolucionActivoModal from './DevolucionActivoModal';
 import DevolucionFirmaModal from './DevolucionFirmaModal';
-import { useGet } from '../../hooks';
+import { useGet, useAuth } from '../../hooks';
 import { usePdfDownload } from '../../hooks/usePdfDownload';
 import {
   createEntrega,
   cambiarEstadoArticulo,
+  deleteArticulo,
   getActivoProfile,
   getEntregaById,
   type ActivoCustodiaEntry,
@@ -20,7 +21,9 @@ import {
   type ActivoProfileResponse,
   type EntregaCreatePayload,
   type CambiarEstadoArticuloPayload,
+  type ArticuloCertificacion,
 } from '../../services/apiService';
+import ConfirmationModal from '../ConfirmationModal';
 import { formatCLP } from '../../utils/currency';
 import { getToolStatusBadgeClasses, getToolStatusLabel } from '../../utils/toolPresentation';
 import { buildImageUrl, DEFAULT_IMAGE_PLACEHOLDER } from '../../utils/image';
@@ -84,6 +87,24 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
   const [estadoMotivo, setEstadoMotivo] = useState('');
   const [recuperarBodegaId, setRecuperarBodegaId] = useState('');
   const detailsPanelId = useId();
+
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteArticulo(activoId),
+    onSuccess: () => {
+      toast.success('Artículo eliminado permanentemente.');
+      queryClient.invalidateQueries({ queryKey: ['articulos'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-activos'] });
+      onClose();
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(e?.response?.data?.message ?? e?.message ?? 'Error al eliminar');
+    },
+  });
 
   const { downloadPdf, isLoading: isPdfLoading } = usePdfDownload();
 
@@ -529,7 +550,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
               La edición de atributos del artículo está en desarrollo.
             </p>
 
-            <div className="pt-1">
+            <div className="pt-1 flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={handleDownloadFicha}
@@ -539,6 +560,15 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
               >
                 {isPdfLoading ? '…' : '↓'} Descargar ficha PDF
               </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="px-3 py-1.5 text-xs text-danger border border-danger rounded-md hover:bg-danger hover:text-white transition-colors"
+                >
+                  Eliminar artículo
+                </button>
+              )}
             </div>
           </section>
 
@@ -570,15 +600,58 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
           )}
 
           {/* Datos del artículo */}
-          <section className="bg-surface-muted rounded-lg p-4">
-            <h4 className="text-sm font-semibold text-content-secondary mb-1">Datos del artículo</h4>
-            <div className="text-sm text-content-secondary flex flex-wrap gap-4">
-              <span>Registrado: {formatDate(profile.creado_en)}</span>
-              <span>Valor: {profile.valor != null ? formatCLP(profile.valor) : '—'}</span>
-              {profile.fecha_vencimiento && (
-                <span>Vence: {formatDate(profile.fecha_vencimiento)}</span>
-              )}
+          <section className="bg-surface-muted rounded-lg p-4 space-y-3">
+            <h4 className="text-sm font-semibold text-content-secondary">Datos del artículo</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+              <InfoField label="Registrado"   value={formatDate(profile.creado_en)} />
+              <InfoField label="Fecha compra" value={formatDate(profile.fecha_compra)} />
+              <InfoField label="Proveedor"    value={profile.proveedor_nombre} />
+              <InfoField label="Valor"        value={profile.valor != null ? formatCLP(profile.valor) : null} />
+              <InfoField label="Vencimiento"  value={profile.fecha_vencimiento ? formatDate(profile.fecha_vencimiento) : null} />
+              <InfoField label="Tipo"         value={profile.tipo?.toUpperCase()} />
+              {profile.marca  && <InfoField label="Marca"  value={profile.marca} />}
+              {profile.modelo && <InfoField label="Modelo" value={profile.modelo} />}
             </div>
+
+            {profile.factura_url && (
+              <div>
+                <span className="text-xs font-medium text-content-muted uppercase tracking-wide">Factura</span>
+                <div className="mt-1">
+                  <a href={profile.factura_url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+                    ↓ Descargar factura
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {profile.manual_url && (
+              <div>
+                <span className="text-xs font-medium text-content-muted uppercase tracking-wide">Manual / Ficha técnica</span>
+                <div className="mt-1">
+                  <a href={profile.manual_url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+                    ↓ Ver manual
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {profile.certificaciones && profile.certificaciones.length > 0 && (
+              <div>
+                <span className="text-xs font-medium text-content-muted uppercase tracking-wide">
+                  Certificaciones ({profile.certificaciones.length})
+                </span>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(profile.certificaciones as ArticuloCertificacion[]).map(cert => (
+                    <a key={cert.id} href={cert.url} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-surface border border-edge text-primary hover:bg-surface-muted transition-colors">
+                      ↓ {cert.nombre || 'Certificación'}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
 
           {/* Timeline */}
@@ -625,6 +698,15 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
           )}
         </div>
       )}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => deleteMutation.mutate()}
+        title="Eliminar artículo permanentemente"
+        message={`¿Eliminar "${profile?.nombre}" (${profile?.codigo})? Se borrarán el registro, su foto, factura, manual y todas las certificaciones en el bucket. El historial de movimientos y asignaciones también se eliminará en cascada. Esta acción es irreversible.`}
+        confirmText="Sí, eliminar todo"
+        variant="danger"
+      />
     </Modal>
   );
 };
@@ -720,6 +802,13 @@ const CustodiaRow: React.FC<{ custodia: ActivoCustodiaEntry }> = ({ custodia }) 
       {custodia.estado}
     </td>
   </tr>
+);
+
+const InfoField: React.FC<{ label: string; value?: string | null }> = ({ label, value }) => (
+  <div>
+    <span className="text-xs text-content-muted block">{label}</span>
+    <span className="font-medium text-content-primary">{value || '—'}</span>
+  </div>
 );
 
 export default ActivoProfileModal;

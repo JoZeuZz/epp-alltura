@@ -108,6 +108,22 @@ export type ArticuloEspecialidad =
   | 'equipos'
   | 'trabajos_verticales_lineas_de_vida';
 
+export interface ArticuloCertificacion {
+  id: string;
+  nombre?: string | null;
+  url: string;
+  creado_en: string;
+}
+
+export interface Proveedor {
+  id: string;
+  nombre: string;
+  rut?: string | null;
+  email?: string | null;
+  telefono?: string | null;
+  estado: string;
+}
+
 export interface Articulo {
   id: string;
   tipo: ArticuloTipo;
@@ -128,6 +144,12 @@ export interface Articulo {
   proyecto_ciudad?: string | null;
   especialidades: ArticuloEspecialidad[];
   fecha_vencimiento?: string | null;
+  fecha_compra?: string | null;
+  proveedor_id?: string | null;
+  proveedor_nombre?: string | null;
+  factura_url?: string | null;
+  manual_url?: string | null;
+  certificaciones?: ArticuloCertificacion[];
   creado_en: string;
   creado_por_email?: string | null;
 }
@@ -154,6 +176,9 @@ export interface ArticuloCreatePayload {
   bodega_id: string;
   especialidades?: ArticuloEspecialidad[];
   fecha_vencimiento?: string;
+  fecha_compra?: string;
+  proveedor_id?: string;
+  manual_url?: string;
 }
 
 export interface ArticuloUpdatePayload {
@@ -166,6 +191,9 @@ export interface ArticuloUpdatePayload {
   valor?: number;
   especialidades?: ArticuloEspecialidad[];
   fecha_vencimiento?: string | null;
+  fecha_compra?: string | null;
+  proveedor_id?: string | null;
+  manual_url?: string | null;
 }
 
 export interface CambiarEstadoArticuloPayload {
@@ -182,14 +210,45 @@ function buildMultipartIfFile<T extends object>(data: T, file?: File): T | FormD
   return fd;
 }
 
+export interface ArticleFiles {
+  foto?: File;
+  factura?: File;
+  manual?: File;
+}
+
+function buildArticleFormData<T extends object>(data: T, files: ArticleFiles): T | FormData {
+  const hasFiles = files.foto || files.factura || files.manual;
+  if (!hasFiles) return data;
+  const fd = new FormData();
+  fd.append('payload', JSON.stringify(data));
+  if (files.foto)    fd.append('foto',    files.foto);
+  if (files.factura) fd.append('factura', files.factura);
+  if (files.manual)  fd.append('manual',  files.manual);
+  return fd;
+}
+
 export const getArticulos = (params?: ArticuloQueryParams) =>
   get<{ items: Articulo[]; total: number }>('/articulos', params);
 export const getArticuloById = (id: string) =>
   get<Articulo>(`/articulos/${id}`);
-export const createArticulo = (payload: ArticuloCreatePayload, foto?: File) =>
-  post<Articulo>('/articulos', buildMultipartIfFile(payload, foto));
-export const updateArticulo = ({ id, ...payload }: ArticuloUpdatePayload, foto?: File) =>
-  put<Articulo>(`/articulos/${id}`, buildMultipartIfFile(payload, foto));
+export const createArticulo = (payload: ArticuloCreatePayload, files: ArticleFiles = {}) =>
+  post<Articulo>('/articulos', buildArticleFormData(payload, files));
+export const updateArticulo = ({ id, ...payload }: ArticuloUpdatePayload, files: ArticleFiles = {}) =>
+  put<Articulo>(`/articulos/${id}`, buildArticleFormData(payload, files));
+export const addCertificacion = (articuloId: string, file: File, nombre?: string) => {
+  const fd = new FormData();
+  fd.append('certificacion', file);
+  if (nombre) fd.append('nombre', nombre);
+  return post<Articulo>(`/articulos/${articuloId}/certificaciones`, fd);
+};
+export const deleteCertificacion = (articuloId: string, certId: string) =>
+  del<Articulo>(`/articulos/${articuloId}/certificaciones/${certId}`);
+export const deleteArticulo = (id: string) =>
+  del<{ message: string }>(`/articulos/${id}`);
+export const getProveedores = () =>
+  get<Proveedor[]>('/proveedores');
+export const createProveedor = (payload: { nombre: string; rut?: string; email?: string; telefono?: string }) =>
+  post<Proveedor>('/proveedores', payload);
 export const permanentDeleteArticulo = (id: string) =>
   del<unknown>(`/articulos/${id}`);
 export const cambiarEstadoArticulo = (id: string, payload: CambiarEstadoArticuloPayload) =>
@@ -431,6 +490,9 @@ export interface ActivoProfileResponse {
   nombre: string;
   codigo: string;
   nro_serie: string;
+  marca?: string | null;
+  modelo?: string | null;
+  descripcion?: string | null;
   estado: ArticuloEstado;
   foto_url?: string | null;
   bodega_actual_id?: string | null;
@@ -438,6 +500,13 @@ export interface ActivoProfileResponse {
   proyecto_actual_id?: string | null;
   proyecto_nombre?: string | null;
   fecha_vencimiento?: string | null;
+  fecha_compra?: string | null;
+  proveedor_id?: string | null;
+  proveedor_nombre?: string | null;
+  factura_url?: string | null;
+  manual_url?: string | null;
+  especialidades: ArticuloEspecialidad[];
+  certificaciones: ArticuloCertificacion[];
   valor: number;
   creado_en: string;
   custodia_activa?: ActivoCustodiaEntry | null;
