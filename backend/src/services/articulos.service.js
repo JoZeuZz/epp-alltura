@@ -127,13 +127,15 @@ class ArticulosService {
       `SELECT a.*,
               COALESCE(json_agg(ae.especialidad ORDER BY ae.especialidad) FILTER (WHERE ae.especialidad IS NOT NULL), '[]') AS especialidades,
               b.nombre  AS bodega_nombre,
-              pr.nombre AS proyecto_nombre
+              pr.nombre AS proyecto_nombre,
+              b.ciudad  AS bodega_ciudad,
+              pr.ciudad AS proyecto_ciudad
        FROM articulo a
        LEFT JOIN articulo_especialidad ae ON ae.articulo_id = a.id
        LEFT JOIN bodegas b   ON b.id  = a.bodega_actual_id
        LEFT JOIN proyectos pr ON pr.id = a.proyecto_actual_id
        ${where}
-       GROUP BY a.id, b.nombre, pr.nombre
+       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad
        ORDER BY a.creado_en DESC
        LIMIT $${p} OFFSET $${p + 1}`,
       [...params, Number(limit), Number(offset)]
@@ -162,6 +164,8 @@ class ArticulosService {
               COALESCE(json_agg(ae.especialidad ORDER BY ae.especialidad) FILTER (WHERE ae.especialidad IS NOT NULL), '[]') AS especialidades,
               b.nombre  AS bodega_nombre,
               pr.nombre AS proyecto_nombre,
+              b.ciudad  AS bodega_ciudad,
+              pr.ciudad AS proyecto_ciudad,
               u.email_login AS creado_por_email
        FROM articulo a
        LEFT JOIN articulo_especialidad ae ON ae.articulo_id = a.id
@@ -169,7 +173,7 @@ class ArticulosService {
        LEFT JOIN proyectos pr ON pr.id = a.proyecto_actual_id
        LEFT JOIN usuario u    ON u.id  = a.creado_por_usuario_id
        WHERE a.id = $1
-       GROUP BY a.id, b.nombre, pr.nombre, u.email_login`,
+       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad, u.email_login`,
       [id]
     );
     if (!result.rows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
