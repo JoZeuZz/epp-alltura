@@ -228,14 +228,24 @@ class InventarioService {
         b.nombre AS bodega_nombre,
         p.nombre AS proyecto_nombre,
         u.email_login AS creado_por_email,
-        COALESCE(json_agg(ae.especialidad) FILTER (WHERE ae.especialidad IS NOT NULL), '[]') AS especialidades
+        prov.nombre AS proveedor_nombre,
+        COALESCE(json_agg(ae.especialidad) FILTER (WHERE ae.especialidad IS NOT NULL), '[]') AS especialidades,
+        COALESCE(
+          json_agg(
+            json_build_object('id', ac.id, 'nombre', ac.nombre, 'url', ac.url, 'creado_en', ac.creado_en)
+            ORDER BY ac.creado_en
+          ) FILTER (WHERE ac.id IS NOT NULL),
+          '[]'
+        ) AS certificaciones
       FROM articulo a
       LEFT JOIN bodegas b ON b.id = a.bodega_actual_id
       LEFT JOIN proyectos p ON p.id = a.proyecto_actual_id
       LEFT JOIN usuario u ON u.id = a.creado_por_usuario_id
+      LEFT JOIN proveedor prov ON prov.id = a.proveedor_id
       LEFT JOIN articulo_especialidad ae ON ae.articulo_id = a.id
+      LEFT JOIN articulo_certificacion ac ON ac.articulo_id = a.id
       WHERE a.id = $1
-      GROUP BY a.id, b.nombre, p.nombre, u.email_login
+      GROUP BY a.id, b.nombre, p.nombre, u.email_login, prov.nombre
       `,
       [articuloId]
     );

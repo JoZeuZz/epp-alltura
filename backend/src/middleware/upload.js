@@ -177,6 +177,24 @@ const imageUpload = multer({
   fileFilter: imageFileFilter,
 });
 
+const articleFileFilter = (_req, file, cb) => {
+  if (file.fieldname === 'foto') {
+    return imageFileFilter(_req, file, cb);
+  }
+  return documentFileFilter(_req, file, cb);
+};
+
+const articleUpload = multer({
+  storage: diskStorage,
+  limits: {
+    fileSize: maxDocumentBytes,
+    files: 3,
+    fields: 50,
+    fieldSize: 1024 * 1024,
+  },
+  fileFilter: articleFileFilter,
+});
+
 const documentUpload = multer({
   storage: diskStorage,
   limits: {
@@ -223,6 +241,7 @@ module.exports = {
   buildError,
   parseMultipartPayload,
   imageUpload,
+  articleUpload,
   documentUpload,
   validateImageMagic: async (req, _res, next) => {
     try {
@@ -253,6 +272,38 @@ module.exports = {
         }
       }
 
+      return next();
+    } catch (error) {
+      return next(error);
+    }
+  },
+  validateArticleFiles: async (req, _res, next) => {
+    try {
+      const files = collectRequestFiles(req);
+      if (!files.length) return next();
+
+      for (const file of files) {
+        if (!file?.path) continue;
+        const buffer = await readMagicBytes(file.path, 24);
+
+        if (file.fieldname === 'foto') {
+          const detected = detectImageMime(buffer);
+          if (!detected || !allowedImageTypes.has(detected)) {
+            await safeUnlink(file.path);
+            const error = new Error('La foto debe ser una imagen válida (JPG, PNG, WEBP, AVIF).');
+            error.statusCode = 400;
+            return next(error);
+          }
+        } else {
+          const detected = detectDocumentMime(buffer);
+          if (!detected || !allowedDocumentTypes.has(detected)) {
+            await safeUnlink(file.path);
+            const error = new Error(`El archivo "${file.fieldname}" debe ser PDF o imagen válida.`);
+            error.statusCode = 400;
+            return next(error);
+          }
+        }
+      }
       return next();
     } catch (error) {
       return next(error);

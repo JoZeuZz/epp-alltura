@@ -27,7 +27,7 @@ class ArticulosController {
 
   static async create(req, res, next) {
     try {
-      const data = await ArticulosService.create(req.body, req.user.id, req.file || null);
+      const data = await ArticulosService.create(req.body, req.user.id, req.files || {});
       return sendSuccess(res, { status: 201, message: 'Artículo creado correctamente', data });
     } catch (error) {
       logger.error('Error creating articulo:', error);
@@ -37,7 +37,7 @@ class ArticulosController {
 
   static async update(req, res, next) {
     try {
-      const data = await ArticulosService.update(req.params.id, req.body, req.user.id, req.file || null);
+      const data = await ArticulosService.update(req.params.id, req.body, req.user.id, req.files || {});
       return sendSuccess(res, { message: 'Artículo actualizado correctamente', data });
     } catch (error) {
       logger.error('Error updating articulo:', error);
@@ -61,6 +61,40 @@ class ArticulosController {
       return sendSuccess(res, { message: 'Estado del artículo actualizado', data });
     } catch (error) {
       logger.error('Error changing articulo state:', error);
+      return next(error);
+    }
+  }
+
+  static async addCertificacion(req, res, next) {
+    try {
+      if (!req.file) {
+        const error = new Error('Se requiere un archivo PDF para la certificación');
+        error.statusCode = 400;
+        return next(error);
+      }
+      const data = await ArticulosService.addCertificacion(
+        req.params.id,
+        req.file,
+        req.body.nombre || null,
+        req.user.id
+      );
+      return sendSuccess(res, { status: 201, message: 'Certificación agregada', data });
+    } catch (error) {
+      logger.error('Error adding certificacion:', error);
+      return next(error);
+    }
+  }
+
+  static async deleteCertificacion(req, res, next) {
+    try {
+      const data = await ArticulosService.deleteCertificacion(
+        req.params.id,
+        req.params.certId,
+        req.user.id
+      );
+      return sendSuccess(res, { message: 'Certificación eliminada', data });
+    } catch (error) {
+      logger.error('Error deleting certificacion:', error);
       return next(error);
     }
   }

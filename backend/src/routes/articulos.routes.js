@@ -5,7 +5,13 @@ const Joi = require('joi');
 const ArticulosController = require('../controllers/articulos.controller');
 const { authMiddleware } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roles');
-const { imageUpload, validateImageMagic, parseMultipartPayload } = require('../middleware/upload');
+const {
+  articleUpload,
+  documentUpload,
+  validateArticleFiles,
+  validateDocumentMagic,
+  parseMultipartPayload,
+} = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -28,35 +34,43 @@ const validateQuery = (schema) => async (req, _res, next) => {
   }
 };
 
-const TIPOS = ['epp', 'herramienta', 'equipo'];
+const TIPOS          = ['epp', 'herramienta', 'equipo'];
 const ESPECIALIDADES = ['oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida'];
-const ESTADOS = ['en_stock', 'asignado', 'mantencion', 'dado_de_baja', 'perdido'];
+const ESTADOS        = ['en_stock', 'asignado', 'mantencion', 'dado_de_baja', 'perdido'];
 const ESTADOS_DIRECTOS = ['en_stock', 'mantencion', 'dado_de_baja', 'perdido'];
 
 const createSchema = Joi.object({
-  tipo:               Joi.string().valid(...TIPOS).required(),
-  nombre:             Joi.string().min(2).max(150).required(),
-  marca:              Joi.string().max(120).optional(),
-  modelo:             Joi.string().max(120).optional(),
-  descripcion:        Joi.string().optional(),
-  nro_serie:          Joi.string().min(3).max(120).required(),
-  valor:              Joi.number().integer().min(0).optional().default(0),
-  bodega_id:          Joi.string().uuid().required(),
-  especialidades:     Joi.array().items(Joi.string().valid(...ESPECIALIDADES)).optional(),
-  fecha_vencimiento:  Joi.string().isoDate().optional(),
-  foto_url:           Joi.string().uri().optional(),
+  tipo:              Joi.string().valid(...TIPOS).required(),
+  nombre:            Joi.string().min(2).max(150).required(),
+  marca:             Joi.string().max(120).optional(),
+  modelo:            Joi.string().max(120).optional(),
+  descripcion:       Joi.string().optional(),
+  nro_serie:         Joi.string().min(3).max(120).required(),
+  valor:             Joi.number().integer().min(0).optional().default(0),
+  bodega_id:         Joi.string().uuid().required(),
+  especialidades:    Joi.array().items(Joi.string().valid(...ESPECIALIDADES)).optional(),
+  fecha_vencimiento: Joi.string().isoDate().optional().allow(null, ''),
+  fecha_compra:      Joi.string().isoDate().optional().allow(null, ''),
+  proveedor_id:      Joi.string().uuid().optional().allow(null, ''),
+  factura_url:       Joi.string().uri().optional().allow(null, ''),
+  manual_url:        Joi.string().uri().optional().allow(null, ''),
+  foto_url:          Joi.string().uri().optional(),
 });
 
 const updateSchema = Joi.object({
-  nombre:             Joi.string().min(2).max(150).optional(),
-  marca:              Joi.string().max(120).optional(),
-  modelo:             Joi.string().max(120).optional(),
-  descripcion:        Joi.string().optional(),
-  nro_serie:          Joi.string().min(3).max(120).optional(),
-  valor:              Joi.number().integer().min(0).optional(),
-  especialidades:     Joi.array().items(Joi.string().valid(...ESPECIALIDADES)).optional(),
-  fecha_vencimiento:  Joi.string().isoDate().optional().allow(null, ''),
-  foto_url:           Joi.string().uri().optional(),
+  nombre:            Joi.string().min(2).max(150).optional(),
+  marca:             Joi.string().max(120).optional(),
+  modelo:            Joi.string().max(120).optional(),
+  descripcion:       Joi.string().optional(),
+  nro_serie:         Joi.string().min(3).max(120).optional(),
+  valor:             Joi.number().integer().min(0).optional(),
+  especialidades:    Joi.array().items(Joi.string().valid(...ESPECIALIDADES)).optional(),
+  fecha_vencimiento: Joi.string().isoDate().optional().allow(null, ''),
+  fecha_compra:      Joi.string().isoDate().optional().allow(null, ''),
+  proveedor_id:      Joi.string().uuid().optional().allow(null, ''),
+  factura_url:       Joi.string().uri().optional().allow(null, ''),
+  manual_url:        Joi.string().uri().optional().allow(null, ''),
+  foto_url:          Joi.string().uri().optional(),
 }).min(1);
 
 const cambiarEstadoSchema = Joi.object({
@@ -78,43 +92,57 @@ const listQuerySchema = Joi.object({
 
 router.use(authMiddleware);
 
-// List articles
 router.get('/',
   validateQuery(listQuerySchema),
   ArticulosController.list
 );
 
-// Get single article
 router.get('/:id', ArticulosController.getById);
 
-// Create article (admin + supervisor)
 router.post('/',
   checkRole(['admin', 'supervisor']),
-  imageUpload.single('foto'),
-  validateImageMagic,
+  articleUpload.fields([
+    { name: 'foto',    maxCount: 1 },
+    { name: 'factura', maxCount: 1 },
+    { name: 'manual',  maxCount: 1 },
+  ]),
+  validateArticleFiles,
   parseMultipartPayload,
   validateBody(createSchema),
   ArticulosController.create
 );
 
-// Update article (admin + supervisor)
 router.put('/:id',
   checkRole(['admin', 'supervisor']),
-  imageUpload.single('foto'),
-  validateImageMagic,
+  articleUpload.fields([
+    { name: 'foto',    maxCount: 1 },
+    { name: 'factura', maxCount: 1 },
+    { name: 'manual',  maxCount: 1 },
+  ]),
+  validateArticleFiles,
   parseMultipartPayload,
   validateBody(updateSchema),
   ArticulosController.update
 );
 
-// Change state directly (admin + supervisor)
 router.post('/:id/estado',
   checkRole(['admin', 'supervisor']),
   validateBody(cambiarEstadoSchema),
   ArticulosController.cambiarEstado
 );
 
-// Permanent delete (admin only)
+router.post('/:id/certificaciones',
+  checkRole(['admin', 'supervisor']),
+  documentUpload.single('certificacion'),
+  validateDocumentMagic,
+  ArticulosController.addCertificacion
+);
+
+router.delete('/:id/certificaciones/:certId',
+  checkRole(['admin', 'supervisor']),
+  ArticulosController.deleteCertificacion
+);
+
 router.delete('/:id',
   checkRole(['admin']),
   ArticulosController.removePermanent
