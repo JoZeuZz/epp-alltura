@@ -122,8 +122,10 @@ export interface Articulo {
   estado: ArticuloEstado;
   bodega_actual_id?: string | null;
   bodega_nombre?: string | null;
+  bodega_ciudad?: string | null;
   proyecto_actual_id?: string | null;
   proyecto_nombre?: string | null;
+  proyecto_ciudad?: string | null;
   especialidades: ArticuloEspecialidad[];
   fecha_vencimiento?: string | null;
   creado_en: string;
