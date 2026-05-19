@@ -87,8 +87,8 @@ describe('AdminInventoryScopedAssetPage — tabs', () => {
 
   it('renders Dashboard and Inventario tab buttons', () => {
     render(<AdminInventoryScopedAssetPage scope="epp" />, { wrapper: createWrapper() });
-    expect(screen.getByRole('button', { name: /^dashboard$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^inventario$/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^dashboard$/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /^inventario$/i })).toBeInTheDocument();
   });
 
   it('shows KPI section by default (dashboard tab)', () => {
@@ -99,15 +99,15 @@ describe('AdminInventoryScopedAssetPage — tabs', () => {
 
   it('shows asset cards after clicking Inventario tab', () => {
     render(<AdminInventoryScopedAssetPage scope="epp" />, { wrapper: createWrapper() });
-    fireEvent.click(screen.getByRole('button', { name: /^inventario$/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /^inventario$/i }));
     expect(screen.getByTestId('asset-cards')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /kpis de epp/i })).not.toBeInTheDocument();
   });
 
   it('returns to Dashboard KPIs after clicking Dashboard tab again', () => {
     render(<AdminInventoryScopedAssetPage scope="epp" />, { wrapper: createWrapper() });
-    fireEvent.click(screen.getByRole('button', { name: /^inventario$/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^dashboard$/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /^inventario$/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /^dashboard$/i }));
     expect(screen.getByRole('region', { name: /kpis de epp/i })).toBeInTheDocument();
     expect(screen.queryByTestId('asset-cards')).not.toBeInTheDocument();
   });
@@ -119,7 +119,7 @@ describe('AdminInventoryScopedAssetPage — tabs', () => {
 
   it('Nuevo button is visible on Inventario tab', () => {
     render(<AdminInventoryScopedAssetPage scope="epp" />, { wrapper: createWrapper() });
-    fireEvent.click(screen.getByRole('button', { name: /^inventario$/i }));
+    fireEvent.click(screen.getByRole('tab', { name: /^inventario$/i }));
     expect(screen.getByRole('button', { name: /nuevo epp/i })).toBeInTheDocument();
   });
 });

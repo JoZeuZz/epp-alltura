@@ -6,7 +6,13 @@ import {
   type Articulo,
 } from '../../../services/apiService';
 import { useGet, useTour } from '../../../hooks';
+import { PageTabs } from '@jozeuZz/alltura-ui';
 import AdminInventoryScopedAssetCards from './AdminInventoryScopedAssetCards';
+
+const GESTOR_TABS = [
+  { key: 'dashboard' as const, label: 'Dashboard' },
+  { key: 'inventario' as const, label: 'Inventario' },
+] as const;
 import {
   INVENTORY_ASSET_SCOPE_COPY,
   type AssetScopeKey,
@@ -97,22 +103,13 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
         </div>
 
         {/* Tab bar */}
-        <div className="flex px-4 mt-3 border-b border-gray-200" data-tour="admin-inventory-toolbar">
-          {(['dashboard', 'inventario'] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-                activeTab === tab
-                  ? 'border-primary-blue text-primary-blue'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {tab === 'dashboard' ? 'Dashboard' : 'Inventario'}
-            </button>
-          ))}
-        </div>
+        <PageTabs
+          tabs={GESTOR_TABS}
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          className="px-4 mt-3"
+          data-tour="admin-inventory-toolbar"
+        />
       </div>
 
       {/* Dashboard tab: KPI cards */}
