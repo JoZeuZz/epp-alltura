@@ -128,6 +128,8 @@ interface AdminInventoryScopedAssetCardsProps {
   isError: boolean;
   onRefetch: () => void;
   copy: InventoryAssetScopeCopy;
+  ciudadFilter?: string | null;   // undefined = sin filtro, null = sin ubicación
+  onClearCiudad?: () => void;
 }
 
 const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsProps> = ({
@@ -137,6 +139,8 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
   isError,
   onRefetch,
   copy,
+  ciudadFilter,
+  onClearCiudad,
 }) => {
   const [search, setSearch] = useState('');
   const [estadoFilter, setEstadoFilter] = useState<string>('all');
@@ -168,9 +172,14 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
         a.codigo.toLowerCase().includes(term) ||
         a.nro_serie.toLowerCase().includes(term);
       const matchesEstado = estadoFilter === 'all' || a.estado === estadoFilter;
-      return matchesSearch && matchesEstado;
+      const matchesCiudad =
+        ciudadFilter === undefined ||
+        (ciudadFilter === null
+          ? a.bodega_ciudad == null && a.proyecto_ciudad == null
+          : a.bodega_ciudad === ciudadFilter || a.proyecto_ciudad === ciudadFilter);
+      return matchesSearch && matchesEstado && matchesCiudad;
     });
-  }, [items, search, estadoFilter]);
+  }, [items, search, estadoFilter, ciudadFilter]);
 
   return (
     <div className="space-y-4">
@@ -182,7 +191,23 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
       >
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Filtros</span>
-          <div className="flex rounded-md border border-gray-200 overflow-hidden">
+          <div className="flex items-center gap-2">
+            {ciudadFilter !== undefined && (
+              <div className="flex items-center gap-2 text-xs bg-blue-50 border border-blue-100 rounded-md px-3 py-1.5">
+                <span className="text-blue-700 font-medium">
+                  Ciudad: {ciudadFilter ?? 'Sin ubicación'}
+                </span>
+                <button
+                  type="button"
+                  onClick={onClearCiudad}
+                  className="text-blue-400 hover:text-blue-600 font-bold leading-none"
+                  aria-label="Quitar filtro de ciudad"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+            <div className="flex rounded-md border border-gray-200 overflow-hidden">
             <button
               type="button"
               onClick={() => setViewMode('cards')}
@@ -203,6 +228,7 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
             >
               <List size={15} />
             </button>
+            </div>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
