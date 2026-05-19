@@ -1,10 +1,8 @@
 node_modules/
-docs/
 dist/
 .env
 service-account.json
 logs/
-docs/
 uploads/*
 digest.txt
 backups/
@@ -12,3 +10,5 @@ backups/
 .vscode/
 .superpowers/
 AGENTS.md
+docs/*
+!docs/*.md
