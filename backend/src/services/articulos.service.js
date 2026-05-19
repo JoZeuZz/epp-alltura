@@ -1,7 +1,7 @@
 'use strict';
 
 const db = require('../db');
-const { uploadFile, deleteFileByUrl } = require('../lib/googleCloud');
+const { uploadFile, uploadDocument, deleteFileByUrl } = require('../lib/googleCloud');
 const { buildError } = require('../lib/errors');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
 
@@ -22,11 +22,29 @@ function deriveCodigo(nroSerie) {
 }
 
 class ArticulosService {
-  static async create(payload, userId, imageFile = null) {
-    let uploadedUrl = null;
-    if (imageFile) uploadedUrl = await uploadFile(imageFile);
+  static async create(payload, userId, files = {}) {
+    const fotoFile    = files.foto?.[0]    || null;
+    const facturaFile = files.factura?.[0] || null;
+    const manualFile  = files.manual?.[0]  || null;
+
+    let uploadedFotoUrl    = null;
+    let uploadedFacturaUrl = null;
+    let uploadedManualUrl  = null;
 
     const codigo = deriveCodigo(payload.nro_serie);
+    if (fotoFile)    uploadedFotoUrl    = await uploadFile(fotoFile, {
+      folder: 'articulos/fotos',
+      filePrefix: `${codigo}_${payload.nombre}`,
+    });
+    if (facturaFile) uploadedFacturaUrl = await uploadDocument(facturaFile, {
+      folder: 'articulos/facturas',
+      filePrefix: codigo,
+    });
+    if (manualFile)  uploadedManualUrl  = await uploadDocument(manualFile, {
+      folder: 'articulos/manuales',
+      filePrefix: codigo,
+    });
+
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
@@ -42,17 +60,23 @@ class ArticulosService {
       const result = await client.query(
         `INSERT INTO articulo
            (tipo, nombre, marca, modelo, descripcion, nro_serie, codigo, valor,
-            foto_url, estado, bodega_actual_id, fecha_vencimiento, creado_por_usuario_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'en_stock',$10,$11,$12)
+            foto_url, estado, bodega_actual_id, fecha_vencimiento,
+            fecha_compra, proveedor_id, factura_url, manual_url,
+            creado_por_usuario_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'en_stock',$10,$11,$12,$13,$14,$15,$16)
          RETURNING id`,
         [
           payload.tipo, payload.nombre,
           payload.marca || null, payload.modelo || null, payload.descripcion || null,
           payload.nro_serie, codigo,
           payload.valor ?? 0,
-          uploadedUrl || payload.foto_url || null,
+          uploadedFotoUrl || payload.foto_url || null,
           payload.bodega_id,
           payload.fecha_vencimiento || null,
+          payload.fecha_compra      || null,
+          payload.proveedor_id      || null,
+          uploadedFacturaUrl || payload.factura_url || null,
+          uploadedManualUrl  || payload.manual_url  || null,
           userId,
         ]
       );
@@ -93,7 +117,8 @@ class ArticulosService {
       return data;
     } catch (error) {
       await client.query('ROLLBACK');
-      if (uploadedUrl) await deleteFileByUrl(uploadedUrl);
+      const urls = [uploadedFotoUrl, uploadedFacturaUrl, uploadedManualUrl].filter(Boolean);
+      await Promise.allSettled(urls.map(deleteFileByUrl));
       throw error;
     } finally {
       client.release();
@@ -162,61 +187,112 @@ class ArticulosService {
     const result = await client.query(
       `SELECT a.*,
               COALESCE(json_agg(ae.especialidad ORDER BY ae.especialidad) FILTER (WHERE ae.especialidad IS NOT NULL), '[]') AS especialidades,
+              COALESCE(
+                json_agg(
+                  json_build_object('id', ac.id, 'nombre', ac.nombre, 'url', ac.url, 'creado_en', ac.creado_en)
+                  ORDER BY ac.creado_en
+                ) FILTER (WHERE ac.id IS NOT NULL),
+                '[]'
+              ) AS certificaciones,
               b.nombre  AS bodega_nombre,
               pr.nombre AS proyecto_nombre,
               b.ciudad  AS bodega_ciudad,
               pr.ciudad AS proyecto_ciudad,
-              u.email_login AS creado_por_email
+              u.email_login AS creado_por_email,
+              prov.nombre AS proveedor_nombre
        FROM articulo a
        LEFT JOIN articulo_especialidad ae ON ae.articulo_id = a.id
+       LEFT JOIN articulo_certificacion ac ON ac.articulo_id = a.id
        LEFT JOIN bodegas b    ON b.id  = a.bodega_actual_id
        LEFT JOIN proyectos pr ON pr.id = a.proyecto_actual_id
        LEFT JOIN usuario u    ON u.id  = a.creado_por_usuario_id
+       LEFT JOIN proveedor prov ON prov.id = a.proveedor_id
        WHERE a.id = $1
-       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad, u.email_login`,
+       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad, u.email_login, prov.nombre`,
       [id]
     );
     if (!result.rows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
     return result.rows[0];
   }
 
-  static async update(id, payload, userId, imageFile = null) {
-    let uploadedUrl = null;
-    if (imageFile) uploadedUrl = await uploadFile(imageFile);
+  static async update(id, payload, userId, files = {}) {
+    const fotoFile    = files.foto?.[0]    || null;
+    const facturaFile = files.factura?.[0] || null;
+    const manualFile  = files.manual?.[0]  || null;
+
+    let uploadedFotoUrl    = null;
+    let uploadedFacturaUrl = null;
+    let uploadedManualUrl  = null;
+
+    const { rows: preRows } = await db.query(
+      `SELECT nro_serie FROM articulo WHERE id = $1`, [id]
+    );
+    if (!preRows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
+    const uploadCodigo = deriveCodigo(payload.nro_serie ?? preRows[0].nro_serie);
+
+    if (fotoFile)    uploadedFotoUrl    = await uploadFile(fotoFile, {
+      folder: 'articulos/fotos',
+      filePrefix: uploadCodigo,
+    });
+    if (facturaFile) uploadedFacturaUrl = await uploadDocument(facturaFile, {
+      folder: 'articulos/facturas',
+      filePrefix: uploadCodigo,
+    });
+    if (manualFile)  uploadedManualUrl  = await uploadDocument(manualFile, {
+      folder: 'articulos/manuales',
+      filePrefix: uploadCodigo,
+    });
 
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
 
       const existing = await client.query(
-        `SELECT id, foto_url, nro_serie FROM articulo WHERE id = $1 FOR UPDATE`, [id]
+        `SELECT id, foto_url, factura_url, manual_url, nro_serie, proveedor_id, fecha_compra, fecha_vencimiento FROM articulo WHERE id = $1 FOR UPDATE`, [id]
       );
       if (!existing.rows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
 
       const old = existing.rows[0];
-      const newNroSerie = payload.nro_serie ?? old.nro_serie;
-      const newCodigo   = deriveCodigo(newNroSerie);
-      const newFotoUrl  = uploadedUrl || payload.foto_url || old.foto_url;
+      const newNroSerie   = payload.nro_serie ?? old.nro_serie;
+      const newCodigo     = deriveCodigo(newNroSerie);
+      const newFotoUrl    = uploadedFotoUrl    || payload.foto_url    || old.foto_url;
+      const newFacturaUrl = uploadedFacturaUrl || (payload.factura_url ?? old.factura_url);
+      const newManualUrl  = uploadedManualUrl  || (payload.manual_url  ?? old.manual_url);
+
+      const has = (k) => Object.prototype.hasOwnProperty.call(payload, k);
+      const newFechaVenc  = has('fecha_vencimiento') ? (payload.fecha_vencimiento || null) : (old.fecha_vencimiento ?? null);
+      const newFechaComp  = has('fecha_compra')      ? (payload.fecha_compra      || null) : (old.fecha_compra      ?? null);
+      const newProveedorId = has('proveedor_id')     ? (payload.proveedor_id      || null) : (old.proveedor_id      ?? null);
 
       await client.query(
         `UPDATE articulo SET
-           nombre            = COALESCE($1, nombre),
-           marca             = COALESCE($2, marca),
-           modelo            = COALESCE($3, modelo),
-           descripcion       = COALESCE($4, descripcion),
+           nombre            = COALESCE($1,  nombre),
+           marca             = COALESCE($2,  marca),
+           modelo            = COALESCE($3,  modelo),
+           descripcion       = COALESCE($4,  descripcion),
            nro_serie         = $5,
            codigo            = $6,
-           valor             = COALESCE($7, valor),
+           valor             = COALESCE($7,  valor),
            foto_url          = $8,
-           fecha_vencimiento = COALESCE($9, fecha_vencimiento)
-         WHERE id = $10`,
+           fecha_vencimiento = $9,
+           fecha_compra      = $10,
+           proveedor_id      = $11,
+           factura_url       = $12,
+           manual_url        = $13
+         WHERE id = $14`,
         [
-          payload.nombre || null, payload.marca || null,
-          payload.modelo || null, payload.descripcion || null,
+          payload.nombre      || null,
+          payload.marca       || null,
+          payload.modelo      || null,
+          payload.descripcion || null,
           newNroSerie, newCodigo,
           payload.valor ?? null,
           newFotoUrl,
-          payload.fecha_vencimiento ?? null,
+          newFechaVenc,
+          newFechaComp,
+          newProveedorId,
+          newFacturaUrl,
+          newManualUrl,
           id,
         ]
       );
@@ -234,7 +310,11 @@ class ArticulosService {
         }
       }
 
-      if (uploadedUrl && old.foto_url) await deleteFileByUrl(old.foto_url);
+      const cleanups = [];
+      if (uploadedFotoUrl    && old.foto_url)    cleanups.push(deleteFileByUrl(old.foto_url));
+      if (uploadedFacturaUrl && old.factura_url) cleanups.push(deleteFileByUrl(old.factura_url));
+      if (uploadedManualUrl  && old.manual_url)  cleanups.push(deleteFileByUrl(old.manual_url));
+      await Promise.allSettled(cleanups);
 
       await writeAuditEvent({
         client, entidadTipo: 'articulo', entidadId: id,
@@ -246,7 +326,8 @@ class ArticulosService {
       return data;
     } catch (error) {
       await client.query('ROLLBACK');
-      if (uploadedUrl) await deleteFileByUrl(uploadedUrl);
+      const urls = [uploadedFotoUrl, uploadedFacturaUrl, uploadedManualUrl].filter(Boolean);
+      await Promise.allSettled(urls.map(deleteFileByUrl));
       if (error.code === '23505') {
         const field = error.constraint?.includes('nro_serie') ? 'nro_serie' : 'codigo';
         throw buildError(`El ${field} ya existe en otro artículo`, 409, 'DUPLICATE_NRO_SERIE');
@@ -263,7 +344,7 @@ class ArticulosService {
       await client.query('BEGIN');
 
       const result = await client.query(
-        `SELECT id, estado, foto_url FROM articulo WHERE id = $1 FOR UPDATE`, [id]
+        `SELECT id, estado, foto_url, factura_url, manual_url FROM articulo WHERE id = $1 FOR UPDATE`, [id]
       );
       if (!result.rows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
 
@@ -272,8 +353,16 @@ class ArticulosService {
         throw buildError('No se puede eliminar un artículo con custodia activa', 409, 'ARTICULO_ASSIGNED');
       }
 
+      const { rows: certRows } = await client.query(
+        `SELECT url FROM articulo_certificacion WHERE articulo_id = $1`, [id]
+      );
+
       await client.query(`DELETE FROM articulo WHERE id = $1`, [id]);
-      if (art.foto_url) await deleteFileByUrl(art.foto_url);
+
+      const gcsCleanups = [art.foto_url, art.factura_url, art.manual_url, ...certRows.map(r => r.url)]
+        .filter(Boolean)
+        .map(url => deleteFileByUrl(url));
+      await Promise.allSettled(gcsCleanups);
 
       await writeAuditEvent({
         client, entidadTipo: 'articulo', entidadId: id,
@@ -281,6 +370,85 @@ class ArticulosService {
       });
 
       await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async addCertificacion(articuloId, file, nombre, userId) {
+    const { rows: artRows } = await db.query(
+      `SELECT a.codigo, COUNT(ac.id)::int AS cert_count
+       FROM articulo a
+       LEFT JOIN articulo_certificacion ac ON ac.articulo_id = a.id
+       WHERE a.id = $1
+       GROUP BY a.id, a.codigo`,
+      [articuloId]
+    );
+    if (!artRows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
+    if (artRows[0].cert_count >= 5) {
+      throw buildError('El artículo ya tiene el máximo de 5 certificaciones', 422, 'MAX_CERTIFICACIONES');
+    }
+
+    const certNombre = nombre || 'cert';
+    const url = await uploadDocument(file, {
+      folder: 'articulos/certificaciones',
+      filePrefix: `${artRows[0].codigo}_${certNombre}`,
+    });
+
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `INSERT INTO articulo_certificacion (articulo_id, nombre, url) VALUES ($1, $2, $3)`,
+        [articuloId, nombre || null, url]
+      );
+
+      await writeAuditEvent({
+        client, entidadTipo: 'articulo', entidadId: articuloId,
+        accion: 'actualizar', usuarioId: userId,
+        diff: { certificacion_added: nombre || url },
+      });
+
+      const data = await ArticulosService._getByIdWithClient(client, articuloId);
+      await client.query('COMMIT');
+      return data;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      await deleteFileByUrl(url).catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async deleteCertificacion(articuloId, certId, userId) {
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows } = await client.query(
+        `SELECT id, url FROM articulo_certificacion WHERE id = $1 AND articulo_id = $2 FOR UPDATE`,
+        [certId, articuloId]
+      );
+      if (!rows.length) throw buildError('Certificación no encontrada', 404, 'CERT_NOT_FOUND');
+
+      const certUrl = rows[0].url;
+      await client.query(`DELETE FROM articulo_certificacion WHERE id = $1`, [certId]);
+      await deleteFileByUrl(certUrl).catch(() => {});
+
+      await writeAuditEvent({
+        client, entidadTipo: 'articulo', entidadId: articuloId,
+        accion: 'actualizar', usuarioId: userId,
+        diff: { certificacion_deleted: certId },
+      });
+
+      const data = await ArticulosService._getByIdWithClient(client, articuloId);
+      await client.query('COMMIT');
+      return data;
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
