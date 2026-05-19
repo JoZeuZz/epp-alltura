@@ -12,6 +12,7 @@ import { post, put } from '../../services/apiService';
 interface Bodega {
   id: string;
   nombre: string;
+  ciudad?: string | null;
   direccion?: string | null;
   descripcion?: string | null;
   estado: 'activo' | 'inactivo';
@@ -20,6 +21,7 @@ interface Bodega {
 
 interface BodegaFormValues {
   nombre: string;
+  ciudad: string;
   direccion: string;
   descripcion: string;
   estado: 'activo' | 'inactivo';
@@ -31,6 +33,7 @@ type FormErrors = Partial<Record<keyof BodegaFormValues, string>>;
 
 const INITIAL_FORM: BodegaFormValues = {
   nombre: '',
+  ciudad: '',
   direccion: '',
   descripcion: '',
   estado: 'activo',
@@ -45,10 +48,11 @@ const toErrorMessage = (error: unknown): string => {
 const mapToForm = (b?: Bodega | null): BodegaFormValues => {
   if (!b) return INITIAL_FORM;
   return {
-    nombre: b.nombre ?? '',
-    direccion: b.direccion ?? '',
+    nombre:      b.nombre ?? '',
+    ciudad:      b.ciudad ?? '',
+    direccion:   b.direccion ?? '',
     descripcion: b.descripcion ?? '',
-    estado: b.estado ?? 'activo',
+    estado:      b.estado ?? 'activo',
   };
 };
 
@@ -127,6 +131,19 @@ const BodegaFormModal: React.FC<BodegaFormModalProps> = ({
             onChange={(e) => setField('nombre', e.target.value)}
           />
           {errors.nombre && <p className="text-red-500 text-xs mt-1">{errors.nombre}</p>}
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Ciudad
+            <span className="text-gray-400 font-normal ml-1">(opcional)</span>
+          </label>
+          <input
+            className={inputClass('ciudad')}
+            placeholder="Ej: Santiago"
+            value={values.ciudad}
+            onChange={(e) => setField('ciudad', e.target.value)}
+          />
         </div>
 
         <div>
