@@ -11,4 +11,3 @@ backups/
 .superpowers/
 AGENTS.md
 docs/*
-!docs/*.md
