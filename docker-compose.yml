@@ -81,7 +81,15 @@ services:
       # Storage
       IMAGE_STORAGE_PROVIDER: ${IMAGE_STORAGE_PROVIDER:-local}
       GCS_IMAGE_PROXY: ${GCS_IMAGE_PROXY:-false}
+      GCS_BUCKET_NAME: ${GCS_BUCKET_NAME:-}
+      GCS_PROJECT_ID: ${GCS_PROJECT_ID:-}
+      GCS_PREFIX: ${GCS_PREFIX:-}
+      GCS_SIGNED_URLS: ${GCS_SIGNED_URLS:-false}
+      GCS_SIGNED_URL_TTL_MS: ${GCS_SIGNED_URL_TTL_MS:-3600000}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
       IMAGE_MAX_BYTES: ${IMAGE_MAX_BYTES:-26214400}
+    volumes:
+      - /data/coolify/secrets/gcs/service-account-epp.json:/usr/src/app/service-account.json:ro
     expose:
       - "5000"
     depends_on:
