@@ -563,7 +563,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
               <button
                 type="button"
                 onClick={() => setShowEdit(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary-blue text-sm text-primary-blue bg-surface hover:bg-blue-50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary-blue text-sm text-primary-blue bg-surface hover:bg-surface-muted transition-colors"
                 aria-label="Editar artículo"
               >
                 ✎ Editar artículo
