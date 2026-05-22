@@ -24,6 +24,14 @@ vi.mock('../hooks/usePdfDownload', () => ({
   usePdfDownload: () => ({ downloadPdf: mockDownloadPdf, isLoading: false }),
 }));
 
+vi.mock('../components/forms/EditarActivoModal', () => ({
+  default: ({ onClose }: { onClose: () => void }) => (
+    <div data-testid="editar-activo-modal">
+      <button onClick={onClose}>Cerrar editar</button>
+    </div>
+  ),
+}));
+
 vi.mock('../services/apiService', async (importOriginal) => {
   const original = await importOriginal<typeof import('../services/apiService')>();
   return {
@@ -93,6 +101,13 @@ describe('ActivoProfileModal PDF downloads', () => {
     render(<ActivoProfileModal activoId="aaa" onClose={() => {}} />, { wrapper });
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /acta/i })).toBeInTheDocument();
+    });
+  });
+
+  it('renders "Editar artículo" button', async () => {
+    render(<ActivoProfileModal activoId="aaa" onClose={() => {}} />, { wrapper });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /editar artículo/i })).toBeInTheDocument();
     });
   });
 });

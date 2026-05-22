@@ -6,6 +6,7 @@ import EntregaCreateModal from './EntregaCreateModal';
 import EntregaFirmaModal from './EntregaFirmaModal';
 import DevolucionActivoModal from './DevolucionActivoModal';
 import DevolucionFirmaModal from './DevolucionFirmaModal';
+import EditarActivoModal from './EditarActivoModal';
 import { useGet, useAuth } from '../../hooks';
 import { usePdfDownload } from '../../hooks/usePdfDownload';
 import {
@@ -14,6 +15,7 @@ import {
   deleteArticulo,
   getActivoProfile,
   getEntregaById,
+  type Articulo,
   type ActivoCustodiaEntry,
   type ActivoTimelineEntry,
   type EntregaRow,
@@ -91,6 +93,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteArticulo(activoId),
@@ -547,10 +550,6 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
               )}
             </div>
 
-            <p className="text-xs text-content-disabled">
-              La edición de atributos del artículo está en desarrollo.
-            </p>
-
             <div className="pt-1 flex flex-wrap gap-2">
               <button
                 type="button"
@@ -560,6 +559,14 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
                 aria-label="Descargar ficha PDF"
               >
                 {isPdfLoading ? '…' : '↓'} Descargar ficha PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowEdit(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary-blue text-sm text-primary-blue bg-surface hover:bg-blue-50 transition-colors"
+                aria-label="Editar artículo"
+              >
+                ✎ Editar artículo
               </button>
               {isAdmin && (
                 <button
@@ -710,6 +717,16 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
         confirmText="Sí, eliminar todo"
         variant="danger"
       />
+      {showEdit && profile && (
+        <EditarActivoModal
+          activo={profile as unknown as Articulo}
+          onClose={() => setShowEdit(false)}
+          onSuccess={() => {
+            setShowEdit(false);
+            void queryClient.invalidateQueries({ queryKey: ['activo-profile', activoId] });
+          }}
+        />
+      )}
     </Modal>
   );
 };
