@@ -1,7 +1,7 @@
 const InventarioService = require('../services/inventario.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
-const { createDoc, bufferPdf, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
+const { bufferPdf, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
 
 class InventarioController {
   static async getActivos(req, res, next) {
@@ -104,31 +104,35 @@ class InventarioController {
       const timestamp = new Date().toISOString().slice(0, 10);
       const label = { epp: 'EPP', herramientas: 'Herramientas', equipos: 'Equipos' }[categoria] ?? categoria;
       const filename = `inventario-${categoria}-${timestamp}.pdf`;
-      const doc = createDoc(`Inventario: ${label} — ${timestamp}`, res, filename);
 
-      if (activos.length === 0) {
-        doc.fontSize(9).fillColor(MUTED_GRAY).text('Sin activos registrados para esta categoría.');
-        doc.end();
-        return;
-      }
+      const pdfBuffer = await bufferPdf(`Inventario: ${label} — ${timestamp}`, async (doc) => {
+        if (activos.length === 0) {
+          doc.fontSize(9).fillColor(MUTED_GRAY).text('Sin activos registrados para esta categoría.');
+          return;
+        }
 
-      const headers = ['Código', 'Nombre', 'Estado', 'Ubicación'];
-      const rows = activos.map((a) => [
-        a.codigo ?? '—',
-        a.nombre ?? '—',
-        a.estado ?? '—',
-        a.bodega_nombre ?? a.proyecto_nombre ?? '—',
-      ]);
+        const headers = ['Código', 'Nombre', 'Estado', 'Ubicación'];
+        const rows = activos.map((a) => [
+          a.codigo ?? '—',
+          a.nombre ?? '—',
+          a.estado ?? '—',
+          a.bodega_nombre ?? a.proyecto_nombre ?? '—',
+        ]);
 
-      await doc.table({ headers, rows }, {
-        columnsSize: [80, 200, 70, 130],
-        prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
-        prepareRow: () => doc.font('Helvetica').fontSize(8),
+        await doc.table({ headers, rows }, {
+          columnsSize: [80, 200, 70, 130],
+          prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
+          prepareRow: () => doc.font('Helvetica').fontSize(8),
+        });
+
+        doc.moveDown();
+        doc.fontSize(8).fillColor(MUTED_GRAY).text(`Total: ${activos.length} activo(s)`);
       });
 
-      doc.moveDown();
-      doc.fontSize(8).fillColor(MUTED_GRAY).text(`Total: ${activos.length} activo(s)`);
-      doc.end();
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
     } catch (error) {
       logger.error('Error exporting inventario PDF:', error);
       return next(error);

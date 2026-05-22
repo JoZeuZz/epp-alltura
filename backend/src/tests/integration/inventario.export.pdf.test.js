@@ -91,4 +91,13 @@ describe('GET /api/inventario/export/pdf', () => {
       .get('/api/inventario/export/pdf?categoria=epp');
     expect(res.status).toBe(401);
   });
+
+  it('includes Content-Length header in response', async () => {
+    InventarioService.getActivos.mockResolvedValue(MOCK_ACTIVOS);
+    const app = buildApp();
+    const res = await request(app)
+      .get('/api/inventario/export/pdf?categoria=epp');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-length']).toBeDefined();
+  });
 });
