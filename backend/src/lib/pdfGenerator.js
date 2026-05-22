@@ -32,4 +32,38 @@ function createDoc(title, res, filename) {
   return doc;
 }
 
-module.exports = { createDoc, DARK_BLUE, BODY_TEXT, MUTED_GRAY };
+async function bufferPdf(title, buildFn) {
+  const doc = new PdfTable({ margin: 40, size: 'A4' });
+  const chunks = [];
+  const finished = new Promise((resolve, reject) => {
+    doc.on('data', (c) => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+  });
+
+  if (fs.existsSync(LOGO_PATH)) {
+    doc.image(LOGO_PATH, 40, 30, { height: 30 });
+  }
+  doc.fontSize(14).fillColor(DARK_BLUE).text(title, 40, 75);
+  doc.fontSize(8).fillColor(MUTED_GRAY)
+    .text(`Generado: ${new Date().toLocaleString('es-CL')}`, { align: 'right' });
+  doc.moveDown(0.5)
+    .moveTo(40, doc.y)
+    .lineTo(doc.page.width - 40, doc.y)
+    .strokeColor(PRIMARY_BLUE)
+    .stroke()
+    .moveDown(0.5);
+  doc.fillColor(BODY_TEXT);
+
+  try {
+    await buildFn(doc);
+  } catch (err) {
+    doc.end();
+    throw err;
+  }
+
+  doc.end();
+  return finished;
+}
+
+module.exports = { createDoc, bufferPdf, DARK_BLUE, BODY_TEXT, MUTED_GRAY };
