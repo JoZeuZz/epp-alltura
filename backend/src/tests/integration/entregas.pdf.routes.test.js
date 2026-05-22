@@ -129,4 +129,13 @@ describe('GET /api/entregas/:id/pdf', () => {
     checkRole.mockImplementation(() => (_req, _res, next) => next());
     expect(res.status).toBe(403);
   });
+
+  it('includes Content-Length header in response', async () => {
+    EntregasService.getById.mockResolvedValue(MOCK_ENTREGA);
+    const app = buildApp();
+    const res = await request(app)
+      .get(`/api/entregas/${MOCK_ENTREGA.id}/pdf`);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-length']).toBeDefined();
+  });
 });
