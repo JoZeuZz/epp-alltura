@@ -4,6 +4,21 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+// Mock window.matchMedia for useElasticScroll in alltura-ui
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation((query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
+
 // Modal uses focus-trap-react — stub it
 vi.mock('focus-trap-react', () => ({
   __esModule: true,
@@ -11,11 +26,14 @@ vi.mock('focus-trap-react', () => ({
 }));
 
 // useGet is used for trabajadores/bodegas/proyectos/articulos lookups — return empty arrays
+// useAuth and useTour are required by ActivoProfileModal
 vi.mock('../hooks', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../hooks')>();
   return {
     ...actual,
     useGet: vi.fn().mockReturnValue({ data: [], isLoading: false, error: null }),
+    useAuth: vi.fn().mockReturnValue({ user: { id: 'user-1', role: 'admin' } }),
+    useTour: vi.fn().mockReturnValue({ isActive: false, currentDemoAction: null }),
   };
 });
 
