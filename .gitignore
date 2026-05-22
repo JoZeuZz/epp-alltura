@@ -10,4 +10,5 @@ backups/
 .vscode/
 .superpowers/
 AGENTS.md
+CLAUDE.md
 docs/*

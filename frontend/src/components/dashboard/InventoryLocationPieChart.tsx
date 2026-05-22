@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { Articulo } from '../../services/apiService';
 
-const CX = 300, CY = 150, R = 120;
+const CX = 300, CY = 150, R = 90;
 const COLORS = ['#1E2A4A', '#2A64A4', '#3D7EC8', '#5B9FE0', '#8DC3F5', '#B8D9F8'];
 const COLOR_NONE = '#CBD5E1';
 
@@ -82,6 +82,7 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
         </span>
       </div>
 
+      <div className="mx-auto w-full" style={{ maxWidth: 'min(100%, 460px)' }}>
       <svg viewBox="0 0 600 300" className="w-full" style={{ overflow: 'visible' }}>
         {slices.map((s) => {
           const isActive = hovered === s.index || selected === s.index;
@@ -138,7 +139,7 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
                 textAnchor={anchor}
                 style={{
                   fontFamily: 'inherit',
-                  fontSize: '13px',
+                  fontSize: '12px',
                   fontWeight: selected === s.index ? '700' : '600',
                   fill: selected === s.index ? '#2A64A4' : '#1E2A4A',
                   pointerEvents: 'none',
@@ -152,7 +153,7 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
                 textAnchor={anchor}
                 style={{
                   fontFamily: 'inherit',
-                  fontSize: '11px',
+                  fontSize: '10px',
                   fill: selected === s.index ? '#4A90D9' : '#94A3B8',
                   pointerEvents: 'none',
                   transition: 'fill 0.18s ease',
@@ -164,6 +165,7 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
           );
         })}
       </svg>
+      </div>
 
       {selected !== null && (
         <div className="mt-2 flex items-center justify-between bg-blue-50 border border-blue-100 rounded-lg px-4 py-2.5">
