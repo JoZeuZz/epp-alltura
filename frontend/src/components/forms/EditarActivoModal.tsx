@@ -136,10 +136,10 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
     );
   };
 
-  const inputCls = 'w-full rounded-md border border-edge-strong px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none';
+  const inputCls = 'w-full rounded-md border border-edge px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none';
   const sectionCls = 'space-y-3';
   const labelCls = 'block text-sm font-medium text-content-secondary mb-1';
-  const sectionTitleCls = 'text-xs font-semibold text-content-muted uppercase tracking-wide';
+  const sectionTitleCls = 'text-xs font-semibold text-content-muted uppercase tracking-wide border-b border-edge pb-2';
 
   const certs = (activo.certificaciones ?? []) as ArticuloCertificacion[];
 
@@ -204,7 +204,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
             <label className={labelCls}>Factura (reemplazar PDF)</label>
             {activo.factura_url && (
               <a href={activo.factura_url} target="_blank" rel="noopener noreferrer"
-                className="block text-xs text-primary hover:underline mb-1">
+                className="block text-xs text-primary-blue hover:underline mb-1">
                 ↓ Ver factura actual
               </a>
             )}
@@ -222,11 +222,11 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
             <label className={labelCls}>Manual / Ficha técnica</label>
             <div className="flex gap-2 mb-2">
               <button type="button" onClick={() => setManualTab('url')}
-                className={`px-3 py-1 text-xs rounded border transition-colors ${manualTab === 'url' ? 'bg-primary-blue text-white border-primary-blue' : 'bg-white border-gray-300 text-gray-600'}`}>
+                className={`px-3 py-1 text-xs rounded border transition-colors ${manualTab === 'url' ? 'bg-primary-blue text-white border-primary-blue' : 'bg-surface border-edge text-content-secondary'}`}>
                 Link URL
               </button>
               <button type="button" onClick={() => setManualTab('file')}
-                className={`px-3 py-1 text-xs rounded border transition-colors ${manualTab === 'file' ? 'bg-primary-blue text-white border-primary-blue' : 'bg-white border-gray-300 text-gray-600'}`}>
+                className={`px-3 py-1 text-xs rounded border transition-colors ${manualTab === 'file' ? 'bg-primary-blue text-white border-primary-blue' : 'bg-surface border-edge text-content-secondary'}`}>
                 Subir PDF
               </button>
             </div>
@@ -237,7 +237,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
               <>
                 {activo.manual_url && (
                   <a href={activo.manual_url} target="_blank" rel="noopener noreferrer"
-                    className="block text-xs text-primary hover:underline mb-1">
+                    className="block text-xs text-primary-blue hover:underline mb-1">
                     ↓ Ver manual actual
                   </a>
                 )}
@@ -260,7 +260,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
                 {certs.map(cert => (
                   <li key={cert.id} className="flex items-center justify-between text-xs bg-surface-muted px-2 py-1.5 rounded">
                     <a href={cert.url} target="_blank" rel="noopener noreferrer"
-                      className="text-primary hover:underline truncate">
+                      className="text-primary-blue hover:underline truncate">
                       {cert.nombre || 'Certificación'}
                     </a>
                     <button type="button"
@@ -284,7 +284,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
                 <button type="button"
                   onClick={() => addCertMutation.mutate()}
                   disabled={!newCertFile || addCertMutation.isPending}
-                  className="px-3 py-1.5 text-sm text-white bg-primary rounded-md hover:bg-primary-hover disabled:opacity-50">
+                  className="px-3 py-1.5 text-sm text-white bg-primary-blue rounded-md hover:bg-dark-blue disabled:opacity-50">
                   {addCertMutation.isPending ? 'Subiendo...' : '+ Agregar certificación'}
                 </button>
               </div>
@@ -308,7 +308,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
                   className={`px-3 py-1 rounded-full text-xs border transition-colors ${
                     especialidades.includes(esp as ArticuloEspecialidad)
                       ? 'bg-primary-blue text-white border-primary-blue'
-                      : 'bg-white text-gray-600 border-gray-300 hover:border-primary-blue'
+                      : 'bg-surface text-content-secondary border-edge hover:border-primary-blue'
                   }`}>
                   {ESP_LABELS[esp]}
                 </button>
@@ -332,7 +332,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
           </button>
           <button type="button" onClick={() => updateMutation.mutate()}
             disabled={updateMutation.isPending}
-            className="px-4 py-2 text-sm text-white bg-primary rounded-md hover:bg-primary-hover disabled:opacity-50">
+            className="px-4 py-2 text-sm text-white bg-primary-blue rounded-md hover:bg-dark-blue disabled:opacity-50">
             {updateMutation.isPending ? 'Guardando...' : 'Guardar cambios'}
           </button>
         </div>
