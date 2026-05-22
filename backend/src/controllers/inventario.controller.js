@@ -1,7 +1,7 @@
 const InventarioService = require('../services/inventario.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
-const { createDoc, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
+const { createDoc, bufferPdf, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
 
 class InventarioController {
   static async getActivos(req, res, next) {
@@ -141,43 +141,49 @@ class InventarioController {
       const profile = await InventarioService.getActivoProfile(id);
       const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `ficha-activo-${profile.codigo}-${timestamp}.pdf`;
-      const doc = createDoc(`Ficha de Activo: ${profile.nombre}`, res, filename);
 
-      doc.fontSize(9).fillColor(BODY_TEXT)
-        .text(`Código: ${profile.codigo}`)
-        .text(`Serie: ${profile.nro_serie ?? '—'}`)
-        .text(`Estado: ${profile.estado}`)
-        .text(`Bodega: ${profile.bodega_nombre ?? '—'}`)
-        .text(`Ingreso: ${profile.creado_en ? new Date(profile.creado_en).toLocaleDateString('es-CL') : '—'}`)
-        .moveDown(0.5);
-
-      if (profile.custodia_activa) {
-        const ca = profile.custodia_activa;
-        doc.fontSize(10).fillColor(DARK_BLUE).text('Custodia activa', { underline: true });
+      const pdfBuffer = await bufferPdf(`Ficha de Activo: ${profile.nombre}`, async (doc) => {
         doc.fontSize(9).fillColor(BODY_TEXT)
-          .text(`Custodio: ${ca.trabajador_nombre ?? '—'}`)
-          .text(`Días en custodia: ${ca.dias_en_custodia ?? 0}`)
+          .text(`Código: ${profile.codigo}`)
+          .text(`Serie: ${profile.nro_serie ?? '—'}`)
+          .text(`Estado: ${profile.estado}`)
+          .text(`Bodega: ${profile.bodega_nombre ?? '—'}`)
+          .text(`Ingreso: ${profile.creado_en ? new Date(profile.creado_en).toLocaleDateString('es-CL') : '—'}`)
           .moveDown(0.5);
-      }
 
-      if (profile.timeline && profile.timeline.length > 0) {
-        doc.fontSize(10).fillColor(DARK_BLUE).text('Historial de movimientos', { underline: true }).moveDown(0.3);
-        const headers = ['Tipo', 'Fecha', 'Origen', 'Destino', 'Responsable'];
-        const rows = profile.timeline.slice(0, 50).map((m) => [
-          m.tipo,
-          new Date(m.fecha_movimiento).toLocaleDateString('es-CL'),
-          m.bodega_origen_nombre ?? m.proyecto_origen_nombre ?? '—',
-          m.bodega_destino_nombre ?? m.proyecto_destino_nombre ?? '—',
-          m.responsable_email ?? '—',
-        ]);
-        await doc.table({ headers, rows }, {
-          columnsSize: [70, 70, 100, 100, 120],
-          prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
-          prepareRow: () => doc.font('Helvetica').fontSize(8),
-        });
-      }
+        if (profile.custodia_activa) {
+          const ca = profile.custodia_activa;
+          doc.fontSize(10).fillColor(DARK_BLUE).text('Custodia activa', { underline: true });
+          doc.fontSize(9).fillColor(BODY_TEXT)
+            .text(`Custodio: ${ca.trabajador_nombre ?? '—'}`)
+            .text(`Días en custodia: ${ca.dias_en_custodia ?? 0}`)
+            .moveDown(0.5);
+        }
 
-      doc.end();
+        if (profile.timeline && profile.timeline.length > 0) {
+          doc.fontSize(10).fillColor(DARK_BLUE)
+            .text('Historial de movimientos', { underline: true })
+            .moveDown(0.3);
+          const headers = ['Tipo', 'Fecha', 'Origen', 'Destino', 'Responsable'];
+          const rows = profile.timeline.slice(0, 50).map((m) => [
+            m.tipo,
+            new Date(m.fecha_movimiento).toLocaleDateString('es-CL'),
+            m.bodega_origen_nombre ?? m.proyecto_origen_nombre ?? '—',
+            m.bodega_destino_nombre ?? m.proyecto_destino_nombre ?? '—',
+            m.responsable_email ?? '—',
+          ]);
+          await doc.table({ headers, rows }, {
+            columnsSize: [70, 70, 100, 100, 120],
+            prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
+            prepareRow: () => doc.font('Helvetica').fontSize(8),
+          });
+        }
+      });
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
     } catch (error) {
       logger.error('Error exporting activo PDF:', error);
       return next(error);
