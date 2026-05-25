@@ -11,6 +11,8 @@ backups/
 .vscode/
 .superpowers/
 .serena/
+.gitingest-ignore
+docs/superpowers/
 AGENTS.md
 CLAUDE.md
 docs/*
