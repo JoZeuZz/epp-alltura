@@ -54,7 +54,7 @@
 | TanStack Query | 5 | Server state y caché |
 | React Hook Form + Zod | — | Formularios y validación client-side |
 | Tailwind CSS | 3 | Estilos utilitarios |
-| `@jozeuZz/alltura-ui` | — | Design system interno |
+| `@jozeuzz/alltura-ui` | — | Design system interno |
 | Axios | — | Cliente HTTP |
 | Lucide React | — | Iconografía |
 | Vitest + Testing Library | — | Tests unitarios |

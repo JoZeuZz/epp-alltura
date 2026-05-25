@@ -1,1 +1,1 @@
-export { useTour } from '@jozeuZz/alltura-ui';
+export { useTour } from '@jozeuzz/alltura-ui';

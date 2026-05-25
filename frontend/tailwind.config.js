@@ -2,7 +2,7 @@
 module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
-    "./node_modules/@jozeuZz/alltura-ui/src/**/*.{js,jsx,ts,tsx}",
+    "./node_modules/@jozeuzz/alltura-ui/src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
     // Breakpoints personalizados (mantiene defaults de Tailwind + xs adicional)

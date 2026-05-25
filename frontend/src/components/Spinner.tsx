@@ -1,1 +1,1 @@
-export { Spinner as default } from '@jozeuZz/alltura-ui';
+export { Spinner as default } from '@jozeuzz/alltura-ui';

@@ -20,7 +20,7 @@ SPA React para gestión de inventario, custodia de activos, entregas, devolucion
 | TanStack Query 5 | Server state, caché, invalidación |
 | React Hook Form + Zod | Formularios y validación |
 | Tailwind CSS | Estilos utilitarios |
-| `@jozeuZz/alltura-ui` | Design system interno |
+| `@jozeuzz/alltura-ui` | Design system interno |
 | React Router DOM | Enrutamiento |
 | Axios | Cliente HTTP |
 | Lucide React | Iconografía |

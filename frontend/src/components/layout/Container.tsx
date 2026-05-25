@@ -1,2 +1,2 @@
-export { Container, Section } from '@jozeuZz/alltura-ui';
-export type { ContainerProps, SectionProps, ContainerVariant } from '@jozeuZz/alltura-ui';
+export { Container, Section } from '@jozeuzz/alltura-ui';
+export type { ContainerProps, SectionProps, ContainerVariant } from '@jozeuzz/alltura-ui';

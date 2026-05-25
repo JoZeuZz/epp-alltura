@@ -1,2 +1,2 @@
-export { AppLayout as default } from '@jozeuZz/alltura-ui';
-export type { NavItem } from '@jozeuZz/alltura-ui';
+export { AppLayout as default } from '@jozeuzz/alltura-ui';
+export type { NavItem } from '@jozeuzz/alltura-ui';

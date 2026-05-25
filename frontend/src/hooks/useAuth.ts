@@ -1,1 +1,1 @@
-export { useAuth } from '@jozeuZz/alltura-ui';
+export { useAuth } from '@jozeuzz/alltura-ui';

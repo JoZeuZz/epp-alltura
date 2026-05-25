@@ -1,2 +1,2 @@
-export { ResponsiveGrid, CustomGrid } from '@jozeuZz/alltura-ui';
-export type { ResponsiveGridProps, CustomGridProps, GridVariant, GridGap } from '@jozeuZz/alltura-ui';
+export { ResponsiveGrid, CustomGrid } from '@jozeuzz/alltura-ui';
+export type { ResponsiveGridProps, CustomGridProps, GridVariant, GridGap } from '@jozeuzz/alltura-ui';

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLoaderData, useLocation } from 'react-router-dom';
-import { ResponsiveTable } from '@jozeuZz/alltura-ui';
-import type { TableColumn } from '@jozeuZz/alltura-ui';
+import { ResponsiveTable } from '@jozeuzz/alltura-ui';
+import type { TableColumn } from '@jozeuzz/alltura-ui';
 
 interface SupervisorData {
   summary?: any;

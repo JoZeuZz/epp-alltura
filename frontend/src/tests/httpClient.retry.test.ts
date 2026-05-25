@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createHttpClient, HttpAuthError } from '@jozeuZz/alltura-ui';
+import { createHttpClient, HttpAuthError } from '@jozeuzz/alltura-ui';
 
 // Mock the internal authRefresh module so createHttpClient picks up the mocked versions.
 vi.mock('../../../../alltura-ui/src/services/authRefresh', () => ({

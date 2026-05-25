@@ -1,1 +1,1 @@
-export { ErrorMessage as default } from '@jozeuZz/alltura-ui';
+export { ErrorMessage as default } from '@jozeuzz/alltura-ui';

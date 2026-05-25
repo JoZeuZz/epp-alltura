@@ -46,7 +46,7 @@ export default defineConfig({
     css: true,
     exclude: ['tests/smoke/**', '**/node_modules/**', '**/dist/**'],
     alias: {
-      '@jozeuZz/alltura-ui': path.resolve(__dirname, '../../alltura-ui/src/index.ts'),
+      '@jozeuzz/alltura-ui': path.resolve(__dirname, '../../alltura-ui/src/index.ts'),
     },
   },
   build: {

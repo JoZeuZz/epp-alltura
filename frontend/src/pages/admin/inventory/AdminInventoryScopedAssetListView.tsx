@@ -1,6 +1,6 @@
 import React from 'react';
-import { ResponsiveTable } from '@jozeuZz/alltura-ui';
-import type { TableColumn } from '@jozeuZz/alltura-ui';
+import { ResponsiveTable } from '@jozeuzz/alltura-ui';
+import type { TableColumn } from '@jozeuzz/alltura-ui';
 import type { Articulo, ArticuloEstado } from '../../../services/apiService';
 import { formatCLP } from '../../../utils/currency';
 

@@ -1,2 +1,2 @@
-export { ConfirmationModal as default } from '@jozeuZz/alltura-ui';
-export type { ConfirmationModalProps } from '@jozeuZz/alltura-ui';
+export { ConfirmationModal as default } from '@jozeuzz/alltura-ui';
+export type { ConfirmationModalProps } from '@jozeuzz/alltura-ui';

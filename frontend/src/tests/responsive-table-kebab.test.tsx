@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ResponsiveTable } from '@jozeuZz/alltura-ui';
+import { ResponsiveTable } from '@jozeuzz/alltura-ui';
 
 const columns = [
   { key: 'name' as const, header: 'Nombre' },

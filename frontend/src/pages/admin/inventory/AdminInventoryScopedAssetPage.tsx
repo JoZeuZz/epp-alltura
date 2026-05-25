@@ -6,7 +6,7 @@ import {
   type Articulo,
 } from '../../../services/apiService';
 import { useGet, useTour } from '../../../hooks';
-import { PageTabs } from '@jozeuZz/alltura-ui';
+import { PageTabs } from '@jozeuzz/alltura-ui';
 import AdminInventoryScopedAssetCards from './AdminInventoryScopedAssetCards';
 import InventoryLocationPieChart from '../../../components/dashboard/InventoryLocationPieChart';
 

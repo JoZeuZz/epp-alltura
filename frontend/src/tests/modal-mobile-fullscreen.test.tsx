@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { Modal } from '@jozeuZz/alltura-ui';
+import { Modal } from '@jozeuzz/alltura-ui';
 import { vi } from 'vitest';
 
 describe('Modal mobileFullscreen', () => {
