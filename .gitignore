@@ -10,6 +10,7 @@ backups/
 .claude/
 .vscode/
 .superpowers/
+.serena/
 AGENTS.md
 CLAUDE.md
 docs/*
