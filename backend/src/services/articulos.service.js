@@ -1,13 +1,13 @@
 'use strict';
 
-const db = require('../db');
+const ArticuloModel = require('../models/articulo');
 const { uploadFile, uploadDocument, deleteFileByUrl } = require('../lib/googleCloud');
 const { buildError } = require('../lib/errors');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
+const db = require('../db');
 
 const VALID_ESPECIALIDADES = ['oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida'];
 
-// Direct state transitions (not via entrega/devolucion)
 const TRANSICIONES_DIRECTAS = {
   'en_stock→mantencion':   { mov_tipo: 'mantencion', cambia_bodega: false },
   'en_stock→dado_de_baja': { mov_tipo: 'baja',       cambia_bodega: false },
@@ -21,6 +21,14 @@ function deriveCodigo(nroSerie) {
   return String(nroSerie).replace(/\s/g, '').slice(-3).toUpperCase();
 }
 
+function validateEspecialidades(especialidades) {
+  for (const esp of especialidades) {
+    if (!VALID_ESPECIALIDADES.includes(esp)) {
+      throw buildError(`Especialidad inválida: ${esp}`, 400, 'INVALID_ESPECIALIDAD');
+    }
+  }
+}
+
 class ArticulosService {
   static async create(payload, userId, files = {}) {
     const fotoFile    = files.foto?.[0]    || null;
@@ -32,18 +40,9 @@ class ArticulosService {
     let uploadedManualUrl  = null;
 
     const codigo = deriveCodigo(payload.nro_serie);
-    if (fotoFile)    uploadedFotoUrl    = await uploadFile(fotoFile, {
-      folder: 'articulos/fotos',
-      filePrefix: `${codigo}_${payload.nombre}`,
-    });
-    if (facturaFile) uploadedFacturaUrl = await uploadDocument(facturaFile, {
-      folder: 'articulos/facturas',
-      filePrefix: codigo,
-    });
-    if (manualFile)  uploadedManualUrl  = await uploadDocument(manualFile, {
-      folder: 'articulos/manuales',
-      filePrefix: codigo,
-    });
+    if (fotoFile)    uploadedFotoUrl    = await uploadFile(fotoFile, { folder: 'articulos/fotos', filePrefix: `${codigo}_${payload.nombre}` });
+    if (facturaFile) uploadedFacturaUrl = await uploadDocument(facturaFile, { folder: 'articulos/facturas', filePrefix: codigo });
+    if (manualFile)  uploadedManualUrl  = await uploadDocument(manualFile, { folder: 'articulos/manuales', filePrefix: codigo });
 
     const client = await db.pool.connect();
     try {
@@ -53,166 +52,67 @@ class ArticulosService {
         `SELECT id FROM bodegas WHERE id = $1 AND estado = 'activo'`,
         [payload.bodega_id]
       );
-      if (!bodegaResult.rows.length) {
-        throw buildError('Bodega no encontrada o inactiva', 400, 'BODEGA_NOT_FOUND');
+      if (!bodegaResult.rows.length) throw buildError('Bodega no encontrada o inactiva', 400, 'BODEGA_NOT_FOUND');
+
+      if (Array.isArray(payload.especialidades)) validateEspecialidades(payload.especialidades);
+
+      const articuloId = await ArticuloModel.insert(client, {
+        tipo:        payload.tipo,
+        nombre:      payload.nombre,
+        marca:       payload.marca,
+        modelo:      payload.modelo,
+        descripcion: payload.descripcion,
+        nro_serie:   payload.nro_serie,
+        codigo,
+        valor:            payload.valor,
+        foto_url:         uploadedFotoUrl    || payload.foto_url    || null,
+        bodega_id:        payload.bodega_id,
+        fecha_vencimiento: payload.fecha_vencimiento,
+        fecha_compra:      payload.fecha_compra,
+        proveedor_id:      payload.proveedor_id,
+        factura_url:       uploadedFacturaUrl || payload.factura_url || null,
+        manual_url:        uploadedManualUrl  || payload.manual_url  || null,
+        creado_por_usuario_id: userId,
+      });
+
+      if (Array.isArray(payload.especialidades) && payload.especialidades.length) {
+        await ArticuloModel.upsertEspecialidades(client, articuloId, payload.especialidades);
       }
 
-      const result = await client.query(
-        `INSERT INTO articulo
-           (tipo, nombre, marca, modelo, descripcion, nro_serie, codigo, valor,
-            foto_url, estado, bodega_actual_id, fecha_vencimiento,
-            fecha_compra, proveedor_id, factura_url, manual_url,
-            creado_por_usuario_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'en_stock',$10,$11,$12,$13,$14,$15,$16)
-         RETURNING id`,
-        [
-          payload.tipo, payload.nombre,
-          payload.marca || null, payload.modelo || null, payload.descripcion || null,
-          payload.nro_serie, codigo,
-          payload.valor ?? 0,
-          uploadedFotoUrl || payload.foto_url || null,
-          payload.bodega_id,
-          payload.fecha_vencimiento || null,
-          payload.fecha_compra      || null,
-          payload.proveedor_id      || null,
-          uploadedFacturaUrl || payload.factura_url || null,
-          uploadedManualUrl  || payload.manual_url  || null,
-          userId,
-        ]
-      );
-
-      const articuloId = result.rows[0].id;
-
-      if (Array.isArray(payload.especialidades)) {
-        for (const esp of payload.especialidades) {
-          if (!VALID_ESPECIALIDADES.includes(esp)) {
-            throw buildError(`Especialidad inválida: ${esp}`, 400, 'INVALID_ESPECIALIDAD');
-          }
-          await client.query(
-            `INSERT INTO articulo_especialidad (articulo_id, especialidad)
-             VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-            [articuloId, esp]
-          );
-        }
-      }
-
-      await client.query(
-        `INSERT INTO movimiento_activo
-           (articulo_id, tipo, bodega_destino_id, responsable_usuario_id, notas)
-         VALUES ($1, 'entrada', $2, $3, 'Creación de artículo')`,
-        [articuloId, payload.bodega_id, userId]
-      );
+      await ArticuloModel.insertMovimiento(client, {
+        articuloId,
+        tipo:                 'entrada',
+        bodegaDestinoId:      payload.bodega_id,
+        responsableUsuarioId: userId,
+        notas:                'Creación de artículo',
+      });
 
       await writeAuditEvent({
-        client,
-        entidadTipo: 'articulo',
-        entidadId: articuloId,
-        accion: 'crear',
-        usuarioId: userId,
+        client, entidadTipo: 'articulo', entidadId: articuloId,
+        accion: 'crear', usuarioId: userId,
         diff: { tipo: payload.tipo, nombre: payload.nombre, nro_serie: payload.nro_serie },
       });
 
-      const data = await ArticulosService._getByIdWithClient(client, articuloId);
+      const data = await ArticuloModel.findByIdWithClient(client, articuloId);
       await client.query('COMMIT');
       return data;
     } catch (error) {
       await client.query('ROLLBACK');
-      const urls = [uploadedFotoUrl, uploadedFacturaUrl, uploadedManualUrl].filter(Boolean);
-      await Promise.allSettled(urls.map(deleteFileByUrl));
+      await Promise.allSettled([uploadedFotoUrl, uploadedFacturaUrl, uploadedManualUrl].filter(Boolean).map(deleteFileByUrl));
       throw error;
     } finally {
       client.release();
     }
   }
 
-  static async list({ tipo, estado, bodega_id, proyecto_id, especialidad, search, limit = 50, offset = 0 } = {}) {
-    const conditions = [];
-    const params = [];
-    let p = 1;
-
-    if (tipo)        { conditions.push(`a.tipo = $${p++}`);               params.push(tipo); }
-    if (estado)      { conditions.push(`a.estado = $${p++}`);             params.push(estado); }
-    if (bodega_id)   { conditions.push(`a.bodega_actual_id = $${p++}`);   params.push(bodega_id); }
-    if (proyecto_id) { conditions.push(`a.proyecto_actual_id = $${p++}`); params.push(proyecto_id); }
-    if (search) {
-      conditions.push(`(a.nombre ILIKE $${p} OR a.nro_serie ILIKE $${p} OR a.codigo ILIKE $${p})`);
-      params.push(`%${search}%`);
-      p++;
-    }
-    if (especialidad) {
-      conditions.push(
-        `EXISTS (SELECT 1 FROM articulo_especialidad ae WHERE ae.articulo_id = a.id AND ae.especialidad = $${p++})`
-      );
-      params.push(especialidad);
-    }
-
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-
-    const rows = await db.query(
-      `SELECT a.*,
-              COALESCE(json_agg(ae.especialidad ORDER BY ae.especialidad) FILTER (WHERE ae.especialidad IS NOT NULL), '[]') AS especialidades,
-              b.nombre  AS bodega_nombre,
-              pr.nombre AS proyecto_nombre,
-              b.ciudad  AS bodega_ciudad,
-              pr.ciudad AS proyecto_ciudad
-       FROM articulo a
-       LEFT JOIN articulo_especialidad ae ON ae.articulo_id = a.id
-       LEFT JOIN bodegas b   ON b.id  = a.bodega_actual_id
-       LEFT JOIN proyectos pr ON pr.id = a.proyecto_actual_id
-       ${where}
-       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad
-       ORDER BY a.creado_en DESC
-       LIMIT $${p} OFFSET $${p + 1}`,
-      [...params, Number(limit), Number(offset)]
-    );
-
-    const countResult = await db.query(
-      `SELECT COUNT(*) FROM articulo a ${where}`,
-      params
-    );
-
-    return { items: rows.rows, total: parseInt(countResult.rows[0].count, 10) };
+  static async list(filters = {}) {
+    return ArticuloModel.findAll(filters);
   }
 
   static async getById(id) {
-    const client = await db.pool.connect();
-    try {
-      return await ArticulosService._getByIdWithClient(client, id);
-    } finally {
-      client.release();
-    }
-  }
-
-  static async _getByIdWithClient(client, id) {
-    const result = await client.query(
-      `SELECT a.*,
-              COALESCE(json_agg(ae.especialidad ORDER BY ae.especialidad) FILTER (WHERE ae.especialidad IS NOT NULL), '[]') AS especialidades,
-              COALESCE(
-                json_agg(
-                  json_build_object('id', ac.id, 'nombre', ac.nombre, 'url', ac.url, 'creado_en', ac.creado_en)
-                  ORDER BY ac.creado_en
-                ) FILTER (WHERE ac.id IS NOT NULL),
-                '[]'
-              ) AS certificaciones,
-              b.nombre  AS bodega_nombre,
-              pr.nombre AS proyecto_nombre,
-              b.ciudad  AS bodega_ciudad,
-              pr.ciudad AS proyecto_ciudad,
-              u.email_login AS creado_por_email,
-              prov.nombre AS proveedor_nombre
-       FROM articulo a
-       LEFT JOIN articulo_especialidad ae ON ae.articulo_id = a.id
-       LEFT JOIN articulo_certificacion ac ON ac.articulo_id = a.id
-       LEFT JOIN bodegas b    ON b.id  = a.bodega_actual_id
-       LEFT JOIN proyectos pr ON pr.id = a.proyecto_actual_id
-       LEFT JOIN usuario u    ON u.id  = a.creado_por_usuario_id
-       LEFT JOIN proveedor prov ON prov.id = a.proveedor_id
-       WHERE a.id = $1
-       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad, u.email_login, prov.nombre`,
-      [id]
-    );
-    if (!result.rows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
-    return result.rows[0];
+    const art = await ArticuloModel.findById(id);
+    if (!art) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
+    return art;
   }
 
   static async update(id, payload, userId, files = {}) {
@@ -224,110 +124,70 @@ class ArticulosService {
     let uploadedFacturaUrl = null;
     let uploadedManualUrl  = null;
 
-    const { rows: preRows } = await db.query(
-      `SELECT nro_serie FROM articulo WHERE id = $1`, [id]
-    );
+    const { rows: preRows } = await db.query(`SELECT nro_serie FROM articulo WHERE id = $1`, [id]);
     if (!preRows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
     const uploadCodigo = deriveCodigo(payload.nro_serie ?? preRows[0].nro_serie);
 
-    if (fotoFile)    uploadedFotoUrl    = await uploadFile(fotoFile, {
-      folder: 'articulos/fotos',
-      filePrefix: uploadCodigo,
-    });
-    if (facturaFile) uploadedFacturaUrl = await uploadDocument(facturaFile, {
-      folder: 'articulos/facturas',
-      filePrefix: uploadCodigo,
-    });
-    if (manualFile)  uploadedManualUrl  = await uploadDocument(manualFile, {
-      folder: 'articulos/manuales',
-      filePrefix: uploadCodigo,
-    });
+    if (fotoFile)    uploadedFotoUrl    = await uploadFile(fotoFile, { folder: 'articulos/fotos', filePrefix: uploadCodigo });
+    if (facturaFile) uploadedFacturaUrl = await uploadDocument(facturaFile, { folder: 'articulos/facturas', filePrefix: uploadCodigo });
+    if (manualFile)  uploadedManualUrl  = await uploadDocument(manualFile, { folder: 'articulos/manuales', filePrefix: uploadCodigo });
 
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
 
-      const existing = await client.query(
-        `SELECT id, foto_url, factura_url, manual_url, nro_serie, proveedor_id, fecha_compra, fecha_vencimiento FROM articulo WHERE id = $1 FOR UPDATE`, [id]
-      );
-      if (!existing.rows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
+      const old = await ArticuloModel.getRawForUpdate(client, id);
+      if (!old) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
 
-      const old = existing.rows[0];
-      const newNroSerie   = payload.nro_serie ?? old.nro_serie;
-      const newCodigo     = deriveCodigo(newNroSerie);
-      const newFotoUrl    = uploadedFotoUrl    || payload.foto_url    || old.foto_url;
-      const newFacturaUrl = uploadedFacturaUrl || (payload.factura_url ?? old.factura_url);
-      const newManualUrl  = uploadedManualUrl  || (payload.manual_url  ?? old.manual_url);
+      if (Array.isArray(payload.especialidades)) validateEspecialidades(payload.especialidades);
 
       const has = (k) => Object.prototype.hasOwnProperty.call(payload, k);
-      const newFechaVenc  = has('fecha_vencimiento') ? (payload.fecha_vencimiento || null) : (old.fecha_vencimiento ?? null);
-      const newFechaComp  = has('fecha_compra')      ? (payload.fecha_compra      || null) : (old.fecha_compra      ?? null);
-      const newProveedorId = has('proveedor_id')     ? (payload.proveedor_id      || null) : (old.proveedor_id      ?? null);
+      const newNroSerie    = payload.nro_serie ?? old.nro_serie;
+      const newCodigo      = deriveCodigo(newNroSerie);
+      const newFotoUrl     = uploadedFotoUrl    || payload.foto_url    || old.foto_url;
+      const newFacturaUrl  = uploadedFacturaUrl || (payload.factura_url ?? old.factura_url);
+      const newManualUrl   = uploadedManualUrl  || (payload.manual_url  ?? old.manual_url);
+      const newFechaVenc   = has('fecha_vencimiento') ? (payload.fecha_vencimiento || null) : (old.fecha_vencimiento ?? null);
+      const newFechaComp   = has('fecha_compra')      ? (payload.fecha_compra      || null) : (old.fecha_compra      ?? null);
+      const newProveedorId = has('proveedor_id')      ? (payload.proveedor_id      || null) : (old.proveedor_id      ?? null);
 
-      await client.query(
-        `UPDATE articulo SET
-           nombre            = COALESCE($1,  nombre),
-           marca             = COALESCE($2,  marca),
-           modelo            = COALESCE($3,  modelo),
-           descripcion       = COALESCE($4,  descripcion),
-           nro_serie         = $5,
-           codigo            = $6,
-           valor             = COALESCE($7,  valor),
-           foto_url          = $8,
-           fecha_vencimiento = $9,
-           fecha_compra      = $10,
-           proveedor_id      = $11,
-           factura_url       = $12,
-           manual_url        = $13
-         WHERE id = $14`,
-        [
-          payload.nombre      || null,
-          payload.marca       || null,
-          payload.modelo      || null,
-          payload.descripcion || null,
-          newNroSerie, newCodigo,
-          payload.valor ?? null,
-          newFotoUrl,
-          newFechaVenc,
-          newFechaComp,
-          newProveedorId,
-          newFacturaUrl,
-          newManualUrl,
-          id,
-        ]
-      );
+      await ArticuloModel.updateFields(client, id, {
+        nombre:      payload.nombre,
+        marca:       payload.marca,
+        modelo:      payload.modelo,
+        descripcion: payload.descripcion,
+        nro_serie:   newNroSerie,
+        codigo:      newCodigo,
+        valor:            payload.valor,
+        foto_url:         newFotoUrl,
+        fecha_vencimiento: newFechaVenc,
+        fecha_compra:      newFechaComp,
+        proveedor_id:      newProveedorId,
+        factura_url:       newFacturaUrl,
+        manual_url:        newManualUrl,
+      });
 
       if (Array.isArray(payload.especialidades)) {
-        await client.query(`DELETE FROM articulo_especialidad WHERE articulo_id = $1`, [id]);
-        for (const esp of payload.especialidades) {
-          if (!VALID_ESPECIALIDADES.includes(esp)) {
-            throw buildError(`Especialidad inválida: ${esp}`, 400, 'INVALID_ESPECIALIDAD');
-          }
-          await client.query(
-            `INSERT INTO articulo_especialidad (articulo_id, especialidad) VALUES ($1, $2)`,
-            [id, esp]
-          );
-        }
+        await ArticuloModel.upsertEspecialidades(client, id, payload.especialidades);
       }
 
-      const cleanups = [];
-      if (uploadedFotoUrl    && old.foto_url)    cleanups.push(deleteFileByUrl(old.foto_url));
-      if (uploadedFacturaUrl && old.factura_url) cleanups.push(deleteFileByUrl(old.factura_url));
-      if (uploadedManualUrl  && old.manual_url)  cleanups.push(deleteFileByUrl(old.manual_url));
-      await Promise.allSettled(cleanups);
+      await Promise.allSettled([
+        uploadedFotoUrl    && old.foto_url    ? deleteFileByUrl(old.foto_url)    : null,
+        uploadedFacturaUrl && old.factura_url ? deleteFileByUrl(old.factura_url) : null,
+        uploadedManualUrl  && old.manual_url  ? deleteFileByUrl(old.manual_url)  : null,
+      ].filter(Boolean));
 
       await writeAuditEvent({
         client, entidadTipo: 'articulo', entidadId: id,
         accion: 'actualizar', usuarioId: userId, diff: payload,
       });
 
-      const data = await ArticulosService._getByIdWithClient(client, id);
+      const data = await ArticuloModel.findByIdWithClient(client, id);
       await client.query('COMMIT');
       return data;
     } catch (error) {
       await client.query('ROLLBACK');
-      const urls = [uploadedFotoUrl, uploadedFacturaUrl, uploadedManualUrl].filter(Boolean);
-      await Promise.allSettled(urls.map(deleteFileByUrl));
+      await Promise.allSettled([uploadedFotoUrl, uploadedFacturaUrl, uploadedManualUrl].filter(Boolean).map(deleteFileByUrl));
       if (error.code === '23505') {
         const field = error.constraint?.includes('nro_serie') ? 'nro_serie' : 'codigo';
         throw buildError(`El ${field} ya existe en otro artículo`, 409, 'DUPLICATE_NRO_SERIE');
@@ -343,26 +203,17 @@ class ArticulosService {
     try {
       await client.query('BEGIN');
 
-      const result = await client.query(
-        `SELECT id, estado, foto_url, factura_url, manual_url FROM articulo WHERE id = $1 FOR UPDATE`, [id]
+      const art = await ArticuloModel.getRawForUpdate(client, id);
+      if (!art) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
+      if (art.estado === 'asignado') throw buildError('No se puede eliminar un artículo con custodia activa', 409, 'ARTICULO_ASSIGNED');
+
+      const certUrls = await ArticuloModel.getCertUrls(client, id);
+
+      await ArticuloModel.deleteById(client, id);
+
+      await Promise.allSettled(
+        [art.foto_url, art.factura_url, art.manual_url, ...certUrls].filter(Boolean).map(deleteFileByUrl)
       );
-      if (!result.rows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
-
-      const art = result.rows[0];
-      if (art.estado === 'asignado') {
-        throw buildError('No se puede eliminar un artículo con custodia activa', 409, 'ARTICULO_ASSIGNED');
-      }
-
-      const { rows: certRows } = await client.query(
-        `SELECT url FROM articulo_certificacion WHERE articulo_id = $1`, [id]
-      );
-
-      await client.query(`DELETE FROM articulo WHERE id = $1`, [id]);
-
-      const gcsCleanups = [art.foto_url, art.factura_url, art.manual_url, ...certRows.map(r => r.url)]
-        .filter(Boolean)
-        .map(url => deleteFileByUrl(url));
-      await Promise.allSettled(gcsCleanups);
 
       await writeAuditEvent({
         client, entidadTipo: 'articulo', entidadId: id,
@@ -379,33 +230,21 @@ class ArticulosService {
   }
 
   static async addCertificacion(articuloId, file, nombre, userId) {
-    const { rows: artRows } = await db.query(
-      `SELECT a.codigo, COUNT(ac.id)::int AS cert_count
-       FROM articulo a
-       LEFT JOIN articulo_certificacion ac ON ac.articulo_id = a.id
-       WHERE a.id = $1
-       GROUP BY a.id, a.codigo`,
-      [articuloId]
-    );
-    if (!artRows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
-    if (artRows[0].cert_count >= 5) {
-      throw buildError('El artículo ya tiene el máximo de 5 certificaciones', 422, 'MAX_CERTIFICACIONES');
-    }
+    const certInfo = await ArticuloModel.getCertInfo(articuloId);
+    if (!certInfo) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
+    if (certInfo.cert_count >= 5) throw buildError('El artículo ya tiene el máximo de 5 certificaciones', 422, 'MAX_CERTIFICACIONES');
 
     const certNombre = nombre || 'cert';
     const url = await uploadDocument(file, {
       folder: 'articulos/certificaciones',
-      filePrefix: `${artRows[0].codigo}_${certNombre}`,
+      filePrefix: `${certInfo.codigo}_${certNombre}`,
     });
 
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
 
-      await client.query(
-        `INSERT INTO articulo_certificacion (articulo_id, nombre, url) VALUES ($1, $2, $3)`,
-        [articuloId, nombre || null, url]
-      );
+      await ArticuloModel.insertCertificacion(client, articuloId, nombre, url);
 
       await writeAuditEvent({
         client, entidadTipo: 'articulo', entidadId: articuloId,
@@ -413,7 +252,7 @@ class ArticulosService {
         diff: { certificacion_added: nombre || url },
       });
 
-      const data = await ArticulosService._getByIdWithClient(client, articuloId);
+      const data = await ArticuloModel.findByIdWithClient(client, articuloId);
       await client.query('COMMIT');
       return data;
     } catch (error) {
@@ -430,15 +269,11 @@ class ArticulosService {
     try {
       await client.query('BEGIN');
 
-      const { rows } = await client.query(
-        `SELECT id, url FROM articulo_certificacion WHERE id = $1 AND articulo_id = $2 FOR UPDATE`,
-        [certId, articuloId]
-      );
-      if (!rows.length) throw buildError('Certificación no encontrada', 404, 'CERT_NOT_FOUND');
+      const cert = await ArticuloModel.findCertificacion(client, certId, articuloId);
+      if (!cert) throw buildError('Certificación no encontrada', 404, 'CERT_NOT_FOUND');
 
-      const certUrl = rows[0].url;
-      await client.query(`DELETE FROM articulo_certificacion WHERE id = $1`, [certId]);
-      await deleteFileByUrl(certUrl).catch(() => {});
+      await ArticuloModel.deleteCertificacionById(client, certId);
+      await deleteFileByUrl(cert.url).catch(() => {});
 
       await writeAuditEvent({
         client, entidadTipo: 'articulo', entidadId: articuloId,
@@ -446,7 +281,7 @@ class ArticulosService {
         diff: { certificacion_deleted: certId },
       });
 
-      const data = await ArticulosService._getByIdWithClient(client, articuloId);
+      const data = await ArticuloModel.findByIdWithClient(client, articuloId);
       await client.query('COMMIT');
       return data;
     } catch (error) {
@@ -462,12 +297,9 @@ class ArticulosService {
     try {
       await client.query('BEGIN');
 
-      const result = await client.query(
-        `SELECT id, estado, bodega_actual_id, proyecto_actual_id FROM articulo WHERE id = $1 FOR UPDATE`, [id]
-      );
-      if (!result.rows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
+      const art = await ArticuloModel.getForStateChange(client, id);
+      if (!art) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
 
-      const art = result.rows[0];
       const key = `${art.estado}→${nuevo_estado}`;
       const transicion = TRANSICIONES_DIRECTAS[key];
       if (!transicion) {
@@ -477,11 +309,7 @@ class ArticulosService {
         );
       }
 
-      const custodiaResult = await client.query(
-        `SELECT id FROM custodia_activo WHERE articulo_id = $1 AND estado = 'activa' LIMIT 1`,
-        [id]
-      );
-      if (custodiaResult.rows.length) {
+      if (await ArticuloModel.hasCustodiaActiva(client, id)) {
         throw buildError(
           'El artículo tiene custodia activa. Debe procesarse mediante devolución.',
           422, 'ACTIVE_CUSTODY_EXISTS'
@@ -490,42 +318,26 @@ class ArticulosService {
 
       let nuevaBodega = null;
       if (transicion.cambia_bodega) {
-        if (!bodega_destino_id) {
-          throw buildError('Se requiere bodega_destino_id para esta transición', 400, 'BODEGA_REQUIRED');
-        }
-        const ubResult = await client.query(
-          `SELECT id FROM bodegas WHERE id = $1`, [bodega_destino_id]
-        );
-        if (!ubResult.rows.length) throw buildError('Bodega no encontrada', 404, 'BODEGA_NOT_FOUND');
+        if (!bodega_destino_id) throw buildError('Se requiere bodega_destino_id para esta transición', 400, 'BODEGA_REQUIRED');
+        const { rows: ubRows } = await client.query(`SELECT id FROM bodegas WHERE id = $1`, [bodega_destino_id]);
+        if (!ubRows.length) throw buildError('Bodega no encontrada', 404, 'BODEGA_NOT_FOUND');
         nuevaBodega = bodega_destino_id;
       }
 
-      const clearProyecto = nuevo_estado === 'en_stock';
-      await client.query(
-        `UPDATE articulo SET
-           estado             = $1,
-           bodega_actual_id   = $2,
-           proyecto_actual_id = $3
-         WHERE id = $4`,
-        [
-          nuevo_estado,
-          transicion.cambia_bodega ? nuevaBodega : art.bodega_actual_id,
-          clearProyecto ? null : (art.proyecto_actual_id ?? null),
-          id,
-        ]
-      );
+      await ArticuloModel.updateEstado(client, id, {
+        estado:            nuevo_estado,
+        bodega_actual_id:  transicion.cambia_bodega ? nuevaBodega : art.bodega_actual_id,
+        proyecto_actual_id: nuevo_estado === 'en_stock' ? null : (art.proyecto_actual_id ?? null),
+      });
 
-      await client.query(
-        `INSERT INTO movimiento_activo
-           (articulo_id, tipo, bodega_origen_id, bodega_destino_id, responsable_usuario_id, notas)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [
-          id, transicion.mov_tipo,
-          art.bodega_actual_id,
-          transicion.cambia_bodega ? nuevaBodega : null,
-          userId, motivo || null,
-        ]
-      );
+      await ArticuloModel.insertMovimiento(client, {
+        articuloId:           id,
+        tipo:                 transicion.mov_tipo,
+        bodegaOrigenId:       art.bodega_actual_id,
+        bodegaDestinoId:      transicion.cambia_bodega ? nuevaBodega : null,
+        responsableUsuarioId: userId,
+        notas:                motivo || null,
+      });
 
       await writeAuditEvent({
         client, entidadTipo: 'articulo', entidadId: id,
@@ -533,7 +345,7 @@ class ArticulosService {
         diff: { estado: nuevo_estado, motivo },
       });
 
-      const updated = await ArticulosService._getByIdWithClient(client, id);
+      const updated = await ArticuloModel.findByIdWithClient(client, id);
       await client.query('COMMIT');
       return updated;
     } catch (error) {

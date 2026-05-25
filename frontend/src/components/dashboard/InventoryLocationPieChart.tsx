@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { Articulo } from '../../services/apiService';
 
-const CX = 300, CY = 150, R = 90;
+const CX = 300, CY = 190, R = 104;
 const COLORS = ['#1E2A4A', '#2A64A4', '#3D7EC8', '#5B9FE0', '#8DC3F5', '#B8D9F8'];
 const COLOR_NONE = '#CBD5E1';
 
@@ -73,7 +73,7 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
 
   return (
     <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-5">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-5">
         <span className="text-xs font-bold uppercase tracking-widest text-gray-400">
           Distribución por ciudad
         </span>
@@ -83,12 +83,12 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
       </div>
 
       <div className="mx-auto w-full" style={{ maxWidth: 'min(100%, 460px)' }}>
-      <svg viewBox="0 0 600 300" className="w-full" style={{ overflow: 'visible' }}>
+      <svg viewBox="0 0 600 380" className="w-full" style={{ overflow: 'visible' }}>
         {slices.map((s) => {
           const isActive = hovered === s.index || selected === s.index;
           const midRad = (s.mid - 90) * Math.PI / 180;
-          const dx = isActive ? (8 * Math.cos(midRad)).toFixed(2) : '0';
-          const dy = isActive ? (8 * Math.sin(midRad)).toFixed(2) : '0';
+          const dx = isActive ? (9 * Math.cos(midRad)).toFixed(2) : '0';
+          const dy = isActive ? (9 * Math.sin(midRad)).toFixed(2) : '0';
           const c1 = polarToXY(s.mid, R * 1.05);
           const c2 = polarToXY(s.mid, R * 1.38);
           const lbl = polarToXY(s.mid, R * 1.53);
@@ -139,7 +139,7 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
                 textAnchor={anchor}
                 style={{
                   fontFamily: 'inherit',
-                  fontSize: '12px',
+                  fontSize: '14px',
                   fontWeight: selected === s.index ? '700' : '600',
                   fill: selected === s.index ? '#2A64A4' : '#1E2A4A',
                   pointerEvents: 'none',
@@ -149,11 +149,11 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
                 {s.city}
               </text>
               <text
-                x={lbl.x.toFixed(2)} y={(lbl.y + 13).toFixed(2)}
+                x={lbl.x.toFixed(2)} y={(lbl.y + 16).toFixed(2)}
                 textAnchor={anchor}
                 style={{
                   fontFamily: 'inherit',
-                  fontSize: '10px',
+                  fontSize: '12px',
                   fill: selected === s.index ? '#4A90D9' : '#94A3B8',
                   pointerEvents: 'none',
                   transition: 'fill 0.18s ease',

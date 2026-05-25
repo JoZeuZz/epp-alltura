@@ -1,420 +1,260 @@
+'use strict';
+
 const db = require('../db');
-const { buildSetClause, normalizePagination } = require('./modelUtils');
+const { normalizePagination } = require('./modelUtils');
 
-// Legacy validation helpers (inlined after articuloValidation.js removal)
-const GRUPOS_VALIDOS = new Set(['epp', 'equipo', 'herramienta']);
-const SUBCLASIFICACIONES_POR_GRUPO = {
-  epp: new Set(['epp']),
-  equipo: new Set(['medicion_ensayos']),
-  herramienta: new Set(['manual', 'electrica_cable', 'inalambrica_bateria']),
-};
-const SUBCLASIFICACIONES_NO_SERIALES = new Set(['epp']);
-const ESPECIALIDADES_VALIDAS = new Set([
-  'oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida',
-]);
-
-const normalizeKey = (value) => String(value || '').trim().toLowerCase();
-
-const normalizeGrupoPrincipal = (value) => {
-  if (value === undefined) return undefined;
-  const normalized = normalizeKey(value);
-  return GRUPOS_VALIDOS.has(normalized) ? normalized : null;
-};
-
-const normalizeSubclasificacion = (value, grupoPrincipal) => {
-  if (value === undefined) return undefined;
-  const normalized = normalizeKey(value);
-  if (!normalized) return null;
-  if (!grupoPrincipal) {
-    const allowedInAnyGroup = Object.values(SUBCLASIFICACIONES_POR_GRUPO).some((set) =>
-      set.has(normalized)
-    );
-    return allowedInAnyGroup ? normalized : null;
-  }
-  const allowedForGroup = SUBCLASIFICACIONES_POR_GRUPO[grupoPrincipal];
-  return allowedForGroup && allowedForGroup.has(normalized) ? normalized : null;
-};
-
-const normalizeEspecialidades = (value) => {
-  if (!Array.isArray(value)) return undefined;
-  const seen = new Set();
-  const result = [];
-  for (const item of value) {
-    const key = normalizeKey(item);
-    if (!key || !ESPECIALIDADES_VALIDAS.has(key) || seen.has(key)) continue;
-    seen.add(key);
-    result.push(key);
-  }
-  return result;
-};
-
-const resolveTrackingMode = (subclasificacion) => {
-  if (!subclasificacion) return 'serial';
-  return SUBCLASIFICACIONES_NO_SERIALES.has(subclasificacion) ? 'lote' : 'serial';
-};
+const RICH_SELECT = `
+  SELECT a.*,
+    COALESCE(json_agg(ae.especialidad ORDER BY ae.especialidad) FILTER (WHERE ae.especialidad IS NOT NULL), '[]') AS especialidades,
+    COALESCE(
+      json_agg(
+        json_build_object('id', ac.id, 'nombre', ac.nombre, 'url', ac.url, 'creado_en', ac.creado_en)
+        ORDER BY ac.creado_en
+      ) FILTER (WHERE ac.id IS NOT NULL),
+      '[]'
+    ) AS certificaciones,
+    b.nombre   AS bodega_nombre,
+    pr.nombre  AS proyecto_nombre,
+    b.ciudad   AS bodega_ciudad,
+    pr.ciudad  AS proyecto_ciudad,
+    u.email_login AS creado_por_email,
+    prov.nombre   AS proveedor_nombre
+  FROM articulo a
+  LEFT JOIN articulo_especialidad ae   ON ae.articulo_id   = a.id
+  LEFT JOIN articulo_certificacion ac  ON ac.articulo_id   = a.id
+  LEFT JOIN bodegas b                  ON b.id             = a.bodega_actual_id
+  LEFT JOIN proyectos pr               ON pr.id            = a.proyecto_actual_id
+  LEFT JOIN usuario u                  ON u.id             = a.creado_por_usuario_id
+  LEFT JOIN proveedor prov             ON prov.id          = a.proveedor_id
+`;
 
 class ArticuloModel {
-  constructor(data) {
-    const grupoPrincipal = normalizeGrupoPrincipal(data.grupo_principal) || 'herramienta';
-    const subclasificacion = normalizeSubclasificacion(data.subclasificacion, grupoPrincipal) || null;
-    const especialidades = normalizeEspecialidades(
-      Array.isArray(data.especialidades) ? data.especialidades : []
+  static async findAll(filters = {}) {
+    const { tipo, estado, bodega_id, proyecto_id, especialidad, search } = filters;
+    const { limit, offset } = normalizePagination(filters.limit, filters.offset);
+    const conditions = [];
+    const params = [];
+    let p = 1;
+
+    if (tipo)        { conditions.push(`a.tipo = $${p++}`);               params.push(tipo); }
+    if (estado)      { conditions.push(`a.estado = $${p++}`);             params.push(estado); }
+    if (bodega_id)   { conditions.push(`a.bodega_actual_id = $${p++}`);   params.push(bodega_id); }
+    if (proyecto_id) { conditions.push(`a.proyecto_actual_id = $${p++}`); params.push(proyecto_id); }
+    if (search) {
+      conditions.push(`(a.nombre ILIKE $${p} OR a.nro_serie ILIKE $${p} OR a.codigo ILIKE $${p})`);
+      params.push(`%${search}%`);
+      p++;
+    }
+    if (especialidad) {
+      conditions.push(
+        `EXISTS (SELECT 1 FROM articulo_especialidad ae WHERE ae.articulo_id = a.id AND ae.especialidad = $${p++})`
+      );
+      params.push(especialidad);
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const result = await db.query(
+      `SELECT a.*,
+              COALESCE(json_agg(ae.especialidad ORDER BY ae.especialidad) FILTER (WHERE ae.especialidad IS NOT NULL), '[]') AS especialidades,
+              b.nombre   AS bodega_nombre,
+              pr.nombre  AS proyecto_nombre,
+              b.ciudad   AS bodega_ciudad,
+              pr.ciudad  AS proyecto_ciudad
+       FROM articulo a
+       LEFT JOIN articulo_especialidad ae ON ae.articulo_id = a.id
+       LEFT JOIN bodegas b                ON b.id           = a.bodega_actual_id
+       LEFT JOIN proyectos pr             ON pr.id          = a.proyecto_actual_id
+       ${where}
+       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad
+       ORDER BY a.creado_en DESC
+       LIMIT $${p} OFFSET $${p + 1}`,
+      [...params, Number(limit), Number(offset)]
     );
 
-    this.id = data.id;
-    this.grupo_principal = grupoPrincipal;
-    this.subclasificacion = subclasificacion;
-    this.especialidades = especialidades || [];
-    this.nombre = data.nombre;
-    this.marca = data.marca;
-    this.modelo = data.modelo;
-    this.nivel_control = data.nivel_control;
-    this.requiere_vencimiento = data.requiere_vencimiento;
-    this.unidad_medida = data.unidad_medida;
-    this.foto_url = data.foto_url || null;
-    this.estado = data.estado;
-    this.creado_en = data.creado_en;
+    const countResult = await db.query(
+      `SELECT COUNT(*) FROM articulo a ${where}`,
+      params
+    );
+
+    return { items: result.rows, total: parseInt(countResult.rows[0].count, 10) };
   }
 
-  static async create(fields) {
-    const grupoPrincipal = normalizeGrupoPrincipal(fields.grupo_principal);
-    const subclasificacion = normalizeSubclasificacion(fields.subclasificacion, grupoPrincipal);
-    const especialidades = normalizeEspecialidades(fields.especialidades) || [];
-
-    if (!grupoPrincipal) {
-      const error = new Error('grupo_principal es obligatorio');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    if (!subclasificacion) {
-      const error = new Error('subclasificacion es obligatoria y debe ser válida para el grupo principal');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    if (!String(fields.marca || '').trim()) {
-      const error = new Error('marca es obligatoria');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    if (!String(fields.modelo || '').trim()) {
-      const error = new Error('modelo es obligatorio');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    const trackingMode = resolveTrackingMode(subclasificacion);
-
-    const client = await db.pool.connect();
-    try {
-      await client.query('BEGIN');
-
-      const { rows } = await client.query(
-        `
-        INSERT INTO articulo (
-          grupo_principal,
-          nombre,
-          marca,
-          modelo,
-          subclasificacion,
-          tracking_mode,
-          nivel_control,
-          requiere_vencimiento,
-          unidad_medida,
-          foto_url,
-          estado
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        RETURNING id
-        `,
-        [
-          grupoPrincipal,
-          fields.nombre,
-          String(fields.marca || '').trim(),
-          String(fields.modelo || '').trim(),
-          subclasificacion,
-          trackingMode,
-          fields.nivel_control,
-          Boolean(fields.requiere_vencimiento),
-          fields.unidad_medida,
-          fields.foto_url || null,
-          fields.estado || 'activo',
-        ]
-      );
-
-      const articuloId = rows[0].id;
-
-      for (const especialidad of especialidades) {
-        await client.query(
-          `
-          INSERT INTO articulo_especialidad (articulo_id, especialidad)
-          VALUES ($1, $2)
-          `,
-          [articuloId, especialidad]
-        );
-      }
-
-      await client.query('COMMIT');
-      return ArticuloModel.findById(articuloId);
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
+  static async findByIdWithClient(client, id) {
+    const result = await client.query(
+      `${RICH_SELECT}
+       WHERE a.id = $1
+       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad, u.email_login, prov.nombre`,
+      [id]
+    );
+    return result.rows[0] || null;
   }
 
   static async findById(id) {
-    const { rows } = await db.query(
-      `
-      SELECT
-        a.id,
-        a.grupo_principal,
-        a.subclasificacion,
-        a.nombre,
-        a.marca,
-        a.modelo,
-        a.nivel_control,
-        a.requiere_vencimiento,
-        a.unidad_medida,
-        a.foto_url,
-        a.estado,
-        a.creado_en,
-        COALESCE(
-          ARRAY_REMOVE(ARRAY_AGG(DISTINCT ae.especialidad), NULL),
-          ARRAY[]::varchar[]
-        ) AS especialidades
-      FROM articulo a
-      LEFT JOIN articulo_especialidad ae ON ae.articulo_id = a.id
-      WHERE a.id = $1
-      GROUP BY a.id
-      `,
-      [id]
-    );
-
-    return rows.length ? new ArticuloModel(rows[0]) : null;
-  }
-
-  static async findAll(filters = {}) {
-    const {
-      grupo_principal,
-      estado,
-      search,
-      subclasificacion,
-      especialidad,
-    } = filters;
-    const { limit, offset } = normalizePagination(filters.limit, filters.offset);
-
-    const conditions = [];
-    const values = [];
-
-    const hasGrupoFilter = Boolean(grupo_principal);
-    const resolvedGrupoPrincipal = hasGrupoFilter ? normalizeGrupoPrincipal(grupo_principal) : undefined;
-
-    if (hasGrupoFilter && !resolvedGrupoPrincipal) {
-      return [];
-    }
-
-    if (resolvedGrupoPrincipal) {
-      values.push(resolvedGrupoPrincipal);
-      conditions.push(`a.grupo_principal = $${values.length}`);
-    }
-
-    if (estado) {
-      values.push(estado);
-      conditions.push(`a.estado = $${values.length}`);
-    }
-
-    if (subclasificacion) {
-      const normalizedSubclasificacion = normalizeSubclasificacion(
-        subclasificacion,
-        resolvedGrupoPrincipal
-      );
-
-      if (!normalizedSubclasificacion) {
-        return [];
-      }
-
-      values.push(normalizedSubclasificacion);
-      conditions.push(`a.subclasificacion = $${values.length}`);
-    }
-
-    if (especialidad) {
-      const normalizedEspecialidad = normalizeEspecialidades([especialidad]);
-      if (!normalizedEspecialidad || !normalizedEspecialidad.length) {
-        return [];
-      }
-
-      values.push(normalizedEspecialidad[0]);
-      conditions.push(
-        `EXISTS (
-          SELECT 1
-          FROM articulo_especialidad aes
-          WHERE aes.articulo_id = a.id
-            AND aes.especialidad = $${values.length}
-        )`
-      );
-    }
-
-    if (search) {
-      values.push(`%${search}%`);
-      conditions.push(`(
-        a.nombre ILIKE $${values.length}
-        OR a.marca ILIKE $${values.length}
-        OR a.modelo ILIKE $${values.length}
-        OR COALESCE(a.subclasificacion, '') ILIKE $${values.length}
-      )`);
-    }
-
-    let query = `
-      SELECT
-        a.id,
-        a.grupo_principal,
-        a.subclasificacion,
-        a.nombre,
-        a.marca,
-        a.modelo,
-        a.nivel_control,
-        a.requiere_vencimiento,
-        a.unidad_medida,
-        a.foto_url,
-        a.estado,
-        a.creado_en,
-        COALESCE(
-          ARRAY_REMOVE(ARRAY_AGG(DISTINCT ae.especialidad), NULL),
-          ARRAY[]::varchar[]
-        ) AS especialidades
-      FROM articulo a
-      LEFT JOIN articulo_especialidad ae ON ae.articulo_id = a.id
-    `;
-
-    if (conditions.length > 0) {
-      query += ` WHERE ${conditions.join(' AND ')}`;
-    }
-
-    query += ' GROUP BY a.id';
-
-    values.push(limit, offset);
-    query += ` ORDER BY a.creado_en DESC LIMIT $${values.length - 1} OFFSET $${values.length}`;
-
-    const { rows } = await db.query(query, values);
-    return rows.map((row) => new ArticuloModel(row));
-  }
-
-  static async update(id, fields) {
-    const hasGrupoPrincipalUpdate = Object.prototype.hasOwnProperty.call(fields, 'grupo_principal');
-    const hasSubclasificacionUpdate = Object.prototype.hasOwnProperty.call(fields, 'subclasificacion');
-
-    const current = await ArticuloModel.findById(id);
-    if (!current) {
-      return null;
-    }
-
-    const grupoPrincipal = hasGrupoPrincipalUpdate
-      ? normalizeGrupoPrincipal(fields.grupo_principal)
-      : current.grupo_principal;
-
-    if (hasGrupoPrincipalUpdate && !grupoPrincipal) {
-      const error = new Error('grupo_principal es inválido');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    if (hasGrupoPrincipalUpdate && !hasSubclasificacionUpdate) {
-      const error = new Error('Si actualiza grupo_principal debe enviar subclasificacion compatible');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    const subclasificacion = hasSubclasificacionUpdate
-      ? normalizeSubclasificacion(fields.subclasificacion, grupoPrincipal)
-      : current.subclasificacion;
-
-    if (hasSubclasificacionUpdate && !subclasificacion) {
-      const error = new Error('subclasificacion inválida para el grupo principal indicado');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(fields, 'marca') && !String(fields.marca || '').trim()) {
-      const error = new Error('marca es obligatoria');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(fields, 'modelo') && !String(fields.modelo || '').trim()) {
-      const error = new Error('modelo es obligatorio');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    const especialidades = Object.prototype.hasOwnProperty.call(fields, 'especialidades')
-      ? normalizeEspecialidades(fields.especialidades) || []
-      : undefined;
-
-    const updateFields = {
-      grupo_principal: grupoPrincipal,
-      nombre: fields.nombre,
-      marca: Object.prototype.hasOwnProperty.call(fields, 'marca')
-        ? String(fields.marca || '').trim()
-        : undefined,
-      modelo: Object.prototype.hasOwnProperty.call(fields, 'modelo')
-        ? String(fields.modelo || '').trim()
-        : undefined,
-      subclasificacion,
-      tracking_mode:
-        hasGrupoPrincipalUpdate || hasSubclasificacionUpdate
-          ? resolveTrackingMode(subclasificacion)
-          : undefined,
-      nivel_control: fields.nivel_control,
-      requiere_vencimiento: fields.requiere_vencimiento,
-      unidad_medida: fields.unidad_medida,
-      foto_url: fields.foto_url,
-      estado: fields.estado,
-    };
-
-    const { clause, values } = buildSetClause(updateFields);
-
-    if (!clause && especialidades === undefined) {
-      return current;
-    }
-
     const client = await db.pool.connect();
     try {
-      await client.query('BEGIN');
-
-      if (clause) {
-        values.push(id);
-        await client.query(
-          `UPDATE articulo SET ${clause} WHERE id = $${values.length} RETURNING id`,
-          values
-        );
-      }
-
-      if (especialidades !== undefined) {
-        await client.query('DELETE FROM articulo_especialidad WHERE articulo_id = $1', [id]);
-
-        for (const especialidad of especialidades) {
-          await client.query(
-            `
-            INSERT INTO articulo_especialidad (articulo_id, especialidad)
-            VALUES ($1, $2)
-            `,
-            [id, especialidad]
-          );
-        }
-      }
-
-      await client.query('COMMIT');
-      return ArticuloModel.findById(id);
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
+      return await ArticuloModel.findByIdWithClient(client, id);
     } finally {
       client.release();
     }
+  }
+
+  static async getRawForUpdate(client, id) {
+    const { rows } = await client.query(
+      `SELECT id, estado, foto_url, factura_url, manual_url, nro_serie, proveedor_id, fecha_compra, fecha_vencimiento
+       FROM articulo WHERE id = $1 FOR UPDATE`,
+      [id]
+    );
+    return rows[0] || null;
+  }
+
+  static async getForStateChange(client, id) {
+    const { rows } = await client.query(
+      `SELECT id, estado, bodega_actual_id, proyecto_actual_id FROM articulo WHERE id = $1 FOR UPDATE`,
+      [id]
+    );
+    return rows[0] || null;
+  }
+
+  static async insert(client, fields) {
+    const result = await client.query(
+      `INSERT INTO articulo
+         (tipo, nombre, marca, modelo, descripcion, nro_serie, codigo, valor,
+          foto_url, estado, bodega_actual_id, fecha_vencimiento,
+          fecha_compra, proveedor_id, factura_url, manual_url,
+          creado_por_usuario_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'en_stock',$10,$11,$12,$13,$14,$15,$16)
+       RETURNING id`,
+      [
+        fields.tipo,              fields.nombre,
+        fields.marca         || null,
+        fields.modelo        || null,
+        fields.descripcion   || null,
+        fields.nro_serie,         fields.codigo,
+        fields.valor         ?? 0,
+        fields.foto_url      || null,
+        fields.bodega_id,
+        fields.fecha_vencimiento || null,
+        fields.fecha_compra      || null,
+        fields.proveedor_id      || null,
+        fields.factura_url   || null,
+        fields.manual_url    || null,
+        fields.creado_por_usuario_id,
+      ]
+    );
+    return result.rows[0].id;
+  }
+
+  static async updateFields(client, id, fields) {
+    await client.query(
+      `UPDATE articulo SET
+         nombre            = COALESCE($1,  nombre),
+         marca             = COALESCE($2,  marca),
+         modelo            = COALESCE($3,  modelo),
+         descripcion       = COALESCE($4,  descripcion),
+         nro_serie         = $5,
+         codigo            = $6,
+         valor             = COALESCE($7,  valor),
+         foto_url          = $8,
+         fecha_vencimiento = $9,
+         fecha_compra      = $10,
+         proveedor_id      = $11,
+         factura_url       = $12,
+         manual_url        = $13
+       WHERE id = $14`,
+      [
+        fields.nombre      || null,
+        fields.marca       || null,
+        fields.modelo      || null,
+        fields.descripcion || null,
+        fields.nro_serie,  fields.codigo,
+        fields.valor       ?? null,
+        fields.foto_url,
+        fields.fecha_vencimiento,
+        fields.fecha_compra,
+        fields.proveedor_id,
+        fields.factura_url,
+        fields.manual_url,
+        id,
+      ]
+    );
+  }
+
+  static async updateEstado(client, id, { estado, bodega_actual_id, proyecto_actual_id }) {
+    await client.query(
+      `UPDATE articulo SET estado = $1, bodega_actual_id = $2, proyecto_actual_id = $3 WHERE id = $4`,
+      [estado, bodega_actual_id, proyecto_actual_id, id]
+    );
+  }
+
+  static async deleteById(client, id) {
+    await client.query(`DELETE FROM articulo WHERE id = $1`, [id]);
+  }
+
+  static async upsertEspecialidades(client, articuloId, especialidades) {
+    await client.query(`DELETE FROM articulo_especialidad WHERE articulo_id = $1`, [articuloId]);
+    for (const esp of especialidades) {
+      await client.query(
+        `INSERT INTO articulo_especialidad (articulo_id, especialidad) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [articuloId, esp]
+      );
+    }
+  }
+
+  static async insertMovimiento(client, { articuloId, tipo, bodegaOrigenId, bodegaDestinoId, responsableUsuarioId, notas }) {
+    await client.query(
+      `INSERT INTO movimiento_activo
+         (articulo_id, tipo, bodega_origen_id, bodega_destino_id, responsable_usuario_id, notas)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [articuloId, tipo, bodegaOrigenId || null, bodegaDestinoId || null, responsableUsuarioId, notas || null]
+    );
+  }
+
+  static async hasCustodiaActiva(client, id) {
+    const { rows } = await client.query(
+      `SELECT id FROM custodia_activo WHERE articulo_id = $1 AND estado = 'activa' LIMIT 1`,
+      [id]
+    );
+    return rows.length > 0;
+  }
+
+  static async getCertInfo(articuloId) {
+    const { rows } = await db.query(
+      `SELECT a.codigo, COUNT(ac.id)::int AS cert_count
+       FROM articulo a
+       LEFT JOIN articulo_certificacion ac ON ac.articulo_id = a.id
+       WHERE a.id = $1
+       GROUP BY a.id, a.codigo`,
+      [articuloId]
+    );
+    return rows[0] || null;
+  }
+
+  static async insertCertificacion(client, articuloId, nombre, url) {
+    await client.query(
+      `INSERT INTO articulo_certificacion (articulo_id, nombre, url) VALUES ($1, $2, $3)`,
+      [articuloId, nombre || null, url]
+    );
+  }
+
+  static async findCertificacion(client, certId, articuloId) {
+    const { rows } = await client.query(
+      `SELECT id, url FROM articulo_certificacion WHERE id = $1 AND articulo_id = $2 FOR UPDATE`,
+      [certId, articuloId]
+    );
+    return rows[0] || null;
+  }
+
+  static async deleteCertificacionById(client, certId) {
+    await client.query(`DELETE FROM articulo_certificacion WHERE id = $1`, [certId]);
+  }
+
+  static async getCertUrls(client, articuloId) {
+    const { rows } = await client.query(
+      `SELECT url FROM articulo_certificacion WHERE articulo_id = $1`,
+      [articuloId]
+    );
+    return rows.map((r) => r.url);
   }
 }
 
