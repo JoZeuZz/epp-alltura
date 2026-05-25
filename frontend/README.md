@@ -1,91 +1,195 @@
-# Frontend Alltura
+# Frontend — Alltura Control Operativo
 
-Aplicacion React para operacion de inventario, articulos, custodias, firmas y trazabilidad.
+SPA React para gestión de inventario, custodia de activos, entregas, devoluciones y firma digital.
+
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)
+![Vitest](https://img.shields.io/badge/Tests-Vitest-6E9F18?logo=vitest&logoColor=white)
+
+---
 
 ## Stack
 
-- React 19
-- TypeScript
-- Vite
-- React Router
-- TanStack Query
-- Tailwind CSS
+| Tecnología | Uso |
+|---|---|
+| React 19 | UI |
+| TypeScript 5 | Tipado estático |
+| Vite 6 | Bundler, dev server, HMR |
+| TanStack Query 5 | Server state, caché, invalidación |
+| React Hook Form + Zod | Formularios y validación |
+| Tailwind CSS | Estilos utilitarios |
+| `@jozeuZz/alltura-ui` | Design system interno |
+| React Router DOM | Enrutamiento |
+| Axios | Cliente HTTP |
+| Lucide React | Iconografía |
+| `react-hot-toast` | Notificaciones toast |
+| `xlsx` + `file-saver` | Exportación Excel |
+| `qrcode.react` | Generación de QR |
+| `@fdograph/rut-utilities` | Validación RUT chileno |
 
-## Rutas activas
+---
 
-Publicas:
+## Rutas
 
-- /login
-- /firma/:token
+### Públicas
 
-Admin:
+| Ruta | Componente | Descripción |
+|---|---|---|
+| `/login` | `LoginPage` | Autenticación |
+| `/firma/:token` | `PublicSignPage` | Firma digital via QR (sin sesión) |
 
-- /admin/dashboard
-- /admin/trabajadores
-- /admin/users
-- /admin/ubicacion/bodegas
-- /admin/ubicacion/proyectos
-- /admin/inventario/epp
-- /admin/inventario/equipos
-- /admin/inventario/herramientas
-- /admin/inventario/articulos
+### Admin
 
-Supervisor:
+| Ruta | Componente | Descripción |
+|---|---|---|
+| `/admin/dashboard` | `AdminDashboard` | Métricas e indicadores operativos |
+| `/admin/trabajadores` | `AdminTrabajadoresPage` | Gestión de trabajadores |
+| `/admin/users` | `UsersPage` | Gestión de usuarios del sistema |
+| `/admin/ubicacion/bodegas` | `AdminBodegasPage` | CRUD de bodegas |
+| `/admin/ubicacion/proyectos` | `AdminProyectosPage` | CRUD de proyectos |
+| `/admin/inventario/epp` | `AdminInventoryEppPage` | Inventario EPP |
+| `/admin/inventario/equipos` | `AdminInventoryEquiposPage` | Inventario equipos |
+| `/admin/inventario/herramientas` | `AdminInventoryHerramientasPage` | Inventario herramientas |
+| `/admin/inventario/articulos` | `AdminInventoryScopedAssetPage` | Vista unificada de activos |
 
-- /supervisor/dashboard
+### Supervisor
 
-## Flujo operativo actual en UI
+| Ruta | Componente | Descripción |
+|---|---|---|
+| `/supervisor/dashboard` | `SupervisorDashboard` | Dashboard operativo |
 
-No hay pagina dedicada activa para entregas/devoluciones en el router principal.
+### Compartidas
 
-El flujo vigente se ejecuta desde el perfil de activo:
+| Ruta | Descripción |
+|---|---|
+| `/perfil` | Perfil del usuario autenticado |
+| `/notificaciones` | Centro de notificaciones push |
 
-1. Seleccionar activo en inventario por scope.
-2. Abrir perfil de activo.
-3. Entrega:
-   - crear borrador (EntregaCreateModal)
-   - firmar (EntregaFirmaModal)
-   - confirmar entrega
-4. Devolucion:
-   - crear borrador (DevolucionActivoModal)
-   - firmar (DevolucionFirmaModal)
-   - confirmar devolucion
+---
 
-SSE:
+## Flujo operativo principal
 
-- useDeliverySignatureEvents escucha delivery-signed y return-signed para actualizar flujo de firma remota.
+Entregas y devoluciones se ejecutan desde el perfil del activo (modal), no desde páginas dedicadas:
 
-## Contratos cliente (same-origin)
+```
+Inventario (scope: epp / equipos / herramientas)
+  └─► ActivoProfileModal
+        ├─► [Entrega]
+        │     EntregaCreateModal (borrador)
+        │       └─► EntregaFirmaModal (firma QR o dispositivo)
+        │             └─► Confirmar entrega → custodia abierta
+        │
+        └─► [Devolución]
+              DevolucionActivoModal (borrador + disposición)
+                └─► DevolucionFirmaModal (firma QR o dispositivo)
+                      └─► Confirmar devolución → custodia cerrada
+```
 
-La app consume rutas relativas /api mediante apiService/httpClient.
+**Sincronización de firma en tiempo real:**
 
-Ejemplos:
+```
+useDeliverySignatureEvents (SSE)
+  └─► escucha: delivery-signed, return-signed
+  └─► actualiza estado de UI sin polling
+```
 
-- /api/articulos
-- /api/inventario/activos-paged
-- /api/entregas
-- /api/devoluciones
-- /api/firmas/events/deliveries
+---
 
-## Tipos de articulo en frontend
+## Estructura de componentes
 
-Contrato vigente:
+```
+src/
+├── components/
+│   ├── forms/          # Modales operativos (EntregaCreateModal, DevolucionActivoModal, etc.)
+│   ├── dashboard/      # MetricCard, StatsCard, InventoryLocationPieChart
+│   ├── cards/          # EntityCard genérica
+│   ├── layout/         # Container, ResponsiveGrid, ResponsiveTable
+│   ├── tools/          # ToolCard, ToolGrid
+│   └── icons/          # Iconos SVG propios
+├── hooks/
+│   ├── useAuth          # Sesión, roles, logout
+│   ├── useGet / useMutate  # Wrappers TanStack Query sobre axios
+│   ├── useDeliverySignatureEvents  # SSE de firmas
+│   ├── usePdfDownload   # Descarga de PDF bufferizado
+│   ├── useExcelExport   # Exportación xlsx
+│   ├── useNotifications # Web push
+│   └── useTour          # Tour guiado interactivo
+├── pages/
+│   ├── admin/           # Dashboard, inventario, usuarios, ubicaciones
+│   ├── supervisor/      # Dashboard supervisor
+│   └── *.tsx            # Login, firma pública, perfil, notificaciones
+├── layouts/
+│   └── AppLayout        # Navegación, sidebar, outlet
+└── config/
+    ├── imageLimits.ts   # Límites de compresión/upload de imágenes
+    └── notificationItemCompat.ts
+```
 
-- grupo_principal: epp, equipo, herramienta
-- subclasificacion: epp, medicion_ensayos, manual, electrica_cable, inalambrica_bateria
-- especialidades: oocc, ooee, equipos, trabajos_verticales_lineas_de_vida
+---
+
+## Clasificación de artículos
+
+| `grupo_principal` | `subclasificacion` | `tracking_mode` |
+|---|---|---|
+| `epp` | `epp` | `lote` |
+| `equipo` | `medicion_ensayos` | `serial` |
+| `herramienta` | `manual` | `serial` |
+| `herramienta` | `electrica_cable` | `serial` |
+| `herramienta` | `inalambrica_bateria` | `serial` |
+
+`tracking_mode` es calculado en el backend — nunca se envía en el payload.
+
+---
+
+## Comunicación con backend
+
+La app consume rutas relativas `/api/*` — sin hosts hardcodeados.  
+En producción, Nginx proxea `/api` al backend en el mismo origin.
+
+```ts
+// Correcto
+axios.get('/api/articulos')
+
+// Incorrecto — nunca hardcodear host
+axios.get('http://backend:5000/api/articulos')
+```
+
+---
+
+## Tests
+
+```bash
+npm test          # Vitest (unitarios)
+npm run test:smoke:real  # Playwright E2E contra instancia real
+```
+
+**Cobertura:**
+
+| Tipo | Herramienta |
+|---|---|
+| Unitarios (hooks, componentes) | Vitest + Testing Library |
+| Smoke E2E | Playwright |
+
+---
 
 ## Scripts
 
 ```bash
-npm run dev
-npm run build
-npm run preview
-npm test
+npm run dev        # Dev server (HMR)
+npm run build      # Build de producción
+npm run preview    # Preview del build
+npm run lint       # ESLint + Prettier
+npm test           # Vitest
 ```
 
-## Notas de mantenimiento
+---
 
-- Mantener same-origin /api (sin hosts hardcodeados).
-- apiService y httpClient se han auditado; superficie pública limpia al 2026-05-11.
-- Validar sincronia entre router, apiService y contratos backend al agregar nuevas rutas/vistas.
+## Convenciones de desarrollo
+
+- Mantener same-origin `/api` — sin hosts hardcodeados.
+- Toda mutación de datos vía `useMutate` + invalidación de queries TanStack Query.
+- Formularios con React Hook Form + esquema Zod — nunca validación manual ad-hoc.
+- Imágenes comprimidas con `browser-image-compression` antes del upload.
+- Validar sincronía entre router, `apiService` y contratos del backend al agregar rutas nuevas.

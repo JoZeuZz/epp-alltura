@@ -1,204 +1,220 @@
-# Backend Alltura Equipos y Herramientas
+# Backend — Alltura Control Operativo
 
-API para autenticacion, inventario, articulos, entregas, devoluciones, firmas y trazabilidad.
+API REST para gestión de inventario, custodia de activos, entregas, devoluciones y firma digital.
 
-## Stack
+![Node.js](https://img.shields.io/badge/Node.js-20-339933?logo=node.js&logoColor=white)
+![Express](https://img.shields.io/badge/Express-5-000000?logo=express&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)
+![Jest](https://img.shields.io/badge/Tests-Jest-C21325?logo=jest&logoColor=white)
 
-- Node.js + Express 5
-- PostgreSQL (pg)
-- Redis
-- Joi
-- JWT (access + refresh)
+---
 
 ## Arquitectura
 
-- routes: HTTP + validacion
-- controllers: capa HTTP
-- services: logica de negocio y transacciones
-- models/db: acceso a datos
-
-## Setup rapido
-
-## 1) Instalar dependencias
-
-```bash
-npm install
+```
+Request → middleware pipeline → route → controller → service → model/db → PostgreSQL
+                                                                        ↘ Redis
+                                                                        ↘ GCS
 ```
 
-## 2) Variables minimas
+**Capas:**
 
-```env
-NODE_ENV=development
-PORT=5000
+| Capa | Responsabilidad |
+|---|---|
+| `routes/` | Definición de endpoints, validación Joi, autenticación |
+| `controllers/` | Parseo de request/response HTTP, delegación al service |
+| `services/` | Lógica de negocio, transacciones, orquestación |
+| `models/` | Queries SQL parametrizadas por entidad |
+| `db/` | Pool de conexiones PostgreSQL, inicialización |
+| `middleware/` | Auth, RBAC, rate limit, sanitización, requestId, errorHandler |
+| `lib/` | Utilidades transversales: PDF, GCS, logging, SSE, push notifications |
 
-DB_HOST=localhost
-DB_PORT=55432
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_NAME=herramientas_epp
+---
 
-REDIS_URL=redis://localhost:56379
+## Rutas API
 
-JWT_SECRET=replace_me
-JWT_REFRESH_SECRET=replace_me_too
-AUTH_EVENTS_STREAM_TOKEN_TTL_SECONDS=1800
+Base: `/api`
 
-CLIENT_URL=http://localhost:3000
-SERVICE_URL_FRONTEND=http://localhost:3000
-SERVICE_FQDN_FRONTEND=localhost:3000
-TRUST_PROXY_HOPS=3
+### Autenticación
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/auth/login` | Login con email + password |
+| `POST` | `/auth/refresh` | Renovar access token |
+| `POST` | `/auth/logout` | Invalidar refresh token |
+| `GET` | `/auth/me` | Perfil del usuario autenticado |
+
+### Artículos
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/articulos` | Listar artículos |
+| `GET` | `/articulos/:id` | Detalle de artículo |
+| `POST` | `/articulos` | Crear artículo |
+| `PUT` | `/articulos/:id` | Actualizar artículo |
+| `DELETE` | `/articulos/:id` | Soft delete |
+| `DELETE` | `/articulos/:id/permanent` | Eliminación permanente + destrucción GCS |
+
+> Campos vigentes en payload: `grupo_principal`, `subclasificacion`, `especialidades`.  
+> Rechazados por validación: `tipo`, `categoria`, `tracking_mode`, `retorno_mode`.
+
+### Inventario / Activos
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/inventario/activos` | Listado de activos |
+| `GET` | `/inventario/activos-paged` | Activos paginados |
+| `GET` | `/inventario/activos-disponibles` | Activos sin custodia activa |
+| `GET` | `/inventario/activos/:id/perfil` | Perfil completo del activo |
+| `PATCH` | `/inventario/activos/:id/estado` | Cambiar estado del activo |
+| `PATCH` | `/inventario/activos/:id/reubicar` | Reubicar activo |
+| `PATCH` | `/inventario/activos/:id` | Actualizar activo |
+| `GET` | `/inventario/movimientos-activo` | Historial de movimientos |
+| `GET` | `/inventario/auditoria` | Registro de auditoría |
+| `GET` | `/inventario/stock-summary` | Resumen de stock |
+| `POST` | `/inventario/ingresos` | Registrar ingreso |
+| `DELETE` | `/inventario/ingresos/:id` | Eliminar ingreso |
+
+### Entregas
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/entregas` | Listar entregas |
+| `GET` | `/entregas/:id` | Detalle de entrega |
+| `POST` | `/entregas` | Crear borrador |
+| `POST` | `/entregas/:id/confirm` | Confirmar entrega (exige firma previa) |
+| `POST` | `/entregas/:id/anular` | Anular entrega |
+| `POST` | `/activos/:id/entregar` | Crear entrega desde perfil de activo |
+
+### Devoluciones
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/devoluciones` | Listar devoluciones |
+| `GET` | `/devoluciones/:id` | Detalle de devolución |
+| `GET` | `/devoluciones/activos-elegibles` | Activos con custodia activa del trabajador |
+| `POST` | `/devoluciones` | Crear borrador |
+| `POST` | `/devoluciones/:id/firmar-dispositivo` | Firmar desde dispositivo |
+| `POST` | `/devoluciones/:id/confirm` | Confirmar devolución |
+| `POST` | `/devoluciones/:id/anular` | Anular devolución |
+| `POST` | `/activos/:id/devolver` | Crear devolución desde perfil de activo |
+
+### Firmas digitales
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/firmas/entregas/:id/token` | Generar token QR para entrega |
+| `POST` | `/firmas/entregas/:id/firmar-dispositivo` | Firmar entrega desde dispositivo |
+| `GET` | `/firmas/tokens/:token` | Resolver token público |
+| `POST` | `/firmas/tokens/:token/firmar` | Firmar via token QR |
+| `POST` | `/firmas/devoluciones/:id/token` | Generar token QR para devolución |
+| `GET` | `/firmas/devoluciones/:token` | Resolver token de devolución |
+| `POST` | `/firmas/devoluciones/:token/firmar` | Firmar devolución via token QR |
+
+**SSE (Server-Sent Events):**
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/firmas/events/deliveries/token` | Obtener stream token |
+| `GET` | `/firmas/events/deliveries?stream_token=…` | Suscribir a eventos de firma |
+
+Eventos emitidos: `delivery-signed`, `return-signed`
+
+### Otros módulos
+| Prefijo | Descripción |
+|---|---|
+| `/users` | CRUD de usuarios del sistema |
+| `/trabajadores` | Gestión de trabajadores (entidad dominio) |
+| `/bodegas` | CRUD de bodegas |
+| `/proyectos` | CRUD de proyectos |
+| `/proveedores` | CRUD de proveedores |
+| `/dashboard` | Métricas operativas |
+| `/notifications` | Web push (suscripción, envío) |
+| `/image-proxy` | Proxy de imágenes GCS con signed URLs |
+
+### Health checks
+| Ruta | Descripción |
+|---|---|
+| `/health` | Status general |
+| `/health/live` | Liveness probe |
+| `/health/ready` | Readiness probe (verifica DB + Redis) |
+
+---
+
+## Middleware pipeline
+
+```
+requestId → helmet → cors → compression → rateLimit
+  → bodyParser → sanitization (mongo-sanitize, hpp, xss-clean, dompurify)
+  → auth (JWT verify) → roles (RBAC)
+  → [route handler]
+  → errorHandler
 ```
 
-## 3) Infra local (desde raiz)
-
-```bash
-docker compose -f docker-compose.dev.yml up -d
-```
-
-## 4) Ejecutar API
-
-```bash
-npm run dev
-```
-
-## Endpoints principales
-
-Todos con prefijo /api.
-
-- /auth
-- /users
-- /dashboard
-- /articulos
-- /inventario
-- /entregas
-- /devoluciones
-- /firmas
-- /trabajadores
-- /bodegas
-- /proyectos
-- /proveedores
-- /notifications
-- /compras
-- /activos (sub-rutas de inventario: entregar, devolver)
-- /image-proxy
-
-Health:
-
-- /health
-- /health/live
-- /health/ready
-
-## Contratos vigentes clave
-
-## Articulos
-
-- GET /api/articulos
-- GET /api/articulos/:id
-- POST /api/articulos
-- PUT /api/articulos/:id
-- DELETE /api/articulos/:id
-- DELETE /api/articulos/:id/permanent
-
-Notas:
-
-- payload usa grupo_principal, subclasificacion, especialidades.
-- tipo, categoria, tracking_mode y retorno_mode se rechazan por validacion.
-
-## Entregas
-
-- GET /api/entregas
-- GET /api/entregas/:id
-- POST /api/entregas
-- POST /api/entregas/:id/confirm
-- POST /api/entregas/:id/anular
-
-## Devoluciones
-
-- GET /api/devoluciones/activos-elegibles
-- GET /api/devoluciones
-- GET /api/devoluciones/:id
-- POST /api/devoluciones
-- POST /api/devoluciones/:id/firmar-dispositivo
-- POST /api/devoluciones/:id/confirm
-- POST /api/devoluciones/:id/anular
-
-## Firmas
-
-Entregas:
-
-- GET /api/firmas/tokens/:token
-- POST /api/firmas/tokens/:token/firmar
-- POST /api/firmas/entregas/:entregaId/token
-- POST /api/firmas/entregas/:entregaId/firmar-dispositivo
-
-Devoluciones:
-
-- POST /api/firmas/devoluciones/:devolucionId/token
-- GET /api/firmas/devoluciones/:token
-- POST /api/firmas/devoluciones/:token/firmar
-
-SSE de firmas:
-
-- POST /api/firmas/events/deliveries/token
-- GET /api/firmas/events/deliveries?stream_token=...
-
-Eventos:
-
-- delivery-signed
-- return-signed
-
-## Inventario (rutas principales)
-
-- GET /api/inventario/ingresos
-- POST /api/inventario/ingresos
-- DELETE /api/inventario/ingresos/:id
-- GET /api/inventario/egresos | /egresos/:id
-- POST /api/inventario/egresos
-- DELETE /api/inventario/egresos/:id
-- GET /api/inventario/stock | /stock-summary | /stock-paged
-- GET /api/inventario/movimientos-stock | /movimientos-stock/export
-- GET /api/inventario/movimientos-activo
-- GET /api/inventario/activos | /activos-paged | /activos-disponibles
-- GET /api/inventario/activos/:id/perfil
-- PATCH /api/inventario/activos/:id/estado | /activos/:id/reubicar | /activos/:id
-- GET /api/inventario/auditoria
-- POST /api/activos/:id/entregar
-- POST /api/activos/:id/devolver
+---
 
 ## Reglas de negocio clave
 
-- Roles login activos: admin, supervisor.
-- trabajador es entidad de dominio, no usuario autenticable.
-- Entregas y devoluciones operan sobre activos serializados.
-- Entrega confirmada abre custodia activa.
-- Devolucion confirmada cierra custodia y aplica disposicion del activo.
-- Disposiciones de devolucion: devuelto, perdido, baja, mantencion.
+- `trabajador` es entidad de dominio, no usuario autenticable.
+- Entregas y devoluciones operan **solo** sobre activos serializados.
+- Confirmar entrega requiere firma previa → abre `custodia_activo` activa.
+- Confirmar devolución cierra custodia y aplica disposición:
 
-## Scripts utiles
+| Disposición | Efecto en activo |
+|---|---|
+| `devuelto` | Estado disponible, regresa a bodega origen |
+| `perdido` | Estado perdido |
+| `baja` | Estado de baja |
+| `mantencion` | Estado en mantención |
+
+- `tracking_mode` se resuelve en backend según `grupo_principal` (EPP → lote, resto → serial).
+- Campos legacy `tipo`, `categoria` son rechazados por validación Joi.
+
+---
+
+## Tests
 
 ```bash
-# Ejecucion
-npm run dev
-npm start
-
-# Calidad
-npm run lint
-
-# Tests
+# Todos los tests
 npm test
+
+# Tests de servicios
 npm run test:services
+
+# Tests de integración con DB real (requiere docker-compose.dev.yml)
 npm run test:integration-db
 ```
 
-## Observabilidad y seguridad
+**Cobertura:**
 
-- requestId en pipeline de request y logs.
-- logging estructurado.
-- middleware de hardening: helmet, cors, hpp, sanitizacion.
-- error handler global.
+| Tipo | Ubicación |
+|---|---|
+| Unitarios (services, lib) | `src/tests/services/`, `src/tests/lib/` |
+| Integración (routes + DB) | `src/tests/integration/` |
+| Contratos API | `src/tests/contracts/` |
 
-## Deuda tecnica conocida
+---
 
-- Swagger desactualizado respecto a rutas reales (endpoints de inventario/activos no documentados).
-- Tablas DB sin CRUD activo: `inspeccion_activo`, `lote` (existen en schema, sin servicios/rutas).
+## Scripts
+
+```bash
+npm run dev          # Nodemon con hot reload
+npm start            # Producción (node directo)
+npm run lint         # ESLint
+npm test             # Jest
+npm run test:integration-db   # Tests con DB real
+```
+
+---
+
+## Observabilidad
+
+| Mecanismo | Descripción |
+|---|---|
+| `requestId` | UUID por request, propagado en logs y respuestas |
+| Winston | Logs estructurados (JSON en producción, pretty en dev) |
+| Audit trail | Eventos de negocio registrados en tabla `auditoria_db` |
+| Health probes | `/health/ready` verifica conectividad DB + Redis |
+
+---
+
+## Deuda técnica conocida
+
+- Swagger desactualizado — endpoints de inventario/activos no documentados.
+- Tablas DB sin CRUD activo: `inspeccion_activo`, `lote`.
 - Columnas candidatas a DROP: `articulo.categoria` (nullable legacy), `persona.foto_url`.
