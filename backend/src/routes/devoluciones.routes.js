@@ -178,6 +178,13 @@ router.get(
 );
 
 router.get(
+  '/:id/pdf',
+  authMiddleware,
+  checkRole(['admin', 'supervisor']),
+  DevolucionesController.exportPdf
+);
+
+router.get(
   '/:id',
   authMiddleware,
   checkRole(['admin', 'supervisor']),
