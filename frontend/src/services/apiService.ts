@@ -394,6 +394,11 @@ export interface DevolucionRow {
   notas?: string | null;
   nombres?: string;
   apellidos?: string;
+  rut?: string | null;
+  receptor_nombres?: string | null;
+  receptor_apellidos?: string | null;
+  evidencia_foto_url?: string | null;
+  texto_aceptacion?: string | null;
   cantidad_detalles?: number;
   firma_imagen_url?: string | null;
   firmado_en?: string | null;
@@ -450,6 +455,8 @@ export interface ActivoTimelineEntry {
   entrega_id?: string | null;
   devolucion_id?: string | null;
   responsable_email?: string | null;
+  estado_entrega?: string | null;
+  estado_devolucion?: string | null;
 }
 
 export interface ActivoCustodiaEntry {
@@ -566,6 +573,8 @@ export const getDevoluciones = (params?: { estado?: DevolucionEstado; trabajador
 export const getDevolucionById = (id: string) =>
   get<DevolucionRow>(`/devoluciones/${id}`);
 
+export const getDevolucionActaPdfUrl = (id: string) => `/devoluciones/${id}/pdf`;
+
 export const createDevolucion = (payload: DevolucionCreatePayload, foto?: File) =>
   post<DevolucionRow>('/devoluciones', buildMultipartIfFile(payload, foto));
 
@@ -609,6 +618,8 @@ export interface EntregaRow {
   nombres?: string;
   apellidos?: string;
   rut?: string;
+  creador_nombres?: string | null;
+  creador_apellidos?: string | null;
   ubicacion_origen_id: string;
   ubicacion_destino_id: string;
   tipo: EntregaTipo;
