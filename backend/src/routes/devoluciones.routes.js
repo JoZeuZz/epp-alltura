@@ -62,7 +62,7 @@ const createDevolucionSchema = Joi.object({
   trabajador_id: uuid.required(),
   ubicacion_recepcion_id: uuid.required(),
   notas: Joi.string().trim().max(1000).allow('', null),
-  evidencia_foto_url: Joi.string().trim().max(2048).allow('', null),
+  evidencia_foto_url: Joi.string().trim().max(2048).optional(),
   detalles: Joi.array().items(devolucionDetailSchema).min(1).required(),
 });
 

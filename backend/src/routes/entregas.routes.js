@@ -52,7 +52,7 @@ const createEntregaSchema = Joi.object({
   tipo: Joi.string().valid('entrega').default('entrega'),
   nota_destino: Joi.string().trim().max(1000).allow('', null),
   fecha_devolucion_esperada: Joi.date().iso().allow(null),
-  evidencia_foto_url: Joi.string().trim().max(2048).allow('', null),
+  evidencia_foto_url: Joi.string().trim().max(2048).optional(),
   detalles: Joi.array().items(entregaDetailSchema).min(1).required(),
 });
 
