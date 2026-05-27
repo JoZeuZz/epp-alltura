@@ -289,13 +289,17 @@ class InventarioService {
         b_dest.nombre AS bodega_destino_nombre,
         po.nombre AS proyecto_origen_nombre,
         pd.nombre AS proyecto_destino_nombre,
-        u.email_login AS responsable_email
+        u.email_login AS responsable_email,
+        e_ref.estado AS estado_entrega,
+        d_ref.estado AS estado_devolucion
       FROM movimiento_activo ma
       LEFT JOIN bodegas b_orig ON b_orig.id = ma.bodega_origen_id
       LEFT JOIN bodegas b_dest ON b_dest.id = ma.bodega_destino_id
       LEFT JOIN proyectos po ON po.id = ma.proyecto_origen_id
       LEFT JOIN proyectos pd ON pd.id = ma.proyecto_destino_id
       LEFT JOIN usuario u ON u.id = ma.responsable_usuario_id
+      LEFT JOIN entrega e_ref ON e_ref.id = ma.entrega_id
+      LEFT JOIN devolucion d_ref ON d_ref.id = ma.devolucion_id
       WHERE ma.articulo_id = $1
       ORDER BY ma.fecha_movimiento DESC
       LIMIT 20
