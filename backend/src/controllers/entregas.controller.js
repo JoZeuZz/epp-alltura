@@ -2,6 +2,7 @@ const EntregasService = require('../services/entregas.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
 const { bufferPdf, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
+const { downloadImageBuffer } = require('../lib/googleCloud');
 
 class EntregasController {
   static async list(req, res, next) {
@@ -78,35 +79,53 @@ class EntregasController {
       const filename = `acta-entrega-${id.slice(0, 8)}-${timestamp}.pdf`;
 
       const pdfBuffer = await bufferPdf('Acta de Entrega', async (doc) => {
-        doc.fontSize(10).fillColor(DARK_BLUE).text('Trabajador', { underline: true });
-        doc.fontSize(9).fillColor(BODY_TEXT)
-          .text(`Nombre: ${data.nombres} ${data.apellidos}`)
-          .text(`RUT: ${data.rut ?? '—'}`)
-          .text(`Estado: ${data.estado}`)
-          .text(`Fecha: ${new Date(data.creado_en).toLocaleDateString('es-CL')}`)
-          .moveDown(0.5);
+        // Partes
+        doc.fontSize(10).fillColor(DARK_BLUE).text('Partes involucradas', { underline: true });
+        doc.fontSize(9).fillColor(BODY_TEXT);
+        const entregadoPor = [data.creador_nombres, data.creador_apellidos].filter(Boolean).join(' ') || '—';
+        const recibidoPor = [data.nombres, data.apellidos].filter(Boolean).join(' ') || '—';
+        doc.text(`Entregado por: ${entregadoPor}`)
+           .text(`Recibido por: ${recibidoPor}${data.rut ? ` — RUT: ${data.rut}` : ''}`)
+           .text(`Fecha: ${new Date(data.creado_en).toLocaleDateString('es-CL')}`)
+           .text(`Estado: ${data.estado}`)
+           .moveDown(0.5);
 
+        // Artículos
         if (data.detalles && data.detalles.length > 0) {
-          doc.fontSize(10).fillColor(DARK_BLUE).text('Detalle de items', { underline: true }).moveDown(0.3);
-          const headers = ['Artículo', 'Código activo', 'Cant.', 'Condición', 'Notas'];
+          doc.fontSize(10).fillColor(DARK_BLUE).text('Detalle de ítems', { underline: true }).moveDown(0.3);
+          const headers = ['Artículo', 'Código', 'Condición', 'Notas'];
           const rows = data.detalles.map((d) => [
             d.articulo_nombre ?? '—',
-            d.activo_codigo ?? '—',
-            String(d.cantidad ?? 1),
+            d.codigo ?? d.activo_codigo ?? '—',
             d.condicion_salida ?? '—',
             d.notas ?? '',
           ]);
           await doc.table({ headers, rows }, {
-            columnsSize: [140, 100, 40, 80, 120],
+            columnsSize: [160, 100, 80, 140],
             prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
             prepareRow: () => doc.font('Helvetica').fontSize(8),
           });
+          doc.moveDown(0.5);
         }
 
-        doc.moveDown();
-        if (data.firmado_en) {
+        // Evidencia de entrega
+        if (data.evidencia_foto_url) {
+          const imgBuf = await downloadImageBuffer(data.evidencia_foto_url).catch(() => null);
+          if (imgBuf) {
+            doc.fontSize(10).fillColor(DARK_BLUE).text('Foto de evidencia', { underline: true }).moveDown(0.2);
+            doc.image(imgBuf, { fit: [400, 200], align: 'center' }).moveDown(0.5);
+          }
+        }
+
+        // Firma
+        doc.fontSize(10).fillColor(DARK_BLUE).text('Firma del receptor', { underline: true }).moveDown(0.2);
+        if (data.firma_imagen_url) {
+          const sigBuf = await downloadImageBuffer(data.firma_imagen_url).catch(() => null);
+          if (sigBuf) {
+            doc.image(sigBuf, { fit: [200, 80], align: 'left' }).moveDown(0.2);
+          }
           doc.fontSize(9).fillColor(BODY_TEXT)
-            .text(`Firmado el: ${new Date(data.firmado_en).toLocaleString('es-CL')}`);
+             .text(`Firmado el: ${new Date(data.firmado_en).toLocaleString('es-CL')}`);
         } else {
           doc.fontSize(9).fillColor(MUTED_GRAY).text('Firma: pendiente.');
         }
