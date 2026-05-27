@@ -260,11 +260,11 @@ BEGIN
   --      artículos: art-013 (llave torque), art-016 (medidor gas)
   -- ============================================================
 
-  INSERT INTO entrega (id, creado_por_usuario_id, trabajador_id, bodega_origen_id, proyecto_destino_id, tipo, estado, nota_destino, creado_en, confirmada_en)
+  INSERT INTO entrega (id, creado_por_usuario_id, trabajador_id, bodega_origen_id, proyecto_destino_id, tipo, estado, nota_destino, creado_en, confirmada_en, evidencia_foto_url)
   VALUES
-    ('00000000-0000-0000-0000-000000020001', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000002001', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', 'entrega', 'confirmada', 'Entrega arneses a Juan para Faena Norte.',          NOW()-INTERVAL '30 days', NOW()-INTERVAL '30 days'),
-    ('00000000-0000-0000-0000-000000020002', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000002002', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', 'entrega', 'confirmada', 'Entrega taladro a Maria para Faena Sur.',            NOW()-INTERVAL '20 days', NOW()-INTERVAL '20 days'),
-    ('00000000-0000-0000-0000-000000020003', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000002003', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003005', 'entrega', 'confirmada', 'Entrega llave torque y medidor gas a Carlos para Proyecto Minero.', NOW()-INTERVAL '15 days', NOW()-INTERVAL '15 days')
+    ('00000000-0000-0000-0000-000000020001', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000002001', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003003', 'entrega', 'confirmada', 'Entrega arneses a Juan para Faena Norte.',          NOW()-INTERVAL '30 days', NOW()-INTERVAL '30 days', 'https://example.local/evidencia/seed-e1.jpg'),
+    ('00000000-0000-0000-0000-000000020002', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000002002', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003004', 'entrega', 'confirmada', 'Entrega taladro a Maria para Faena Sur.',            NOW()-INTERVAL '20 days', NOW()-INTERVAL '20 days', 'https://example.local/evidencia/seed-e2.jpg'),
+    ('00000000-0000-0000-0000-000000020003', '00000000-0000-0000-0000-000000001003', '00000000-0000-0000-0000-000000002003', '00000000-0000-0000-0000-000000003001', '00000000-0000-0000-0000-000000003005', 'entrega', 'confirmada', 'Entrega llave torque y medidor gas a Carlos para Proyecto Minero.', NOW()-INTERVAL '15 days', NOW()-INTERVAL '15 days', 'https://example.local/evidencia/seed-e3.jpg')
   ON CONFLICT (id) DO NOTHING;
 
   -- ============================================================
