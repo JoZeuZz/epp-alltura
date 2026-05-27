@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import Modal from '../Modal';
 import { useGet } from '../../hooks';
 import { createDevolucion, type DevolucionRow } from '../../services/apiService';
-import { ALLOWED_IMAGE_ACCEPT, ALLOWED_IMAGE_TYPES, IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../../config/imageLimits';
+import FotoEvidenciaUpload from './FotoEvidenciaUpload';
 
 interface BodegaOption {
   id: string;
@@ -52,44 +52,13 @@ const DevolucionActivoModal: React.FC<Props> = ({
   const [notas, setNotas] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [fotoFile, setFotoFile] = useState<File | null>(null);
-  const [fotoPreviewUrl, setFotoPreviewUrl] = useState<string | null>(null);
-  const [fotoFileError, setFotoFileError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!fotoFile) {
-      setFotoPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(fotoFile);
-    setFotoPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [fotoFile]);
+  const [fotoError, setFotoError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
       setFotoFile(null);
-      setFotoFileError(null);
     };
   }, []);
-
-  const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    if (!file) {
-      setFotoFile(null);
-      setFotoFileError(null);
-      return;
-    }
-    if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
-      setFotoFileError('Solo se permiten imágenes JPG, PNG, WEBP o AVIF.');
-      return;
-    }
-    if (file.size > IMAGE_MAX_BYTES) {
-      setFotoFileError(`La imagen supera el tamaño máximo permitido (${IMAGE_MAX_LABEL}).`);
-      return;
-    }
-    setFotoFileError(null);
-    setFotoFile(file);
-  };
 
   const { data: bodegas = [] } = useGet<BodegaOption[]>(['bodegas'], '/bodegas');
   const activasBodegas = (bodegas as BodegaOption[]).filter((b) => !b.estado || b.estado === 'activo');
@@ -126,6 +95,10 @@ const DevolucionActivoModal: React.FC<Props> = ({
 
   const handleSubmit = () => {
     setFormError(null);
+    if (!fotoFile) {
+      setFotoError('La foto de evidencia es obligatoria.');
+      return;
+    }
     if (!ubicacionId) {
       setFormError('Selecciona una ubicación de recepción.');
       return;
@@ -207,42 +180,14 @@ const DevolucionActivoModal: React.FC<Props> = ({
         </div>
 
         {/* Evidencia fotográfica */}
-        <div>
-          <label className="block text-xs uppercase tracking-wide text-content-muted mb-1">
-            Evidencia fotográfica <span className="normal-case font-normal">(opcional)</span>
-          </label>
-          {fotoPreviewUrl ? (
-            <div className="flex items-start gap-3">
-              <div className="relative inline-block">
-                <img
-                  src={fotoPreviewUrl}
-                  alt="Vista previa de evidencia"
-                  className="w-28 h-28 object-cover rounded-lg border border-edge"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFotoFile(null);
-                    setFotoFileError(null);
-                  }}
-                  className="absolute -top-2 -right-2 bg-white border border-edge-strong rounded-full w-5 h-5 flex items-center justify-center text-xs text-danger hover:bg-danger-subtle leading-none"
-                  aria-label="Eliminar imagen seleccionada"
-                >
-                  ×
-                </button>
-              </div>
-              <p className="text-xs text-content-muted mt-1">{fotoFile?.name}</p>
-            </div>
-          ) : (
-            <input
-              type="file"
-              accept={ALLOWED_IMAGE_ACCEPT}
-              onChange={handleFotoChange}
-              className="block text-sm text-content-secondary file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-surface-muted file:text-content-secondary hover:file:bg-edge cursor-pointer"
-            />
-          )}
-          {fotoFileError && <p className="text-xs text-danger-text mt-1" role="alert">{fotoFileError}</p>}
-        </div>
+        <FotoEvidenciaUpload
+          value={fotoFile}
+          onChange={(f) => {
+            setFotoFile(f);
+            if (f) setFotoError(null);
+          }}
+          error={fotoError}
+        />
 
         {formError && (
           <div className="p-3 bg-danger-subtle border border-danger-border rounded-lg text-sm text-danger-text" role="alert">
