@@ -75,9 +75,13 @@ const mapHeaderRow = (row) => ({
   evidencia_foto_url: row.evidencia_foto_url || null,
   nombres: row.nombres,
   apellidos: row.apellidos,
+  rut: row.rut || null,
+  receptor_nombres: row.receptor_nombres || null,
+  receptor_apellidos: row.receptor_apellidos || null,
   cantidad_detalles: Number(row.cantidad_detalles || 0),
   firma_imagen_url: row.firma_imagen_url,
   firmado_en: row.firmado_en,
+  texto_aceptacion: row.texto_aceptacion || null,
 });
 
 class DevolucionesService {
@@ -204,8 +208,12 @@ class DevolucionesService {
          d.evidencia_foto_url,
          p.nombres,
          p.apellidos,
+         p.rut,
+         p_recv.nombres AS receptor_nombres,
+         p_recv.apellidos AS receptor_apellidos,
          fd.firma_imagen_url,
          fd.firmado_en,
+         fd.texto_aceptacion,
          COALESCE((
            SELECT COUNT(*)::int
            FROM devolucion_detalle dd_count
@@ -215,6 +223,8 @@ class DevolucionesService {
        INNER JOIN trabajador t ON t.id = d.trabajador_id
        INNER JOIN persona p ON p.id = t.persona_id
        LEFT JOIN firma_devolucion fd ON fd.devolucion_id = d.id
+       LEFT JOIN usuario ur ON ur.id = d.recibido_por_usuario_id
+       LEFT JOIN persona p_recv ON p_recv.id = ur.persona_id
        WHERE d.id = $1
        LIMIT 1`,
       [id]
@@ -341,8 +351,12 @@ class DevolucionesService {
       d.evidencia_foto_url,
       p.nombres,
       p.apellidos,
+      p.rut,
+      p_recv.nombres AS receptor_nombres,
+      p_recv.apellidos AS receptor_apellidos,
       fd.firma_imagen_url,
       fd.firmado_en,
+      fd.texto_aceptacion,
       COALESCE((
         SELECT COUNT(*)::int
         FROM devolucion_detalle dd_count
@@ -351,7 +365,9 @@ class DevolucionesService {
     FROM devolucion d
     INNER JOIN trabajador t ON t.id = d.trabajador_id
     INNER JOIN persona p ON p.id = t.persona_id
-    LEFT JOIN firma_devolucion fd ON fd.devolucion_id = d.id`;
+    LEFT JOIN firma_devolucion fd ON fd.devolucion_id = d.id
+    LEFT JOIN usuario ur ON ur.id = d.recibido_por_usuario_id
+    LEFT JOIN persona p_recv ON p_recv.id = ur.persona_id`;
 
     if (conditions.length) {
       query += ` WHERE ${conditions.join(' AND ')}`;
