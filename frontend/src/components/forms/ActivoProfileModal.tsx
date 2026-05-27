@@ -406,11 +406,11 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
           <div className="space-y-4">
             {/* Mobile */}
             <div className="sm:hidden space-y-3">
-              <img
+              <ArticuloImageToggle
                 src={buildImageUrl(profile.foto_url, 'medium') || DEFAULT_IMAGE_PLACEHOLDER}
                 alt={`${profile.nombre} — ${profile.codigo}`}
-                className="w-24 h-24 object-cover rounded-lg border border-edge"
-                onError={(e) => { e.currentTarget.src = DEFAULT_IMAGE_PLACEHOLDER; }}
+                expanded={imageExpanded}
+                onToggle={() => setImageExpanded((v) => !v)}
               />
               <div className="grid grid-cols-3 gap-2">
                 <MobileSummaryItem label="Estado">
@@ -451,12 +451,12 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
             </div>
 
             {/* Desktop */}
-            <div className="hidden sm:flex flex-col sm:flex-row sm:items-start gap-4">
-              <img
+            <div className={`hidden sm:flex gap-4 ${imageExpanded ? 'flex-col' : 'flex-row sm:items-start'}`}>
+              <ArticuloImageToggle
                 src={buildImageUrl(profile.foto_url, 'medium') || DEFAULT_IMAGE_PLACEHOLDER}
                 alt={`${profile.nombre} — ${profile.codigo}`}
-                className="w-24 h-24 object-cover rounded-lg border border-edge flex-shrink-0"
-                onError={(e) => { e.currentTarget.src = DEFAULT_IMAGE_PLACEHOLDER; }}
+                expanded={imageExpanded}
+                onToggle={() => setImageExpanded((v) => !v)}
               />
               <div className="flex-1 space-y-1">
                 <h3 className="text-lg font-bold text-content-primary">{profile.nombre}</h3>
