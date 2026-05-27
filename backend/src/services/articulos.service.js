@@ -1,7 +1,7 @@
 'use strict';
 
 const ArticuloModel = require('../models/articulo');
-const { uploadFile, uploadDocument, deleteFileByUrl } = require('../lib/googleCloud');
+const { uploadFile, uploadDocument, deleteFileByUrl, resolveImageUrl } = require('../lib/googleCloud');
 const { buildError } = require('../lib/errors');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
 const db = require('../db');
@@ -106,7 +106,14 @@ class ArticulosService {
   }
 
   static async list(filters = {}) {
-    return ArticuloModel.findAll(filters);
+    const result = await ArticuloModel.findAll(filters);
+    result.items = await Promise.all(
+      result.items.map(async (item) => ({
+        ...item,
+        foto_url: await resolveImageUrl(item.foto_url),
+      }))
+    );
+    return result;
   }
 
   static async getById(id) {
