@@ -36,10 +36,12 @@ const FotoEvidenciaUpload: React.FC<Props> = ({ value, onChange, error }) => {
     }
     if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
       setFileError('Solo se permiten imágenes JPG, PNG, WEBP o AVIF.');
+      if (inputRef.current) inputRef.current.value = '';
       return;
     }
     if (file.size > IMAGE_MAX_BYTES) {
       setFileError(`La imagen supera el tamaño máximo permitido (${IMAGE_MAX_LABEL}).`);
+      if (inputRef.current) inputRef.current.value = '';
       return;
     }
     setFileError(null);
@@ -89,6 +91,7 @@ const FotoEvidenciaUpload: React.FC<Props> = ({ value, onChange, error }) => {
       <div
         role="button"
         tabIndex={0}
+        aria-label="Subir foto de evidencia"
         onClick={() => inputRef.current?.click()}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click();
@@ -104,11 +107,11 @@ const FotoEvidenciaUpload: React.FC<Props> = ({ value, onChange, error }) => {
           width="24"
           height="24"
           fill="none"
-          stroke={displayError ? 'currentColor' : '#2A64A4'}
+          stroke="currentColor"
           strokeWidth="1.8"
           viewBox="0 0 24 24"
           aria-hidden="true"
-          className={displayError ? 'text-danger' : ''}
+          className={displayError ? 'text-danger' : 'text-primary-blue'}
         >
           <path
             strokeLinecap="round"
@@ -126,7 +129,7 @@ const FotoEvidenciaUpload: React.FC<Props> = ({ value, onChange, error }) => {
             Subir foto <span className="text-danger">*</span>
           </p>
           <p className="text-xs text-content-muted">
-            Obligatoria · JPG, PNG, WEBP · máx {IMAGE_MAX_LABEL}
+            Obligatoria · JPG, PNG, WEBP, AVIF · máx {IMAGE_MAX_LABEL}
           </p>
         </div>
       </div>

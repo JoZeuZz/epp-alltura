@@ -15,3 +15,4 @@ export {
 } from './FormInputs';
 
 export { default as SignaturePad } from './SignaturePad';
+export { default as FotoEvidenciaUpload } from './FotoEvidenciaUpload';
