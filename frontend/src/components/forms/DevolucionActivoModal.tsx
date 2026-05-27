@@ -109,6 +109,16 @@ const DevolucionActivoModal: React.FC<Props> = ({
   return (
     <Modal isOpen onClose={onClose} title="Registrar devolución" mobileFullscreen>
       <div className="space-y-4">
+        {/* Evidencia fotográfica */}
+        <FotoEvidenciaUpload
+          value={fotoFile}
+          onChange={(f) => {
+            setFotoFile(f);
+            if (f) setFotoError(null);
+          }}
+          error={fotoError}
+        />
+
         {/* Trabajador locked */}
         <div>
           <p className="text-xs uppercase tracking-wide text-content-muted mb-1">Trabajador</p>
@@ -178,16 +188,6 @@ const DevolucionActivoModal: React.FC<Props> = ({
             className="w-full border border-edge-strong rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
           />
         </div>
-
-        {/* Evidencia fotográfica */}
-        <FotoEvidenciaUpload
-          value={fotoFile}
-          onChange={(f) => {
-            setFotoFile(f);
-            if (f) setFotoError(null);
-          }}
-          error={fotoError}
-        />
 
         {formError && (
           <div className="p-3 bg-danger-subtle border border-danger-border rounded-lg text-sm text-danger-text" role="alert">

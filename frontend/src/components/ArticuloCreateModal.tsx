@@ -15,6 +15,7 @@ import {
   type ArticleFiles,
 } from '../services/apiService';
 import ProveedorCreateModal from './forms/ProveedorCreateModal';
+import FotoEvidenciaUpload from './forms/FotoEvidenciaUpload';
 
 const ESPECIALIDADES = ['oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida'] as const;
 
@@ -141,6 +142,12 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
     <Modal isOpen={isOpen} onClose={onClose} title={`Nuevo ${TIPO_LABELS[tipo]}`}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
+        <FotoEvidenciaUpload
+          value={fotoFile}
+          onChange={setFotoFile}
+          required={false}
+        />
+
         <div>
           <label className="label-sm block mb-1">Nombre *</label>
           <input {...register('nombre')} className="input w-full" placeholder="Ej: Casco de seguridad V-Gard" />
@@ -237,15 +244,6 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
               + Nuevo
             </button>
           </div>
-        </div>
-
-        <div>
-          <label className="label-sm block mb-1">Foto</label>
-          <input
-            type="file" accept="image/*"
-            onChange={(e) => setFotoFile(e.target.files?.[0] ?? null)}
-            className={fileCls}
-          />
         </div>
 
         <div>

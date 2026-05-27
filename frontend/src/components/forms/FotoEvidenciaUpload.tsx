@@ -10,9 +10,10 @@ interface Props {
   value: File | null;
   onChange: (file: File | null) => void;
   error?: string | null;
+  required?: boolean;
 }
 
-const FotoEvidenciaUpload: React.FC<Props> = ({ value, onChange, error }) => {
+const FotoEvidenciaUpload: React.FC<Props> = ({ value, onChange, error, required = true }) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -126,10 +127,10 @@ const FotoEvidenciaUpload: React.FC<Props> = ({ value, onChange, error }) => {
               displayError ? 'text-danger-text' : 'text-primary-blue'
             }`}
           >
-            Subir foto <span className="text-danger">*</span>
+            Subir foto {required && <span className="text-danger">*</span>}
           </p>
           <p className="text-xs text-content-muted">
-            Obligatoria · JPG, PNG, WEBP, AVIF · máx {IMAGE_MAX_LABEL}
+            {required ? 'Obligatoria · ' : ''}JPG, PNG, WEBP, AVIF · máx {IMAGE_MAX_LABEL}
           </p>
         </div>
       </div>

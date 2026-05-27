@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Modal from '../Modal';
 import ProveedorCreateModal from './ProveedorCreateModal';
+import FotoEvidenciaUpload from './FotoEvidenciaUpload';
 import {
   updateArticulo,
   addCertificacion,
@@ -320,9 +321,11 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
         {/* FOTO */}
         <section className={sectionCls}>
           <h4 className={sectionTitleCls}>Foto</h4>
-          <input type="file" accept="image/*"
-            onChange={e => setFotoFile(e.target.files?.[0] ?? null)}
-            className={fileCls} />
+          <FotoEvidenciaUpload
+            value={fotoFile}
+            onChange={setFotoFile}
+            required={false}
+          />
         </section>
 
         <div className="flex justify-end gap-2 pt-2 border-t border-edge">
