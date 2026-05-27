@@ -91,12 +91,18 @@ interface ArticuloImageToggleProps {
 const ArticuloImageToggle: React.FC<ArticuloImageToggleProps> = ({ src, alt, expanded, onToggle }) => {
   if (expanded) {
     return (
-      <div className="relative cursor-pointer w-full" onClick={onToggle}>
+      <div
+        className="relative cursor-pointer w-full"
+        onClick={onToggle}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onToggle(); }}
+      >
         <img
           src={src}
           alt={alt}
           className="w-full max-h-72 object-contain rounded-lg border border-edge transition-all duration-200"
-          onError={(e) => { e.currentTarget.src = src; }}
+          onError={(e) => { e.currentTarget.src = DEFAULT_IMAGE_PLACEHOLDER; }}
         />
         <div className="absolute top-2 right-2 bg-black/40 rounded p-0.5">
           <Minimize2 className="w-5 h-5 text-white drop-shadow" />
@@ -105,12 +111,18 @@ const ArticuloImageToggle: React.FC<ArticuloImageToggleProps> = ({ src, alt, exp
     );
   }
   return (
-    <div className="relative group cursor-pointer flex-shrink-0" onClick={onToggle}>
+    <div
+      className="relative group cursor-pointer flex-shrink-0"
+      onClick={onToggle}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onToggle(); }}
+    >
       <img
         src={src}
         alt={alt}
         className="w-24 h-24 object-cover rounded-lg border border-edge"
-        onError={(e) => { e.currentTarget.src = src; }}
+        onError={(e) => { e.currentTarget.src = DEFAULT_IMAGE_PLACEHOLDER; }}
       />
       <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 rounded-lg transition-opacity duration-150">
         <Maximize2 className="w-5 h-5 text-white drop-shadow" />
