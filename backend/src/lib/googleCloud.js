@@ -731,13 +731,16 @@ const downloadImageBuffer = async (storedUrl) => {
     if (isGcsUrl(storedUrl)) {
       if (!isGCSConfigured || !storage) return null;
       const gcsInfo = parseGcsUrl(storedUrl);
-      if (!gcsInfo) return null;
+      if (!gcsInfo) {
+        logger.warn(`downloadImageBuffer: could not parse GCS URL: ${storedUrl}`);
+        return null;
+      }
       const targetBucket = storage.bucket(gcsInfo.bucketName);
       const [contents] = await targetBucket.file(gcsInfo.objectName).download();
       return contents;
     }
     // Local: http://localhost:PORT/uploads/relative/path
-    const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+    const backendUrl = (process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`).replace(/\/+$/, '');
     if (storedUrl.startsWith(backendUrl + '/uploads/')) {
       const relPath = storedUrl.slice((backendUrl + '/uploads/').length);
       const localPath = path.resolve(localUploadsDir, relPath);
