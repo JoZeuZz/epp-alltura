@@ -201,7 +201,7 @@ CREATE TABLE IF NOT EXISTS entrega (
   deshecha_por_usuario_id UUID REFERENCES usuario(id) ON DELETE SET NULL,
   deshecha_en TIMESTAMPTZ,
   fecha_devolucion_esperada TIMESTAMPTZ,
-  evidencia_foto_url TEXT,
+  evidencia_foto_url TEXT NOT NULL,
   CONSTRAINT chk_entrega_motivo_anulacion CHECK (
     estado <> 'anulada'
     OR (motivo_anulacion IS NOT NULL AND length(btrim(motivo_anulacion)) >= 5)
@@ -269,7 +269,7 @@ CREATE TABLE IF NOT EXISTS devolucion (
   confirmada_en TIMESTAMPTZ,
   notas TEXT,
   motivo_anulacion TEXT,
-  evidencia_foto_url TEXT,
+  evidencia_foto_url TEXT NOT NULL,
   es_reversa_admin BOOLEAN NOT NULL DEFAULT FALSE,
   entrega_revertida_id UUID REFERENCES entrega(id) ON DELETE SET NULL,
   motivo_reversa TEXT,
