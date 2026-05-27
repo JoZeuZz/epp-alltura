@@ -262,8 +262,9 @@ class InventarioService {
       SELECT
         ca.id, ca.trabajador_id, ca.entrega_id,
         ca.proyecto_id, ca.desde_en, ca.hasta_en, ca.estado,
-        (p.nombres || ' ' || p.apellidos) AS trabajador_nombre,
-        proj.nombre AS custodia_proyecto_nombre,
+        p.nombres AS custodio_nombres,
+        p.apellidos AS custodio_apellidos,
+        proj.nombre AS custodia_ubicacion_nombre,
         EXTRACT(DAY FROM NOW() - ca.desde_en)::int AS dias_en_custodia
       FROM custodia_activo ca
       LEFT JOIN trabajador t ON t.id = ca.trabajador_id
@@ -313,8 +314,9 @@ class InventarioService {
       SELECT
         ca.id, ca.trabajador_id, ca.entrega_id,
         ca.proyecto_id, ca.desde_en, ca.hasta_en, ca.estado,
-        (p.nombres || ' ' || p.apellidos) AS trabajador_nombre,
-        proj.nombre AS custodia_proyecto_nombre,
+        p.nombres AS custodio_nombres,
+        p.apellidos AS custodio_apellidos,
+        proj.nombre AS custodia_ubicacion_nombre,
         CASE
           WHEN ca.hasta_en IS NOT NULL THEN EXTRACT(DAY FROM ca.hasta_en - ca.desde_en)::int
           ELSE EXTRACT(DAY FROM NOW() - ca.desde_en)::int
