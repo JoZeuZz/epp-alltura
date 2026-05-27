@@ -95,6 +95,17 @@ function EntregaDetail({ data, onDownload, isPdfLoading }: { data: EntregaRow; o
         </section>
       )}
 
+      {data.evidencia_foto_url && (
+        <section>
+          <h4 className="text-xs font-semibold text-content-muted uppercase tracking-wide mb-2">Foto de evidencia</h4>
+          <img
+            src={buildImageUrl(data.evidencia_foto_url, 'medium') || data.evidencia_foto_url}
+            alt="Evidencia de entrega"
+            className="max-h-48 w-full object-contain rounded-lg border border-edge"
+          />
+        </section>
+      )}
+
       <section>
         <h4 className="text-xs font-semibold text-content-muted uppercase tracking-wide mb-2">Firma del receptor</h4>
         {data.firma_imagen_url ? (

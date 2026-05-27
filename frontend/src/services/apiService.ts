@@ -629,6 +629,7 @@ export interface EntregaRow {
   creado_en?: string | null;
   confirmada_en?: string | null;
   cantidad_items?: number;
+  evidencia_foto_url?: string | null;
   firma_imagen_url?: string | null;
   firmado_en?: string | null;
   detalles?: EntregaDetalleRow[];
