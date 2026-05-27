@@ -1,4 +1,5 @@
-import React, { useId, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Modal from '../Modal';
@@ -80,6 +81,44 @@ interface Props {
   onRefresh?: () => void;
 }
 
+interface ArticuloImageToggleProps {
+  src: string;
+  alt: string;
+  expanded: boolean;
+  onToggle: () => void;
+}
+
+const ArticuloImageToggle: React.FC<ArticuloImageToggleProps> = ({ src, alt, expanded, onToggle }) => {
+  if (expanded) {
+    return (
+      <div className="relative cursor-pointer w-full" onClick={onToggle}>
+        <img
+          src={src}
+          alt={alt}
+          className="w-full max-h-72 object-contain rounded-lg border border-edge transition-all duration-200"
+          onError={(e) => { e.currentTarget.src = src; }}
+        />
+        <div className="absolute top-2 right-2 bg-black/40 rounded p-0.5">
+          <Minimize2 className="w-5 h-5 text-white drop-shadow" />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="relative group cursor-pointer flex-shrink-0" onClick={onToggle}>
+      <img
+        src={src}
+        alt={alt}
+        className="w-24 h-24 object-cover rounded-lg border border-edge"
+        onError={(e) => { e.currentTarget.src = src; }}
+      />
+      <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 rounded-lg transition-opacity duration-150">
+        <Maximize2 className="w-5 h-5 text-white drop-shadow" />
+      </div>
+    </div>
+  );
+};
+
 const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) => {
   const queryClient = useQueryClient();
   const [showMoreDetails, setShowMoreDetails] = useState(false);
@@ -94,6 +133,11 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
   const isAdmin = user?.role === 'admin';
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [imageExpanded, setImageExpanded] = useState(false);
+
+  useEffect(() => {
+    setImageExpanded(false);
+  }, [activoId]);
 
   const deleteMutation = useMutation({
     mutationFn: () => deleteArticulo(activoId),
