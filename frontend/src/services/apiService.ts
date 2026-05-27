@@ -1,4 +1,5 @@
 import { defaultHttpClient, type ApiEnvelope } from '@jozeuzz/alltura-ui';
+import type { InAppNotification, NotificationStats } from '../types/clientNotes';
 
 // Contrato Alltura de sesión:
 // - baseURL same-origin '/api'
@@ -763,16 +764,22 @@ export const firmarDevolucionDispositivo = (
 
 // ============ IN-APP NOTIFICATIONS ENDPOINTS ============
 
+export interface InAppNotificationsResponse {
+  data: InAppNotification[];
+  pagination: { limit: number; offset: number };
+  total: number;
+}
+
 export const getInAppNotifications = (params?: {
   unread_only?: boolean;
   limit?: number;
   offset?: number;
-}) => get('/notifications/in-app', params);
+}) => get<InAppNotificationsResponse>('/notifications/in-app', params);
 
 export const getUnreadNotificationsCount = () =>
   get<{ count: number }>('/notifications/in-app/unread-count');
 
-export const getNotificationStats = () => get('/notifications/in-app/stats');
+export const getNotificationStats = () => get<NotificationStats>('/notifications/in-app/stats');
 
 export const markNotificationAsRead = (notificationId: number) =>
   put(`/notifications/in-app/${notificationId}/read`, {});

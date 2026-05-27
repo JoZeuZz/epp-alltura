@@ -43,7 +43,7 @@ describe('useNotifications polling behavior', () => {
     vi.clearAllMocks();
     setDocumentVisibility(false);
 
-    getInAppNotificationsMock.mockResolvedValue([]);
+    getInAppNotificationsMock.mockResolvedValue({ data: [], pagination: { limit: 20, offset: 0 }, total: 0 });
     getUnreadNotificationsCountMock.mockResolvedValue({ count: 0 });
   });
 

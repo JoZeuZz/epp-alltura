@@ -53,28 +53,16 @@ export const useNotifications = (params?: UseNotificationsParams) => {
   const fetchNotifications = useCallback(async () => {
     try {
       setError(null);
-      const response = (await getInAppNotifications({
+      const response = await getInAppNotifications({
         unread_only: unreadOnly,
         limit,
         offset,
-      })) as
-        | InAppNotification[]
-        | {
-            data?: InAppNotification[];
-            notifications?: InAppNotification[];
-            total?: number;
-          };
+      });
 
-      const notificationsList = Array.isArray(response)
-        ? response
-        : response?.data || response?.notifications || [];
+      const notificationsList = response.data;
 
       setNotifications(notificationsList);
-      setTotal(
-        typeof response === 'object' && response && 'total' in response && typeof response.total === 'number'
-          ? response.total
-          : notificationsList.length
-      );
+      setTotal(response.total ?? notificationsList.length);
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : 'Error al cargar notificaciones';
@@ -256,14 +244,8 @@ export const useNotificationStats = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = (await getNotificationStats()) as
-        | NotificationStats
-        | {
-            data?: NotificationStats;
-          };
-
-      const resolved = (response as { data?: NotificationStats })?.data || (response as NotificationStats);
-      setStats(resolved);
+      const stats = await getNotificationStats();
+      setStats(stats);
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : 'Error al cargar estadísticas';

@@ -32,7 +32,7 @@ const schema = z.object({
     }
     return n;
   }),
-  bodega_id:         z.string().uuid('Seleccione una bodega'),
+  bodega_id:         z.string().min(1, 'Seleccione una bodega'),
   especialidades:    z.array(z.enum(ESPECIALIDADES)).optional(),
   fecha_vencimiento: z.string().optional(),
   fecha_compra:      z.string().optional(),
