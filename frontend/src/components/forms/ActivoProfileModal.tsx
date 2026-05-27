@@ -8,6 +8,7 @@ import EntregaFirmaModal from './EntregaFirmaModal';
 import DevolucionActivoModal from './DevolucionActivoModal';
 import DevolucionFirmaModal from './DevolucionFirmaModal';
 import EditarActivoModal from './EditarActivoModal';
+import ActaDetailModal from './ActaDetailModal';
 import { useGet, useAuth } from '../../hooks';
 import { usePdfDownload } from '../../hooks/usePdfDownload';
 import {
@@ -146,6 +147,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [imageExpanded, setImageExpanded] = useState(false);
+  const [actaDetail, setActaDetail] = useState<{ type: 'entrega' | 'devolucion'; id: string } | null>(null);
 
   useEffect(() => {
     setImageExpanded(false);
@@ -795,6 +797,13 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
             setShowEdit(false);
             void queryClient.invalidateQueries({ queryKey: ['activo-profile', activoId] });
           }}
+        />
+      )}
+      {actaDetail && (
+        <ActaDetailModal
+          type={actaDetail.type}
+          id={actaDetail.id}
+          onClose={() => setActaDetail(null)}
         />
       )}
     </Modal>
