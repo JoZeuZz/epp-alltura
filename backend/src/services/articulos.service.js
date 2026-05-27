@@ -35,6 +35,10 @@ class ArticulosService {
     const facturaFile = files.factura?.[0] || null;
     const manualFile  = files.manual?.[0]  || null;
 
+    if (!fotoFile && !payload.foto_url) {
+      throw buildError('La foto del artículo es obligatoria.', 400, 'FOTO_REQUERIDA');
+    }
+
     let uploadedFotoUrl    = null;
     let uploadedFacturaUrl = null;
     let uploadedManualUrl  = null;

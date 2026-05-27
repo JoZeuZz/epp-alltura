@@ -75,6 +75,7 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
   });
 
   const [fotoFile,    setFotoFile]    = useState<File | null>(null);
+  const [fotoError,   setFotoError]   = useState<string | null>(null);
   const [facturaFile, setFacturaFile] = useState<File | null>(null);
   const [manualFile,  setManualFile]  = useState<File | null>(null);
   const [certFiles,   setCertFiles]   = useState<File[]>([]);
@@ -112,7 +113,7 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
       toast.success(`${TIPO_LABELS[tipo]} creado correctamente`);
       queryClient.invalidateQueries({ queryKey: ['articulos'] });
       reset();
-      setFotoFile(null); setFacturaFile(null); setManualFile(null); setCertFiles([]);
+      setFotoFile(null); setFotoError(null); setFacturaFile(null); setManualFile(null); setCertFiles([]);
       onClose();
       onSuccess?.(articulo);
     },
@@ -123,8 +124,12 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
   });
 
   const onSubmit = (data: FormOutput) => {
+    if (!fotoFile) {
+      setFotoError('La foto del artículo es obligatoria.');
+      return;
+    }
     const files: ArticleFiles = {};
-    if (fotoFile)    files.foto    = fotoFile;
+    files.foto = fotoFile;
     if (facturaFile) files.factura = facturaFile;
     if (manualFile && manualTab === 'file') files.manual = manualFile;
     mutation.mutate({ data, files });
@@ -144,8 +149,8 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
 
         <FotoEvidenciaUpload
           value={fotoFile}
-          onChange={setFotoFile}
-          required={false}
+          onChange={(f) => { setFotoFile(f); if (f) setFotoError(null); }}
+          error={fotoError}
         />
 
         <div>
