@@ -29,6 +29,8 @@ const mapHeaderRow = (row) => ({
   firmado_en: row.firmado_en,
   firma_imagen_url: row.firma_imagen_url,
   cantidad_items: Number(row.cantidad_items || 0),
+  creador_nombres: row.creador_nombres || null,
+  creador_apellidos: row.creador_apellidos || null,
 });
 
 class EntregasService {
@@ -190,6 +192,8 @@ class EntregasService {
          p.nombres,
          p.apellidos,
          p.rut,
+         p_creator.nombres AS creador_nombres,
+         p_creator.apellidos AS creador_apellidos,
          e.bodega_origen_id AS ubicacion_origen_id,
          e.proyecto_destino_id AS ubicacion_destino_id,
          e.tipo,
@@ -211,6 +215,8 @@ class EntregasService {
        INNER JOIN trabajador t ON t.id = e.trabajador_id
        INNER JOIN persona p ON p.id = t.persona_id
        LEFT JOIN firma_entrega fe ON fe.entrega_id = e.id
+       LEFT JOIN usuario uc ON uc.id = e.creado_por_usuario_id
+       LEFT JOIN persona p_creator ON p_creator.id = uc.persona_id
        WHERE e.id = $1
        LIMIT 1`,
       [id]
@@ -349,6 +355,8 @@ class EntregasService {
       p.nombres,
       p.apellidos,
       p.rut,
+      p_creator.nombres AS creador_nombres,
+      p_creator.apellidos AS creador_apellidos,
       e.bodega_origen_id AS ubicacion_origen_id,
       e.proyecto_destino_id AS ubicacion_destino_id,
       e.tipo,
@@ -369,7 +377,9 @@ class EntregasService {
     FROM entrega e
     INNER JOIN trabajador t ON t.id = e.trabajador_id
     INNER JOIN persona p ON p.id = t.persona_id
-    LEFT JOIN firma_entrega fe ON fe.entrega_id = e.id`;
+    LEFT JOIN firma_entrega fe ON fe.entrega_id = e.id
+    LEFT JOIN usuario uc ON uc.id = e.creado_por_usuario_id
+    LEFT JOIN persona p_creator ON p_creator.id = uc.persona_id`;
 
     if (conditions.length) {
       query += ` WHERE ${conditions.join(' AND ')}`;
