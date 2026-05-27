@@ -680,7 +680,10 @@ const resolveHeaderImages = async (row) => {
     : row.detalles;
   return {
     ...row,
+    evidencia_foto_url_raw: row.evidencia_foto_url,
+    firma_imagen_url_raw: row.firma_imagen_url,
     evidencia_foto_url: await resolveImageUrl(row.evidencia_foto_url),
+    firma_imagen_url: await resolveImageUrl(row.firma_imagen_url),
     detalles,
   };
 };

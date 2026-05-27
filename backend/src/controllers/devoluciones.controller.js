@@ -16,7 +16,7 @@ const buildSignaturePayload = async (req) => {
 
   let uploadedSignatureUrl = null;
   if (req.file) {
-    uploadedSignatureUrl = await uploadFile(req.file);
+    uploadedSignatureUrl = await uploadFile(req.file, { folder: 'firmas/devoluciones' });
     payload.firma_imagen_url = uploadedSignatureUrl;
   }
 
@@ -189,8 +189,8 @@ class DevolucionesController {
         }
 
         // Evidencia
-        if (data.evidencia_foto_url) {
-          const imgBuf = await downloadImageBuffer(data.evidencia_foto_url).catch(() => null);
+        if (data.evidencia_foto_url_raw) {
+          const imgBuf = await downloadImageBuffer(data.evidencia_foto_url_raw).catch(() => null);
           if (imgBuf) {
             doc.fontSize(10).fillColor(DARK_BLUE).text('Foto de evidencia', { underline: true }).moveDown(0.2);
             doc.image(imgBuf, { fit: [400, 200], align: 'center' }).moveDown(0.5);
@@ -199,8 +199,8 @@ class DevolucionesController {
 
         // Firma
         doc.fontSize(10).fillColor(DARK_BLUE).text('Firma del trabajador', { underline: true }).moveDown(0.2);
-        if (data.firma_imagen_url) {
-          const sigBuf = await downloadImageBuffer(data.firma_imagen_url).catch(() => null);
+        if (data.firma_imagen_url_raw) {
+          const sigBuf = await downloadImageBuffer(data.firma_imagen_url_raw).catch(() => null);
           if (sigBuf) {
             doc.image(sigBuf, { fit: [200, 80], align: 'left' }).moveDown(0.2);
           }

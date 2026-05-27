@@ -17,7 +17,7 @@ const buildSignaturePayload = async (req) => {
 
   let uploadedSignatureUrl = null;
   if (req.file) {
-    uploadedSignatureUrl = await uploadFile(req.file);
+    uploadedSignatureUrl = await uploadFile(req.file, { folder: 'firmas/entregas' });
     payload.firma_imagen_url = uploadedSignatureUrl;
   }
 
