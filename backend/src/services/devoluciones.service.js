@@ -429,6 +429,10 @@ class DevolucionesService {
   }
 
   static async create(payload, userId, imageFile = null) {
+    if (!imageFile && !payload.evidencia_foto_url) {
+      throw buildError('La foto de evidencia es obligatoria.', 400, 'FOTO_REQUERIDA');
+    }
+
     let uploadedEvidenceUrl = null;
     if (imageFile) {
       uploadedEvidenceUrl = await uploadFile(imageFile, { folder: 'devoluciones/evidencias' });
