@@ -185,6 +185,14 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
     );
   };
 
+  const handleDownloadActaDevolucion = (devolucionId: string) => {
+    const timestamp = new Date().toISOString().slice(0, 10);
+    void downloadPdf(
+      `/devoluciones/${devolucionId}/pdf`,
+      `acta-devolucion-${devolucionId.slice(0, 8)}-${timestamp}.pdf`
+    );
+  };
+
   const { data: profile, isLoading, error } = useQuery<ActivoProfileResponse>({
     queryKey: ['activo-profile', activoId],
     queryFn: () => getActivoProfile(activoId),
@@ -730,7 +738,13 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
                 <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-edge" />
                 <ul className="space-y-3">
                   {profile.timeline.map((entry) => (
-                    <TimelineItem key={entry.id} entry={entry} onDownloadActa={handleDownloadActa} />
+                    <TimelineItem
+                      key={entry.id}
+                      entry={entry}
+                      onDownloadActa={handleDownloadActa}
+                      onDownloadActaDevolucion={handleDownloadActaDevolucion}
+                      onOpenDetail={(type, id) => setActaDetail({ type, id })}
+                    />
                   ))}
                 </ul>
               </div>
@@ -828,36 +842,70 @@ const ActionButton: React.FC<{
 const TimelineItem: React.FC<{
   entry: ActivoTimelineEntry;
   onDownloadActa?: (entregaId: string) => void;
-}> = ({ entry, onDownloadActa }) => (
-  <li className="relative pl-10">
-    <span className="absolute left-2 top-0.5 w-5 h-5 flex items-center justify-center text-sm bg-surface border rounded-full">
-      {MOV_ICONS[entry.tipo] ?? '•'}
-    </span>
-    <div className="text-sm">
-      <div className="flex items-baseline gap-2">
-        <span className="font-medium text-content-primary">{MOV_LABELS[entry.tipo] ?? entry.tipo}</span>
-        <span className="text-xs text-content-disabled">{formatDateTime(entry.fecha_movimiento)}</span>
-        {entry.tipo === 'entrega' && entry.entrega_id && onDownloadActa && (
-          <button
-            type="button"
-            onClick={() => onDownloadActa(entry.entrega_id!)}
-            className="text-xs text-primary hover:underline"
-            aria-label="Acta PDF"
-          >
-            ↓ Acta
-          </button>
-        )}
+  onDownloadActaDevolucion?: (devolucionId: string) => void;
+  onOpenDetail?: (type: 'entrega' | 'devolucion', id: string) => void;
+}> = ({ entry, onDownloadActa, onDownloadActaDevolucion, onOpenDetail }) => {
+  const isPending =
+    (entry.estado_entrega != null && ['borrador', 'pendiente_firma'].includes(entry.estado_entrega)) ||
+    (entry.estado_devolucion != null && ['borrador', 'pendiente_firma'].includes(entry.estado_devolucion));
+
+  const handleRowClick = () => {
+    if (entry.entrega_id && onOpenDetail) onOpenDetail('entrega', entry.entrega_id);
+    else if (entry.devolucion_id && onOpenDetail) onOpenDetail('devolucion', entry.devolucion_id);
+  };
+
+  const isClickable = !!(entry.entrega_id || entry.devolucion_id) && !!onOpenDetail;
+
+  return (
+    <li
+      className={`relative pl-10 ${isClickable ? 'cursor-pointer hover:bg-surface-muted rounded transition-colors' : ''}`}
+      onClick={isClickable ? handleRowClick : undefined}
+      role={isClickable ? 'button' : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onKeyDown={isClickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') handleRowClick(); } : undefined}
+    >
+      <span className="absolute left-2 top-0.5 w-5 h-5 flex items-center justify-center text-sm bg-surface border rounded-full">
+        {MOV_ICONS[entry.tipo] ?? '•'}
+      </span>
+      <div className="text-sm py-1">
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className="font-medium text-content-primary">{MOV_LABELS[entry.tipo] ?? entry.tipo}</span>
+          <span className="text-xs text-content-disabled">{formatDateTime(entry.fecha_movimiento)}</span>
+          {isPending && (
+            <span className="text-xs font-semibold text-red-600">● Pendiente</span>
+          )}
+          {entry.entrega_id && onDownloadActa && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDownloadActa(entry.entrega_id!); }}
+              className="text-xs text-primary hover:underline"
+              aria-label="Descargar acta PDF"
+            >
+              ↓ Acta
+            </button>
+          )}
+          {entry.devolucion_id && onDownloadActaDevolucion && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDownloadActaDevolucion(entry.devolucion_id!); }}
+              className="text-xs text-primary hover:underline"
+              aria-label="Descargar acta devolución PDF"
+            >
+              ↓ Acta
+            </button>
+          )}
+        </div>
+        <div className="text-xs text-content-muted mt-0.5 space-y-0.5">
+          {(entry.ubicacion_origen_nombre || entry.ubicacion_destino_nombre) && (
+            <p>{entry.ubicacion_origen_nombre ?? '?'} → {entry.ubicacion_destino_nombre ?? '?'}</p>
+          )}
+          {entry.notas && <p className="italic">{entry.notas}</p>}
+          {entry.responsable_email && <p>Por: {entry.responsable_email}</p>}
+        </div>
       </div>
-      <div className="text-xs text-content-muted mt-0.5 space-y-0.5">
-        {(entry.ubicacion_origen_nombre || entry.ubicacion_destino_nombre) && (
-          <p>{entry.ubicacion_origen_nombre ?? '?'} → {entry.ubicacion_destino_nombre ?? '?'}</p>
-        )}
-        {entry.notas && <p className="italic">{entry.notas}</p>}
-        {entry.responsable_email && <p>Por: {entry.responsable_email}</p>}
-      </div>
-    </div>
-  </li>
-);
+    </li>
+  );
+};
 
 const CUSTODIA_ESTADO_CLASSES: Record<string, string> = {
   activa: 'text-primary',
