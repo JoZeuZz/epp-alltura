@@ -9,7 +9,7 @@ import {
   type CondicionSalida,
 } from '../../services/apiService';
 import { formatCLP } from '../../utils/currency';
-import { ALLOWED_IMAGE_ACCEPT, ALLOWED_IMAGE_TYPES, IMAGE_MAX_BYTES, IMAGE_MAX_LABEL } from '../../config/imageLimits';
+import FotoEvidenciaUpload from './FotoEvidenciaUpload';
 
 interface TrabajadorOption {
   id: string;
@@ -110,8 +110,7 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
   const [detalles, setDetalles] = useState<DetalleState[]>(buildInitialDetalles);
   const [error, setError] = useState<string | null>(null);
   const [evidenciaFile, setEvidenciaFile] = useState<File | null>(null);
-  const [evidenciaPreviewUrl, setEvidenciaPreviewUrl] = useState<string | null>(null);
-  const [evidenciaFileError, setEvidenciaFileError] = useState<string | null>(null);
+  const [evidenciaFotoError, setEvidenciaFotoError] = useState<string | null>(null);
 
   // Filtro de búsqueda de trabajador
   const [trabajadorSearch, setTrabajadorSearch] = useState('');
@@ -127,38 +126,9 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
       setError(null);
       setTrabajadorSearch('');
       setEvidenciaFile(null);
-      setEvidenciaFileError(null);
+      setEvidenciaFotoError(null);
     }
   }, [isOpen, initialArticuloId]);
-
-  useEffect(() => {
-    if (!evidenciaFile) {
-      setEvidenciaPreviewUrl(null);
-      return;
-    }
-    const url = URL.createObjectURL(evidenciaFile);
-    setEvidenciaPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [evidenciaFile]);
-
-  const handleEvidenciaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    if (!file) {
-      setEvidenciaFile(null);
-      setEvidenciaFileError(null);
-      return;
-    }
-    if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
-      setEvidenciaFileError('Solo se permiten imágenes JPG, PNG, WEBP o AVIF.');
-      return;
-    }
-    if (file.size > IMAGE_MAX_BYTES) {
-      setEvidenciaFileError(`La imagen supera el tamaño máximo permitido (${IMAGE_MAX_LABEL}).`);
-      return;
-    }
-    setEvidenciaFileError(null);
-    setEvidenciaFile(file);
-  };
 
   // Artículos físicos disponibles en la bodega de origen seleccionada.
   const { data: articulosData, isLoading: isLoadingArticulos, error: articulosError } = useQuery({
@@ -211,7 +181,8 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
     hasWorkerSelection &&
     ubicacionOrigenId !== '' &&
     ubicacionDestinoId !== '' &&
-    ubicacionOrigenId !== ubicacionDestinoId;
+    ubicacionOrigenId !== ubicacionDestinoId &&
+    evidenciaFile !== null;
 
   // Step 2 helpers
   const addDetalle = () => setDetalles((prev) => [...prev, buildEmptyDetalle()]);
@@ -412,40 +383,14 @@ const EntregaCreateModal: React.FC<EntregaCreateModalProps> = ({
 
           {/* Evidencia fotográfica */}
           <div>
-            <label className="block text-sm font-medium text-content-secondary mb-1">
-              Evidencia fotográfica <span className="text-xs font-normal text-content-muted">(opcional)</span>
-            </label>
-            {evidenciaPreviewUrl ? (
-              <div className="flex items-start gap-3">
-                <div className="relative inline-block">
-                  <img
-                    src={evidenciaPreviewUrl}
-                    alt="Vista previa de evidencia"
-                    className="w-28 h-28 object-cover rounded-lg border border-edge"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEvidenciaFile(null);
-                      setEvidenciaFileError(null);
-                    }}
-                    className="absolute -top-2 -right-2 bg-white border border-edge-strong rounded-full w-5 h-5 flex items-center justify-center text-xs text-danger hover:bg-danger-subtle leading-none"
-                    aria-label="Eliminar imagen seleccionada"
-                  >
-                    ×
-                  </button>
-                </div>
-                <p className="text-xs text-content-muted mt-1">{evidenciaFile?.name}</p>
-              </div>
-            ) : (
-              <input
-                type="file"
-                accept={ALLOWED_IMAGE_ACCEPT}
-                onChange={handleEvidenciaChange}
-                className="block text-sm text-content-secondary file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:bg-surface-muted file:text-content-secondary hover:file:bg-edge cursor-pointer"
-              />
-            )}
-            {evidenciaFileError && <p className="text-xs text-danger-text mt-1" role="alert">{evidenciaFileError}</p>}
+            <FotoEvidenciaUpload
+              value={evidenciaFile}
+              onChange={(f) => {
+                setEvidenciaFile(f);
+                if (f) setEvidenciaFotoError(null);
+              }}
+              error={evidenciaFotoError}
+            />
           </div>
         </div>
       )}
