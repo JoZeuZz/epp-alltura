@@ -725,10 +725,38 @@ const deleteFileByUrl = async (imageUrl) => {
   }
 };
 
+const downloadImageBuffer = async (storedUrl) => {
+  if (!storedUrl) return null;
+  try {
+    if (isGcsUrl(storedUrl)) {
+      if (!isGCSConfigured || !storage) return null;
+      const gcsInfo = parseGcsUrl(storedUrl);
+      if (!gcsInfo) return null;
+      const targetBucket = storage.bucket(gcsInfo.bucketName);
+      const [contents] = await targetBucket.file(gcsInfo.objectName).download();
+      return contents;
+    }
+    // Local: http://localhost:PORT/uploads/relative/path
+    const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+    if (storedUrl.startsWith(backendUrl + '/uploads/')) {
+      const relPath = storedUrl.slice((backendUrl + '/uploads/').length);
+      const localPath = path.resolve(localUploadsDir, relPath);
+      if (!localPath.startsWith(localUploadsDir + path.sep) && localPath !== localUploadsDir) {
+        return null; // path traversal
+      }
+      return await fs.promises.readFile(localPath);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 module.exports = {
   uploadFile,
   uploadDocument,
   deleteFileByUrl,
   resolveImageUrl,
   resolveHeaderImages,
+  downloadImageBuffer,
 };
