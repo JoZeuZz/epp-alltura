@@ -81,6 +81,7 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
   const [certFiles,   setCertFiles]   = useState<File[]>([]);
   const [manualTab,   setManualTab]   = useState<'file' | 'url'>('file');
   const [showProveedorModal, setShowProveedorModal] = useState(false);
+  const [hasVenc, setHasVenc] = useState(false);
 
   const { data: proveedores = [] } = useQuery<Proveedor[]>({
     queryKey: ['proveedores'],
@@ -114,6 +115,7 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
       queryClient.invalidateQueries({ queryKey: ['articulos'] });
       reset();
       setFotoFile(null); setFotoError(null); setFacturaFile(null); setManualFile(null); setCertFiles([]);
+      setHasVenc(false);
       onClose();
       onSuccess?.(articulo);
     },
@@ -128,6 +130,7 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
       setFotoError('La foto del artículo es obligatoria.');
       return;
     }
+    if (!hasVenc) data.fecha_vencimiento = undefined;
     const files: ArticleFiles = {};
     files.foto = fotoFile;
     if (facturaFile) files.factura = facturaFile;
@@ -220,11 +223,6 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
           </div>
         </div>
 
-        <div>
-          <label className="label-sm block mb-1">Fecha de vencimiento</label>
-          <input {...register('fecha_vencimiento')} type="date" className="input w-full" />
-        </div>
-
         {/* New provenance fields */}
 
         <div>
@@ -258,6 +256,30 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
             onChange={(e) => setFacturaFile(e.target.files?.[0] ?? null)}
             className={fileCls}
           />
+        </div>
+
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={hasVenc}
+              onChange={() => {
+                setHasVenc(v => {
+                  if (v) setValue('fecha_vencimiento', undefined);
+                  return !v;
+                });
+              }}
+              className="rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
+            />
+            <span className="label-sm">¿Tiene fecha de vencimiento?</span>
+          </label>
+          {hasVenc && (
+            <input
+              {...register('fecha_vencimiento')}
+              type="date"
+              className="input w-full"
+            />
+          )}
         </div>
 
         <div>
