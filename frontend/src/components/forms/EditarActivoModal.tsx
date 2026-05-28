@@ -59,6 +59,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
   const [fechaVencimiento, setFechaVencimiento] = useState(
     activo.fecha_vencimiento ? activo.fecha_vencimiento.slice(0, 10) : ''
   );
+  const [hasVencimiento, setHasVencimiento] = useState(!!activo.fecha_vencimiento);
   const [especialidades, setEspecialidades] = useState<ArticuloEspecialidad[]>(
     activo.especialidades ?? []
   );
@@ -86,7 +87,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
           modelo:            modelo.trim()      || undefined,
           descripcion:       descripcion.trim() || undefined,
           valor:             valor.trim() ? parseInt(valor, 10) : undefined,
-          fecha_vencimiento: fechaVencimiento || null,
+          fecha_vencimiento: hasVencimiento ? fechaVencimiento || null : null,
           fecha_compra:      fechaCompra     || null,
           proveedor_id:      proveedorId     || null,
           manual_url:        manualTab === 'url' ? (manualUrl.trim() || null) : undefined,
@@ -296,10 +297,30 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
         {/* VIGENCIA */}
         <section className={sectionCls}>
           <h4 className={sectionTitleCls}>Vigencia</h4>
-          <div>
-            <label className={labelCls}>Fecha vencimiento</label>
-            <input type="date" value={fechaVencimiento}
-              onChange={e => setFechaVencimiento(e.target.value)} className={inputCls} />
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={hasVencimiento}
+                onChange={() => {
+                  setHasVencimiento(v => {
+                    if (v) setFechaVencimiento('');
+                    return !v;
+                  });
+                }}
+                className="rounded border-edge text-primary-blue focus:ring-primary-blue"
+              />
+              <span className="text-sm font-medium text-content-secondary">¿Tiene fecha de vencimiento?</span>
+            </label>
+            {hasVencimiento && (
+              <input
+                type="date"
+                value={fechaVencimiento}
+                onChange={e => setFechaVencimiento(e.target.value)}
+                className={inputCls}
+                aria-label="Fecha de vencimiento"
+              />
+            )}
           </div>
           <div>
             <label className={labelCls}>Especialidades</label>
