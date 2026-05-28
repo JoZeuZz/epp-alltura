@@ -27,6 +27,12 @@ jest.mock('../../lib/logger', () => ({
   requestLogger: (_req, _res, next) => next(),
 }));
 
+jest.mock('../../lib/googleCloud', () => ({
+  uploadFile: jest.fn(),
+  deleteFileByUrl: jest.fn(),
+  downloadImageBuffer: jest.fn().mockResolvedValue(null),
+}));
+
 const express = require('express');
 const request = require('supertest');
 const errorHandler = require('../../middleware/errorHandler');
@@ -40,18 +46,24 @@ const MOCK_ENTREGA = {
   nombres: 'Juan',
   apellidos: 'Pérez',
   rut: '12345678-9',
+  creador_nombres: 'Admin',
+  creador_apellidos: 'Sistema',
   estado: 'confirmada',
   tipo: 'entrega',
   creado_en: new Date().toISOString(),
   confirmada_en: new Date().toISOString(),
   firmado_en: new Date().toISOString(),
   firma_imagen_url: null,
+  firma_imagen_url_raw: null,
+  evidencia_foto_url_raw: null,
   detalles: [
     {
       articulo_nombre: 'Casco',
       activo_codigo: 'EPP-001',
+      codigo: 'EPP-001',
       cantidad: 1,
       condicion_salida: 'ok',
+      valor: 24500,
       notas: null,
     },
   ],
@@ -137,5 +149,20 @@ describe('GET /api/entregas/:id/pdf', () => {
       .get(`/api/entregas/${MOCK_ENTREGA.id}/pdf`);
     expect(res.status).toBe(200);
     expect(res.headers['content-length']).toBeDefined();
+  });
+
+  it('returns 200 for signed entrega with evidence photo', async () => {
+    const { downloadImageBuffer } = require('../../lib/googleCloud');
+    downloadImageBuffer.mockResolvedValue(Buffer.from('fake-img'));
+    EntregasService.getById.mockResolvedValue({
+      ...MOCK_ENTREGA,
+      firma_imagen_url_raw: 'https://storage/firma.png',
+      evidencia_foto_url_raw: 'https://storage/evidencia.jpg',
+    });
+    const res = await request(buildApp())
+      .get(`/api/entregas/${MOCK_ENTREGA.id}/pdf`);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/application\/pdf/);
+    expect(Number(res.headers['content-length'])).toBeGreaterThan(0);
   });
 });
