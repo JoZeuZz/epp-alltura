@@ -8,15 +8,21 @@ export function usePdfDownload() {
   async function downloadPdf(url: string, filename: string): Promise<void> {
     setIsLoading(true);
     try {
-      const response = await apiService.get(url, { responseType: 'blob' });
-      const objectUrl = URL.createObjectURL(response.data as Blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 250);
+      const response = await apiService.get(url, { responseType: 'arraybuffer' });
+      const blob = new Blob([response.data as ArrayBuffer], { type: 'application/pdf' });
+      const objectUrl = URL.createObjectURL(blob);
+      const opened = window.open(objectUrl, '_blank', 'noopener,noreferrer');
+      if (!opened) {
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => a.remove(), 100);
+        toast.success('PDF listo. Revisa tu carpeta de Descargas.');
+      }
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
     } catch {
       toast.error('No se pudo descargar el PDF.');
     } finally {

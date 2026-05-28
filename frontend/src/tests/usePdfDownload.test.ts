@@ -9,8 +9,10 @@ vi.mock('../services/apiService', () => ({
 
 const mockCreateObjectURL = vi.fn(() => 'blob:mock-url');
 const mockRevokeObjectURL = vi.fn();
+const mockWindowOpen = vi.fn(() => ({ closed: false }));
 global.URL.createObjectURL = mockCreateObjectURL;
 global.URL.revokeObjectURL = mockRevokeObjectURL;
+global.window.open = mockWindowOpen as unknown as typeof window.open;
 
 import { usePdfDownload } from '../hooks/usePdfDownload';
 
@@ -23,23 +25,25 @@ describe('usePdfDownload', () => {
   });
 
   it('resolves isLoading to false after download', async () => {
-    // AxiosInstance.get resolves to AxiosResponse — mock .data as Blob
-    mockGet.mockResolvedValue({ data: new Blob(['%PDF'], { type: 'application/pdf' }) });
+    // AxiosInstance.get with responseType: arraybuffer resolves to AxiosResponse<ArrayBuffer>
+    mockGet.mockResolvedValue({ data: new ArrayBuffer(4) });
     const { result } = renderHook(() => usePdfDownload());
     await act(async () => {
       await result.current.downloadPdf('/test/pdf', 'test.pdf');
     });
     expect(result.current.isLoading).toBe(false);
-    // verify called with url + config (AxiosInstance.get takes url, config? — no params arg)
-    expect(mockGet).toHaveBeenCalledWith('/test/pdf', { responseType: 'blob' });
+    expect(mockGet).toHaveBeenCalledWith('/test/pdf', { responseType: 'arraybuffer' });
   });
 
-  it('revokes object URL after triggering download', async () => {
-    mockGet.mockResolvedValue({ data: new Blob(['%PDF']) });
+  it('creates blob with pdf type and opens new tab', async () => {
+    mockGet.mockResolvedValue({ data: new ArrayBuffer(8) });
     const { result } = renderHook(() => usePdfDownload());
     await act(async () => {
       await result.current.downloadPdf('/inventario/activos/123/pdf', 'ficha.pdf');
     });
-    expect(mockRevokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
+    expect(mockCreateObjectURL).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'application/pdf' })
+    );
+    expect(mockWindowOpen).toHaveBeenCalledWith('blob:mock-url', '_blank', 'noopener,noreferrer');
   });
 });
