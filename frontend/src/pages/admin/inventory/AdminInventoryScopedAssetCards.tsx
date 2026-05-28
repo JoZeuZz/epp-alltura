@@ -166,11 +166,18 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return items.filter((a) => {
-      const matchesSearch =
-        !term ||
-        a.nombre.toLowerCase().includes(term) ||
-        a.codigo.toLowerCase().includes(term) ||
-        a.nro_serie.toLowerCase().includes(term);
+      const haystack = [
+        a.nombre,
+        a.codigo,
+        a.nro_serie,
+        a.marca,
+        a.modelo,
+        a.bodega_nombre,
+        a.proyecto_nombre,
+        ...(a.especialidades ?? []),
+        ...(a.especialidades ?? []).map(e => ESP_LABELS[e] ?? e),
+      ].filter(Boolean).join(' ').toLowerCase();
+      const matchesSearch = !term || haystack.includes(term);
       const matchesEstado = estadoFilter === 'all' || a.estado === estadoFilter;
       const matchesCiudad =
         ciudadFilter === undefined ||
@@ -238,8 +245,8 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Nombre, código o serie"
-              aria-label="Buscar por nombre, código o serie"
+              placeholder="Nombre, código, ubicación, especialidad…"
+              aria-label="Buscar artículos"
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
             />
           </label>
