@@ -157,71 +157,110 @@ class DevolucionesController {
       const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `acta-devolucion-${id.slice(0, 8)}-${timestamp}.pdf`;
 
-      const pdfBuffer = await bufferPdf('Acta de Devolución', async (doc) => {
-        // Partes
-        doc.fontSize(10).fillColor(DARK_BLUE).text('Partes involucradas', { underline: true });
-        doc.fontSize(9).fillColor(BODY_TEXT);
+      const pdfBuffer = await bufferPdf('Acta de Devolución de EPP/Herramientas', async (doc) => {
         const devueltoPor = [data.nombres, data.apellidos].filter(Boolean).join(' ') || '—';
         const recibidoPor = [data.receptor_nombres, data.receptor_apellidos].filter(Boolean).join(' ') || '—';
-        doc.text(`Devuelto por: ${devueltoPor}${data.rut ? ` — RUT: ${data.rut}` : ''}`)
-           .text(`Recibido por: ${recibidoPor}`)
-           .text(`Fecha: ${new Date(data.creado_en).toLocaleDateString('es-CL')}`)
-           .text(`Estado: ${data.estado}`)
+        const rut         = data.rut || '—';
+
+        // Folio
+        doc.fontSize(9).fillColor(MUTED_GRAY)
+           .text(`Folio: ${id.slice(0, 8).toUpperCase()}`, { align: 'right' })
            .moveDown(0.5);
 
-        // Artículos
+        // ── 1. Partes ──────────────────────────────────────────────────────
+        doc.fontSize(10).fillColor(DARK_BLUE)
+           .text('1. IDENTIFICACIÓN DE LAS PARTES', { underline: true })
+           .moveDown(0.3);
+        doc.fontSize(9).fillColor(BODY_TEXT)
+           .text(`Devuelto por: ${devueltoPor} — RUT: ${rut}`)
+           .text(`Recibido por: ${recibidoPor}`)
+           .text(`Fecha:        ${new Date(data.creado_en).toLocaleDateString('es-CL')}`)
+           .moveDown(0.7);
+
+        // ── 2. Detalle ─────────────────────────────────────────────────────
+        doc.fontSize(10).fillColor(DARK_BLUE)
+           .text('2. DETALLE DEL ARTÍCULO DEVUELTO', { underline: true })
+           .moveDown(0.3);
         if (data.detalles && data.detalles.length > 0) {
-          doc.fontSize(10).fillColor(DARK_BLUE).text('Detalle de ítems devueltos', { underline: true }).moveDown(0.3);
-          const headers = ['Artículo', 'Código', 'Condición entrada', 'Disposición', 'Notas'];
+          const headers = ['Artículo', 'Código', 'Condición entrada', 'Disposición', 'Valor (CLP)'];
           const rows = data.detalles.map((d) => [
             d.articulo_nombre ?? '—',
             d.codigo ?? '—',
             d.condicion_entrada ?? '—',
             d.disposicion ?? '—',
-            d.notas ?? '',
+            d.valor != null ? `$${Number(d.valor).toLocaleString('es-CL')} CLP` : '—',
           ]);
           await doc.table({ headers, rows }, {
-            columnsSize: [130, 80, 90, 80, 100],
+            columnsSize: [120, 80, 90, 80, 100],
             prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
-            prepareRow: () => doc.font('Helvetica').fontSize(8),
+            prepareRow:    () => doc.font('Helvetica').fontSize(8),
           });
-          doc.moveDown(0.5);
+        } else {
+          doc.fontSize(9).fillColor(MUTED_GRAY).text('Sin detalle de artículos registrado.');
         }
+        doc.moveDown(0.7);
 
-        // Evidencia
-        if (data.evidencia_foto_url_raw) {
-          const imgBuf = await downloadImageBuffer(data.evidencia_foto_url_raw).catch(() => null);
-          if (imgBuf) {
-            doc.fontSize(10).fillColor(DARK_BLUE).text('Foto de evidencia', { underline: true }).moveDown(0.2);
-            doc.image(imgBuf, { fit: [400, 200], align: 'center' }).moveDown(0.5);
-          }
-        }
+        // ── 3. Declaración ─────────────────────────────────────────────────
+        const det          = data.detalles?.[0] ?? {};
+        const artNombre    = det.articulo_nombre ?? '(artículo)';
+        const artCodigo    = det.codigo ?? '—';
+        const artCondicion = det.condicion_entrada ?? '—';
 
-        // Firma
-        doc.fontSize(10).fillColor(DARK_BLUE).text('Firma del trabajador', { underline: true }).moveDown(0.2);
+        doc.fontSize(10).fillColor(DARK_BLUE)
+           .text('3. DECLARACIÓN DE DEVOLUCIÓN', { underline: true })
+           .moveDown(0.3);
+        const declaracion =
+          `Yo, ${devueltoPor}, RUT ${rut}, declaro devolver en esta fecha el artículo ` +
+          `${artNombre} (Código: ${artCodigo}), en condición de entrada: ${artCondicion}, ` +
+          `recibido en conformidad por ${recibidoPor}.\n\n` +
+          `Con la firma de este documento, quedo liberado de responsabilidad sobre el artículo ` +
+          `devuelto a partir de esta fecha, salvo las observaciones indicadas en el detalle del acta.`;
+        doc.fontSize(9).fillColor(BODY_TEXT).text(declaracion, { width: 480, align: 'justify' });
+        doc.moveDown(0.7);
+
+        // ── 4. Firma ───────────────────────────────────────────────────────
+        doc.fontSize(10).fillColor(DARK_BLUE)
+           .text('4. FIRMA DE CONFORMIDAD', { underline: true })
+           .moveDown(0.3);
         if (data.firma_imagen_url_raw) {
           const sigBuf = await downloadImageBuffer(data.firma_imagen_url_raw).catch(() => null);
           if (sigBuf) {
-            doc.image(sigBuf, { fit: [200, 80], align: 'left' }).moveDown(0.2);
+            try { doc.image(sigBuf, { fit: [200, 80], align: 'left' }); } catch { /* invalid img */ }
           }
+          const lineY = doc.y + 4;
+          doc.moveTo(40, lineY).lineTo(240, lineY)
+             .strokeColor(DARK_BLUE).lineWidth(0.5).stroke()
+             .strokeColor('#000000').lineWidth(1);
+          doc.moveDown(0.3);
           doc.fontSize(9).fillColor(BODY_TEXT)
+             .text(`${devueltoPor} — RUT: ${rut}`)
              .text(`Firmado el: ${new Date(data.firmado_en).toLocaleString('es-CL')}`);
         } else {
-          doc.fontSize(9).fillColor(MUTED_GRAY).text('Firma: pendiente.');
+          doc.fontSize(9).fillColor(MUTED_GRAY)
+             .text('Firma: pendiente de validación digital.');
         }
 
-        // Texto de aceptación
-        if (data.texto_aceptacion) {
-          doc.moveDown(0.5);
-          doc.fontSize(10).fillColor(DARK_BLUE).text('Texto de aceptación', { underline: true }).moveDown(0.2);
-          let displayText = data.texto_aceptacion;
-          try {
-            const parsed = JSON.parse(data.texto_aceptacion);
-            displayText = parsed.general || data.texto_aceptacion;
-          } catch {
-            // plain text, use as-is
+        // ── Anexo: Evidencia ───────────────────────────────────────────────
+        if (data.evidencia_foto_url_raw) {
+          const imgBuf = await downloadImageBuffer(data.evidencia_foto_url_raw).catch(() => null);
+          if (imgBuf) {
+            doc.moveDown(1);
+            const sepY = doc.y;
+            doc.moveTo(40, sepY).lineTo(doc.page.width - 40, sepY)
+               .strokeColor('#CCCCCC').lineWidth(0.5).stroke()
+               .strokeColor('#000000').lineWidth(1);
+            doc.moveDown(0.5);
+            doc.fontSize(10).fillColor(DARK_BLUE)
+               .text('ANEXO: FOTOGRAFÍAS DE EVIDENCIA', { underline: true })
+               .moveDown(0.3);
+            try { doc.image(imgBuf, { fit: [450, 300], align: 'center' }); } catch { /* invalid img */ }
+            doc.moveDown(0.3);
+            doc.fontSize(8).fillColor(MUTED_GRAY)
+               .text(
+                 `Fotografía de evidencia — ${new Date(data.creado_en).toLocaleDateString('es-CL')}`,
+                 { align: 'center' }
+               );
           }
-          doc.fontSize(8).fillColor(BODY_TEXT).text(displayText, { width: 480 });
         }
       });
 

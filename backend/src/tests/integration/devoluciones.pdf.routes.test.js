@@ -43,7 +43,9 @@ const MOCK_DEVOLUCION = {
   confirmada_en: new Date().toISOString(),
   firmado_en: new Date().toISOString(),
   firma_imagen_url: null,
+  firma_imagen_url_raw: null,
   evidencia_foto_url: null,
+  evidencia_foto_url_raw: null,
   texto_aceptacion: null,
   detalles: [
     {
@@ -51,6 +53,7 @@ const MOCK_DEVOLUCION = {
       codigo: 'CSC-001',
       condicion_entrada: 'ok',
       disposicion: 'devuelto',
+      valor: 18000,
       notas: null,
     },
   ],
@@ -100,5 +103,20 @@ describe('GET /api/devoluciones/:id/pdf', () => {
     DevolucionesService.getById.mockResolvedValue(MOCK_DEVOLUCION);
     const res = await request(buildApp()).get(`/api/devoluciones/${MOCK_DEVOLUCION.id}/pdf`);
     expect(res.headers['content-length']).toBeDefined();
+  });
+
+  it('returns 200 for signed devolucion with evidence photo', async () => {
+    const { downloadImageBuffer } = require('../../lib/googleCloud');
+    downloadImageBuffer.mockResolvedValue(Buffer.from('fake-img'));
+    DevolucionesService.getById.mockResolvedValue({
+      ...MOCK_DEVOLUCION,
+      firma_imagen_url_raw: 'https://storage/firma.png',
+      evidencia_foto_url_raw: 'https://storage/evidencia.jpg',
+    });
+    const res = await request(buildApp())
+      .get(`/api/devoluciones/${MOCK_DEVOLUCION.id}/pdf`);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/application\/pdf/);
+    expect(Number(res.headers['content-length'])).toBeGreaterThan(0);
   });
 });
