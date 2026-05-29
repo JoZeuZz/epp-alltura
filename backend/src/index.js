@@ -15,6 +15,7 @@ require('dotenv').config({ quiet: true });
 const express = require('express');
 const compression = require('compression');
 const { requestLogger, logger } = require('./lib/logger');
+const { sendSuccess } = require('./lib/apiResponse');
 const redisClient = require('./lib/redis');
 
 // Importar middlewares de seguridad
@@ -213,12 +214,7 @@ app.post('/api/metrics', async (req, res) => {
     }
   }
 
-  res.json({
-    success: true,
-    message: 'Métricas registradas correctamente',
-    data: null,
-    errors: [],
-  });
+  sendSuccess(res, { message: 'Métricas registradas correctamente' });
 });
 
 // ============================================
