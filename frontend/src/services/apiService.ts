@@ -91,16 +91,6 @@ export const updateUser = <T = unknown>({ id, ...payload }: UserUpdatePayload) =
   put<T>(`/users/${id}`, payload);
 export const deactivateUser = <T = unknown>(id: string) => del<T>(`/users/${id}`);
 
-// TODO Task 12: ArticuloGrupoPrincipal kept for components being updated in Task 12+
-export type ArticuloGrupoPrincipal = 'epp' | 'equipo' | 'herramienta';
-// TODO Task 12: ArticuloSubclasificacion kept for components being updated in Task 12+
-export type ArticuloSubclasificacion =
-  | 'epp'
-  | 'medicion_ensayos'
-  | 'manual'
-  | 'electrica_cable'
-  | 'inalambrica_bateria';
-
 export type ArticuloTipo = 'epp' | 'herramienta' | 'equipo';
 export type ArticuloEstado = 'en_stock' | 'asignado' | 'mantencion' | 'dado_de_baja' | 'perdido';
 export type ArticuloEspecialidad =
@@ -253,15 +243,6 @@ export const createProveedor = (payload: { nombre: string; rut?: string; email?:
 export const cambiarEstadoArticulo = (id: string, payload: CambiarEstadoArticuloPayload) =>
   post<Articulo>(`/articulos/${id}/estado`, payload);
 
-// TODO Task 12: InventoryStockQueryParams kept for components being updated in Task 12+
-export interface InventoryStockQueryParams {
-  search?: string;
-  articulo_id?: string;
-  bodega_id?: string;
-  limit?: number;
-  offset?: number;
-}
-
 export interface CursorPaginationParams {
   limit?: number;
   cursor?: string;
@@ -274,19 +255,6 @@ export interface CursorPaginatedResponse<T> {
 }
 
 
-// TODO Task 12: InventoryActivoDetailQueryParams kept for components being updated in Task 12+
-export interface InventoryActivoDetailQueryParams extends CursorPaginationParams {
-  search?: string;
-  articulo_id?: string;
-  bodega_id?: string;
-  estado?: string;
-  solo_entregados?: boolean;
-  tipo_activo?: InventoryActivoTypeScope;
-}
-
-export type InventoryActivoTypeScope = 'herramientas' | 'epp' | 'equipos';
-
-// TODO Task 12: InventoryActivoDetailRow will be replaced after inventory pages are updated
 export interface InventoryActivoDetailRow {
   id: string;
   codigo?: string;
@@ -321,7 +289,6 @@ export interface InventoryActivoDetailRow {
   ultimo_movimiento_destino_nombre?: string | null;
 }
 
-// TODO Task 12: InventoryAvailableAssetQueryParams will be updated after inventory pages update
 export interface InventoryAvailableAssetQueryParams {
   articulo_id: string;
   bodega_id: string;
@@ -329,7 +296,6 @@ export interface InventoryAvailableAssetQueryParams {
   limit?: number;
 }
 
-// TODO Task 12: InventoryAvailableAssetRow will be updated after inventory pages update
 export interface InventoryAvailableAssetRow {
   id: string;
   codigo: string;
@@ -433,16 +399,6 @@ export interface InventoryMovementQueryParams {
   limit?: number;
 }
 
-
-
-// TODO Task 12: getInventoryActivosPaged kept for components being updated in Task 12+
-export const getInventoryActivosPaged = (params?: InventoryActivoDetailQueryParams) =>
-  get<CursorPaginatedResponse<InventoryActivoDetailRow>>('/inventario/activos-paged', params);
-
-// TODO Task 12: getInventoryActivosAll kept for components being updated in Task 12+
-export const getInventoryActivosAll = (scope: InventoryActivoTypeScope) =>
-  get<InventoryActivoDetailRow[]>('/inventario/activos', { tipo_activo: scope, limit: 500 });
-
 // ---- Perfil completo de activo ----
 
 export interface ActivoTimelineEntry {
@@ -471,23 +427,6 @@ export interface ActivoCustodiaEntry {
   custodio_apellidos: string;
   custodia_ubicacion_nombre?: string | null;
   dias_en_custodia?: number | null;
-}
-
-// TODO Task 12: DevolverActivoDetallePayload kept for devolucion components updated in Task 12+
-export interface DevolverActivoDetallePayload {
-  custodia_id: string;
-  articulo_id: string;
-  condicion_entrada?: 'ok' | 'usado' | 'danado' | 'perdido';
-  disposicion: 'devuelto' | 'perdido' | 'baja' | 'mantencion';
-  notas?: string | null;
-}
-
-// TODO Task 12: DevolverActivoPayload kept for devolucion components updated in Task 12+
-export interface DevolverActivoPayload {
-  trabajador_id: string;
-  ubicacion_recepcion_id: string;
-  notas?: string | null;
-  detalles: DevolverActivoDetallePayload[];
 }
 
 export interface ActivoProfileResponse {
@@ -529,7 +468,6 @@ export const getActivoProfile = (id: string) =>
   get<ActivoProfileResponse>(`/inventario/activos/${id}/perfil`);
 
 // ── Gestión de activos ─────────────────────────────────────
-// TODO Task 12: CambiarEstadoActivoPayload kept for modal components updated in Task 12+
 // Use CambiarEstadoArticuloPayload + cambiarEstadoArticulo for new code
 export interface CambiarEstadoActivoPayload {
   nuevo_estado: string;
@@ -537,29 +475,16 @@ export interface CambiarEstadoActivoPayload {
   bodega_destino_id?: string;
 }
 
-// TODO Task 12: ReubicarActivoPayload kept for ReubicarActivoModal updated in Task 12+
 export interface ReubicarActivoPayload {
   bodega_destino_id: string;
   motivo?: string;
 }
 
-// TODO Task 12: EditarActivoPayload kept for EditarActivoModal updated in Task 12+
-export interface EditarActivoPayload {
-  valor?: number | null;
-  fecha_vencimiento?: string | null;
-}
-
-// TODO Task 12: cambiarEstadoActivo kept for CambiarEstadoActivoModal updated in Task 12+
 export const cambiarEstadoActivo = (id: string, payload: CambiarEstadoActivoPayload) =>
   patch<{ id: string; estado: string; bodega_actual_id: string }>(`/inventario/activos/${id}/estado`, payload);
 
-// TODO Task 12: reubicarActivo kept for ReubicarActivoModal updated in Task 12+
 export const reubicarActivo = (id: string, payload: ReubicarActivoPayload) =>
   patch<{ id: string; bodega_actual_id: string }>(`/inventario/activos/${id}/reubicar`, payload);
-
-// TODO Task 12: editarActivo kept for EditarActivoModal updated in Task 12+
-export const editarActivo = (id: string, payload: EditarActivoPayload) =>
-  patch<{ id: string; valor: number | null; fecha_vencimiento: string | null }>(`/inventario/activos/${id}`, payload);
 
 export const getInventoryAvailableAssets = (params: InventoryAvailableAssetQueryParams) =>
   get<InventoryAvailableAssetRow[]>('/inventario/activos-disponibles', params);
@@ -654,17 +579,6 @@ export interface EntregaCreatePayload {
   fecha_devolucion_esperada?: string | null;
   detalles: EntregaDetallePayload[];
 }
-
-// TODO Task 12: EntregarActivoPayload kept for entrega components updated in Task 12+
-export interface EntregarActivoPayload {
-  trabajador_id: string;
-  ubicacion_origen_id: string;
-  ubicacion_destino_id: string;
-  nota_destino?: string | null;
-  fecha_devolucion_esperada?: string | null;
-  detalles: EntregaDetallePayload[];
-}
-
 
 export const getEntregas = (params?: { estado?: EntregaEstado; trabajador_id?: string }) =>
   get<EntregaRow[]>('/entregas', params);
