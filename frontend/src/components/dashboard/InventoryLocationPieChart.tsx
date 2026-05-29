@@ -83,7 +83,7 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
       </div>
 
       <div className="mx-auto w-full" style={{ maxWidth: 'min(100%, 460px)' }}>
-      <svg viewBox="0 0 600 380" className="w-full" style={{ overflow: 'visible' }}>
+      <svg viewBox="50 50 500 350" className="w-full" style={{ overflow: 'visible' }}>
         {slices.map((s) => {
           const isActive = hovered === s.index || selected === s.index;
           const midRad = (s.mid - 90) * Math.PI / 180;
