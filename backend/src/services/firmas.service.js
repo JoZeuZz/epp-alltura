@@ -4,6 +4,7 @@ const { writeAuditEvent } = require('../lib/auditoriaDb');
 const signatureEvents = require('../lib/signatureEvents');
 
 const { buildError } = require('../lib/errors');
+const { requirePrivilegedActor } = require('../lib/signatureUtils');
 
 const hashValue = (value) =>
   crypto.createHash('sha256').update(String(value), 'utf8').digest('hex');
@@ -75,16 +76,7 @@ class FirmasService {
       const expectedSignerWorkerId = getExpectedSignerWorkerId(entrega);
 
       if (actor) {
-        const actorRoles = new Set(Array.isArray(actor.roles) ? actor.roles : [actor.role]);
-        const isPrivileged = actorRoles.has('admin') || actorRoles.has('supervisor');
-
-        if (!isPrivileged) {
-          throw buildError(
-            'No tienes permisos para firmar esta entrega',
-            403,
-            'DELIVERY_WORKER_FORBIDDEN'
-          );
-        }
+        requirePrivilegedActor(actor, 'No tienes permisos para firmar esta entrega', 'DELIVERY_WORKER_FORBIDDEN');
       }
 
       const trabajadorId = payload.trabajador_id || expectedSignerWorkerId;

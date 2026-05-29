@@ -1,45 +1,13 @@
 const DevolucionesService = require('../services/devoluciones.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
-const { uploadFile, deleteFileByUrl, downloadImageBuffer } = require('../lib/googleCloud');
+const { downloadImageBuffer } = require('../lib/googleCloud');
 const { bufferPdf, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
-
-const buildRequestMeta = (req) => ({
-  ip: req.ip || req.connection?.remoteAddress || null,
-  userAgent: req.get('user-agent') || null,
-});
-
-const buildSignaturePayload = async (req) => {
-  const payload = {
-    ...(req.body || {}),
-  };
-
-  let uploadedSignatureUrl = null;
-  if (req.file) {
-    uploadedSignatureUrl = await uploadFile(req.file, { folder: 'firmas/devoluciones' });
-    payload.firma_imagen_url = uploadedSignatureUrl;
-  }
-
-  return {
-    payload,
-    uploadedSignatureUrl,
-  };
-};
-
-const cleanupUploadedSignature = async (uploadedSignatureUrl) => {
-  if (!uploadedSignatureUrl) {
-    return;
-  }
-
-  try {
-    await deleteFileByUrl(uploadedSignatureUrl);
-  } catch (cleanupError) {
-    logger.warn('No se pudo limpiar firma de devolución tras error', {
-      message: cleanupError.message,
-      uploadedSignatureUrl,
-    });
-  }
-};
+const {
+  buildRequestMeta,
+  buildSignaturePayload,
+  cleanupUploadedSignature,
+} = require('../lib/signatureUtils');
 
 class DevolucionesController {
   static async listEligibleAssets(req, res, next) {
@@ -99,10 +67,10 @@ class DevolucionesController {
     let uploadedSignatureUrl = null;
 
     try {
-      const { payload, uploadedSignatureUrl: uploadedUrl } = await buildSignaturePayload(req);
+      const { payload, uploadedSignatureUrl: uploadedUrl } = await buildSignaturePayload(req, 'firmas/devoluciones');
       uploadedSignatureUrl = uploadedUrl;
 
-      const data = await DevolucionesService.signInDevice(
+      const data = await DevolucionesService.createSignatureInDevice(
         req.params.id,
         payload,
         buildRequestMeta(req),

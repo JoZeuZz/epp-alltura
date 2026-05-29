@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const db = require('../db');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
 const { uploadFile, deleteFileByUrl, resolveImageUrl, resolveHeaderImages } = require('../lib/googleCloud');
+const { requirePrivilegedActor } = require('../lib/signatureUtils');
 
 const UUID_REGEX =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -516,7 +517,7 @@ class DevolucionesService {
     }
   }
 
-  static async signInDevice(devolucionId, payload, meta, actor) {
+  static async createSignatureInDevice(devolucionId, payload, meta, actor) {
     const client = await db.pool.connect();
 
     try {
@@ -536,11 +537,7 @@ class DevolucionesService {
 
       const devolucion = devolucionResult.rows[0];
 
-      const actorRoles = new Set(Array.isArray(actor?.roles) ? actor.roles : [actor?.role]);
-      const isPrivileged = actorRoles.has('admin') || actorRoles.has('supervisor');
-      if (!isPrivileged) {
-        throw buildError('No tienes permisos para firmar esta devolución', 403, 'RETURN_SIGN_FORBIDDEN');
-      }
+      requirePrivilegedActor(actor, 'No tienes permisos para firmar esta devolución', 'RETURN_SIGN_FORBIDDEN');
 
       if (devolucion.estado === 'confirmada') {
         throw buildError('La devolución ya fue confirmada', 409, 'RETURN_CONFIRMED');

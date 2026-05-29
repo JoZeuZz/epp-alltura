@@ -1,46 +1,13 @@
 const FirmasService = require('../services/firmas.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
-const { uploadFile, deleteFileByUrl } = require('../lib/googleCloud');
 const signatureEvents = require('../lib/signatureEvents');
 const jwt = require('jsonwebtoken');
-
-const buildRequestMeta = (req) => ({
-  ip: req.ip || req.connection?.remoteAddress || null,
-  userAgent: req.get('user-agent') || null,
-});
-
-const buildSignaturePayload = async (req) => {
-  const payload = {
-    ...(req.body || {}),
-  };
-
-  let uploadedSignatureUrl = null;
-  if (req.file) {
-    uploadedSignatureUrl = await uploadFile(req.file, { folder: 'firmas/entregas' });
-    payload.firma_imagen_url = uploadedSignatureUrl;
-  }
-
-  return {
-    payload,
-    uploadedSignatureUrl,
-  };
-};
-
-const cleanupUploadedSignature = async (uploadedSignatureUrl) => {
-  if (!uploadedSignatureUrl) {
-    return;
-  }
-
-  try {
-    await deleteFileByUrl(uploadedSignatureUrl);
-  } catch (cleanupError) {
-    logger.warn('No se pudo limpiar artefacto de firma tras error de negocio', {
-      message: cleanupError.message,
-      uploadedSignatureUrl,
-    });
-  }
-};
+const {
+  buildRequestMeta,
+  buildSignaturePayload,
+  cleanupUploadedSignature,
+} = require('../lib/signatureUtils');
 
 class FirmasController {
   static async generateDeliveryStreamToken(req, res, next) {
@@ -118,7 +85,7 @@ class FirmasController {
     let uploadedSignatureUrl = null;
 
     try {
-      const { payload, uploadedSignatureUrl: uploadedUrl } = await buildSignaturePayload(req);
+      const { payload, uploadedSignatureUrl: uploadedUrl } = await buildSignaturePayload(req, 'firmas/entregas');
       uploadedSignatureUrl = uploadedUrl;
 
       const data = await FirmasService.createSignatureInDevice(
@@ -161,7 +128,7 @@ class FirmasController {
     let uploadedSignatureUrl = null;
 
     try {
-      const { payload, uploadedSignatureUrl: uploadedUrl } = await buildSignaturePayload(req);
+      const { payload, uploadedSignatureUrl: uploadedUrl } = await buildSignaturePayload(req, 'firmas/entregas');
       uploadedSignatureUrl = uploadedUrl;
 
       const data = await FirmasService.consumeTokenAndSign(
@@ -219,7 +186,7 @@ class FirmasController {
     let uploadedSignatureUrl = null;
 
     try {
-      const { payload, uploadedSignatureUrl: uploadedUrl } = await buildSignaturePayload(req);
+      const { payload, uploadedSignatureUrl: uploadedUrl } = await buildSignaturePayload(req, 'firmas/entregas');
       uploadedSignatureUrl = uploadedUrl;
 
       const data = await FirmasService.consumeReturnTokenAndSign(
