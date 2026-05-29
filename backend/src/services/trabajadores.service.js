@@ -2,6 +2,8 @@ const db = require('../db');
 const PersonaModel = require('../models/persona');
 const TrabajadorModel = require('../models/trabajador');
 const { normalizeRut } = require('../lib/rut');
+const { writeAuditEvent } = require('../lib/auditoriaDb');
+const { logger } = require('../lib/logger');
 
 class TrabajadoresService {
   static async list(filters = {}) {
@@ -107,8 +109,17 @@ class TrabajadoresService {
         ]
       );
 
+      const nuevoId = trabajadorResult.rows[0].id;
+      await writeAuditEvent({
+        client,
+        entidadTipo: 'trabajador',
+        entidadId: nuevoId,
+        accion: 'crear',
+        usuarioId: null,
+        diff: { cargo: data.cargo || null },
+      }).catch((err) => logger.warn('Audit trabajador crear failed', { error: err.message }));
       await client.query('COMMIT');
-      return this.getById(trabajadorResult.rows[0].id);
+      return this.getById(nuevoId);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -180,6 +191,14 @@ class TrabajadoresService {
         );
       }
 
+      await writeAuditEvent({
+        client,
+        entidadTipo: 'trabajador',
+        entidadId: id,
+        accion: 'actualizar',
+        usuarioId: null,
+        diff: { cargo: data.cargo, estado: data.estado },
+      }).catch((err) => logger.warn('Audit trabajador actualizar failed', { id, error: err.message }));
       await client.query('COMMIT');
       return this.getById(id);
     } catch (error) {
@@ -198,7 +217,15 @@ class TrabajadoresService {
       throw error;
     }
 
-    await TrabajadorModel.update(id, { estado: 'inactivo' });
+    const result = await TrabajadorModel.update(id, { estado: 'inactivo' });
+    if (!result) throw new Error('Trabajador not found');
+    await writeAuditEvent({
+      entidadTipo: 'trabajador',
+      entidadId: id,
+      accion: 'eliminar',
+      usuarioId: null,
+      diff: { estado: 'inactivo' },
+    }).catch((err) => logger.warn('Audit trabajador eliminar failed', { id, error: err.message }));
     return { id, estado: 'inactivo' };
   }
 

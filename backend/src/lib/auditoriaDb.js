@@ -6,7 +6,11 @@ const buildError = (message) => {
   return error;
 };
 
-const allowedActions = new Set(['crear', 'actualizar', 'eliminar', 'firmar', 'entregar', 'devolver', 'ajustar']);
+const allowedActions = new Set([
+  'crear', 'actualizar', 'eliminar',
+  'firmar', 'entregar', 'devolver', 'ajustar',
+  'login', 'login_fallido', 'logout', 'cambiar_contrasena', 'refrescar_token',
+]);
 
 const writeAuditEvent = async ({
   client,
@@ -18,7 +22,7 @@ const writeAuditEvent = async ({
   ip = null,
   userAgent = null,
 }) => {
-  if (!entidadTipo || !entidadId || !accion || !usuarioId) {
+  if (!entidadTipo || !entidadId || !accion) {
     throw buildError('Faltan campos obligatorios para registrar auditoría');
   }
 

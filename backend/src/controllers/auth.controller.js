@@ -90,7 +90,7 @@ class AuthController {
       const userId = req.user.id;
       const accessToken = req.headers.authorization?.split(' ')[1];
 
-      await AuthService.logoutUser(userId, accessToken);
+      await AuthService.logoutUser(userId, accessToken, { ip: req.ip });
 
       return sendSuccess(res, {
         message: 'Sesión cerrada exitosamente',
@@ -112,7 +112,7 @@ class AuthController {
     try {
       const { refreshToken } = req.body;
 
-      const result = await AuthService.refreshAccessToken(refreshToken);
+      const result = await AuthService.refreshAccessToken(refreshToken, { ip: req.ip });
 
       return sendSuccess(res, {
         message: 'Token renovado exitosamente',
@@ -133,7 +133,7 @@ class AuthController {
       const userId = req.user.id;
       const { currentPassword, newPassword } = req.body;
 
-      const result = await AuthService.changePassword(userId, currentPassword, newPassword);
+      const result = await AuthService.changePassword(userId, currentPassword, newPassword, { ip: req.ip });
 
       return sendSuccess(res, {
         message: 'Contraseña actualizada exitosamente',

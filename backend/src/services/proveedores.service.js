@@ -1,6 +1,8 @@
 const db = require('../db');
 
 const { buildError } = require('../lib/errors');
+const { writeAuditEvent } = require('../lib/auditoriaDb');
+const { logger } = require('../lib/logger');
 
 class ProveedoresService {
   static async list(filters = {}) {
@@ -49,6 +51,13 @@ class ProveedoresService {
       ]
     );
 
+    await writeAuditEvent({
+      entidadTipo: 'proveedor',
+      entidadId: rows[0].id,
+      accion: 'crear',
+      usuarioId: null,
+      diff: { nombre: rows[0].nombre },
+    }).catch((err) => logger.warn('Audit proveedor crear failed', { id: rows[0].id, error: err.message }));
     return rows[0];
   }
 }

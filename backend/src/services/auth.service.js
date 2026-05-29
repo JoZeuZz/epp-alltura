@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
+const { writeAuditEvent } = require('../lib/auditoriaDb');
 const PersonaModel = require('../models/persona');
 const UsuarioModel = require('../models/usuario');
 const RolModel = require('../models/rol');
@@ -213,6 +214,14 @@ class AuthService {
       await redisClient.incrementFailedLogin(ip);
 
       logger.warn(`Intento de login fallido para email no existente: ${email}`);
+      await writeAuditEvent({
+        entidadTipo: 'sesion',
+        entidadId: normalizedEmail,
+        accion: 'login_fallido',
+        usuarioId: null,
+        diff: { motivo: 'usuario_no_encontrado' },
+        ip,
+      }).catch((err) => logger.warn('Audit login_fallido failed', { error: err.message, email: normalizedEmail, motivo: 'usuario_no_encontrado' }));
       const error = new Error('Invalid credentials.');
       error.statusCode = 401;
       throw error;
@@ -247,6 +256,14 @@ class AuthService {
       await redisClient.incrementFailedLogin(ip);
 
       logger.warn(`Intento de login fallido para usuario: ${email} desde IP: ${ip}`);
+      await writeAuditEvent({
+        entidadTipo: 'sesion',
+        entidadId: normalizedEmail,
+        accion: 'login_fallido',
+        usuarioId: user.id || null,
+        diff: { motivo: 'contrasena_incorrecta' },
+        ip,
+      }).catch((err) => logger.warn('Audit login_fallido failed', { error: err.message, email: normalizedEmail, motivo: 'contrasena_incorrecta' }));
       const error = new Error('Invalid credentials.');
       error.statusCode = 401;
       throw error;
@@ -264,6 +281,16 @@ class AuthService {
 
     logger.info(`✅ Login exitoso para usuario: ${email} desde IP: ${ip} (${userAgent})`);
 
+    await writeAuditEvent({
+      entidadTipo: 'sesion',
+      entidadId: user.id,
+      accion: 'login',
+      usuarioId: user.id,
+      diff: { email: normalizedEmail },
+      ip,
+      userAgent,
+    }).catch((err) => logger.warn('Audit login failed', { error: err.message, userId: user.id }));
+
     return {
       accessToken,
       refreshToken,
@@ -277,7 +304,7 @@ class AuthService {
    * @param {string} accessToken - Token de acceso actual
    * @returns {Promise<void>}
    */
-  static async logoutUser(userId, accessToken) {
+  static async logoutUser(userId, accessToken, meta = {}) {
     // Revocar access token actual
     if (accessToken) {
       await revokeToken(accessToken);
@@ -287,6 +314,14 @@ class AuthService {
     await redisClient.revokeAllUserRefreshTokens(userId);
 
     logger.info(`Usuario ${userId} cerró sesión exitosamente`);
+
+    await writeAuditEvent({
+      entidadTipo: 'sesion',
+      entidadId: String(userId),
+      accion: 'logout',
+      usuarioId: userId,
+      ip: meta.ip || null,
+    }).catch((err) => logger.warn('Audit logout failed', { error: err.message, userId }));
   }
 
   // ============================================
@@ -298,7 +333,7 @@ class AuthService {
    * @param {string} refreshToken - Refresh token
    * @returns {Promise<object>} Nuevos tokens
    */
-  static async refreshAccessToken(refreshToken) {
+  static async refreshAccessToken(refreshToken, meta = {}) {
     if (!refreshToken) {
       const error = new Error('Refresh token is required');
       error.statusCode = 400;
@@ -362,6 +397,14 @@ class AuthService {
 
       logger.info(`✅ Tokens renovados exitosamente para usuario ${user.id}`);
 
+      await writeAuditEvent({
+        entidadTipo: 'sesion',
+        entidadId: String(user.id),
+        accion: 'refrescar_token',
+        usuarioId: user.id,
+        ip: meta.ip || null,
+      }).catch((err) => logger.warn('Audit token_refresh failed', { error: err.message, userId: user.id }));
+
       return {
         accessToken,
         refreshToken: newRefreshToken,
@@ -404,7 +447,7 @@ class AuthService {
    * @param {string} newPassword - Nueva contraseña
    * @returns {Promise<object>} Nuevos tokens
    */
-  static async changePassword(userId, currentPassword, newPassword) {
+  static async changePassword(userId, currentPassword, newPassword, meta = {}) {
     if (!currentPassword || !newPassword) {
       const error = new Error('Current password and new password are required');
       error.statusCode = 400;
@@ -455,6 +498,14 @@ class AuthService {
     const { accessToken, refreshToken } = await generateTokenPair(refreshedUser);
 
     logger.info(`✅ Contraseña cambiada exitosamente para usuario ${userId}`);
+
+    await writeAuditEvent({
+      entidadTipo: 'sesion',
+      entidadId: String(userId),
+      accion: 'cambiar_contrasena',
+      usuarioId: userId,
+      ip: meta.ip || null,
+    }).catch((err) => logger.warn('Audit password_change failed', { error: err.message, userId }));
 
     return {
       message: 'Password changed successfully',
