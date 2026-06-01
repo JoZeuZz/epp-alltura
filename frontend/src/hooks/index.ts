@@ -12,3 +12,4 @@ export { useAuth } from './useAuth';
 export { useTour } from './useTour';
 export { useExcelExport } from './useExcelExport';
 export { usePdfDownload } from './usePdfDownload';
+export { useTourActions } from '@jozeuzz/alltura-ui';
