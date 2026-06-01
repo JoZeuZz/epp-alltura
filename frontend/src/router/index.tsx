@@ -207,14 +207,12 @@ async function protectedLoader() {
   return { user };
 }
 
-const roleDefaultRoute = (_role: User['role']): string => '/dashboard';
-
 async function rootLoader() {
   const user = await getUserFromToken();
   if (!user) {
     return redirect('/login');
   }
-  return redirect(roleDefaultRoute(user.role));
+  return redirect('/dashboard');
 }
 
 const requireRole = (allowedRoles: RouteRole[]) => async () => {
