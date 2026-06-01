@@ -20,7 +20,7 @@ const TourDemoActivoModal: React.FC<Props> = ({ onClose }) => {
 
       <div className="relative w-full sm:max-w-2xl bg-surface rounded-t-2xl sm:rounded-2xl shadow-modal flex flex-col max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3 p-5 border-b border-edge">
+        <div className="flex items-start justify-between gap-3 p-5 border-b border-edge" data-tour="activo-modal-header">
           <div className="space-y-0.5">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="label-base font-mono text-content-primary">EPP-DEMO-001</span>
@@ -52,11 +52,11 @@ const TourDemoActivoModal: React.FC<Props> = ({ onClose }) => {
           </section>
 
           {/* Actions */}
-          <section className="space-y-2">
+          <section className="space-y-2" data-tour="activo-modal-acciones">
             <p className="label-sm text-content-muted uppercase tracking-wide">Acciones disponibles</p>
             <div className="flex flex-wrap gap-2">
-              <DemoButton label="Entregar" variant="primary" />
-              <DemoButton label="Cambiar Estado" />
+              <DemoButton label="Entregar" variant="primary" data-tour="activo-modal-btn-entregar" />
+              <DemoButton label="Cambiar Estado" data-tour="activo-modal-estado" />
               <DemoButton label="Reubicar" />
               <DemoButton label="Descargar Ficha PDF" />
             </div>
@@ -66,7 +66,7 @@ const TourDemoActivoModal: React.FC<Props> = ({ onClose }) => {
           </section>
 
           {/* History */}
-          <section className="space-y-2">
+          <section className="space-y-2" data-tour="activo-modal-historial">
             <p className="label-sm text-content-muted uppercase tracking-wide">Historial de movimientos</p>
             <div className="border border-edge rounded-lg overflow-hidden">
               <table className="w-full text-sm">
@@ -115,11 +115,16 @@ const InfoField: React.FC<{ label: string; value: string }> = ({ label, value })
   </div>
 );
 
-const DemoButton: React.FC<{ label: string; variant?: 'primary' }> = ({ label, variant }) => (
+const DemoButton: React.FC<{ label: string; variant?: 'primary'; 'data-tour'?: string }> = ({
+  label,
+  variant,
+  'data-tour': dataTour,
+}) => (
   <button
     type="button"
     disabled
     title="Disponible en activos reales"
+    data-tour={dataTour}
     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors opacity-60 cursor-not-allowed ${
       variant === 'primary'
         ? 'bg-primary text-white'
