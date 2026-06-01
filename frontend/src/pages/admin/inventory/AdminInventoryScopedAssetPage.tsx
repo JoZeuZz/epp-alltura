@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useLayoutEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArticuloCreateModal } from '../../../components/ArticuloCreateModal';
 import {
   getArticulos,
   type Articulo,
 } from '../../../services/apiService';
-import { useGet, useTour } from '../../../hooks';
+import { useGet, useTourActions } from '../../../hooks';
 import { PageTabs } from '@jozeuzz/alltura-ui';
 import AdminInventoryScopedAssetCards from './AdminInventoryScopedAssetCards';
 import InventoryLocationPieChart from '../../../components/dashboard/InventoryLocationPieChart';
@@ -75,13 +75,10 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
     return { total: items.length, enStock, asignado, liabilityValue };
   }, [items]);
 
-  const { isActive, currentDemoAction } = useTour();
-
-  useLayoutEffect(() => {
-    if (isActive && currentDemoAction === 'open-activo-demo' && scope === 'epp') {
-      setActiveTab('inventario');
-    }
-  }, [isActive, currentDemoAction, scope]);
+  useTourActions({
+    'switch-tab:dashboard':  () => setActiveTab('dashboard'),
+    'switch-tab:inventario': () => setActiveTab('inventario'),
+  });
 
   const handleCreateSuccess = () => {
     setShowCreate(false);
