@@ -413,7 +413,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
       {profile && (
         <div className="space-y-6">
           {/* Header */}
-          <div className="space-y-4">
+          <div className="space-y-4" data-tour="activo-modal-header">
             {/* Mobile */}
             <div className="sm:hidden space-y-3">
               <ArticuloImageToggle
@@ -519,16 +519,18 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
           )}
 
           {/* Acciones */}
-          <section className="space-y-3" aria-label="Acciones del activo">
+          <section className="space-y-3" aria-label="Acciones del activo" data-tour="activo-modal-acciones">
             <h4 className="text-xs font-semibold text-content-muted uppercase tracking-wide">Acciones</h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              <ActionButton
-                label="Entregar"
-                tone="primary"
-                disabled={!canEntregar}
-                reason={!canEntregar ? 'Solo se puede entregar cuando el artículo está en stock.' : undefined}
-                onClick={() => setSubModal('entregar')}
-              />
+              <div data-tour="activo-modal-btn-entregar">
+                <ActionButton
+                  label="Entregar"
+                  tone="primary"
+                  disabled={!canEntregar}
+                  reason={!canEntregar ? 'Solo se puede entregar cuando el artículo está en stock.' : undefined}
+                  onClick={() => setSubModal('entregar')}
+                />
+              </div>
               <ActionButton
                 label="Devolver"
                 tone="primary"
@@ -539,7 +541,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
             </div>
 
             {/* Cambio de estado del artículo físico */}
-            <div className="rounded-lg border border-edge bg-surface p-3 space-y-3">
+            <div className="rounded-lg border border-edge bg-surface p-3 space-y-3" data-tour="activo-modal-estado">
               <h5 className="text-xs font-semibold text-content-muted uppercase tracking-wide">
                 Cambio de estado
               </h5>
@@ -731,7 +733,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
           </section>
 
           {/* Timeline */}
-          <section>
+          <section data-tour="activo-modal-historial">
             <h4 className="text-sm font-semibold text-content-secondary mb-3">Timeline de movimientos</h4>
             {profile.timeline.length === 0 ? (
               <p className="text-sm text-content-muted italic">Sin movimientos registrados.</p>
