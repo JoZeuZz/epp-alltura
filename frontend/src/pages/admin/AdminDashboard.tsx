@@ -3,11 +3,11 @@ import { useLoaderData, useLocation } from 'react-router-dom';
 import MetricCard from '../../components/dashboard/MetricCard';
 import StatsCard from '../../components/dashboard/StatsCard';
 import { ResponsiveTable, type TableColumn } from '../../components/layout';
+import { useAuth } from '../../hooks';
 
 interface DashboardData {
   summary?: any;
   stock?: any[];
-  movimientosStock?: any[];
   movimientosActivo?: any[];
 }
 
@@ -91,17 +91,8 @@ const SectionHeader: React.FC<{ title: string; id: string }> = ({ title, id }) =
 
 // ─── Column configs ───────────────────────────────────────────────────────────
 
-type StockMovRow = { fecha: string; tipo: string; articulo: string; cantidad: number; destino: string };
 type ActivoMovRow = { fecha: string; tipo: string; codigo: string; articulo: string; destino: string };
 type StockRow = { articulo: string; ubicacion: string; disponible: number; reservada: number };
-
-const COLS_STOCK_MOV: TableColumn<StockMovRow>[] = [
-  { key: 'fecha',    header: 'Fecha',    hideOnMobile: true },
-  { key: 'tipo',     header: 'Tipo',     render: (v) => renderTipo(v) },
-  { key: 'articulo', header: 'Artículo' },
-  { key: 'cantidad', header: 'Cant.',    align: 'right' },
-  { key: 'destino',  header: 'Destino',  hideOnMobile: true },
-];
 
 const COLS_ACTIVO_MOV: TableColumn<ActivoMovRow>[] = [
   { key: 'fecha',    header: 'Fecha',    hideOnMobile: true },
@@ -131,6 +122,9 @@ const COLS_STOCK: TableColumn<StockRow>[] = [
 const AdminDashboard: React.FC = () => {
   const data = useLoaderData() as DashboardData;
   const location = useLocation();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';   // disponible para render condicional futuro
+  void isAdmin; // placeholder — remove when used in conditional render
   const section = location.pathname.split('/').pop() || 'dashboard';
 
   const summary       = data.summary      || {};
@@ -138,14 +132,6 @@ const AdminDashboard: React.FC = () => {
   const entregas      = summary.entregas   || {};
   const devoluciones  = summary.devoluciones || {};
   const firmas        = summary.firmas     || {};
-
-  const stockMovData: StockMovRow[] = (data.movimientosStock || []).slice(0, 12).map(i => ({
-    fecha:    fmtDate(i.fecha_movimiento),
-    tipo:     i.tipo,
-    articulo: i.articulo_nombre || '—',
-    cantidad: Number(i.cantidad || 0),
-    destino:  i.ubicacion_destino_nombre || '—',
-  }));
 
   const activoMovData: ActivoMovRow[] = (data.movimientosActivo || []).slice(0, 12).map(i => ({
     fecha:    fmtDate(i.fecha_movimiento),
@@ -234,20 +220,6 @@ const AdminDashboard: React.FC = () => {
           ]}
         />
       </div>
-
-      {/* ── Movimientos de Stock ───────────────────────────────────────────── */}
-      {showMovimientos && (
-        <section aria-labelledby="hdr-mov-stock" className="space-y-3" data-tour="admin-trazabilidad-movements">
-          <SectionHeader title="Movimientos de Stock Recientes" id="hdr-mov-stock" />
-          <ResponsiveTable<StockMovRow>
-            columns={COLS_STOCK_MOV}
-            data={stockMovData}
-            caption="Movimientos de stock recientes"
-            emptyMessage="Sin movimientos de stock registrados."
-            getRowKey={(_, i) => i}
-          />
-        </section>
-      )}
 
       {/* ── Movimientos de Activo ──────────────────────────────────────────── */}
       {showMovimientos && (
