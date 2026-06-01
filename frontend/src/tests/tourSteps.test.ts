@@ -31,8 +31,8 @@ describe('matchTourRoute', () => {
 });
 
 describe('onboardingStepsByRole', () => {
-  it('admin has 15 onboarding steps', () => {
-    expect(onboardingStepsByRole.admin).toHaveLength(15);
+  it('admin has 16 onboarding steps', () => {
+    expect(onboardingStepsByRole.admin).toHaveLength(16);
   });
 
   it('supervisor has 5 onboarding steps', () => {
@@ -76,11 +76,24 @@ describe('onboardingStepsByRole', () => {
     }
   });
 
-  it('only one step has demoAction', () => {
-    const demoSteps = onboardingStepsByRole.admin.filter((s: TourStep) => s.demoAction);
-    expect(demoSteps).toHaveLength(1);
-    expect(demoSteps[0].demoAction).toBe('open-activo-demo');
-    expect(demoSteps[0].route).toBe('/admin/inventario/epp');
+  it('admin onboarding has tab-switch and modal-open demoActions for EPP', () => {
+    const adminSteps = onboardingStepsByRole.admin;
+    const demoActions = adminSteps
+      .filter((s: TourStep) => s.demoAction)
+      .map((s: TourStep) => s.demoAction);
+    expect(demoActions).toContain('switch-tab:inventario');
+    expect(demoActions).toContain('open-modal:activo-first');
+  });
+
+  it('no onboarding step uses deprecated open-activo-demo action', () => {
+    const allSteps = [
+      ...onboardingStepsByRole.admin,
+      ...onboardingStepsByRole.supervisor,
+    ];
+    const deprecated = allSteps.filter(
+      (s: TourStep) => s.demoAction === 'open-activo-demo'
+    );
+    expect(deprecated).toHaveLength(0);
   });
 });
 
