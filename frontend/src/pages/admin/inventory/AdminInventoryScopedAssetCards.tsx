@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { LayoutGrid, List } from 'lucide-react';
 import ActivoProfileModal from '../../../components/forms/ActivoProfileModal';
-import { useTour } from '../../../hooks';
+import { useTourActions } from '../../../hooks';
 import TourDemoActivoModal from '../../../components/forms/TourDemoActivoModal';
 import type { Articulo, ArticuloEstado } from '../../../services/apiService';
 import type { AssetScopeKey, InventoryAssetScopeCopy } from './inventoryAssetScope.constants';
@@ -148,20 +148,16 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
   const [showDemoModal, setShowDemoModal] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
 
-  const { isActive, currentDemoAction } = useTour();
-  const isDemoStep = isActive && currentDemoAction === 'open-activo-demo' && scope === 'epp';
-
-  React.useEffect(() => {
-    if (isDemoStep) {
+  useTourActions({
+    'open-modal:activo-first': () => {
       if (items.length > 0) {
         setSelectedId(items[0].id);
       } else {
         setShowDemoModal(true);
       }
-    } else {
-      setShowDemoModal(false);
-    }
-  }, [isDemoStep, items]);
+    },
+    'open-modal:activo-demo': () => setShowDemoModal(true),
+  });
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
