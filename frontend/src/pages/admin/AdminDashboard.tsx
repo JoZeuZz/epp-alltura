@@ -3,7 +3,6 @@ import { useLoaderData, useLocation } from 'react-router-dom';
 import MetricCard from '../../components/dashboard/MetricCard';
 import StatsCard from '../../components/dashboard/StatsCard';
 import { ResponsiveTable, type TableColumn } from '../../components/layout';
-import { useAuth } from '../../hooks';
 
 interface DashboardData {
   summary?: any;
@@ -122,9 +121,6 @@ const COLS_STOCK: TableColumn<StockRow>[] = [
 const AdminDashboard: React.FC = () => {
   const data = useLoaderData() as DashboardData;
   const location = useLocation();
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';   // disponible para render condicional futuro
-  void isAdmin; // placeholder — remove when used in conditional render
   const section = location.pathname.split('/').pop() || 'dashboard';
 
   const summary       = data.summary      || {};
@@ -153,7 +149,7 @@ const AdminDashboard: React.FC = () => {
 
   const subtitle =
     section === 'trazabilidad'
-      ? 'Movimientos recientes de stock y activos.'
+      ? 'Movimientos recientes de activos.'
       : 'Vista operativa de inventario, entregas, devoluciones y firmas.';
 
   const showMovimientos = section === 'dashboard' || section === 'trazabilidad';
