@@ -46,41 +46,56 @@ const BodegasIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
 );
-const DashboardSupervisorIcon = () => (
+const DashboardIcon = () => (
   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+  </svg>
+);
+const TrazabilidadIcon = () => (
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
   </svg>
 );
 
 const navItems: NavItem[] = [
   {
+    to: '/dashboard',
+    label: 'Dashboard',
+    icon: <DashboardIcon />,
+    roles: ['admin', 'supervisor'],
+  },
+  {
     label: 'Inventario',
     children: [
-      { to: '/admin/inventario/epp', label: 'EPP', icon: <EppIcon />, roles: ['admin'] },
-      { to: '/admin/inventario/equipos', label: 'Equipos', icon: <EquiposIcon />, roles: ['admin'] },
-      { to: '/admin/inventario/herramientas', label: 'Herramientas', icon: <HerramientasIcon />, roles: ['admin'] },
+      { to: '/inventario/epp', label: 'EPP', icon: <EppIcon />, roles: ['admin', 'supervisor'] },
+      { to: '/inventario/equipos', label: 'Equipos', icon: <EquiposIcon />, roles: ['admin', 'supervisor'] },
+      { to: '/inventario/herramientas', label: 'Herramientas', icon: <HerramientasIcon />, roles: ['admin', 'supervisor'] },
     ],
   },
   {
     label: 'Personal',
     children: [
-      { to: '/admin/trabajadores', label: 'Trabajadores', icon: <TrabajadoresIcon />, roles: ['admin'] },
+      { to: '/trabajadores', label: 'Trabajadores', icon: <TrabajadoresIcon />, roles: ['admin', 'supervisor'] },
       { to: '/admin/users', label: 'Usuarios del Sistema', icon: <UsuariosIcon />, roles: ['admin'] },
     ],
   },
   {
     label: 'Operaciones',
     children: [
-      { to: '/admin/ubicacion/proyectos', label: 'Proyectos', icon: <ProyectosIcon />, roles: ['admin'] },
-      { to: '/admin/ubicacion/bodegas', label: 'Bodegas', icon: <BodegasIcon />, roles: ['admin'] },
+      { to: '/ubicacion/proyectos', label: 'Proyectos', icon: <ProyectosIcon />, roles: ['admin', 'supervisor'] },
+      { to: '/ubicacion/bodegas', label: 'Bodegas', icon: <BodegasIcon />, roles: ['admin', 'supervisor'] },
     ],
   },
-  { to: '/supervisor/dashboard', label: 'Dashboard Supervisor', icon: <DashboardSupervisorIcon />, roles: ['supervisor'] },
+  {
+    label: 'Reportes',
+    children: [
+      { to: '/trazabilidad', label: 'Trazabilidad', icon: <TrazabilidadIcon />, roles: ['admin', 'supervisor'] },
+    ],
+  },
 ];
 
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
 const UsersPage = lazy(() => import('../pages/admin/UsersPage'));
-const SupervisorDashboard = lazy(() => import('../pages/supervisor/SupervisorDashboard'));
 const ProfilePage = lazy(() => import('../pages/ProfilePage'));
 const NotificationsPage = lazy(() => import('../pages/NotificationsPage'));
 const UnauthorizedPage = lazy(() => import('../pages/UnauthorizedPage'));
@@ -192,16 +207,7 @@ async function protectedLoader() {
   return { user };
 }
 
-const roleDefaultRoute = (role: User['role']) => {
-  switch (normalizeRole(role)) {
-    case 'admin':
-      return '/admin/dashboard';
-    case 'supervisor':
-      return '/supervisor/dashboard';
-    default:
-      return '/login';
-  }
-};
+const roleDefaultRoute = (_role: User['role']): string => '/dashboard';
 
 async function rootLoader() {
   const user = await getUserFromToken();
@@ -225,40 +231,14 @@ const requireRole = (allowedRoles: RouteRole[]) => async () => {
   return { user };
 };
 
-async function adminDashboardLoader() {
-  const { user } = (await requireRole(['admin'])()) as { user: User };
-
+async function dashboardLoader() {
+  const { user } = (await requireRole(['admin', 'supervisor'])()) as { user: User };
   const [summary, stock, movimientosActivo] = await Promise.all([
     loaderGetOrThrow('/dashboard/summary'),
     loaderGetOrThrow('/inventario/stock'),
     loaderGetOrThrow('/inventario/movimientos-activo?limit=25'),
   ]);
-
-  return {
-    user,
-    summary,
-    stock,
-    movimientosActivo,
-  };
-}
-
-async function supervisorDashboardLoader() {
-  const { user } = (await requireRole(['supervisor', 'admin'])()) as { user: User };
-
-  const [summary, movimientosActivo] = await Promise.all([
-    loaderGetOrThrow('/dashboard/summary'),
-    loaderGetOrThrow('/inventario/movimientos-activo?limit=20'),
-  ]);
-
-  return {
-    user,
-    summary,
-    movimientosActivo,
-  };
-}
-
-async function adminTrabajadoresLoader() {
-  return requireRole(['admin'])();
+  return { user, summary, stock, movimientosActivo };
 }
 
 export const router = createBrowserRouter([
@@ -288,69 +268,58 @@ export const router = createBrowserRouter([
     loader: protectedLoader,
     errorElement: <ErrorPage />,
     children: [
+      // ── Shared pages (admin + supervisor) ──────────────────────────────────
       {
-        path: 'admin/dashboard',
-        loader: adminDashboardLoader,
-        element: <AdminDashboard key="admin-dashboard" />,
+        path: 'dashboard',
+        loader: dashboardLoader,
+        element: <AdminDashboard key="dashboard" />,
       },
       {
-        path: 'admin/trazabilidad',
-        loader: adminDashboardLoader,
-        element: <AdminDashboard key="admin-trazabilidad" />,
+        path: 'trazabilidad',
+        loader: dashboardLoader,
+        element: <AdminDashboard key="trazabilidad" />,
       },
+      {
+        path: 'trabajadores',
+        loader: requireRole(['admin', 'supervisor']),
+        element: <AdminTrabajadoresPage />,
+      },
+      {
+        path: 'ubicacion/proyectos',
+        loader: requireRole(['admin', 'supervisor']),
+        element: <AdminProyectosPage />,
+      },
+      {
+        path: 'ubicacion/bodegas',
+        loader: requireRole(['admin', 'supervisor']),
+        element: <AdminBodegasPage />,
+      },
+      {
+        path: 'inventario',
+        loader: () => redirect('/inventario/herramientas'),
+      },
+      {
+        path: 'inventario/epp',
+        loader: requireRole(['admin', 'supervisor']),
+        element: <AdminInventoryEppPage />,
+      },
+      {
+        path: 'inventario/equipos',
+        loader: requireRole(['admin', 'supervisor']),
+        element: <AdminInventoryEquiposPage />,
+      },
+      {
+        path: 'inventario/herramientas',
+        loader: requireRole(['admin', 'supervisor']),
+        element: <AdminInventoryHerramientasPage />,
+      },
+      // ── Admin-only pages ───────────────────────────────────────────────────
       {
         path: 'admin/users',
         loader: requireRole(['admin']),
         element: <UsersPage />,
       },
-      {
-        path: 'admin/trabajadores',
-        loader: adminTrabajadoresLoader,
-        element: <AdminTrabajadoresPage />,
-      },
-      {
-        path: 'admin/ubicaciones',
-        loader: () => redirect('/admin/ubicacion/bodegas'),
-      },
-      {
-        path: 'admin/ubicacion/proyectos',
-        loader: requireRole(['admin']),
-        element: <AdminProyectosPage />,
-      },
-      {
-        path: 'admin/ubicacion/bodegas',
-        loader: requireRole(['admin']),
-        element: <AdminBodegasPage />,
-      },
-      {
-        path: 'admin/inventario',
-        loader: () => redirect('/admin/inventario/herramientas'),
-      },
-      {
-        path: 'admin/inventario/epp',
-        loader: requireRole(['admin']),
-        element: <AdminInventoryEppPage />,
-      },
-      {
-        path: 'admin/inventario/equipos',
-        loader: requireRole(['admin']),
-        element: <AdminInventoryEquiposPage />,
-      },
-      {
-        path: 'admin/inventario/herramientas',
-        loader: requireRole(['admin']),
-        element: <AdminInventoryHerramientasPage />,
-      },
-      {
-        path: 'supervisor/dashboard',
-        loader: supervisorDashboardLoader,
-        element: <SupervisorDashboard key="supervisor-dashboard" />,
-      },
-      {
-        path: 'supervisor/trazabilidad',
-        loader: supervisorDashboardLoader,
-        element: <SupervisorDashboard key="supervisor-trazabilidad" />,
-      },
+      // ── Authenticated-only pages ───────────────────────────────────────────
       {
         path: 'notifications',
         loader: protectedLoader,
@@ -361,6 +330,19 @@ export const router = createBrowserRouter([
         loader: protectedLoader,
         element: <ProfilePage />,
       },
+      // ── Backward-compat redirects ──────────────────────────────────────────
+      { path: 'admin/dashboard',               loader: () => redirect('/dashboard') },
+      { path: 'admin/trazabilidad',            loader: () => redirect('/trazabilidad') },
+      { path: 'admin/trabajadores',            loader: () => redirect('/trabajadores') },
+      { path: 'admin/ubicaciones',             loader: () => redirect('/ubicacion/bodegas') },
+      { path: 'admin/ubicacion/proyectos',     loader: () => redirect('/ubicacion/proyectos') },
+      { path: 'admin/ubicacion/bodegas',       loader: () => redirect('/ubicacion/bodegas') },
+      { path: 'admin/inventario',              loader: () => redirect('/inventario/herramientas') },
+      { path: 'admin/inventario/epp',          loader: () => redirect('/inventario/epp') },
+      { path: 'admin/inventario/equipos',      loader: () => redirect('/inventario/equipos') },
+      { path: 'admin/inventario/herramientas', loader: () => redirect('/inventario/herramientas') },
+      { path: 'supervisor/dashboard',          loader: () => redirect('/dashboard') },
+      { path: 'supervisor/trazabilidad',       loader: () => redirect('/trazabilidad') },
     ],
   },
   {
