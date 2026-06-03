@@ -51,11 +51,25 @@ const DashboardIcon = () => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
   </svg>
 );
-const TrazabilidadIcon = () => (
-  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-  </svg>
-);
+
+export interface AlertaCustodia {
+  custodia_id: string;
+  articulo_id: string;
+  trabajador_id: string;
+  activo_codigo: string;
+  articulo_nombre: string;
+  trabajador_nombre: string;
+  semaforo: 'rojo' | 'amarillo';
+  dias_restantes: number;
+  porcentaje: number;
+}
+
+export interface AlertasData {
+  alertas: AlertaCustodia[];
+  total: number;
+  vencidas: number;
+  por_vencer: number;
+}
 
 const navItems: NavItem[] = [
   {
@@ -84,12 +98,6 @@ const navItems: NavItem[] = [
     children: [
       { to: '/ubicacion/proyectos', label: 'Proyectos', icon: <ProyectosIcon />, roles: ['admin', 'supervisor'] },
       { to: '/ubicacion/bodegas', label: 'Bodegas', icon: <BodegasIcon />, roles: ['admin', 'supervisor'] },
-    ],
-  },
-  {
-    label: 'Reportes',
-    children: [
-      { to: '/trazabilidad', label: 'Trazabilidad', icon: <TrazabilidadIcon />, roles: ['admin', 'supervisor'] },
     ],
   },
 ];
@@ -231,12 +239,13 @@ const requireRole = (allowedRoles: RouteRole[]) => async () => {
 
 async function dashboardLoader() {
   const { user } = (await requireRole(['admin', 'supervisor'])()) as { user: User };
-  const [summary, stock, movimientosActivo] = await Promise.all([
+  const [summary, stock, movimientosActivo, alertas] = await Promise.all([
     loaderGetOrThrow('/dashboard/summary'),
     loaderGetOrThrow('/inventario/stock'),
     loaderGetOrThrow('/inventario/movimientos-activo?limit=25'),
+    loaderGetOrThrow<AlertasData>('/dashboard/alertas'),
   ]);
-  return { user, summary, stock, movimientosActivo };
+  return { user, summary, stock, movimientosActivo, alertas };
 }
 
 export const router = createBrowserRouter([
@@ -271,11 +280,6 @@ export const router = createBrowserRouter([
         path: 'dashboard',
         loader: dashboardLoader,
         element: <AdminDashboard key="dashboard" />,
-      },
-      {
-        path: 'trazabilidad',
-        loader: dashboardLoader,
-        element: <AdminDashboard key="trazabilidad" />,
       },
       {
         path: 'trabajadores',
@@ -330,7 +334,6 @@ export const router = createBrowserRouter([
       },
       // ── Backward-compat redirects ──────────────────────────────────────────
       { path: 'admin/dashboard',               loader: () => redirect('/dashboard') },
-      { path: 'admin/trazabilidad',            loader: () => redirect('/trazabilidad') },
       { path: 'admin/trabajadores',            loader: () => redirect('/trabajadores') },
       { path: 'admin/ubicaciones',             loader: () => redirect('/ubicacion/bodegas') },
       { path: 'admin/ubicacion/proyectos',     loader: () => redirect('/ubicacion/proyectos') },
@@ -340,7 +343,6 @@ export const router = createBrowserRouter([
       { path: 'admin/inventario/equipos',      loader: () => redirect('/inventario/equipos') },
       { path: 'admin/inventario/herramientas', loader: () => redirect('/inventario/herramientas') },
       { path: 'supervisor/dashboard',          loader: () => redirect('/dashboard') },
-      { path: 'supervisor/trazabilidad',       loader: () => redirect('/trazabilidad') },
     ],
   },
   {
