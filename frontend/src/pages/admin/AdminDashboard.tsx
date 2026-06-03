@@ -225,8 +225,8 @@ const AdminDashboard: React.FC = () => {
   const [devCustodiaQueue, setDevCustodiaQueue]         = useState<ReturnEligibleAssetRow[]>([]);
   const [devCustodiaIndex, setDevCustodiaIndex]         = useState(0);
   const [devTrabajador, setDevTrabajador]               = useState<DevTrabajador | null>(null);
+  const [devPhase, setDevPhase]                         = useState<'activo' | 'firma' | null>(null);
   const [devDraftCreated, setDevDraftCreated]           = useState<DevolucionRow | null>(null);
-  const [showFirmaDevolucion, setShowFirmaDevolucion]   = useState(false);
 
   const pendFirma = Number(entregas.pendiente_firma || 0);
   const agotados  = Number(activos.mantencion || 0);
@@ -253,31 +253,51 @@ const AdminDashboard: React.FC = () => {
     setDevTrabajador(trabajador);
     setDevCustodiaQueue(custodias);
     setDevCustodiaIndex(0);
+    setDevPhase('activo');
   };
 
   const currentCustodia = devCustodiaQueue[devCustodiaIndex] ?? null;
 
-  const handleDraftCreated = (devolucion: DevolucionRow) => {
-    const isLast = devCustodiaIndex >= devCustodiaQueue.length - 1;
+  const advanceOrCleanup = (index: number, queue: ReturnEligibleAssetRow[]) => {
+    const isLast = index >= queue.length - 1;
     if (isLast) {
       setDevCustodiaQueue([]);
       setDevCustodiaIndex(0);
-      setDevDraftCreated(devolucion);
-      setShowFirmaDevolucion(true);
+      setDevTrabajador(null);
+      setDevPhase(null);
+      setDevDraftCreated(null);
       void queryClient.invalidateQueries({ queryKey: ['return-eligible'] });
     } else {
       setDevCustodiaIndex((i) => i + 1);
+      setDevDraftCreated(null);
+      setDevPhase('activo');
     }
   };
 
+  const handleDraftCreated = (devolucion: DevolucionRow) => {
+    setDevDraftCreated(devolucion);
+    setDevPhase('firma');
+  };
+
+  const handleFirmaDevolucionCompleted = () => {
+    toast.success('Devolución firmada.');
+    advanceOrCleanup(devCustodiaIndex, devCustodiaQueue);
+  };
+
+  const handleFirmaDevolucionClose = () => {
+    // Borrador exists but unsigned — advance anyway
+    advanceOrCleanup(devCustodiaIndex, devCustodiaQueue);
+  };
+
   const handleCloseDevolucionSequence = () => {
-    const created = devCustodiaIndex;
-    if (created > 0) {
-      toast(`${created} devolución${created > 1 ? 'es' : ''} creada${created > 1 ? 's' : ''} como borrador.`);
+    if (devCustodiaIndex > 0) {
+      toast(`${devCustodiaIndex} devolución${devCustodiaIndex > 1 ? 'es' : ''} creada${devCustodiaIndex > 1 ? 's' : ''} como borrador.`);
     }
     setDevCustodiaQueue([]);
     setDevCustodiaIndex(0);
     setDevTrabajador(null);
+    setDevPhase(null);
+    setDevDraftCreated(null);
   };
 
   const activoMovData: ActivoMovRow[] = (data.movimientosActivo || []).slice(0, 12).map((i: any) => ({
@@ -310,7 +330,7 @@ const AdminDashboard: React.FC = () => {
         <aside className="w-full lg:w-72 xl:w-80 flex-shrink-0 space-y-4 order-first lg:order-last">
 
           {/* Acciones rápidas */}
-          <div className="bg-[#1E2A4A] rounded-lg p-4">
+          <div className="bg-dark-blue rounded-lg p-4">
             <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-white/50 mb-3">
               Acciones rápidas
             </p>
@@ -322,8 +342,12 @@ const AdminDashboard: React.FC = () => {
                 </svg>
                 Nueva Entrega
               </button>
-              <button type="button" onClick={() => setShowDevolucionRapida(true)}
-                className="flex flex-col items-center gap-1.5 bg-primary hover:bg-primary/90 text-white rounded-lg py-3 px-2 text-xs font-semibold transition-colors">
+              <button
+                type="button"
+                onClick={() => setShowDevolucionRapida(true)}
+                disabled={devPhase !== null}
+                className="flex flex-col items-center gap-1.5 bg-primary hover:bg-primary/90 text-white rounded-lg py-3 px-2 text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
                 </svg>
@@ -412,7 +436,7 @@ const AdminDashboard: React.FC = () => {
         onConfirm={handleDevolucionRapidaConfirm}
       />
 
-      {currentCustodia && devTrabajador && (
+      {devPhase === 'activo' && currentCustodia && devTrabajador && (
         <DevolucionActivoModal
           articuloId={currentCustodia.articulo_id}
           custodiaId={currentCustodia.custodia_id}
@@ -423,12 +447,12 @@ const AdminDashboard: React.FC = () => {
         />
       )}
 
-      {devDraftCreated && (
+      {devPhase === 'firma' && devDraftCreated && devTrabajador && (
         <DevolucionFirmaModal
-          isOpen={showFirmaDevolucion}
-          onClose={() => { setShowFirmaDevolucion(false); setDevDraftCreated(null); setDevTrabajador(null); }}
+          isOpen
+          onClose={handleFirmaDevolucionClose}
           devolucion={devDraftCreated}
-          onCompleted={() => { setShowFirmaDevolucion(false); setDevDraftCreated(null); setDevTrabajador(null); toast.success('Devolución firmada correctamente.'); }}
+          onCompleted={handleFirmaDevolucionCompleted}
         />
       )}
     </div>
