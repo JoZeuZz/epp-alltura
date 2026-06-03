@@ -17,5 +17,6 @@ router.get(
   checkRole(['admin', 'supervisor']),
   DashboardController.getLocationSummary
 );
+router.get('/alertas', checkRole(['admin', 'supervisor']), DashboardController.getAlertas);
 
 module.exports = router;

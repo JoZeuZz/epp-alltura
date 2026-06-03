@@ -23,6 +23,16 @@ class DashboardController {
     }
   }
 
+  static async getAlertas(req, res, next) {
+    try {
+      const data = await DashboardService.getAlertas();
+      return sendSuccess(res, { message: 'Alertas de custodia obtenidas correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching dashboard alertas:', error);
+      return next(error);
+    }
+  }
+
   static async getLocationSummary(req, res, next) {
     try {
       const { ubicacionId } = req.params;

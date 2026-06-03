@@ -248,6 +248,58 @@ class DashboardService {
       },
     };
   }
+
+  static async getAlertas() {
+    const { rows } = await db.query(`
+      SELECT
+        ca.id            AS custodia_id,
+        ca.articulo_id,
+        ca.trabajador_id,
+        art.codigo       AS activo_codigo,
+        art.nombre       AS articulo_nombre,
+        CONCAT(p.nombres, ' ', p.apellidos) AS trabajador_nombre,
+        CASE
+          WHEN EXTRACT(EPOCH FROM (NOW() - ca.desde_en))
+               / NULLIF(EXTRACT(EPOCH FROM (ca.fecha_devolucion_esperada - ca.desde_en)), 0)
+               >= 0.90 THEN 'rojo'
+          ELSE 'amarillo'
+        END AS semaforo,
+        GREATEST(0, EXTRACT(DAY FROM (ca.fecha_devolucion_esperada - NOW())))::int
+          AS dias_restantes,
+        ROUND(
+          (EXTRACT(EPOCH FROM (NOW() - ca.desde_en))
+           / NULLIF(EXTRACT(EPOCH FROM (ca.fecha_devolucion_esperada - ca.desde_en)), 0))::numeric,
+          4
+        ) AS porcentaje
+      FROM custodia_activo ca
+      JOIN articulo art ON art.id = ca.articulo_id
+      JOIN trabajador t  ON t.id  = ca.trabajador_id
+      JOIN persona p     ON p.id  = t.persona_id
+      WHERE ca.estado = 'activa'
+        AND ca.fecha_devolucion_esperada IS NOT NULL
+        AND EXTRACT(EPOCH FROM (NOW() - ca.desde_en))
+            / NULLIF(EXTRACT(EPOCH FROM (ca.fecha_devolucion_esperada - ca.desde_en)), 0)
+            >= 0.70
+      ORDER BY porcentaje DESC
+    `);
+
+    const alertas = rows.map((r) => ({
+      custodia_id:       r.custodia_id,
+      articulo_id:       r.articulo_id,
+      trabajador_id:     r.trabajador_id,
+      activo_codigo:     r.activo_codigo,
+      articulo_nombre:   r.articulo_nombre,
+      trabajador_nombre: r.trabajador_nombre,
+      semaforo:          r.semaforo,
+      dias_restantes:    Number(r.dias_restantes),
+      porcentaje:        Number(r.porcentaje),
+    }));
+
+    const vencidas  = alertas.filter((a) => a.semaforo === 'rojo').length;
+    const porVencer = alertas.filter((a) => a.semaforo === 'amarillo').length;
+
+    return { alertas, total: alertas.length, vencidas, por_vencer: porVencer };
+  }
 }
 
 module.exports = DashboardService;
