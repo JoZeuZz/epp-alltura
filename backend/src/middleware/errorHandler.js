@@ -90,13 +90,15 @@ const handleDatabaseError = (err) => {
   if (err.code === '23505') {
     message = 'El registro ya existe (violación de unicidad)';
   } else if (err.code === '23503') {
-    message = 'Violación de llave foránea';
+    message = 'No se puede realizar la operación porque el registro está referenciado por otros datos';
   } else if (err.code === '23502') {
     message = 'Campo requerido faltante';
   }
-  
+
+  const status = err.code === '23503' ? 409 : 500;
+
   return {
-    status: 500,
+    status,
     message,
     errors: [
       {

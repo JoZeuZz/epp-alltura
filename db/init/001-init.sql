@@ -381,7 +381,7 @@ CREATE TABLE IF NOT EXISTS auditoria (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   entidad_tipo VARCHAR(50) NOT NULL,
   entidad_id UUID NOT NULL,
-  accion VARCHAR(20) NOT NULL CHECK (accion IN ('crear', 'actualizar', 'eliminar', 'firmar', 'devolver', 'ajustar')),
+  accion VARCHAR(20) NOT NULL CHECK (accion IN ('crear', 'actualizar', 'eliminar', 'firmar', 'entregar', 'devolver', 'ajustar', 'login', 'login_fallido', 'logout', 'cambiar_contrasena', 'refrescar_token')),
   diff_json JSONB,
   usuario_id UUID NOT NULL REFERENCES usuario(id),
   ip VARCHAR(64),

@@ -220,6 +220,10 @@ class ArticulosService {
 
       const certUrls = await ArticuloModel.getCertUrls(client, id);
 
+      await client.query('DELETE FROM inspeccion_activo WHERE articulo_id = $1', [id]);
+      await client.query('DELETE FROM movimiento_activo WHERE articulo_id = $1', [id]);
+      await client.query('DELETE FROM entrega_detalle WHERE articulo_id = $1', [id]);
+      await client.query('DELETE FROM custodia_activo WHERE articulo_id = $1', [id]);
       await ArticuloModel.deleteById(client, id);
 
       await Promise.allSettled(

@@ -17,7 +17,7 @@ describe('matchTourRoute', () => {
 
   it('matches exact path', () => {
     expect(matchTourRoute('/admin/dashboard', '/admin/dashboard')).toBe(true);
-    expect(matchTourRoute('/admin/dashboard', '/admin/trazabilidad')).toBe(false);
+    expect(matchTourRoute('/admin/dashboard', '/admin/users')).toBe(false);
   });
 
   it('matches dynamic segments', () => {
@@ -31,12 +31,12 @@ describe('matchTourRoute', () => {
 });
 
 describe('onboardingStepsByRole', () => {
-  it('admin has 16 onboarding steps', () => {
-    expect(onboardingStepsByRole.admin).toHaveLength(16);
+  it('admin has 15 onboarding steps', () => {
+    expect(onboardingStepsByRole.admin).toHaveLength(15);
   });
 
-  it('supervisor has 5 onboarding steps', () => {
-    expect(onboardingStepsByRole.supervisor).toHaveLength(5);
+  it('supervisor has 4 onboarding steps', () => {
+    expect(onboardingStepsByRole.supervisor).toHaveLength(4);
   });
 
   it('all steps have required fields', () => {
@@ -100,7 +100,6 @@ describe('onboardingStepsByRole', () => {
 describe('getContextualStepsForRoute', () => {
   const adminRoutes = [
     '/admin/dashboard',
-    '/admin/trazabilidad',
     '/admin/users',
     '/admin/trabajadores',
     '/admin/ubicacion/bodegas',
@@ -122,7 +121,6 @@ describe('getContextualStepsForRoute', () => {
 
   const supervisorRoutes = [
     '/supervisor/dashboard',
-    '/supervisor/trazabilidad',
     '/notifications',
     '/profile',
   ];

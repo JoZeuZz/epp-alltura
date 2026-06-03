@@ -32,10 +32,8 @@ const LEGACY_NOTIFICATION_COLORS: Record<string, string> = {
 
 export const ALLOWED_NOTIFICATION_PATHS = new Set([
   '/admin/dashboard',
-  '/admin/trazabilidad',
   '/admin/trabajadores',
   '/supervisor/dashboard',
-  '/supervisor/trazabilidad',
   '/notifications',
   '/profile',
 ]);
