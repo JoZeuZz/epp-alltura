@@ -758,9 +758,39 @@ const downloadImageBuffer = async (storedUrl) => {
   }
 };
 
+/**
+ * Uploads a PDF buffer directly to Google Cloud Storage or saves locally if GCS is not configured.
+ * @param {Buffer} buffer The PDF buffer to upload.
+ * @param {string} filename The filename for the PDF.
+ * @param {object} [options={}] Upload options.
+ * @param {string} [options.folder] Subfolder within the bucket/uploads dir.
+ * @returns {Promise<string>} The public URL of the uploaded PDF.
+ */
+async function uploadPdfBuffer(buffer, filename, options = {}) {
+  const { folder } = options;
+
+  if (resolvedProvider === 'local') {
+    const subdir = folder ? path.join(localUploadsDir, folder) : localUploadsDir;
+    await fs.promises.mkdir(subdir, { recursive: true });
+    const relPath = folder ? `${folder}/${filename}` : filename;
+    await fs.promises.writeFile(path.join(localUploadsDir, relPath), buffer);
+    return `/uploads/${relPath}`;
+  }
+
+  if (!isGCSConfigured) {
+    throw new Error('Google Cloud Storage no está configurado. Revisa GCS_PROJECT_ID, GCS_BUCKET_NAME y GOOGLE_APPLICATION_CREDENTIALS.');
+  }
+  const objectNameParts = [gcsPrefix, folder, filename].filter(Boolean);
+  const objectName = objectNameParts.join('/');
+  const gcsFile = bucket.file(objectName);
+  await gcsFile.save(buffer, { contentType: 'application/pdf', resumable: false });
+  return `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${objectName}`;
+}
+
 module.exports = {
   uploadFile,
   uploadDocument,
+  uploadPdfBuffer,
   deleteFileByUrl,
   resolveImageUrl,
   resolveHeaderImages,
