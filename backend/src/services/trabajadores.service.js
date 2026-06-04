@@ -318,7 +318,7 @@ class TrabajadoresService {
       SELECT
         e.id                                        AS entrega_id,
         e.creado_en                                 AS entrega_fecha,
-        COALESCE(ar.codigo, ed.codigo, '—')         AS articulo_codigo,
+        COALESCE(ar.codigo, '—')                    AS articulo_codigo,
         COALESCE(ar.nombre, '(Artículo eliminado)') AS articulo_nombre,
         ar.tipo                                     AS articulo_tipo,
         (ca.id IS NOT NULL)                         AS es_activo,
@@ -329,7 +329,9 @@ class TrabajadoresService {
       LEFT JOIN articulo ar ON ar.id = ed.articulo_id
       JOIN firma_entrega fe ON fe.entrega_id = e.id
       LEFT JOIN custodia_activo ca
-        ON ca.entrega_id = e.id AND ca.estado = 'activa'
+        ON ca.entrega_id = e.id
+        AND ca.articulo_id = ed.articulo_id
+        AND ca.estado = 'activa'
       LEFT JOIN devolucion d
         ON d.entrega_revertida_id = e.id AND d.estado = 'confirmada'
       LEFT JOIN firma_devolucion fd ON fd.devolucion_id = d.id
