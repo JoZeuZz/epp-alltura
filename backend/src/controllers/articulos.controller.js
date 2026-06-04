@@ -4,7 +4,7 @@ const { ArticulosService } = require('../services/articulos.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
 const XLSX = require('xlsx');
-const { bufferPdf, MUTED_GRAY } = require('../lib/pdfGenerator');
+const { bufferInforme, drawSectionLabel, drawTableHeader, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
 
 class ArticulosController {
   static async list(req, res, next) {
@@ -43,11 +43,17 @@ class ArticulosController {
         return res.send(buffer);
       }
 
-      const pdfBuffer = await bufferPdf(`Inventario: ${label} — ${timestamp}`, async (doc) => {
+      const pdfBuffer = await bufferInforme(`Inventario: ${label}`, async (doc) => {
         if (items.length === 0) {
           doc.fontSize(9).fillColor(MUTED_GRAY).text('Sin artículos para los filtros seleccionados.');
           return;
         }
+
+        drawSectionLabel(doc, `${label} — ${items.length} artículo(s)`);
+
+        const TABLE_WIDTH = 515;
+        drawTableHeader(doc, TABLE_WIDTH);
+
         const headers = ['Código', 'Nombre', 'Marca/Modelo', 'Estado', 'Ubicación', 'Valor'];
         const rows = items.map((a) => [
           a.codigo ?? '—',
@@ -57,13 +63,24 @@ class ArticulosController {
           a.bodega_nombre ?? a.proyecto_nombre ?? '—',
           a.valor > 0 ? `$${a.valor.toLocaleString('es-CL')}` : '—',
         ]);
+
         await doc.table({ headers, rows }, {
           columnsSize: [60, 140, 100, 70, 100, 45],
-          prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
-          prepareRow:    () => doc.font('Helvetica').fontSize(8),
+          prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF'),
+          prepareRow: (row, indexColumn, indexRow, rectRow) => {
+            if (indexColumn === 0 && indexRow % 2 !== 0 && rectRow) {
+              doc.save()
+                 .rect(rectRow.x, rectRow.y, rectRow.width, rectRow.height)
+                 .fill('#F0F4FA')
+                 .restore();
+            }
+            doc.font('Helvetica').fontSize(8).fillColor(BODY_TEXT);
+          },
         });
-        doc.moveDown();
-        doc.fontSize(8).fillColor(MUTED_GRAY).text(`Total: ${items.length} artículo(s)`);
+
+        doc.moveDown(0.3);
+        doc.fontSize(8).fillColor(MUTED_GRAY)
+           .text(`Total: ${items.length} artículo(s)`, { align: 'right' });
       });
 
       res.setHeader('Content-Type', 'application/pdf');
