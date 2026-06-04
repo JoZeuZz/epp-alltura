@@ -18,9 +18,15 @@ const mockUseGet = vi.hoisted(() => vi.fn(() => ({ data: [] })));
 const mockUseTour = vi.hoisted(() =>
   vi.fn(() => ({ isActive: false, currentDemoAction: null }))
 );
+const mockUseTourActions = vi.hoisted(() => vi.fn());
+const mockUseInventoryExport = vi.hoisted(() =>
+  vi.fn(() => ({ exporting: false, exportExcel: vi.fn(), exportPdf: vi.fn() }))
+);
 vi.mock('../hooks', () => ({
   useGet: mockUseGet,
   useTour: mockUseTour,
+  useTourActions: mockUseTourActions,
+  useInventoryExport: mockUseInventoryExport,
 }));
 
 vi.mock('../components/ArticuloCreateModal', () => ({

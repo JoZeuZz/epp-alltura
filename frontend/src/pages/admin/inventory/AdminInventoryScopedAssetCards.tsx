@@ -7,6 +7,7 @@ import type { Articulo, ArticuloEstado } from '../../../services/apiService';
 import type { AssetScopeKey, InventoryAssetScopeCopy } from './inventoryAssetScope.constants';
 import { formatCLP } from '../../../utils/currency';
 import AdminInventoryScopedAssetListView from './AdminInventoryScopedAssetListView';
+import { useInventoryExport } from '../../../hooks';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -147,6 +148,14 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showDemoModal, setShowDemoModal] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
+  const [exportOpen, setExportOpen] = useState(false);
+
+  const { exporting, exportExcel, exportPdf } = useInventoryExport({
+    tipo: copy.tipo,
+    estado: estadoFilter,
+    search,
+    ciudadFilter,
+  });
 
   useTourActions({
     'open-modal:activo-first': () => {
@@ -210,6 +219,65 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
                 </button>
               </div>
             )}
+            {/* Export dropdown */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setExportOpen((o) => !o)}
+                disabled={exporting}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-gray-200 bg-white text-xs text-gray-600 hover:border-primary-blue hover:text-primary-blue transition-colors disabled:opacity-50"
+                aria-haspopup="true"
+                aria-expanded={exportOpen}
+                aria-label="Exportar inventario"
+              >
+                {exporting ? (
+                  <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                ) : (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+                  </svg>
+                )}
+                <span>Exportar</span>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {exportOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    aria-hidden="true"
+                    onClick={() => setExportOpen(false)}
+                  />
+                  <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20 py-1">
+                    <button
+                      type="button"
+                      onClick={() => { setExportOpen(false); void exportExcel(); }}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <svg className="w-3.5 h-3.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6M5 21h14a2 2 0 002-2V7l-5-5H5a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      Excel (.xlsx)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setExportOpen(false); void exportPdf(); }}
+                      className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <svg className="w-3.5 h-3.5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.293 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      PDF
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             <div className="flex rounded-md border border-gray-200 overflow-hidden">
             <button
               type="button"

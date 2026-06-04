@@ -6,7 +6,11 @@ import { INVENTORY_ASSET_SCOPE_COPY } from '../pages/admin/inventory/inventoryAs
 
 vi.mock('../components/forms/ActivoProfileModal', () => ({ default: () => <div /> }));
 vi.mock('../components/forms/TourDemoActivoModal', () => ({ default: () => <div /> }));
-vi.mock('../hooks', () => ({ useTour: () => ({ isActive: false, currentDemoAction: null }) }));
+vi.mock('../hooks', () => ({
+  useTour: () => ({ isActive: false, currentDemoAction: null }),
+  useTourActions: vi.fn(),
+  useInventoryExport: () => ({ exporting: false, exportExcel: vi.fn(), exportPdf: vi.fn() }),
+}));
 vi.mock('../pages/admin/inventory/AdminInventoryScopedAssetListView', () => ({
   default: () => <div data-testid="list-view" />,
 }));

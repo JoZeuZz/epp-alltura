@@ -12,6 +12,8 @@ vi.mock('../components/forms/TourDemoActivoModal', () => ({
 }));
 vi.mock('../hooks', () => ({
   useTour: () => ({ isActive: false, currentDemoAction: null }),
+  useTourActions: vi.fn(),
+  useInventoryExport: () => ({ exporting: false, exportExcel: vi.fn(), exportPdf: vi.fn() }),
 }));
 vi.mock('../pages/admin/inventory/AdminInventoryScopedAssetListView', () => ({
   default: () => <div data-testid="list-view" />,
