@@ -22,6 +22,12 @@ jest.mock('../../lib/googleCloud', () => ({
   uploadFile: jest.fn(),
   deleteFileByUrl: jest.fn(),
   downloadImageBuffer: jest.fn().mockResolvedValue(null),
+  uploadPdfBuffer: jest.fn().mockResolvedValue('https://storage.googleapis.com/bucket/actas/cached.pdf'),
+}));
+
+jest.mock('../../services/documentoService', () => ({
+  findActaUrl: jest.fn().mockResolvedValue(null),
+  saveActaUrl: jest.fn().mockResolvedValue(undefined),
 }));
 
 const express = require('express');
@@ -30,6 +36,8 @@ const errorHandler = require('../../middleware/errorHandler');
 const devolucionesRoutes = require('../../routes/devoluciones.routes');
 const DevolucionesService = require('../../services/devoluciones.service');
 const { authMiddleware } = require('../../middleware/auth');
+const { downloadImageBuffer, uploadPdfBuffer } = require('../../lib/googleCloud');
+const { findActaUrl, saveActaUrl } = require('../../services/documentoService');
 
 const MOCK_DEVOLUCION = {
   id: '22222222-0000-0000-0000-000000000001',
@@ -106,7 +114,6 @@ describe('GET /api/devoluciones/:id/pdf', () => {
   });
 
   it('returns 200 for signed devolucion with evidence photo', async () => {
-    const { downloadImageBuffer } = require('../../lib/googleCloud');
     downloadImageBuffer.mockResolvedValue(Buffer.from('fake-img'));
     DevolucionesService.getById.mockResolvedValue({
       ...MOCK_DEVOLUCION,
@@ -118,5 +125,60 @@ describe('GET /api/devoluciones/:id/pdf', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/application\/pdf/);
     expect(Number(res.headers['content-length'])).toBeGreaterThan(0);
+  });
+});
+
+describe('GET /api/devoluciones/:id/pdf — caching', () => {
+  const SIGNED_DEVOLUCION = {
+    ...MOCK_DEVOLUCION,
+    firmado_en: '2026-01-10T12:00:00Z',
+    firma_imagen_url_raw: null,
+  };
+  const UNSIGNED_DEVOLUCION = { ...MOCK_DEVOLUCION, firmado_en: null };
+  const PDF_BUFFER = Buffer.from('%PDF-1.4 cached devolucion');
+
+  const buildApp = () => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/devoluciones', devolucionesRoutes);
+    app.use(errorHandler);
+    return app;
+  };
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('returns cached PDF with X-PDF-Cache: hit when cache exists and devolucion is signed', async () => {
+    DevolucionesService.getById.mockResolvedValue(SIGNED_DEVOLUCION);
+    findActaUrl.mockResolvedValue('https://storage.googleapis.com/bucket/actas/cached.pdf');
+    downloadImageBuffer.mockResolvedValue(PDF_BUFFER);
+
+    const res = await request(buildApp())
+      .get(`/api/devoluciones/${MOCK_DEVOLUCION.id}/pdf`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['x-pdf-cache']).toBe('hit');
+  });
+
+  it('does not call findActaUrl when devolucion is unsigned', async () => {
+    DevolucionesService.getById.mockResolvedValue(UNSIGNED_DEVOLUCION);
+
+    const res = await request(buildApp())
+      .get(`/api/devoluciones/${MOCK_DEVOLUCION.id}/pdf`);
+
+    expect(res.status).toBe(200);
+    expect(findActaUrl).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when regenerar=true and user is not admin', async () => {
+    authMiddleware.mockImplementationOnce((req, _res, next) => {
+      req.user = { id: 'user-1', role: 'supervisor', roles: ['supervisor'] };
+      next();
+    });
+    DevolucionesService.getById.mockResolvedValue(SIGNED_DEVOLUCION);
+
+    const res = await request(buildApp())
+      .get(`/api/devoluciones/${MOCK_DEVOLUCION.id}/pdf?regenerar=true`);
+
+    expect(res.status).toBe(403);
   });
 });

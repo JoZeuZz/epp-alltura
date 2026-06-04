@@ -1,7 +1,8 @@
 const DevolucionesService = require('../services/devoluciones.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
-const { downloadImageBuffer } = require('../lib/googleCloud');
+const { downloadImageBuffer, uploadPdfBuffer } = require('../lib/googleCloud');
+const { findActaUrl, saveActaUrl } = require('../services/documentoService');
 const { bufferActa, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
 const {
   buildRequestMeta,
@@ -121,9 +122,34 @@ class DevolucionesController {
   static async exportPdf(req, res, next) {
     try {
       const { id } = req.params;
+      const regenerar = req.query.regenerar === 'true';
+
+      if (regenerar && req.user.role !== 'admin') {
+        return res.status(403).json({
+          success: false,
+          message: 'Solo administradores pueden forzar la regeneración del PDF.',
+        });
+      }
+
       const data = await DevolucionesService.getById(id);
+      const isFirmado = !!data.firmado_en;
       const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `acta-devolucion-${id.slice(0, 8)}-${timestamp}.pdf`;
+
+      // Cache read — only for signed actas
+      if (isFirmado && !regenerar) {
+        const cachedUrl = await findActaUrl('acta_devolucion', 'devolucion', id);
+        if (cachedUrl) {
+          const cachedBuf = await downloadImageBuffer(cachedUrl).catch(() => null);
+          if (cachedBuf) {
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+            res.setHeader('Content-Length', cachedBuf.length);
+            res.setHeader('X-PDF-Cache', 'hit');
+            return res.send(cachedBuf);
+          }
+        }
+      }
 
       const pdfBuffer = await bufferActa('Acta de Devolución de EPP/Herramientas', async (doc) => {
         const devueltoPor = [data.nombres, data.apellidos].filter(Boolean).join(' ') || '—';
@@ -231,10 +257,17 @@ class DevolucionesController {
         }
       }, { folio: id.slice(0, 8).toUpperCase() });
 
+      // Cache write — fire-and-forget
+      if (isFirmado) {
+        uploadPdfBuffer(pdfBuffer, filename, { folder: 'actas' })
+          .then((url) => saveActaUrl('acta_devolucion', 'devolucion', id, url, req.user.id))
+          .catch((err) => logger.warn('PDF cache write failed (non-fatal):', err.message));
+      }
+
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Content-Length', pdfBuffer.length);
-      res.send(pdfBuffer);
+      return res.send(pdfBuffer);
     } catch (error) {
       logger.error('Error exporting devolucion PDF:', error);
       return next(error);
