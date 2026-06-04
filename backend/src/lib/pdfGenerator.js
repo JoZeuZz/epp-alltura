@@ -119,7 +119,9 @@ function _drawActaChrome(doc, title, folio, pageNum) {
   doc.moveTo(15, 822).lineTo(580, 822)
      .lineWidth(0.3).strokeColor('#CCCCCC').stroke();
 
-  // Footer text
+  // Footer text — temporarily zero bottom margin to prevent page-break recursion
+  const _savedBottomActa = doc.page.margins.bottom;
+  doc.page.margins.bottom = 0;
   doc.save()
      .fontSize(6.5).font('Helvetica').fillColor(MUTED_GRAY)
      .text(
@@ -127,6 +129,7 @@ function _drawActaChrome(doc, title, folio, pageNum) {
        40, 826, { width: 515, align: 'center', lineBreak: false }
      )
      .restore();
+  doc.page.margins.bottom = _savedBottomActa;
 
   // Reset content cursor
   doc.y = 115;
@@ -201,7 +204,9 @@ function _drawInformeChrome(doc, title, pageNum) {
   doc.moveTo(40, 800).lineTo(555, 800)
      .lineWidth(0.3).strokeColor('#CCCCCC').stroke();
 
-  // Footer text
+  // Footer text — temporarily zero bottom margin to prevent page-break recursion
+  const _savedBottomInforme = doc.page.margins.bottom;
+  doc.page.margins.bottom = 0;
   doc.save()
      .fontSize(6.5).font('Helvetica').fillColor(MUTED_GRAY)
      .text(
@@ -209,6 +214,7 @@ function _drawInformeChrome(doc, title, pageNum) {
        40, 804, { width: 515, align: 'center', lineBreak: false }
      )
      .restore();
+  doc.page.margins.bottom = _savedBottomInforme;
 
   // Reset content cursor below header bar
   doc.y = 68;

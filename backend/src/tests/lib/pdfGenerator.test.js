@@ -103,6 +103,16 @@ describe('pdfGenerator.bufferActa', () => {
       bufferActa('Test', async () => { throw new Error('async fail'); })
     ).rejects.toThrow('async fail');
   });
+
+  it('does not stack overflow with multi-page content (80 rows)', async () => {
+    const buf = await bufferActa('Acta de Entrega', async (doc) => {
+      for (let i = 0; i < 80; i++) {
+        doc.fontSize(9).text(`Línea de contenido número ${i + 1} — texto de prueba para forzar múltiples páginas`);
+      }
+    });
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.slice(0, 4).toString('binary')).toBe('%PDF');
+  }, 30000);
 });
 
 const { bufferInforme, drawSectionLabel, drawTableHeader } = require('../../lib/pdfGenerator');
@@ -134,6 +144,16 @@ describe('pdfGenerator.bufferInforme', () => {
     });
     expect(buf.length).toBeGreaterThan(500);
   });
+
+  it('does not stack overflow with multi-page content (80 rows)', async () => {
+    const buf = await bufferInforme('Reporte de Inventario', async (doc) => {
+      for (let i = 0; i < 80; i++) {
+        doc.fontSize(9).text(`Línea de contenido número ${i + 1} — texto de prueba para forzar múltiples páginas`);
+      }
+    });
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.slice(0, 4).toString('binary')).toBe('%PDF');
+  }, 30000);
 });
 
 describe('pdfGenerator.drawSectionLabel', () => {
