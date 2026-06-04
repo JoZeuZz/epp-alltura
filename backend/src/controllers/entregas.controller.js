@@ -1,7 +1,7 @@
 const EntregasService = require('../services/entregas.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
-const { bufferPdf, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
+const { bufferActa, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
 const { downloadImageBuffer } = require('../lib/googleCloud');
 
 class EntregasController {
@@ -78,15 +78,10 @@ class EntregasController {
       const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `acta-entrega-${id.slice(0, 8)}-${timestamp}.pdf`;
 
-      const pdfBuffer = await bufferPdf('Acta de Entrega de EPP/Herramientas', async (doc) => {
+      const pdfBuffer = await bufferActa('Acta de Entrega de EPP/Herramientas', async (doc) => {
         const entregadoPor = [data.creador_nombres, data.creador_apellidos].filter(Boolean).join(' ') || '—';
         const recibidoPor  = [data.nombres, data.apellidos].filter(Boolean).join(' ') || '—';
         const rut          = data.rut || '—';
-
-        // Folio
-        doc.fontSize(9).fillColor(MUTED_GRAY)
-           .text(`Folio: ${id.slice(0, 8).toUpperCase()}`, { align: 'right' })
-           .moveDown(0.5);
 
         // ── 1. Partes ──────────────────────────────────────────────────────
         doc.fontSize(10).fillColor(DARK_BLUE)
@@ -144,25 +139,29 @@ class EntregasController {
         doc.fontSize(9).fillColor(BODY_TEXT).text(declaracion, { width: 480, align: 'justify' });
         doc.moveDown(0.7);
 
-        // ── 4. Firma ───────────────────────────────────────────────────────
-        doc.fontSize(10).fillColor(DARK_BLUE)
-           .text('4. FIRMA DE CONFORMIDAD', { underline: true })
+        // ── 4. FIRMA DE CONFORMIDAD ───────────────────────────────────────────────
+        doc.fontSize(9).font('Helvetica-Bold').fillColor(DARK_BLUE)
+           .text('4. FIRMA DE CONFORMIDAD')
            .moveDown(0.3);
         if (data.firma_imagen_url_raw) {
           const sigBuf = await downloadImageBuffer(data.firma_imagen_url_raw).catch(() => null);
-          if (sigBuf) {
-            try { doc.image(sigBuf, { fit: [200, 80], align: 'left' }); } catch { /* invalid img */ }
-          }
-          const lineY = doc.y + 4;
-          doc.moveTo(40, lineY).lineTo(240, lineY)
+          const sigStartY = doc.y;
+          // Draw line first — signature image renders on top (handwritten-on-paper effect)
+          doc.moveTo(40, sigStartY + 45).lineTo(240, sigStartY + 45)
              .strokeColor(DARK_BLUE).lineWidth(0.5).stroke()
              .strokeColor('#000000').lineWidth(1);
+          if (sigBuf) {
+            try {
+              doc.image(sigBuf, 40, sigStartY, { width: 160, opacity: 0.9 });
+            } catch { /* invalid img format */ }
+          }
+          doc.y = sigStartY + 55;
           doc.moveDown(0.3);
-          doc.fontSize(9).fillColor(BODY_TEXT)
+          doc.fontSize(9).font('Helvetica').fillColor(BODY_TEXT)
              .text(`${recibidoPor} — RUT: ${rut}`)
              .text(`Firmado el: ${new Date(data.firmado_en).toLocaleString('es-CL')}`);
         } else {
-          doc.fontSize(9).fillColor(MUTED_GRAY)
+          doc.fontSize(9).font('Helvetica').fillColor(MUTED_GRAY)
              .text('Firma: pendiente de validación digital.');
         }
 
@@ -188,7 +187,7 @@ class EntregasController {
                );
           }
         }
-      });
+      }, { folio: id.slice(0, 8).toUpperCase() });
 
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
