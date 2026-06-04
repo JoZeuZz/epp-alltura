@@ -31,6 +31,12 @@ jest.mock('../../lib/googleCloud', () => ({
   uploadFile: jest.fn(),
   deleteFileByUrl: jest.fn(),
   downloadImageBuffer: jest.fn().mockResolvedValue(null),
+  uploadPdfBuffer: jest.fn().mockResolvedValue('https://storage.googleapis.com/bucket/actas/cached.pdf'),
+}));
+
+jest.mock('../../services/documentoService', () => ({
+  findActaUrl: jest.fn().mockResolvedValue(null),
+  saveActaUrl: jest.fn().mockResolvedValue(undefined),
 }));
 
 const express = require('express');
@@ -40,6 +46,8 @@ const entregasRoutes = require('../../routes/entregas.routes');
 const EntregasService = require('../../services/entregas.service');
 const { authMiddleware } = require('../../middleware/auth');
 const { checkRole } = require('../../middleware/roles');
+const { downloadImageBuffer, uploadPdfBuffer } = require('../../lib/googleCloud');
+const { findActaUrl, saveActaUrl } = require('../../services/documentoService');
 
 const MOCK_ENTREGA = {
   id: '11111111-0000-0000-0000-000000000001',
@@ -164,5 +172,84 @@ describe('GET /api/entregas/:id/pdf', () => {
     expect(res.status).toBe(200);
     expect(res.headers['content-type']).toMatch(/application\/pdf/);
     expect(Number(res.headers['content-length'])).toBeGreaterThan(0);
+  });
+});
+
+describe('GET /api/entregas/:id/pdf — caching', () => {
+  const SIGNED_ENTREGA = {
+    ...MOCK_ENTREGA,
+    firmado_en: '2026-01-10T12:00:00Z',
+    firma_imagen_url_raw: null,
+  };
+  const UNSIGNED_ENTREGA = { ...MOCK_ENTREGA, firmado_en: null };
+  const PDF_BUFFER = Buffer.from('%PDF-1.4 cached content');
+
+  const buildApp = () => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/entregas', entregasRoutes);
+    app.use(errorHandler);
+    return app;
+  };
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('returns cached PDF with X-PDF-Cache: hit when cache exists and acta is signed', async () => {
+    EntregasService.getById.mockResolvedValue(SIGNED_ENTREGA);
+    findActaUrl.mockResolvedValue('https://storage.googleapis.com/bucket/actas/cached.pdf');
+    downloadImageBuffer.mockResolvedValue(PDF_BUFFER);
+
+    const res = await request(buildApp())
+      .get(`/api/entregas/${MOCK_ENTREGA.id}/pdf`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['x-pdf-cache']).toBe('hit');
+    expect(res.headers['content-type']).toMatch(/application\/pdf/);
+  });
+
+  it('generates PDF and does NOT call findActaUrl when acta is unsigned', async () => {
+    EntregasService.getById.mockResolvedValue(UNSIGNED_ENTREGA);
+
+    const res = await request(buildApp())
+      .get(`/api/entregas/${MOCK_ENTREGA.id}/pdf`);
+
+    expect(res.status).toBe(200);
+    expect(findActaUrl).not.toHaveBeenCalled();
+    expect(uploadPdfBuffer).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when regenerar=true and user is not admin', async () => {
+    authMiddleware.mockImplementationOnce((req, _res, next) => {
+      req.user = { id: 'user-1', role: 'supervisor', roles: ['supervisor'] };
+      next();
+    });
+    EntregasService.getById.mockResolvedValue(SIGNED_ENTREGA);
+
+    const res = await request(buildApp())
+      .get(`/api/entregas/${MOCK_ENTREGA.id}/pdf?regenerar=true`);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('bypasses cache when regenerar=true as admin', async () => {
+    EntregasService.getById.mockResolvedValue(SIGNED_ENTREGA);
+
+    const res = await request(buildApp())
+      .get(`/api/entregas/${MOCK_ENTREGA.id}/pdf?regenerar=true`);
+
+    expect(res.status).toBe(200);
+    expect(findActaUrl).not.toHaveBeenCalled();
+  });
+
+  it('falls through to generate when cached download fails', async () => {
+    EntregasService.getById.mockResolvedValue(SIGNED_ENTREGA);
+    findActaUrl.mockResolvedValue('https://broken.pdf');
+    downloadImageBuffer.mockResolvedValue(null);
+
+    const res = await request(buildApp())
+      .get(`/api/entregas/${MOCK_ENTREGA.id}/pdf`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['x-pdf-cache']).toBeUndefined();
   });
 });
