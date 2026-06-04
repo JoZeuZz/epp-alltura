@@ -35,14 +35,11 @@ const StatBox: React.FC<{ label: string; value: string | number; accent?: string
 const ActasHistorial: React.FC<{ trabajadorId: string }> = ({ trabajadorId }) => {
   const [acta, setActa] = React.useState<{ type: 'entrega' | 'devolucion'; id: string } | null>(null);
 
-  const { data: actas = [], isLoading } = useQuery<TrabajadorActaRow[]>({
+  const { data: actas = [], isLoading, isError } = useQuery<TrabajadorActaRow[]>({
     queryKey: ['trabajador-actas', trabajadorId],
     queryFn: () => getTrabajadorActas(trabajadorId),
     enabled: !!trabajadorId,
   });
-
-  const formatActaDate = (d: string) =>
-    new Date(d).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   return (
     <div className="space-y-2">
@@ -56,6 +53,10 @@ const ActasHistorial: React.FC<{ trabajadorId: string }> = ({ trabajadorId }) =>
             <div key={i} className="h-8 bg-surface-muted animate-pulse rounded" />
           ))}
         </div>
+      ) : isError ? (
+        <p className="text-center text-danger py-4 text-sm">
+          Error al cargar historial de actas.
+        </p>
       ) : actas.length === 0 ? (
         <p className="text-center text-content-disabled py-4 text-sm">
           Sin actas registradas para este trabajador.
@@ -88,7 +89,7 @@ const ActasHistorial: React.FC<{ trabajadorId: string }> = ({ trabajadorId }) =>
                       {a.articulo_codigo}
                     </td>
                     <td className="px-3 py-2 text-xs text-content-muted hidden sm:table-cell">
-                      {formatActaDate(a.entrega_fecha)}
+                      {formatDate(a.entrega_fecha)}
                     </td>
                     <td className="px-3 py-2">
                       {a.es_activo ? (
