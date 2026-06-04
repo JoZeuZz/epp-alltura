@@ -1,7 +1,7 @@
 const InventarioService = require('../services/inventario.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
-const { bufferPdf, bufferInforme, drawSectionLabel, drawTableHeader, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
+const { bufferInforme, drawSectionLabel, drawTableHeader, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
 
 class InventarioController {
   static async getActivos(req, res, next) {
@@ -97,36 +97,55 @@ class InventarioController {
   static async exportInventarioPdf(req, res, next) {
     try {
       const { categoria } = req.query;
-      // Normalize plural query param to singular articulo.tipo values
       const TIPO_MAP = { herramientas: 'herramienta', equipos: 'equipo', epp: 'epp' };
       const tipoFiltro = TIPO_MAP[categoria] ?? categoria;
       const activos = await InventarioService.getActivos({ tipo: tipoFiltro, limit: 500 });
       const timestamp = new Date().toISOString().slice(0, 10);
-      const label = { epp: 'EPP', herramientas: 'Herramientas', equipos: 'Equipos' }[categoria] ?? categoria;
+      const LABEL = { epp: 'EPP', herramientas: 'Herramientas', equipos: 'Equipos' };
+      const label = LABEL[categoria] ?? categoria;
       const filename = `inventario-${categoria}-${timestamp}.pdf`;
 
-      const pdfBuffer = await bufferPdf(`Inventario: ${label} — ${timestamp}`, async (doc) => {
+      const ESTADO_LABEL = {
+        en_stock: 'En stock', asignado: 'Asignado', mantencion: 'Mantención',
+        dado_de_baja: 'Dado de baja', perdido: 'Perdido', disponible: 'Disponible',
+      };
+
+      const pdfBuffer = await bufferInforme(`Inventario: ${label}`, async (doc) => {
         if (activos.length === 0) {
           doc.fontSize(9).fillColor(MUTED_GRAY).text('Sin activos registrados para esta categoría.');
           return;
         }
 
+        drawSectionLabel(doc, `${label} — ${activos.length} artículo(s)`);
+
+        const TABLE_WIDTH = 515;
+        drawTableHeader(doc, TABLE_WIDTH);
+
         const headers = ['Código', 'Nombre', 'Estado', 'Ubicación'];
         const rows = activos.map((a) => [
           a.codigo ?? '—',
-          a.nombre ?? '—',
-          a.estado ?? '—',
+          a.articulo_nombre ?? a.nombre ?? '—',
+          ESTADO_LABEL[a.estado] ?? a.estado ?? '—',
           a.bodega_nombre ?? a.proyecto_nombre ?? '—',
         ]);
 
         await doc.table({ headers, rows }, {
-          columnsSize: [80, 200, 70, 130],
-          prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
-          prepareRow: () => doc.font('Helvetica').fontSize(8),
+          columnsSize: [80, 215, 90, 130],
+          prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF'),
+          prepareRow: (row, indexColumn, indexRow, rectRow) => {
+            if (indexColumn === 0 && indexRow % 2 !== 0 && rectRow) {
+              doc.save()
+                 .rect(rectRow.x, rectRow.y, rectRow.width, rectRow.height)
+                 .fill('#F0F4FA')
+                 .restore();
+            }
+            doc.font('Helvetica').fontSize(8).fillColor(BODY_TEXT);
+          },
         });
 
-        doc.moveDown();
-        doc.fontSize(8).fillColor(MUTED_GRAY).text(`Total: ${activos.length} activo(s)`);
+        doc.moveDown(0.3);
+        doc.fontSize(8).fillColor(MUTED_GRAY)
+           .text(`Total: ${activos.length} activo(s)`, { align: 'right' });
       });
 
       res.setHeader('Content-Type', 'application/pdf');
