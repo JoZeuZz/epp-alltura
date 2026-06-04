@@ -312,6 +312,33 @@ class TrabajadoresService {
       stats: statsRows[0],
     };
   }
+
+  static async getActas(id) {
+    const { rows } = await db.query(`
+      SELECT
+        e.id                                        AS entrega_id,
+        e.creado_en                                 AS entrega_fecha,
+        COALESCE(ar.codigo, ed.codigo, '—')         AS articulo_codigo,
+        COALESCE(ar.nombre, '(Artículo eliminado)') AS articulo_nombre,
+        ar.tipo                                     AS articulo_tipo,
+        (ca.id IS NOT NULL)                         AS es_activo,
+        d.id                                        AS devolucion_id,
+        fd.firmado_en                               AS devolucion_fecha
+      FROM entrega e
+      JOIN entrega_detalle ed ON ed.entrega_id = e.id
+      LEFT JOIN articulo ar ON ar.id = ed.articulo_id
+      JOIN firma_entrega fe ON fe.entrega_id = e.id
+      LEFT JOIN custodia_activo ca
+        ON ca.entrega_id = e.id AND ca.estado = 'activa'
+      LEFT JOIN devolucion d
+        ON d.entrega_revertida_id = e.id AND d.estado = 'confirmada'
+      LEFT JOIN firma_devolucion fd ON fd.devolucion_id = d.id
+      WHERE e.trabajador_id = $1
+        AND e.estado = 'confirmada'
+      ORDER BY e.creado_en DESC
+    `, [id]);
+    return rows;
+  }
 }
 
 module.exports = TrabajadoresService;

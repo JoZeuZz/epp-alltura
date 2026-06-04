@@ -50,3 +50,62 @@ describe('TrabajadoresService without login linkage', () => {
     expect(getByIdSpy).toHaveBeenCalledWith('trabajador-1');
   });
 });
+
+describe('TrabajadoresService.getActas', () => {
+  const TRABAJADOR_ID = 'aaaaaa00-0000-4000-8000-000000000001';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('queries db with trabajador id and returns rows', async () => {
+    const mockRows = [
+      {
+        entrega_id: 'ee000000-0000-4000-8000-000000000001',
+        entrega_fecha: '2024-01-15T12:00:00Z',
+        articulo_codigo: 'EPP-001',
+        articulo_nombre: 'Casco MSA',
+        articulo_tipo: 'epp',
+        es_activo: true,
+        devolucion_id: null,
+        devolucion_fecha: null,
+      },
+    ];
+    db.query.mockResolvedValueOnce({ rows: mockRows });
+
+    const result = await TrabajadoresService.getActas(TRABAJADOR_ID);
+
+    expect(result).toEqual(mockRows);
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('FROM entrega'),
+      [TRABAJADOR_ID]
+    );
+  });
+
+  it('returns empty array when trabajador has no signed actas', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const result = await TrabajadoresService.getActas(TRABAJADOR_ID);
+    expect(result).toEqual([]);
+  });
+
+  it('includes devolucion data when present', async () => {
+    const mockRows = [
+      {
+        entrega_id: 'ee000000-0000-4000-8000-000000000001',
+        entrega_fecha: '2024-01-15T12:00:00Z',
+        articulo_codigo: 'EPP-001',
+        articulo_nombre: 'Casco MSA',
+        articulo_tipo: 'epp',
+        es_activo: false,
+        devolucion_id: 'dd000000-0000-4000-8000-000000000001',
+        devolucion_fecha: '2024-02-01T10:00:00Z',
+      },
+    ];
+    db.query.mockResolvedValueOnce({ rows: mockRows });
+
+    const result = await TrabajadoresService.getActas(TRABAJADOR_ID);
+
+    expect(result[0].devolucion_id).toBe('dd000000-0000-4000-8000-000000000001');
+    expect(result[0].es_activo).toBe(false);
+  });
+});
