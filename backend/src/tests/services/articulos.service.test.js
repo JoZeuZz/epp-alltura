@@ -215,6 +215,8 @@ describe('ArticulosService.update', () => {
 describe('ArticulosService.deletePermanent', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Pre-check: no signed actas by default for these legacy tests
+    db.query.mockResolvedValue({ rows: [] });
   });
 
   it('retorna 404 cuando el artículo no existe', async () => {
@@ -263,6 +265,45 @@ describe('ArticulosService.deletePermanent', () => {
     expect(client.query).toHaveBeenCalledWith('DELETE FROM articulo WHERE id = $1', [ARTICULO_ID]);
     expect(deleteFileByUrl).toHaveBeenCalledWith('uploads/x.jpg');
     expect(client.query).toHaveBeenCalledWith('COMMIT');
+  });
+});
+
+describe('ArticulosService.deletePermanent — signed actas protection', () => {
+  const ARTICLE_ID = '99999999-9999-4999-8999-999999999999';
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('throws 409 ARTICULO_HAS_SIGNED_ACTAS when article has signed entregas', async () => {
+    // First db.query call is the signed-actas pre-check — return a row meaning signed actas exist
+    db.query.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
+
+    await expect(
+      ArticulosService.deletePermanent(ARTICLE_ID, 'user-1')
+    ).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'ARTICULO_HAS_SIGNED_ACTAS',
+    });
+
+    // Should NOT open a transaction since we throw before db.pool.connect
+    expect(db.pool.connect).not.toHaveBeenCalled();
+  });
+
+  it('proceeds to delete transaction when no signed actas exist', async () => {
+    // Pre-check returns empty (no signed actas)
+    db.query.mockResolvedValueOnce({ rows: [] });
+
+    const client = makeClient(async (sql) => {
+      if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return {};
+      if (/SELECT/.test(sql) || /FOR UPDATE/.test(sql)) {
+        return { rows: [{ id: ARTICLE_ID, estado: 'en_stock', foto_url: null, factura_url: null, manual_url: null }] };
+      }
+      return { rows: [] };
+    });
+    db.pool.connect.mockResolvedValue(client);
+
+    await ArticulosService.deletePermanent(ARTICLE_ID, 'user-1');
+    // Transaction was started — meaning pre-check passed
+    expect(db.pool.connect).toHaveBeenCalled();
   });
 });
 

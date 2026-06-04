@@ -210,6 +210,27 @@ class ArticulosService {
   }
 
   static async deletePermanent(id, userId) {
+    // Block delete if article has any signed actas (legal immutability)
+    const { rows: signedCheck } = await db.query(`
+      SELECT 1 FROM (
+        SELECT 1 FROM entrega_detalle ed
+        JOIN firma_entrega fe ON fe.entrega_id = ed.entrega_id
+        WHERE ed.articulo_id = $1
+        UNION ALL
+        SELECT 1 FROM devolucion_detalle dd
+        JOIN firma_devolucion fd ON fd.devolucion_id = dd.devolucion_id
+        WHERE dd.articulo_id = $1
+      ) AS signed_actas
+      LIMIT 1
+    `, [id]);
+    if (signedCheck.length > 0) {
+      throw buildError(
+        'El artículo tiene actas firmadas y no puede eliminarse permanentemente.',
+        409,
+        'ARTICULO_HAS_SIGNED_ACTAS'
+      );
+    }
+
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
