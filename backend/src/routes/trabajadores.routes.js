@@ -52,6 +52,7 @@ const trabajadorUpdateSchema = Joi.object({
 
 router.get('/', authMiddleware, TrabajadoresController.list);
 router.get('/:id/profile', authMiddleware, TrabajadoresController.getProfile);
+router.get('/:id/actas', authMiddleware, checkRole(['admin', 'supervisor']), TrabajadoresController.getActas);
 router.get('/:id', authMiddleware, TrabajadoresController.getById);
 router.post(
   '/',

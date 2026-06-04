@@ -62,6 +62,16 @@ class TrabajadoresController {
       return next(error);
     }
   }
+
+  static async getActas(req, res, next) {
+    try {
+      const data = await TrabajadoresService.getActas(req.params.id);
+      return sendSuccess(res, { message: 'Actas del trabajador obtenidas correctamente', data });
+    } catch (error) {
+      logger.error('Error fetching actas for trabajador:', error);
+      return next(error);
+    }
+  }
 }
 
 module.exports = TrabajadoresController;
