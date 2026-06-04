@@ -80,6 +80,10 @@ describe('TrabajadoresService.getActas', () => {
       expect.stringContaining('FROM entrega'),
       [TRABAJADOR_ID]
     );
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('ca.articulo_id = ed.articulo_id'),
+      [TRABAJADOR_ID]
+    );
   });
 
   it('returns empty array when trabajador has no signed actas', async () => {
