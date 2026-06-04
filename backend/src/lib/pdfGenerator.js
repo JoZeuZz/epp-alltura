@@ -67,25 +67,22 @@ async function bufferPdf(title, buildFn) {
 }
 
 function _drawActaChrome(doc, title, folio, pageNum) {
-  // Blue background behind company name block
-  doc.save()
-     .rect(125, 15, 455, 57)
-     .fill(PRIMARY_BLUE)
-     .restore();
+  // Vertical divider logo | company
+  doc.moveTo(125, 18).lineTo(125, 68)
+     .lineWidth(0.5).strokeColor('#CCCCCC').stroke();
 
   // Logo
   if (fs.existsSync(LOGO_PATH)) {
     doc.image(LOGO_PATH, 25, 22, { height: 35 });
   }
 
-  // Company block — white text on blue
+  // Company block
   doc.save()
-     .fontSize(8.5).font('Helvetica-Bold').fillColor('#FFFFFF')
+     .fontSize(8.5).font('Helvetica-Bold').fillColor(DARK_BLUE)
      .text('Alltura y Servicios Industriales Spa', 135, 25, { lineBreak: false })
-     .fontSize(7.5).font('Helvetica').fillColor('#FFFFFF').fillOpacity(0.8)
+     .fontSize(7.5).font('Helvetica').fillColor(MUTED_GRAY)
      .text('RUT: 77.650.492-0', 135, 38, { lineBreak: false })
      .text('Galvarino 630, Los Ángeles', 135, 49, { lineBreak: false })
-     .fillOpacity(1)
      .restore();
 
   // Primary blue divider

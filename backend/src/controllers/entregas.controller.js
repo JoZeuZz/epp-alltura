@@ -164,32 +164,39 @@ class EntregasController {
           `efectuada en conformidad con las condiciones informadas en persona por mi supervisor y acepto ` +
           `íntegramente los términos comunicados.`;
         doc.fontSize(9).fillColor(BODY_TEXT).text(declaracion, { width: 515, align: 'justify' });
-        doc.moveDown(0.7);
+        doc.moveDown(2);
 
         // ── 4. FIRMA DE CONFORMIDAD ───────────────────────────────────────────────
         doc.fontSize(9).font('Helvetica-Bold').fillColor(DARK_BLUE)
            .text('4. FIRMA DE CONFORMIDAD')
-           .moveDown(0.3);
+           .moveDown(0.5);
+
+        // Signature block on the right half of the page (x=280→515, width=235)
+        const SIG_X = 280;
+        const SIG_W = 235;
+
         if (data.firma_imagen_url_raw) {
           const sigBuf = await downloadImageBuffer(data.firma_imagen_url_raw).catch(() => null);
           const sigStartY = doc.y;
-          // Draw line first — signature image renders on top (handwritten-on-paper effect)
-          doc.moveTo(40, sigStartY + 45).lineTo(240, sigStartY + 45)
-             .strokeColor(DARK_BLUE).lineWidth(0.5).stroke()
-             .strokeColor('#000000').lineWidth(1);
+          // Signature image above the line (handwritten-on-paper effect)
           if (sigBuf) {
             try {
-              doc.image(sigBuf, 40, sigStartY, { width: 160, opacity: 0.9 });
+              doc.image(sigBuf, SIG_X, sigStartY, { width: 160, opacity: 0.9 });
             } catch { /* invalid img format */ }
           }
-          doc.y = sigStartY + 55;
+          // Underline
+          doc.moveTo(SIG_X, sigStartY + 48).lineTo(SIG_X + SIG_W, sigStartY + 48)
+             .strokeColor(DARK_BLUE).lineWidth(0.5).stroke()
+             .strokeColor('#000000').lineWidth(1);
+          doc.y = sigStartY + 54;
           doc.moveDown(0.3);
           doc.fontSize(9).font('Helvetica').fillColor(BODY_TEXT)
-             .text(`${recibidoPor} — RUT: ${rut}`)
-             .text(`Firmado el: ${new Date(data.firmado_en).toLocaleString('es-CL')}`);
+             .text(`${recibidoPor} — RUT: ${rut}`, SIG_X, doc.y, { width: SIG_W, lineBreak: false })
+             .moveDown(0.25)
+             .text(`Firmado el: ${new Date(data.firmado_en).toLocaleString('es-CL')}`, SIG_X, doc.y, { width: SIG_W, lineBreak: false });
         } else {
           doc.fontSize(9).font('Helvetica').fillColor(MUTED_GRAY)
-             .text('Firma: pendiente de validación digital.');
+             .text('Firma: pendiente de validación digital.', SIG_X, doc.y, { width: SIG_W });
         }
 
         // ── Anexo: Evidencia ───────────────────────────────────────────────
