@@ -90,11 +90,24 @@ const listQuerySchema = Joi.object({
   offset:      Joi.number().integer().min(0).optional(),
 }).options({ allowUnknown: true });
 
+const exportQuerySchema = Joi.object({
+  tipo:    Joi.string().valid(...TIPOS).required(),
+  formato: Joi.string().valid('excel', 'pdf').required(),
+  estado:  Joi.string().valid(...ESTADOS).optional(),
+  search:  Joi.string().optional(),
+  ciudad:  Joi.string().optional(),
+}).options({ allowUnknown: false });
+
 router.use(authMiddleware);
 
 router.get('/',
   validateQuery(listQuerySchema),
   ArticulosController.list
+);
+
+router.get('/export',
+  validateQuery(exportQuerySchema),
+  ArticulosController.export
 );
 
 router.get('/:id', ArticulosController.getById);

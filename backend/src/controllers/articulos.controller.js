@@ -15,6 +15,14 @@ class ArticulosController {
     }
   }
 
+  static async export(req, res, next) {
+    try {
+      res.status(501).json({ message: 'not implemented' });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   static async getById(req, res, next) {
     try {
       const data = await ArticulosService.getById(req.params.id);
