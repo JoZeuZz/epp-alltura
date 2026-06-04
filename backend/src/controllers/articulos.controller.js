@@ -3,6 +3,8 @@
 const { ArticulosService } = require('../services/articulos.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
+const XLSX = require('xlsx');
+const { bufferPdf, MUTED_GRAY } = require('../lib/pdfGenerator');
 
 class ArticulosController {
   static async list(req, res, next) {
@@ -17,8 +19,59 @@ class ArticulosController {
 
   static async export(req, res, next) {
     try {
-      res.status(501).json({ message: 'not implemented' });
+      const { tipo, formato, estado, search, ciudad } = req.query;
+      const timestamp = new Date().toISOString().slice(0, 10);
+
+      const { items: allItems } = await ArticulosService.list({
+        tipo,
+        ...(estado && { estado }),
+        ...(search && { search }),
+        limit: 5000,
+      });
+
+      const items = applyCiudadFilter(allItems, ciudad);
+
+      const TIPO_LABEL = { epp: 'EPP', herramienta: 'Herramientas', equipo: 'Equipos' };
+      const label = TIPO_LABEL[tipo] ?? tipo;
+      const filename = `inventario-${tipo}-${timestamp}.${formato === 'excel' ? 'xlsx' : 'pdf'}`;
+
+      if (formato === 'excel') {
+        const buffer = buildExcelBuffer(items);
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', buffer.length);
+        return res.send(buffer);
+      }
+
+      const pdfBuffer = await bufferPdf(`Inventario: ${label} — ${timestamp}`, async (doc) => {
+        if (items.length === 0) {
+          doc.fontSize(9).fillColor(MUTED_GRAY).text('Sin artículos para los filtros seleccionados.');
+          return;
+        }
+        const headers = ['Código', 'Nombre', 'Marca/Modelo', 'Estado', 'Ubicación', 'Valor'];
+        const rows = items.map((a) => [
+          a.codigo ?? '—',
+          a.nombre ?? '—',
+          [a.marca, a.modelo].filter(Boolean).join(' · ') || '—',
+          ESTADO_LABEL[a.estado] ?? a.estado,
+          a.bodega_nombre ?? a.proyecto_nombre ?? '—',
+          a.valor > 0 ? `$${a.valor.toLocaleString('es-CL')}` : '—',
+        ]);
+        await doc.table({ headers, rows }, {
+          columnsSize: [60, 140, 100, 70, 100, 45],
+          prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
+          prepareRow:    () => doc.font('Helvetica').fontSize(8),
+        });
+        doc.moveDown();
+        doc.fontSize(8).fillColor(MUTED_GRAY).text(`Total: ${items.length} artículo(s)`);
+      });
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      return res.send(pdfBuffer);
     } catch (error) {
+      logger.error('Error exporting articulos:', error);
       return next(error);
     }
   }
@@ -106,6 +159,46 @@ class ArticulosController {
       return next(error);
     }
   }
+}
+
+const ESTADO_LABEL = {
+  en_stock:     'En stock',
+  asignado:     'Asignado',
+  mantencion:   'Mantención',
+  dado_de_baja: 'Dado de baja',
+  perdido:      'Perdido',
+};
+
+function formatDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
+}
+
+function buildExcelBuffer(items) {
+  const rows = items.map((a) => ({
+    'Código':         a.codigo ?? '—',
+    'Nombre':         a.nombre ?? '—',
+    'Marca/Modelo':   [a.marca, a.modelo].filter(Boolean).join(' · ') || '—',
+    'Estado':         ESTADO_LABEL[a.estado] ?? a.estado,
+    'Ubicación':      a.bodega_nombre ?? a.proyecto_nombre ?? '—',
+    'Valor (CLP)':    a.valor ?? 0,
+    'Fecha Compra':   formatDate(a.fecha_compra),
+    'Proveedor':      a.proveedor_nombre ?? '—',
+    'Especialidades': (a.especialidades ?? []).join(', '),
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+  return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+}
+
+function applyCiudadFilter(items, ciudad) {
+  if (!ciudad) return items;
+  if (ciudad === '__none__') {
+    return items.filter((a) => a.bodega_ciudad == null && a.proyecto_ciudad == null);
+  }
+  return items.filter((a) => a.bodega_ciudad === ciudad || a.proyecto_ciudad === ciudad);
 }
 
 module.exports = ArticulosController;
