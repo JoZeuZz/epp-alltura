@@ -761,3 +761,17 @@ export interface TrabajadorProfileResponse {
 
 export const getTrabajadorProfile = (id: string) =>
   get<TrabajadorProfileResponse>(`/trabajadores/${id}/profile`);
+
+export interface TrabajadorActaRow {
+  entrega_id: string;
+  entrega_fecha: string;
+  articulo_codigo: string;
+  articulo_nombre: string;
+  articulo_tipo: string | null;
+  es_activo: boolean;
+  devolucion_id: string | null;
+  devolucion_fecha: string | null;
+}
+
+export const getTrabajadorActas = (id: string) =>
+  get<TrabajadorActaRow[]>(`/trabajadores/${id}/actas`);
