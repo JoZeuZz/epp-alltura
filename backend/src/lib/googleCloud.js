@@ -774,7 +774,8 @@ async function uploadPdfBuffer(buffer, filename, options = {}) {
     await fs.promises.mkdir(subdir, { recursive: true });
     const relPath = folder ? `${folder}/${filename}` : filename;
     await fs.promises.writeFile(path.join(localUploadsDir, relPath), buffer);
-    return `/uploads/${relPath}`;
+    const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+    return `${backendUrl}/uploads/${relPath}`;
   }
 
   if (!isGCSConfigured) {
