@@ -166,4 +166,110 @@ async function bufferActa(title, buildFn, opts = {}) {
   return finished;
 }
 
-module.exports = { createDoc, bufferPdf, bufferActa, DARK_BLUE, BODY_TEXT, MUTED_GRAY };
+const LOGO_WHITE_PATH = path.join(__dirname, '../assets/logo-alltura-white.png');
+
+function _drawInformeChrome(doc, title, pageNum) {
+  // Full-width blue header bar (no left margin — absolute 0)
+  doc.save()
+     .rect(0, 0, 595, 58)
+     .fill('#2A64A4')
+     .restore();
+
+  // White logo (fallback to standard logo if white not found)
+  const logoSrc = fs.existsSync(LOGO_WHITE_PATH) ? LOGO_WHITE_PATH : LOGO_PATH;
+  if (fs.existsSync(logoSrc)) {
+    try { doc.image(logoSrc, 15, 10, { height: 38 }); } catch { /* ignore */ }
+  }
+
+  // Title
+  doc.save()
+     .fontSize(13).font('Helvetica-Bold').fillColor('#FFFFFF')
+     .text(title, 140, 14, { width: 420, lineBreak: false })
+     .restore();
+
+  // Generation date subtitle
+  const dateStr = new Date().toLocaleDateString('es-CL', {
+    day: '2-digit', month: 'short', year: 'numeric',
+  });
+  doc.save()
+     .fontSize(8).font('Helvetica').fillColor('#FFFFFF').fillOpacity(0.75)
+     .text(`Generado: ${dateStr}`, 140, 36, { width: 420, lineBreak: false })
+     .fillOpacity(1)
+     .restore();
+
+  // Footer line
+  doc.moveTo(40, 800).lineTo(555, 800)
+     .lineWidth(0.3).strokeColor('#CCCCCC').stroke();
+
+  // Footer text
+  doc.save()
+     .fontSize(6.5).font('Helvetica').fillColor(MUTED_GRAY)
+     .text(
+       `Alltura y Servicios Industriales Spa · RUT 77.650.492-0 · Página ${pageNum}`,
+       40, 804, { width: 515, align: 'center', lineBreak: false }
+     )
+     .restore();
+
+  // Reset content cursor below header bar
+  doc.y = 68;
+  doc.fillColor(BODY_TEXT).font('Helvetica').fontSize(9)
+     .lineWidth(1).strokeColor('#000000');
+}
+
+async function bufferInforme(title, buildFn) {
+  const doc = new PdfTable({
+    size: 'A4',
+    margins: { top: 75, bottom: 55, left: 40, right: 40 },
+  });
+
+  const chunks = [];
+  const finished = new Promise((resolve, reject) => {
+    doc.on('data', (c) => chunks.push(c));
+    doc.on('end',  () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+  });
+
+  let pageNum = 1;
+  _drawInformeChrome(doc, title, pageNum);
+  doc.on('pageAdded', () => {
+    pageNum += 1;
+    _drawInformeChrome(doc, title, pageNum);
+  });
+
+  try {
+    await buildFn(doc);
+  } catch (err) {
+    doc.end();
+    throw err;
+  }
+
+  doc.end();
+  return finished;
+}
+
+function drawSectionLabel(doc, text) {
+  const y = doc.y;
+  doc.save()
+     .rect(40, y, 3, 13)
+     .fill('#2A64A4')
+     .restore();
+  doc.save()
+     .fontSize(9).font('Helvetica-Bold').fillColor('#1E2A4A')
+     .text(text, 48, y + 1, { lineBreak: false })
+     .restore();
+  doc.y = y + 18;
+  doc.moveDown(0.3);
+}
+
+function drawTableHeader(doc, tableWidth) {
+  doc.save()
+     .rect(40, doc.y, tableWidth, 18)
+     .fill('#2A64A4')
+     .restore();
+}
+
+module.exports = {
+  createDoc, bufferPdf, bufferActa, bufferInforme,
+  drawSectionLabel, drawTableHeader,
+  DARK_BLUE, BODY_TEXT, MUTED_GRAY,
+};

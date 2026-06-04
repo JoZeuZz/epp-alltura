@@ -104,3 +104,64 @@ describe('pdfGenerator.bufferActa', () => {
     ).rejects.toThrow('async fail');
   });
 });
+
+const { bufferInforme, drawSectionLabel, drawTableHeader } = require('../../lib/pdfGenerator');
+
+describe('pdfGenerator.bufferInforme', () => {
+  it('resolves with a Buffer starting with %PDF', async () => {
+    const buf = await bufferInforme('Reporte de Inventario', async (doc) => {
+      doc.text('Test content');
+    });
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.slice(0, 4).toString('binary')).toBe('%PDF');
+  });
+
+  it('rejects when buildFn throws synchronously', async () => {
+    await expect(
+      bufferInforme('Test', () => { throw new Error('sync fail'); })
+    ).rejects.toThrow('sync fail');
+  });
+
+  it('rejects when buildFn throws asynchronously', async () => {
+    await expect(
+      bufferInforme('Test', async () => { throw new Error('async fail'); })
+    ).rejects.toThrow('async fail');
+  });
+
+  it('produces a non-empty buffer', async () => {
+    const buf = await bufferInforme('Informe', async (doc) => {
+      doc.text('Content line 1');
+    });
+    expect(buf.length).toBeGreaterThan(500);
+  });
+});
+
+describe('pdfGenerator.drawSectionLabel', () => {
+  it('is a function', () => {
+    expect(typeof drawSectionLabel).toBe('function');
+  });
+
+  it('does not throw when called with a valid pdfkit doc', async () => {
+    const PdfTable = require('pdfkit-table');
+    const doc = new PdfTable({ size: 'A4', margin: 40 });
+    doc.on('data', () => {});
+    doc.on('end', () => {});
+    expect(() => drawSectionLabel(doc, 'Mi Sección')).not.toThrow();
+    doc.end();
+  });
+});
+
+describe('pdfGenerator.drawTableHeader', () => {
+  it('is a function', () => {
+    expect(typeof drawTableHeader).toBe('function');
+  });
+
+  it('does not throw when called with a valid pdfkit doc', async () => {
+    const PdfTable = require('pdfkit-table');
+    const doc = new PdfTable({ size: 'A4', margin: 40 });
+    doc.on('data', () => {});
+    doc.on('end', () => {});
+    expect(() => drawTableHeader(doc, 515)).not.toThrow();
+    doc.end();
+  });
+});
