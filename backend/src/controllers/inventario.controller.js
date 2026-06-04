@@ -1,7 +1,7 @@
 const InventarioService = require('../services/inventario.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
-const { bufferInforme, drawSectionLabel, drawTableHeader, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
+const { bufferInforme, drawSectionLabel, PRIMARY_BLUE, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
 
 class InventarioController {
   static async getActivos(req, res, next) {
@@ -118,34 +118,92 @@ class InventarioController {
 
         drawSectionLabel(doc, `${label} — ${activos.length} artículo(s)`);
 
-        const TABLE_WIDTH = 515;
-        drawTableHeader(doc, TABLE_WIDTH);
+        const STATUS_COLOR = {
+          en_stock:     '#27AE60',
+          asignado:     '#E67E22',
+          mantencion:   '#F39C12',
+          dado_de_baja: '#E74C3C',
+          perdido:      '#95A5A6',
+          disponible:   PRIMARY_BLUE,
+        };
 
-        const headers = ['Código', 'Nombre', 'Estado', 'Ubicación'];
-        const rows = activos.map((a) => [
-          a.codigo ?? '—',
-          a.articulo_nombre ?? a.nombre ?? '—',
-          ESTADO_LABEL[a.estado] ?? a.estado ?? '—',
-          a.bodega_nombre ?? a.proyecto_nombre ?? '—',
-        ]);
+        // Column definitions — total 515px (left margin 40 → right edge 555)
+        const COLS = [
+          { x: 40,  w: 62,  label: 'Código' },
+          { x: 102, w: 155, label: 'Nombre' },
+          { x: 257, w: 108, label: 'Marca/Modelo' },
+          { x: 365, w: 82,  label: 'Estado' },
+          { x: 447, w: 108, label: 'Ubicación' },
+        ];
+        const ROW_H = 18;
+        const HEADER_H = 20;
 
-        await doc.table({ headers, rows }, {
-          columnsSize: [80, 215, 90, 130],
-          prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF'),
-          prepareRow: (row, indexColumn, indexRow, rectRow) => {
-            if (indexColumn === 0 && indexRow % 2 !== 0 && rectRow) {
-              doc.save()
-                 .rect(rectRow.x, rectRow.y, rectRow.width, rectRow.height)
-                 .fill('#F0F4FA')
-                 .restore();
-            }
-            doc.font('Helvetica').fontSize(8).fillColor(BODY_TEXT);
-          },
+        // Draw header row
+        const hdrY = doc.y;
+        doc.save().rect(40, hdrY, 515, HEADER_H).fill(PRIMARY_BLUE).restore();
+        COLS.forEach((col) => {
+          doc.save()
+             .font('Helvetica-Bold').fontSize(7.5).fillColor('#FFFFFF')
+             .text(col.label, col.x + 4, hdrY + 6, { width: col.w - 8, lineBreak: false })
+             .restore();
         });
+
+        let rowY = hdrY + HEADER_H;
+
+        activos.forEach((a, idx) => {
+          const pageBottom = doc.page.height - doc.page.margins.bottom - 10;
+          if (rowY + ROW_H > pageBottom) {
+            doc.addPage();
+            rowY = doc.y;
+            doc.save().rect(40, rowY, 515, HEADER_H).fill(PRIMARY_BLUE).restore();
+            COLS.forEach((col) => {
+              doc.save()
+                 .font('Helvetica-Bold').fontSize(7.5).fillColor('#FFFFFF')
+                 .text(col.label, col.x + 4, rowY + 6, { width: col.w - 8, lineBreak: false })
+                 .restore();
+            });
+            rowY += HEADER_H;
+          }
+
+          if (idx % 2 !== 0) {
+            doc.save().rect(40, rowY, 515, ROW_H).fill('#F0F4FA').restore();
+          }
+
+          // Status color left indicator bar
+          const sc = STATUS_COLOR[a.estado] ?? '#CCCCCC';
+          doc.save().rect(40, rowY, 3, ROW_H).fill(sc).restore();
+
+          const cells = [
+            a.codigo ?? '—',
+            a.articulo_nombre ?? a.nombre ?? '—',
+            [a.marca, a.modelo].filter(Boolean).join(' · ') || '—',
+            ESTADO_LABEL[a.estado] ?? a.estado ?? '—',
+            a.bodega_nombre ?? a.proyecto_nombre ?? '—',
+          ];
+
+          COLS.forEach((col, i) => {
+            doc.save()
+               .font('Helvetica').fontSize(7.5).fillColor(BODY_TEXT)
+               .text(cells[i], col.x + (i === 0 ? 6 : 4), rowY + 5, {
+                 width: col.w - (i === 0 ? 10 : 8),
+                 lineBreak: false,
+               })
+               .restore();
+          });
+
+          rowY += ROW_H;
+        });
+
+        // Bottom separator
+        doc.save()
+           .moveTo(40, rowY).lineTo(555, rowY)
+           .lineWidth(0.3).strokeColor('#CCCCCC').stroke()
+           .restore();
+        doc.y = rowY;
 
         doc.moveDown(0.3);
         doc.fontSize(8).fillColor(MUTED_GRAY)
-           .text(`Total: ${activos.length} activo(s)`, { align: 'right' });
+           .text(`Total: ${activos.length} artículo(s)`, { align: 'right' });
       });
 
       res.setHeader('Content-Type', 'application/pdf');

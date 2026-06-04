@@ -163,7 +163,7 @@ class EntregasController {
           `a responder económicamente por el valor del artículo al momento del incidente. Esta entrega fue ` +
           `efectuada en conformidad con las condiciones informadas en persona por mi supervisor y acepto ` +
           `íntegramente los términos comunicados.`;
-        doc.fontSize(9).fillColor(BODY_TEXT).text(declaracion, { width: 480, align: 'justify' });
+        doc.fontSize(9).fillColor(BODY_TEXT).text(declaracion, { width: 515, align: 'justify' });
         doc.moveDown(0.7);
 
         // ── 4. FIRMA DE CONFORMIDAD ───────────────────────────────────────────────

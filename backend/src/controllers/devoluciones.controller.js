@@ -204,7 +204,7 @@ class DevolucionesController {
           `recibido en conformidad por ${recibidoPor}.\n\n` +
           `Con la firma de este documento, quedo liberado de responsabilidad sobre el artículo ` +
           `devuelto a partir de esta fecha, salvo las observaciones indicadas en el detalle del acta.`;
-        doc.fontSize(9).fillColor(BODY_TEXT).text(declaracion, { width: 480, align: 'justify' });
+        doc.fontSize(9).fillColor(BODY_TEXT).text(declaracion, { width: 515, align: 'justify' });
         doc.moveDown(0.7);
 
         // ── 4. FIRMA DE CONFORMIDAD ───────────────────────────────────────────────────────
