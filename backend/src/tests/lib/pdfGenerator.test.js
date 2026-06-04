@@ -72,3 +72,35 @@ describe('pdfGenerator.bufferPdf', () => {
     expect(buf1.equals(buf2)).toBe(false);
   });
 });
+
+const { bufferActa } = require('../../lib/pdfGenerator');
+
+describe('pdfGenerator.bufferActa', () => {
+  it('resolves with a Buffer starting with %PDF', async () => {
+    const buf = await bufferActa('Acta de Entrega', async (doc) => {
+      doc.text('Test content');
+    });
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.slice(0, 4).toString('binary')).toBe('%PDF');
+  });
+
+  it('accepts folio option without error', async () => {
+    const buf = await bufferActa('Acta de Entrega', async (doc) => {
+      doc.text('Content');
+    }, { folio: 'ABC12345' });
+    expect(Buffer.isBuffer(buf)).toBe(true);
+    expect(buf.length).toBeGreaterThan(100);
+  });
+
+  it('rejects when buildFn throws synchronously', async () => {
+    await expect(
+      bufferActa('Test', () => { throw new Error('sync fail'); })
+    ).rejects.toThrow('sync fail');
+  });
+
+  it('rejects when buildFn throws asynchronously', async () => {
+    await expect(
+      bufferActa('Test', async () => { throw new Error('async fail'); })
+    ).rejects.toThrow('async fail');
+  });
+});
