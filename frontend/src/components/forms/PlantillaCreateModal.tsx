@@ -190,7 +190,11 @@ export function PlantillaCreateModal({ isOpen, onClose, defaultTipo = 'epp', onC
               <button
                 key={tab}
                 type="button"
-                onClick={() => setManualTab(tab)}
+                onClick={() => {
+                  setManualTab(tab);
+                  if (tab === 'url') setManualFile(null);
+                  else setValue('manual_url', '');
+                }}
                 className={`px-3 py-1 text-xs rounded border transition-colors ${
                   manualTab === tab
                     ? 'bg-primary text-white border-primary'
