@@ -155,6 +155,7 @@ class PlantillasService {
   }
 
   static async addCertificacion(plantillaId, file, nombre) {
+    let uploadedUrl = null;
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
@@ -165,17 +166,18 @@ class PlantillasService {
       const certCount = await PlantillaModel.getCertCount(client, plantillaId);
       if (certCount >= 5) throw buildError('Máximo 5 certificaciones por plantilla', 422, 'MAX_CERTIFICACIONES');
 
-      const url = await uploadDocument(file, {
+      uploadedUrl = await uploadDocument(file, {
         folder:     'plantillas/certificaciones',
         filePrefix: `${plantillaId}_${nombre || 'cert'}`,
       });
 
-      await PlantillaModel.insertCertificacion(client, plantillaId, nombre, url);
+      await PlantillaModel.insertCertificacion(client, plantillaId, nombre, uploadedUrl);
       const data = await PlantillaModel.findByIdWithClient(client, plantillaId);
       await client.query('COMMIT');
       return data;
     } catch (error) {
       await client.query('ROLLBACK');
+      if (uploadedUrl) await Promise.allSettled([deleteFileByUrl(uploadedUrl)]);
       throw error;
     } finally {
       client.release();
