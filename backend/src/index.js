@@ -39,6 +39,7 @@ const devolucionesRoutes = require('./routes/devoluciones.routes');
 const firmasRoutes = require('./routes/firmas.routes');
 const inventarioRoutes = require('./routes/inventario.routes');
 const proveedoresRoutes = require('./routes/proveedores.routes');
+const plantillasRoutes = require('./routes/plantillas.routes');
 const healthRoutes = require('./routes/health');
 
 const { startScheduler } = require('./scheduler');
@@ -180,6 +181,7 @@ app.use('/api/devoluciones', devolucionesRoutes);
 app.use('/api/firmas', firmasRoutes);
 app.use('/api/inventario', inventarioRoutes);
 app.use('/api/proveedores', proveedoresRoutes);
+app.use('/api/plantillas', plantillasRoutes);
 app.use('/health', healthRoutes);
 
 // Endpoint para métricas del cliente (performance monitoring)
