@@ -98,6 +98,18 @@ const exportQuerySchema = Joi.object({
   ciudad:  Joi.string().optional(),
 }).options({ allowUnknown: false });
 
+const batchSchema = Joi.object({
+  plantilla_id: Joi.string().uuid().required(),
+  bodega_id:    Joi.string().uuid().required(),
+  instancias:   Joi.array().items(Joi.object({
+    nro_serie:         Joi.string().max(120).optional().allow('', null),
+    valor:             Joi.number().integer().min(0).default(0),
+    fecha_compra:      Joi.string().isoDate().optional().allow(null, ''),
+    fecha_vencimiento: Joi.string().isoDate().optional().allow(null, ''),
+    proveedor_id:      Joi.string().uuid().optional().allow(null, ''),
+  })).min(1).max(200).required(),
+});
+
 router.use(authMiddleware);
 
 router.get('/',
@@ -108,6 +120,15 @@ router.get('/',
 router.get('/export',
   validateQuery(exportQuerySchema),
   ArticulosController.export
+);
+
+router.post('/batch',
+  checkRole(['admin', 'supervisor']),
+  articleUpload.fields([{ name: 'foto', maxCount: 1 }]),
+  validateArticleFiles,
+  parseMultipartPayload,
+  validateBody(batchSchema),
+  ArticulosController.createBatch
 );
 
 router.get('/:id', ArticulosController.getById);

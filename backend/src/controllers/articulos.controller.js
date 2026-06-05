@@ -176,6 +176,16 @@ class ArticulosController {
       return next(error);
     }
   }
+
+  static async createBatch(req, res, next) {
+    try {
+      const data = await ArticulosService.createBatch(req.body, req.user.id, req.files || {});
+      return sendSuccess(res, { status: 201, message: `${data.created} artículo(s) creados`, data });
+    } catch (error) {
+      logger.error('Error creating articulos batch:', error);
+      return next(error);
+    }
+  }
 }
 
 const ESTADO_LABEL = {

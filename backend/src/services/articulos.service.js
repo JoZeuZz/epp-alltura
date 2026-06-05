@@ -391,6 +391,88 @@ class ArticulosService {
       client.release();
     }
   }
+  static async createBatch(payload, userId, files = {}) {
+    const fotoFile = files.foto?.[0] || null;
+    let sharedFotoUrl = null;
+    if (fotoFile) {
+      sharedFotoUrl = await uploadFile(fotoFile, {
+        folder: 'articulos/fotos',
+        filePrefix: `batch_${payload.plantilla_id}`,
+      });
+    }
+
+    const PlantillaModel = require('../models/plantilla');
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Validate plantilla
+      const plantilla = await PlantillaModel.findByIdWithClient(client, payload.plantilla_id);
+      if (!plantilla) throw buildError('Plantilla no encontrada', 404, 'PLANTILLA_NOT_FOUND');
+      if (plantilla.estado !== 'activo') throw buildError('Plantilla inactiva', 400, 'PLANTILLA_INACTIVA');
+
+      // Validate bodega
+      const { rows: bodegaRows } = await client.query(
+        `SELECT id FROM bodegas WHERE id = $1 AND estado = 'activo'`,
+        [payload.bodega_id]
+      );
+      if (!bodegaRows.length) throw buildError('Bodega no encontrada o inactiva', 400, 'BODEGA_NOT_FOUND');
+
+      // Create instances
+      const createdIds = [];
+      for (const inst of payload.instancias) {
+        const codigo = await generateCodigo(client, plantilla.tipo);
+        const articuloId = await ArticuloModel.insert(client, {
+          tipo:        plantilla.tipo,
+          nombre:      plantilla.nombre,
+          marca:       plantilla.marca,
+          modelo:      plantilla.modelo,
+          descripcion: plantilla.descripcion,
+          manual_url:  plantilla.manual_url,
+          foto_url:    sharedFotoUrl || plantilla.foto_url || null,
+          plantilla_id: plantilla.id,
+          codigo,
+          nro_serie:         inst.nro_serie || null,
+          valor:             inst.valor ?? 0,
+          bodega_id:         payload.bodega_id,
+          fecha_compra:      inst.fecha_compra      || null,
+          fecha_vencimiento: inst.fecha_vencimiento || null,
+          proveedor_id:      inst.proveedor_id      || null,
+          factura_url:       null,
+          creado_por_usuario_id: userId,
+        });
+
+        if (plantilla.especialidades?.length) {
+          await ArticuloModel.upsertEspecialidades(client, articuloId, plantilla.especialidades);
+        }
+
+        await ArticuloModel.insertMovimiento(client, {
+          articuloId,
+          tipo:                 'entrada',
+          bodegaDestinoId:      payload.bodega_id,
+          responsableUsuarioId: userId,
+          notas:                `Creación en lote desde plantilla ${plantilla.nombre}`,
+        });
+
+        createdIds.push(articuloId);
+      }
+
+      await writeAuditEvent({
+        client, entidadTipo: 'articulo', entidadId: createdIds[0],
+        accion: 'crear', usuarioId: userId,
+        diff: { batch: true, plantilla_id: plantilla.id, count: createdIds.length },
+      });
+
+      await client.query('COMMIT');
+      return { created: createdIds.length, ids: createdIds };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if (sharedFotoUrl) await deleteFileByUrl(sharedFotoUrl).catch(() => {});
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
 }
 
 module.exports = { ArticulosService };
