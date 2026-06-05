@@ -9,13 +9,18 @@ import {
   createArticulo,
   addCertificacion,
   getProveedores,
+  getPlantillas,
+  getPlantilla,
   type Articulo,
   type ArticuloTipo,
   type Proveedor,
   type ArticleFiles,
+  type Plantilla,
+  type PlantillaWithCount,
 } from '../services/apiService';
 import ProveedorCreateModal from './forms/ProveedorCreateModal';
 import FotoEvidenciaUpload from './forms/FotoEvidenciaUpload';
+import { PlantillaCreateModal, PlantillaEditModal } from './forms';
 
 const ESPECIALIDADES = ['oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida'] as const;
 
@@ -24,7 +29,7 @@ const schema = z.object({
   marca:             z.string().optional(),
   modelo:            z.string().optional(),
   descripcion:       z.string().optional(),
-  nro_serie:         z.string().min(3, 'Mínimo 3 caracteres').max(120),
+  nro_serie:         z.string().max(120).optional(),
   valor:             z.string().transform((v, ctx) => {
     const n = Number(v);
     if (v === '' || isNaN(n) || !Number.isInteger(n) || n < 0) {
@@ -82,10 +87,19 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
   const [manualTab,   setManualTab]   = useState<'file' | 'url'>('file');
   const [showProveedorModal, setShowProveedorModal] = useState(false);
   const [hasVenc, setHasVenc] = useState(false);
+  const [showPlantillaCreate, setShowPlantillaCreate] = useState(false);
+  const [showPlantillaEdit, setShowPlantillaEdit] = useState(false);
+  const [selectedPlantilla, setSelectedPlantilla] = useState<PlantillaWithCount | null>(null);
 
   const { data: proveedores = [] } = useQuery<Proveedor[]>({
     queryKey: ['proveedores'],
     queryFn: getProveedores,
+  });
+
+  const { data: plantillas = [] } = useQuery<Plantilla[]>({
+    queryKey: ['plantillas', tipo],
+    queryFn: () => getPlantillas(tipo),
+    enabled: !!tipo,
   });
 
   const nroSerie = watch('nro_serie') ?? '';
@@ -126,16 +140,33 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
   });
 
   const onSubmit = (data: FormOutput) => {
-    if (!fotoFile) {
-      setFotoError('La foto del artículo es obligatoria.');
-      return;
-    }
     if (!hasVenc) data.fecha_vencimiento = undefined;
     const files: ArticleFiles = {};
-    files.foto = fotoFile;
+    if (fotoFile) files.foto = fotoFile;
     if (facturaFile) files.factura = facturaFile;
     if (manualFile && manualTab === 'file') files.manual = manualFile;
     mutation.mutate({ data, files });
+  };
+
+  const applyPlantillaSnapshot = async (plantillaId: string) => {
+    if (!plantillaId) {
+      setSelectedPlantilla(null);
+      return;
+    }
+    try {
+      const p = await getPlantilla(plantillaId);
+      setSelectedPlantilla(p);
+      setValue('nombre',      p.nombre);
+      setValue('marca',       p.marca ?? '');
+      setValue('modelo',      p.modelo ?? '');
+      setValue('descripcion', p.descripcion ?? '');
+      setValue('manual_url',  p.manual_url ?? '');
+      if (Array.isArray(p.especialidades)) {
+        setValue('especialidades', p.especialidades as any);
+      }
+    } catch {
+      toast.error('No se pudo cargar la plantilla');
+    }
   };
 
   const toggleEsp = (esp: typeof ESPECIALIDADES[number]) => {
@@ -150,11 +181,52 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
     <Modal isOpen={isOpen} onClose={onClose} title={`Nuevo ${TIPO_LABELS[tipo]}`}>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
+        {/* ── Plantilla (opcional) ── */}
+        <div>
+          <label className="label-sm block mb-1">Plantilla <span className="text-xs text-gray-400 font-normal">(opcional)</span></label>
+          <div className="flex gap-2">
+            <select
+              className="input flex-1"
+              onChange={(e) => applyPlantillaSnapshot(e.target.value)}
+              defaultValue=""
+            >
+              <option value="">Sin plantilla…</option>
+              {plantillas.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}{p.marca ? ` — ${p.marca}` : ''}{p.modelo ? ` ${p.modelo}` : ''}
+                </option>
+              ))}
+            </select>
+            <button type="button"
+              onClick={() => setShowPlantillaCreate(true)}
+              className="px-3 py-2 text-xs border border-gray-200 rounded-md text-gray-500 hover:bg-gray-50 whitespace-nowrap">
+              + Nueva
+            </button>
+            {selectedPlantilla && (
+              <button type="button"
+                onClick={() => setShowPlantillaEdit(true)}
+                className="px-3 py-2 text-xs border border-amber-300 rounded-md text-amber-700 hover:bg-amber-50 whitespace-nowrap"
+                title="Editar esta plantilla">
+                ✏
+              </button>
+            )}
+          </div>
+        </div>
+
+        {selectedPlantilla && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+            Campos heredados de la plantilla — podés editarlos para esta unidad
+          </div>
+        )}
+
         <FotoEvidenciaUpload
           value={fotoFile}
           onChange={(f) => { setFotoFile(f); if (f) setFotoError(null); }}
           error={fotoError}
         />
+        <p className="text-xs text-gray-400 -mt-2">
+          La foto es opcional — podés agregarla después desde el perfil del artículo.
+        </p>
 
         <div>
           <label className="label-sm block mb-1">Nombre *</label>
@@ -175,7 +247,7 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label-sm block mb-1">N° de Serie *</label>
+            <label className="label-sm block mb-1">N° de Serie <span className="text-xs text-gray-400 font-normal">(opcional)</span></label>
             <input {...register('nro_serie')} className="input w-full" placeholder="Ej: MSA-VGARD-001" />
             {errors.nro_serie && <p className="text-red-500 text-xs mt-1">{errors.nro_serie.message}</p>}
           </div>
@@ -353,6 +425,31 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
             setValue('proveedor_id', prov.id);
             queryClient.invalidateQueries({ queryKey: ['proveedores'] });
             setShowProveedorModal(false);
+          }}
+        />
+      )}
+
+      {showPlantillaCreate && (
+        <PlantillaCreateModal
+          isOpen={showPlantillaCreate}
+          defaultTipo={tipo}
+          onClose={() => setShowPlantillaCreate(false)}
+          onCreated={(p) => {
+            queryClient.invalidateQueries({ queryKey: ['plantillas'] });
+            setShowPlantillaCreate(false);
+            applyPlantillaSnapshot(p.id);
+          }}
+        />
+      )}
+
+      {showPlantillaEdit && selectedPlantilla && (
+        <PlantillaEditModal
+          isOpen={showPlantillaEdit}
+          plantilla={selectedPlantilla}
+          onClose={() => setShowPlantillaEdit(false)}
+          onUpdated={(updated) => {
+            setSelectedPlantilla(updated);
+            setShowPlantillaEdit(false);
           }}
         />
       )}
