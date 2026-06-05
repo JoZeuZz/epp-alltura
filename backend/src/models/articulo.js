@@ -11,7 +11,14 @@ const RICH_SELECT = `
         json_build_object('id', ac.id, 'nombre', ac.nombre, 'url', ac.url, 'creado_en', ac.creado_en)
         ORDER BY ac.creado_en
       ) FILTER (WHERE ac.id IS NOT NULL),
-      '[]'
+      '[]'::json
+    ) ||
+    COALESCE(
+      json_agg(
+        json_build_object('id', pc.id, 'nombre', pc.nombre, 'url', pc.url, 'creado_en', pc.creado_en)
+        ORDER BY pc.creado_en
+      ) FILTER (WHERE pc.id IS NOT NULL),
+      '[]'::json
     ) AS certificaciones,
     b.nombre   AS bodega_nombre,
     pr.nombre  AS proyecto_nombre,
@@ -20,12 +27,13 @@ const RICH_SELECT = `
     u.email_login AS creado_por_email,
     prov.nombre   AS proveedor_nombre
   FROM articulo a
-  LEFT JOIN articulo_especialidad ae   ON ae.articulo_id   = a.id
-  LEFT JOIN articulo_certificacion ac  ON ac.articulo_id   = a.id
-  LEFT JOIN bodegas b                  ON b.id             = a.bodega_actual_id
-  LEFT JOIN proyectos pr               ON pr.id            = a.proyecto_actual_id
-  LEFT JOIN usuario u                  ON u.id             = a.creado_por_usuario_id
-  LEFT JOIN proveedor prov             ON prov.id          = a.proveedor_id
+  LEFT JOIN articulo_especialidad ae          ON ae.articulo_id   = a.id
+  LEFT JOIN articulo_certificacion ac         ON ac.articulo_id   = a.id
+  LEFT JOIN articulo_plantilla_certificacion pc ON pc.plantilla_id = a.plantilla_id
+  LEFT JOIN bodegas b                         ON b.id             = a.bodega_actual_id
+  LEFT JOIN proyectos pr                      ON pr.id            = a.proyecto_actual_id
+  LEFT JOIN usuario u                         ON u.id             = a.creado_por_usuario_id
+  LEFT JOIN proveedor prov                    ON prov.id          = a.proveedor_id
 `;
 
 class ArticuloModel {
@@ -130,7 +138,7 @@ class ArticuloModel {
         fields.marca         || null,
         fields.modelo        || null,
         fields.descripcion   || null,
-        fields.nro_serie,         fields.codigo,
+        fields.nro_serie || null,  fields.codigo,
         fields.valor         ?? 0,
         fields.foto_url      || null,
         fields.bodega_id,
@@ -153,21 +161,20 @@ class ArticuloModel {
          modelo            = COALESCE($3,  modelo),
          descripcion       = COALESCE($4,  descripcion),
          nro_serie         = $5,
-         codigo            = $6,
-         valor             = COALESCE($7,  valor),
-         foto_url          = $8,
-         fecha_vencimiento = $9,
-         fecha_compra      = $10,
-         proveedor_id      = $11,
-         factura_url       = $12,
-         manual_url        = $13
-       WHERE id = $14`,
+         valor             = COALESCE($6,  valor),
+         foto_url          = $7,
+         fecha_vencimiento = $8,
+         fecha_compra      = $9,
+         proveedor_id      = $10,
+         factura_url       = $11,
+         manual_url        = $12
+       WHERE id = $13`,
       [
         fields.nombre      || null,
         fields.marca       || null,
         fields.modelo      || null,
         fields.descripcion || null,
-        fields.nro_serie,  fields.codigo,
+        fields.nro_serie,
         fields.valor       ?? null,
         fields.foto_url,
         fields.fecha_vencimiento,
