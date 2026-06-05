@@ -17,7 +17,7 @@ jest.mock('../../lib/auditoriaDb', () => ({
 
 const db = require('../../db');
 const { uploadFile, deleteFileByUrl } = require('../../lib/googleCloud');
-const { ArticulosService, deriveCodigo } = require('../../services/articulos.service');
+const { ArticulosService } = require('../../services/articulos.service');
 
 const BODEGA_ID = '22222222-2222-4222-8222-222222222222';
 const ARTICULO_ID = '11111111-1111-4111-8111-111111111111';
@@ -28,13 +28,6 @@ function makeClient(queryImpl) {
     release: jest.fn(),
   };
 }
-
-describe('deriveCodigo', () => {
-  it('toma los últimos 3 caracteres del nro_serie en mayúscula', () => {
-    expect(deriveCodigo('ARN-0001')).toBe('001');
-    expect(deriveCodigo('abc 12 z')).toBe('12Z');
-  });
-});
 
 describe('ArticulosService.create', () => {
   beforeEach(() => {
@@ -57,6 +50,7 @@ describe('ArticulosService.create', () => {
 
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return {};
+      if (/nextval/.test(sql)) return { rows: [{ val: '7' }] };
       if (/FROM bodegas/.test(sql)) return { rows: [{ id: BODEGA_ID }] };
       if (/INSERT INTO articulo\s*\n?\s*\(tipo/.test(sql) || /INSERT INTO articulo/.test(sql)) {
         return { rows: [{ id: ARTICULO_ID }] };
@@ -65,16 +59,16 @@ describe('ArticulosService.create', () => {
       if (/INSERT INTO movimiento_activo/.test(sql)) return { rows: [] };
       if (/SELECT a\.\*/.test(sql)) {
         return {
-          rows: [{ id: ARTICULO_ID, ...payload, codigo: '007', estado: 'en_stock' }],
+          rows: [{ id: ARTICULO_ID, ...payload, codigo: 'EPP-00007', estado: 'en_stock' }],
         };
       }
       return { rows: [] };
     });
     db.pool.connect.mockResolvedValue(client);
 
-    const result = await ArticulosService.create(payload, 'user-1', imageFile);
+    const result = await ArticulosService.create(payload, 'user-1', { foto: [imageFile] });
 
-    expect(uploadFile).toHaveBeenCalledWith(imageFile);
+    expect(uploadFile).toHaveBeenCalledWith(imageFile, expect.any(Object));
     expect(result.id).toBe(ARTICULO_ID);
     expect(result.estado).toBe('en_stock');
     expect(client.release).toHaveBeenCalled();
@@ -86,6 +80,7 @@ describe('ArticulosService.create', () => {
 
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'ROLLBACK') return {};
+      if (/nextval/.test(sql)) return { rows: [{ val: '1' }] };
       if (/FROM bodegas/.test(sql)) throw new Error('db failed');
       return { rows: [] };
     });
@@ -95,7 +90,7 @@ describe('ArticulosService.create', () => {
       ArticulosService.create(
         { tipo: 'epp', nombre: 'Casco', nro_serie: 'CAS-0007', bodega_id: BODEGA_ID },
         'user-1',
-        imageFile
+        { foto: [imageFile] }
       )
     ).rejects.toThrow('db failed');
 
@@ -106,6 +101,7 @@ describe('ArticulosService.create', () => {
   it('rechaza creación si la bodega no existe o está inactiva', async () => {
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'ROLLBACK') return {};
+      if (/nextval/.test(sql)) return { rows: [{ val: '1' }] };
       if (/FROM bodegas/.test(sql)) return { rows: [] };
       return { rows: [] };
     });
@@ -123,6 +119,8 @@ describe('ArticulosService.create', () => {
 describe('ArticulosService.update', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Default pre-check: article exists with a codigo
+    db.query.mockResolvedValue({ rows: [{ id: ARTICULO_ID, codigo: 'EPP-00001' }] });
   });
 
   it('borra foto antigua al actualizar con nueva imagen', async () => {
@@ -131,9 +129,9 @@ describe('ArticulosService.update', () => {
 
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return {};
-      if (/SELECT id, foto_url, nro_serie FROM articulo/.test(sql)) {
+      if (/SELECT id, foto_url, factura_url, manual_url, nro_serie/.test(sql) || /FOR UPDATE/.test(sql)) {
         return {
-          rows: [{ id: ARTICULO_ID, foto_url: 'uploads/catalogo/casco-old.jpg', nro_serie: 'CAS-0001' }],
+          rows: [{ id: ARTICULO_ID, foto_url: 'uploads/catalogo/casco-old.jpg', nro_serie: 'CAS-0001', factura_url: null, manual_url: null }],
         };
       }
       if (/UPDATE articulo SET/.test(sql)) return { rows: [] };
@@ -144,7 +142,7 @@ describe('ArticulosService.update', () => {
     });
     db.pool.connect.mockResolvedValue(client);
 
-    await ArticulosService.update(ARTICULO_ID, { nombre: 'Casco' }, 'user-1', imageFile);
+    await ArticulosService.update(ARTICULO_ID, { nombre: 'Casco' }, 'user-1', { foto: [imageFile] });
 
     expect(deleteFileByUrl).toHaveBeenCalledWith('uploads/catalogo/casco-old.jpg');
   });
@@ -155,8 +153,8 @@ describe('ArticulosService.update', () => {
 
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return {};
-      if (/SELECT id, foto_url, nro_serie FROM articulo/.test(sql)) {
-        return { rows: [{ id: ARTICULO_ID, foto_url: null, nro_serie: 'CAS-0001' }] };
+      if (/SELECT id, foto_url, factura_url, manual_url, nro_serie/.test(sql) || /FOR UPDATE/.test(sql)) {
+        return { rows: [{ id: ARTICULO_ID, foto_url: null, nro_serie: 'CAS-0001', factura_url: null, manual_url: null }] };
       }
       if (/UPDATE articulo SET/.test(sql)) return { rows: [] };
       if (/SELECT a\.\*/.test(sql)) {
@@ -166,7 +164,7 @@ describe('ArticulosService.update', () => {
     });
     db.pool.connect.mockResolvedValue(client);
 
-    await ArticulosService.update(ARTICULO_ID, {}, 'user-1', imageFile);
+    await ArticulosService.update(ARTICULO_ID, {}, 'user-1', { foto: [imageFile] });
 
     expect(deleteFileByUrl).not.toHaveBeenCalledWith(null);
     expect(deleteFileByUrl).not.toHaveBeenCalledWith(undefined);
@@ -179,9 +177,9 @@ describe('ArticulosService.update', () => {
 
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'ROLLBACK') return {};
-      if (/SELECT id, foto_url, nro_serie FROM articulo/.test(sql)) {
+      if (/SELECT id, foto_url, factura_url, manual_url, nro_serie/.test(sql) || /FOR UPDATE/.test(sql)) {
         return {
-          rows: [{ id: ARTICULO_ID, foto_url: 'uploads/catalogo/casco-old.jpg', nro_serie: 'CAS-0001' }],
+          rows: [{ id: ARTICULO_ID, foto_url: 'uploads/catalogo/casco-old.jpg', nro_serie: 'CAS-0001', factura_url: null, manual_url: null }],
         };
       }
       if (/UPDATE articulo SET/.test(sql)) throw new Error('db error');
@@ -190,7 +188,7 @@ describe('ArticulosService.update', () => {
     db.pool.connect.mockResolvedValue(client);
 
     await expect(
-      ArticulosService.update(ARTICULO_ID, {}, 'user-1', imageFile)
+      ArticulosService.update(ARTICULO_ID, {}, 'user-1', { foto: [imageFile] })
     ).rejects.toThrow('db error');
 
     expect(deleteFileByUrl).toHaveBeenCalledWith('uploads/catalogo/casco-v2.jpg');
@@ -198,12 +196,7 @@ describe('ArticulosService.update', () => {
   });
 
   it('retorna 404 cuando el artículo no existe', async () => {
-    const client = makeClient(async (sql) => {
-      if (sql === 'BEGIN' || sql === 'ROLLBACK') return {};
-      if (/SELECT id, foto_url, nro_serie FROM articulo/.test(sql)) return { rows: [] };
-      return { rows: [] };
-    });
-    db.pool.connect.mockResolvedValue(client);
+    db.query.mockResolvedValueOnce({ rows: [] });
 
     await expect(ArticulosService.update(ARTICULO_ID, { nombre: 'X' }, 'user-1')).rejects.toMatchObject({
       statusCode: 404,
@@ -222,7 +215,7 @@ describe('ArticulosService.deletePermanent', () => {
   it('retorna 404 cuando el artículo no existe', async () => {
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'ROLLBACK') return {};
-      if (/SELECT id, estado, foto_url FROM articulo/.test(sql)) return { rows: [] };
+      if (/FOR UPDATE/.test(sql)) return { rows: [] };
       return { rows: [] };
     });
     db.pool.connect.mockResolvedValue(client);
@@ -236,8 +229,8 @@ describe('ArticulosService.deletePermanent', () => {
   it('retorna 409 cuando el artículo está asignado (custodia activa)', async () => {
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'ROLLBACK') return {};
-      if (/SELECT id, estado, foto_url FROM articulo/.test(sql)) {
-        return { rows: [{ id: ARTICULO_ID, estado: 'asignado', foto_url: null }] };
+      if (/FOR UPDATE/.test(sql)) {
+        return { rows: [{ id: ARTICULO_ID, estado: 'asignado', foto_url: null, factura_url: null, manual_url: null }] };
       }
       return { rows: [] };
     });
@@ -252,8 +245,8 @@ describe('ArticulosService.deletePermanent', () => {
   it('elimina permanentemente y borra la foto si existe', async () => {
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return {};
-      if (/SELECT id, estado, foto_url FROM articulo/.test(sql)) {
-        return { rows: [{ id: ARTICULO_ID, estado: 'en_stock', foto_url: 'uploads/x.jpg' }] };
+      if (/FOR UPDATE/.test(sql)) {
+        return { rows: [{ id: ARTICULO_ID, estado: 'en_stock', foto_url: 'uploads/x.jpg', factura_url: null, manual_url: null }] };
       }
       if (/DELETE FROM articulo/.test(sql)) return { rows: [] };
       return { rows: [] };

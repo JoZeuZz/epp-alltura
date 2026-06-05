@@ -17,8 +17,11 @@ const TRANSICIONES_DIRECTAS = {
   'dado_de_baja→en_stock': { mov_tipo: 'entrada',    cambia_bodega: true  },
 };
 
-function deriveCodigo(nroSerie) {
-  return String(nroSerie).replace(/\s/g, '').slice(-3).toUpperCase();
+const CODIGO_PREFIX = { epp: 'EPP', herramienta: 'HRR', equipo: 'EQP' };
+
+async function generateCodigo(client, tipo) {
+  const { rows } = await client.query('SELECT nextval($1) AS val', [`seq_codigo_${tipo}`]);
+  return `${CODIGO_PREFIX[tipo]}-${String(rows[0].val).padStart(5, '0')}`;
 }
 
 function validateEspecialidades(especialidades) {
@@ -35,22 +38,19 @@ class ArticulosService {
     const facturaFile = files.factura?.[0] || null;
     const manualFile  = files.manual?.[0]  || null;
 
-    if (!fotoFile && !payload.foto_url) {
-      throw buildError('La foto del artículo es obligatoria.', 400, 'FOTO_REQUERIDA');
-    }
-
     let uploadedFotoUrl    = null;
     let uploadedFacturaUrl = null;
     let uploadedManualUrl  = null;
 
-    const codigo = deriveCodigo(payload.nro_serie);
-    if (fotoFile)    uploadedFotoUrl    = await uploadFile(fotoFile, { folder: 'articulos/fotos', filePrefix: `${codigo}_${payload.nombre}` });
-    if (facturaFile) uploadedFacturaUrl = await uploadDocument(facturaFile, { folder: 'articulos/facturas', filePrefix: codigo });
-    if (manualFile)  uploadedManualUrl  = await uploadDocument(manualFile, { folder: 'articulos/manuales', filePrefix: codigo });
-
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
+
+      const codigo = await generateCodigo(client, payload.tipo);
+
+      if (fotoFile)    uploadedFotoUrl    = await uploadFile(fotoFile, { folder: 'articulos/fotos', filePrefix: `${codigo}_${payload.nombre}` });
+      if (facturaFile) uploadedFacturaUrl = await uploadDocument(facturaFile, { folder: 'articulos/facturas', filePrefix: codigo });
+      if (manualFile)  uploadedManualUrl  = await uploadDocument(manualFile, { folder: 'articulos/manuales', filePrefix: codigo });
 
       const bodegaResult = await client.query(
         `SELECT id FROM bodegas WHERE id = $1 AND estado = 'activo'`,
@@ -102,7 +102,7 @@ class ArticulosService {
       return data;
     } catch (error) {
       await client.query('ROLLBACK');
-      await Promise.allSettled([uploadedFotoUrl, uploadedFacturaUrl, uploadedManualUrl].filter(Boolean).map(deleteFileByUrl));
+      await Promise.allSettled([uploadedFotoUrl, uploadedFacturaUrl, uploadedManualUrl].filter(Boolean).map(url => deleteFileByUrl(url)));
       throw error;
     } finally {
       client.release();
@@ -135,9 +135,9 @@ class ArticulosService {
     let uploadedFacturaUrl = null;
     let uploadedManualUrl  = null;
 
-    const { rows: preRows } = await db.query(`SELECT nro_serie FROM articulo WHERE id = $1`, [id]);
+    const { rows: preRows } = await db.query(`SELECT codigo FROM articulo WHERE id = $1`, [id]);
     if (!preRows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
-    const uploadCodigo = deriveCodigo(payload.nro_serie ?? preRows[0].nro_serie);
+    const uploadCodigo = preRows[0].codigo;
 
     if (fotoFile)    uploadedFotoUrl    = await uploadFile(fotoFile, { folder: 'articulos/fotos', filePrefix: uploadCodigo });
     if (facturaFile) uploadedFacturaUrl = await uploadDocument(facturaFile, { folder: 'articulos/facturas', filePrefix: uploadCodigo });
@@ -154,7 +154,6 @@ class ArticulosService {
 
       const has = (k) => Object.prototype.hasOwnProperty.call(payload, k);
       const newNroSerie    = payload.nro_serie ?? old.nro_serie;
-      const newCodigo      = deriveCodigo(newNroSerie);
       const newFotoUrl     = uploadedFotoUrl    || payload.foto_url    || old.foto_url;
       const newFacturaUrl  = uploadedFacturaUrl || (payload.factura_url ?? old.factura_url);
       const newManualUrl   = uploadedManualUrl  || (payload.manual_url  ?? old.manual_url);
@@ -168,7 +167,6 @@ class ArticulosService {
         modelo:      payload.modelo,
         descripcion: payload.descripcion,
         nro_serie:   newNroSerie,
-        codigo:      newCodigo,
         valor:            payload.valor,
         foto_url:         newFotoUrl,
         fecha_vencimiento: newFechaVenc,
@@ -198,10 +196,9 @@ class ArticulosService {
       return data;
     } catch (error) {
       await client.query('ROLLBACK');
-      await Promise.allSettled([uploadedFotoUrl, uploadedFacturaUrl, uploadedManualUrl].filter(Boolean).map(deleteFileByUrl));
+      await Promise.allSettled([uploadedFotoUrl, uploadedFacturaUrl, uploadedManualUrl].filter(Boolean).map(url => deleteFileByUrl(url)));
       if (error.code === '23505') {
-        const field = error.constraint?.includes('nro_serie') ? 'nro_serie' : 'codigo';
-        throw buildError(`El ${field} ya existe en otro artículo`, 409, 'DUPLICATE_NRO_SERIE');
+        throw buildError('El código interno ya existe en otro artículo', 409, 'DUPLICATE_CODIGO');
       }
       throw error;
     } finally {
@@ -248,7 +245,7 @@ class ArticulosService {
       await ArticuloModel.deleteById(client, id);
 
       await Promise.allSettled(
-        [art.foto_url, art.factura_url, art.manual_url, ...certUrls].filter(Boolean).map(deleteFileByUrl)
+        [art.foto_url, art.factura_url, art.manual_url, ...certUrls].filter(Boolean).map(url => deleteFileByUrl(url))
       );
 
       await writeAuditEvent({
@@ -393,4 +390,4 @@ class ArticulosService {
   }
 }
 
-module.exports = { ArticulosService, deriveCodigo };
+module.exports = { ArticulosService };
