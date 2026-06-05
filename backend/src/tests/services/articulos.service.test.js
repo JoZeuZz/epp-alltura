@@ -1,5 +1,11 @@
 jest.mock('../../db', () => {
-  const query = jest.fn();
+  const query = jest.fn(async (sql, params) => {
+    // Handle bodega check before transaction
+    if (/FROM bodegas/.test(sql)) {
+      return { rows: [{ id: params[0] }] };
+    }
+    return { rows: [] };
+  });
   const connect = jest.fn();
   return {
     query,
@@ -48,6 +54,9 @@ describe('ArticulosService.create', () => {
     const imageFile = { originalname: 'casco.jpg' };
     uploadFile.mockResolvedValue('uploads/catalogo/casco.jpg');
 
+    // Mock the pre-transaction bodega check
+    db.query.mockResolvedValueOnce({ rows: [{ id: BODEGA_ID }] });
+
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return {};
       if (/nextval/.test(sql)) return { rows: [{ val: '7' }] };
@@ -78,10 +87,16 @@ describe('ArticulosService.create', () => {
     const imageFile = { originalname: 'casco.jpg' };
     uploadFile.mockResolvedValue('uploads/catalogo/casco.jpg');
 
+    // Pre-transaction bodega check succeeds
+    db.query.mockResolvedValueOnce({ rows: [{ id: BODEGA_ID }] });
+
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'ROLLBACK') return {};
       if (/nextval/.test(sql)) return { rows: [{ val: '1' }] };
-      if (/FROM bodegas/.test(sql)) throw new Error('db failed');
+      if (/FROM bodegas/.test(sql)) return { rows: [{ id: BODEGA_ID }] };
+      if (/INSERT INTO articulo\s*\n?\s*\(tipo/.test(sql) || /INSERT INTO articulo/.test(sql)) {
+        throw new Error('db failed');
+      }
       return { rows: [] };
     });
     db.pool.connect.mockResolvedValue(client);
@@ -99,6 +114,9 @@ describe('ArticulosService.create', () => {
   });
 
   it('rechaza creación si la bodega no existe o está inactiva', async () => {
+    // Mock the pre-transaction bodega check to return empty rows
+    db.query.mockResolvedValueOnce({ rows: [] });
+
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'ROLLBACK') return {};
       if (/nextval/.test(sql)) return { rows: [{ val: '1' }] };

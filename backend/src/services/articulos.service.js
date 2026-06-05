@@ -42,21 +42,24 @@ class ArticulosService {
     let uploadedFacturaUrl = null;
     let uploadedManualUrl  = null;
 
+    // Validate bodega before uploads to fail fast
+    const { rows: bodegaCheck } = await db.query(
+      `SELECT id FROM bodegas WHERE id = $1 AND estado = 'activo'`,
+      [payload.bodega_id]
+    );
+    if (!bodegaCheck.length) throw buildError('Bodega no encontrada o inactiva', 400, 'BODEGA_NOT_FOUND');
+
+    // Upload files BEFORE opening transaction (keeps transactions short, avoids holding DB connection during network I/O)
+    // Note: codigo is generated inside transaction, so we use payload.nombre as prefix for now
+    if (fotoFile)    uploadedFotoUrl    = await uploadFile(fotoFile, { folder: 'articulos/fotos', filePrefix: payload.nombre });
+    if (facturaFile) uploadedFacturaUrl = await uploadDocument(facturaFile, { folder: 'articulos/facturas', filePrefix: payload.nombre });
+    if (manualFile)  uploadedManualUrl  = await uploadDocument(manualFile, { folder: 'articulos/manuales', filePrefix: payload.nombre });
+
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
 
       const codigo = await generateCodigo(client, payload.tipo);
-
-      if (fotoFile)    uploadedFotoUrl    = await uploadFile(fotoFile, { folder: 'articulos/fotos', filePrefix: `${codigo}_${payload.nombre}` });
-      if (facturaFile) uploadedFacturaUrl = await uploadDocument(facturaFile, { folder: 'articulos/facturas', filePrefix: codigo });
-      if (manualFile)  uploadedManualUrl  = await uploadDocument(manualFile, { folder: 'articulos/manuales', filePrefix: codigo });
-
-      const bodegaResult = await client.query(
-        `SELECT id FROM bodegas WHERE id = $1 AND estado = 'activo'`,
-        [payload.bodega_id]
-      );
-      if (!bodegaResult.rows.length) throw buildError('Bodega no encontrada o inactiva', 400, 'BODEGA_NOT_FOUND');
 
       if (Array.isArray(payload.especialidades)) validateEspecialidades(payload.especialidades);
 
