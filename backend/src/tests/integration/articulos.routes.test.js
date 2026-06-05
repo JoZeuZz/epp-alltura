@@ -21,6 +21,7 @@ jest.mock('../../services/articulos.service', () => ({
     update: jest.fn(),
     deletePermanent: jest.fn(),
     cambiarEstado: jest.fn(),
+    createBatch: jest.fn(),
   },
   deriveCodigo: jest.fn(),
 }));
@@ -128,7 +129,7 @@ describe('Articulos API Route Integration', () => {
     expect(ArticulosService.create).toHaveBeenCalledWith(
       expect.objectContaining(payload),
       'user-1',
-      null
+      {}
     );
   });
 
@@ -159,7 +160,7 @@ describe('Articulos API Route Integration', () => {
     expect(ArticulosService.create).toHaveBeenCalledWith(
       expect.objectContaining(payload),
       'user-1',
-      null
+      {}
     );
   });
 
@@ -191,7 +192,7 @@ describe('Articulos API Route Integration', () => {
     expect(ArticulosService.create).toHaveBeenCalledWith(
       expect.objectContaining(payload),
       'user-1',
-      null
+      {}
     );
   });
 
@@ -220,7 +221,7 @@ describe('Articulos API Route Integration', () => {
       'articulo-1',
       expect.objectContaining(payload),
       'user-1',
-      null
+      {}
     );
   });
 
@@ -241,7 +242,15 @@ describe('Articulos API Route Integration', () => {
     expect(JSON.stringify(response.body.errors || [])).toMatch(/tipo/i);
   });
 
-  it('rechaza creación sin nro_serie', async () => {
+  it('acepta creación sin nro_serie (campo opcional desde plantillas)', async () => {
+    ArticulosService.create.mockResolvedValue({
+      id: 'articulo-sin-serie',
+      tipo: 'epp',
+      nombre: 'Sin serie',
+      nro_serie: null,
+      estado: 'en_stock',
+    });
+
     const app = buildApp();
 
     const response = await request(app)
@@ -252,9 +261,9 @@ describe('Articulos API Route Integration', () => {
         bodega_id: BODEGA_ID,
       });
 
-    expect(response.status).toBe(400);
-    expect(response.body.success).toBe(false);
-    expect(JSON.stringify(response.body.errors || [])).toMatch(/nro_serie/i);
+    // nro_serie is now optional — creation must succeed
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
   });
 
   it('rechaza creación sin bodega_id', async () => {
@@ -322,5 +331,71 @@ describe('Articulos API Route Integration', () => {
       expect.objectContaining({ nuevo_estado: 'mantencion' }),
       'user-1'
     );
+  });
+});
+
+describe('Articulos batch route POST /api/articulos/batch', () => {
+  const buildApp = () => {
+    const app = express();
+    app.use(express.json());
+    app.use('/api/articulos', articulosRoutes);
+    app.use(errorHandler);
+    return app;
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('crea múltiples artículos desde plantilla con POST /api/articulos/batch', async () => {
+    ArticulosService.createBatch.mockResolvedValue({ created: 3, ids: ['a1', 'a2', 'a3'] });
+
+    const app = buildApp();
+    const payload = {
+      plantilla_id: '00000000-0000-4000-8000-000000000001',
+      bodega_id: BODEGA_ID,
+      instancias: [
+        { nro_serie: 'CAS-001', valor: 10000 },
+        { nro_serie: 'CAS-002', valor: 10000 },
+        { valor: 10000 },
+      ],
+    };
+
+    const response = await request(app).post('/api/articulos/batch').send(payload);
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(ArticulosService.createBatch).toHaveBeenCalledWith(
+      expect.objectContaining({ plantilla_id: payload.plantilla_id, bodega_id: BODEGA_ID }),
+      'user-1',
+      {}
+    );
+  });
+
+  it('rechaza batch sin plantilla_id', async () => {
+    const app = buildApp();
+
+    const response = await request(app)
+      .post('/api/articulos/batch')
+      .send({ bodega_id: BODEGA_ID, instancias: [{ valor: 1000 }] });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+    expect(JSON.stringify(response.body.errors || [])).toMatch(/plantilla_id/i);
+  });
+
+  it('rechaza batch con instancias vacías', async () => {
+    const app = buildApp();
+
+    const response = await request(app)
+      .post('/api/articulos/batch')
+      .send({
+        plantilla_id: '00000000-0000-4000-8000-000000000001',
+        bodega_id: BODEGA_ID,
+        instancias: [],
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
   });
 });

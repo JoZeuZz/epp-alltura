@@ -318,6 +318,49 @@ describe('ArticulosService.deletePermanent — signed actas protection', () => {
   });
 });
 
+describe('ArticulosService.create — foto optional', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('crea artículo sin foto y sin nro_serie (nro_serie null)', async () => {
+    const payload = {
+      tipo: 'epp',
+      nombre: 'Guante genérico',
+      bodega_id: BODEGA_ID,
+      // nro_serie intentionally omitted — should default to null
+    };
+
+    // Pre-transaction bodega check succeeds
+    db.query.mockResolvedValueOnce({ rows: [{ id: BODEGA_ID }] });
+
+    const client = makeClient(async (sql) => {
+      if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return {};
+      if (/nextval/.test(sql)) return { rows: [{ val: '42' }] };
+      if (/FROM bodegas/.test(sql)) return { rows: [{ id: BODEGA_ID }] };
+      if (/INSERT INTO articulo/.test(sql)) return { rows: [{ id: ARTICULO_ID }] };
+      if (/INSERT INTO articulo_especialidad/.test(sql)) return { rows: [] };
+      if (/INSERT INTO movimiento_activo/.test(sql)) return { rows: [] };
+      if (/SELECT a\.\*/.test(sql)) {
+        return {
+          rows: [{ id: ARTICULO_ID, ...payload, nro_serie: null, codigo: 'EPP-00042', estado: 'en_stock' }],
+        };
+      }
+      return { rows: [] };
+    });
+    db.pool.connect.mockResolvedValue(client);
+
+    // No files passed — simulates no-upload path
+    const result = await ArticulosService.create(payload, 'user-1', {});
+
+    // uploadFile must NOT be called since no foto file provided
+    expect(uploadFile).not.toHaveBeenCalled();
+    expect(result.id).toBe(ARTICULO_ID);
+    expect(result.nro_serie).toBeNull();
+    expect(client.query).toHaveBeenCalledWith('COMMIT');
+  });
+});
+
 describe('ArticulosService.cambiarEstado', () => {
   beforeEach(() => {
     jest.clearAllMocks();
