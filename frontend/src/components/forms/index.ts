@@ -16,3 +16,7 @@ export {
 
 export { default as SignaturePad } from './SignaturePad';
 export { default as FotoEvidenciaUpload } from './FotoEvidenciaUpload';
+
+export { PlantillaCreateModal } from './PlantillaCreateModal';
+export { PlantillaEditModal } from './PlantillaEditModal';
+export { ArticuloBatchModal } from './ArticuloBatchModal';
