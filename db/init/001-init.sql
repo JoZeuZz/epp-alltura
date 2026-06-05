@@ -119,6 +119,46 @@ CREATE TABLE IF NOT EXISTS proveedor (
   estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo'))
 );
 
+-- ============================================================
+-- ARTICLE TEMPLATES (CATALOG)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS articulo_plantilla (
+  id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tipo                  VARCHAR(20) NOT NULL CHECK (tipo IN ('epp', 'herramienta', 'equipo')),
+  nombre                VARCHAR(150) NOT NULL,
+  marca                 VARCHAR(120),
+  modelo                VARCHAR(120),
+  descripcion           TEXT,
+  foto_url              TEXT,
+  manual_url            TEXT,
+  estado                VARCHAR(20) NOT NULL DEFAULT 'activo'
+                          CHECK (estado IN ('activo', 'inactivo')),
+  creado_por_usuario_id UUID REFERENCES usuario(id),
+  creado_en             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  actualizado_en        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS articulo_plantilla_especialidad (
+  plantilla_id UUID NOT NULL REFERENCES articulo_plantilla(id) ON DELETE CASCADE,
+  especialidad VARCHAR(80) NOT NULL
+    CHECK (especialidad IN ('oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida')),
+  PRIMARY KEY (plantilla_id, especialidad)
+);
+
+CREATE TABLE IF NOT EXISTS articulo_plantilla_certificacion (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  plantilla_id UUID        NOT NULL REFERENCES articulo_plantilla(id) ON DELETE CASCADE,
+  nombre       VARCHAR(255),
+  url          TEXT        NOT NULL,
+  creado_en    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Sequences para codigo unico por tipo (reemplaza deriveCodigo)
+CREATE SEQUENCE IF NOT EXISTS seq_codigo_epp        START 1;
+CREATE SEQUENCE IF NOT EXISTS seq_codigo_herramienta START 1;
+CREATE SEQUENCE IF NOT EXISTS seq_codigo_equipo      START 1;
+
 -- articulo = physical object (EPP, herramienta, or equipo); one row per physical unit
 CREATE TABLE IF NOT EXISTS articulo (
   id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -146,6 +186,16 @@ CREATE TABLE IF NOT EXISTS articulo (
     NOT (bodega_actual_id IS NOT NULL AND proyecto_actual_id IS NOT NULL)
   )
 );
+
+-- Drop unique constraint on nro_serie (manufacturer series can repeat across units)
+ALTER TABLE articulo DROP CONSTRAINT IF EXISTS articulo_nro_serie_key;
+
+-- Make nro_serie nullable (batch instances may not have a manufacturer serial)
+ALTER TABLE articulo ALTER COLUMN nro_serie DROP NOT NULL;
+
+-- Add nullable FK to template (existing articles get NULL — no impact)
+ALTER TABLE articulo ADD COLUMN IF NOT EXISTS plantilla_id UUID
+  REFERENCES articulo_plantilla(id) ON DELETE SET NULL;
 
 CREATE TABLE IF NOT EXISTS articulo_especialidad (
   articulo_id  UUID NOT NULL REFERENCES articulo(id) ON DELETE CASCADE,
@@ -439,6 +489,11 @@ CREATE INDEX IF NOT EXISTS idx_articulo_bodega_actual_id ON articulo(bodega_actu
 CREATE INDEX IF NOT EXISTS idx_articulo_proyecto_actual_id ON articulo(proyecto_actual_id) WHERE proyecto_actual_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_articulo_especialidad_especialidad ON articulo_especialidad(especialidad);
 CREATE INDEX IF NOT EXISTS idx_articulo_certificacion_articulo_id ON articulo_certificacion(articulo_id);
+
+CREATE INDEX IF NOT EXISTS idx_articulo_plantilla_tipo   ON articulo_plantilla(tipo);
+CREATE INDEX IF NOT EXISTS idx_articulo_plantilla_estado ON articulo_plantilla(estado);
+CREATE INDEX IF NOT EXISTS idx_art_plantilla_id          ON articulo(plantilla_id) WHERE plantilla_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_articulo_plantilla_cert   ON articulo_plantilla_certificacion(plantilla_id);
 
 -- Delivery / custody
 CREATE INDEX IF NOT EXISTS idx_entrega_trabajador_id ON entrega(trabajador_id);
