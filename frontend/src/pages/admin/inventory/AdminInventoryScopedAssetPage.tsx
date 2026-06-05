@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArticuloCreateModal } from '../../../components/ArticuloCreateModal';
+import { ArticuloBatchModal } from '../../../components/forms';
 import {
   getArticulos,
   type Articulo,
@@ -43,6 +44,7 @@ const KpiCard: React.FC<{ label: string; value: string; accent?: string }> = ({
 const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps> = ({ scope }) => {
   const copy = INVENTORY_ASSET_SCOPE_COPY[scope];
   const [showCreate, setShowCreate] = useState(false);
+  const [showBatchModal, setShowBatchModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'inventario'>('dashboard');
   const [ciudadFilter, setCiudadFilter] = useState<string | null | undefined>(undefined);
   const queryClient = useQueryClient();
@@ -96,14 +98,23 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
             </h1>
             <p className="text-neutral-gray">{copy.pageSubtitle}</p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowCreate(true)}
-            className="flex-shrink-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-primary-blue text-sm text-white bg-primary-blue hover:bg-blue-700 transition-colors min-h-[44px]"
-            aria-label={`Nuevo ${copy.tipo}`}
-          >
-            + Nuevo {copy.tipo === 'epp' ? 'EPP' : copy.tipo}
-          </button>
+          <div className="flex gap-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowBatchModal(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-sm text-gray-600 bg-white hover:bg-gray-50 transition-colors min-h-[44px]"
+            >
+              📋 Crear en lote
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreate(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-primary-blue text-sm text-white bg-primary-blue hover:bg-blue-700 transition-colors min-h-[44px]"
+              aria-label={`Nuevo ${copy.tipo}`}
+            >
+              + Nuevo {copy.tipo === 'epp' ? 'EPP' : copy.tipo}
+            </button>
+          </div>
         </div>
 
         {/* Tab bar */}
@@ -198,6 +209,15 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
           isOpen={showCreate}
           onClose={() => setShowCreate(false)}
           onSuccess={handleCreateSuccess}
+        />
+      )}
+
+      {showBatchModal && (
+        <ArticuloBatchModal
+          tipo={copy.tipo}
+          bodegas={bodegas}
+          isOpen={showBatchModal}
+          onClose={() => setShowBatchModal(false)}
         />
       )}
     </div>
