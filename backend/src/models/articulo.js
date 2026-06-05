@@ -5,19 +5,15 @@ const { normalizePagination } = require('./modelUtils');
 
 const RICH_SELECT = `
   SELECT a.*,
-    COALESCE(json_agg(ae.especialidad ORDER BY ae.especialidad) FILTER (WHERE ae.especialidad IS NOT NULL), '[]') AS especialidades,
+    COALESCE(json_agg(DISTINCT ae.especialidad) FILTER (WHERE ae.especialidad IS NOT NULL), '[]') AS especialidades,
     COALESCE(
-      json_agg(
-        json_build_object('id', ac.id, 'nombre', ac.nombre, 'url', ac.url, 'creado_en', ac.creado_en)
-        ORDER BY ac.creado_en
-      ) FILTER (WHERE ac.id IS NOT NULL),
+      json_agg(DISTINCT json_build_object('id', ac.id, 'nombre', ac.nombre, 'url', ac.url, 'creado_en', ac.creado_en))
+      FILTER (WHERE ac.id IS NOT NULL),
       '[]'::json
     ) ||
     COALESCE(
-      json_agg(
-        json_build_object('id', pc.id, 'nombre', pc.nombre, 'url', pc.url, 'creado_en', pc.creado_en)
-        ORDER BY pc.creado_en
-      ) FILTER (WHERE pc.id IS NOT NULL),
+      json_agg(DISTINCT json_build_object('id', pc.id, 'nombre', pc.nombre, 'url', pc.url, 'creado_en', pc.creado_en))
+      FILTER (WHERE pc.id IS NOT NULL),
       '[]'::json
     ) AS certificaciones,
     b.nombre   AS bodega_nombre,
@@ -130,8 +126,9 @@ class ArticuloModel {
          (tipo, nombre, marca, modelo, descripcion, nro_serie, codigo, valor,
           foto_url, estado, bodega_actual_id, fecha_vencimiento,
           fecha_compra, proveedor_id, factura_url, manual_url,
+          plantilla_id,
           creado_por_usuario_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'en_stock',$10,$11,$12,$13,$14,$15,$16)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'en_stock',$10,$11,$12,$13,$14,$15,$16,$17)
        RETURNING id`,
       [
         fields.tipo,              fields.nombre,
@@ -147,6 +144,7 @@ class ArticuloModel {
         fields.proveedor_id      || null,
         fields.factura_url   || null,
         fields.manual_url    || null,
+        fields.plantilla_id      || null,
         fields.creado_por_usuario_id,
       ]
     );
