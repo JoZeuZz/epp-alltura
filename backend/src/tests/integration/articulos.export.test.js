@@ -46,10 +46,8 @@ const MOCK_ITEMS = [
     nro_serie: 'SN001',
     estado: 'en_stock',
     valor: 25000,
-    bodega_nombre: 'Bodega Central',
-    bodega_ciudad: 'Santiago',
+    bodega_nombre: 'Bodega Santiago',
     proyecto_nombre: null,
-    proyecto_ciudad: null,
     especialidades: ['oocc'],
     fecha_compra: '2024-01-15',
     proveedor_nombre: 'Proveedor A',
@@ -66,9 +64,7 @@ const MOCK_ITEMS = [
     estado: 'asignado',
     valor: 0,
     bodega_nombre: null,
-    bodega_ciudad: null,
-    proyecto_nombre: 'Proyecto Norte',
-    proyecto_ciudad: 'Antofagasta',
+    proyecto_nombre: 'Faena Antofagasta',
     especialidades: [],
     fecha_compra: null,
     proveedor_nombre: null,
@@ -149,16 +145,16 @@ describe('GET /api/articulos/export', () => {
       );
     });
 
-    it('filters by ciudad in-memory — returns only matching items', async () => {
+    it('filters by ubicacion in-memory — returns only matching items', async () => {
       const res = await request(buildApp())
-        .get('/api/articulos/export?tipo=epp&formato=excel&ciudad=Santiago');
+        .get('/api/articulos/export?tipo=epp&formato=excel&ubicacion=Bodega+Santiago');
       expect(res.status).toBe(200);
       expect(res.body).toBeDefined();
     });
 
-    it('filters by __none__ ciudad — returns items with no city', async () => {
+    it('filters by __none__ ubicacion — returns items with no location', async () => {
       const res = await request(buildApp())
-        .get('/api/articulos/export?tipo=epp&formato=excel&ciudad=__none__');
+        .get('/api/articulos/export?tipo=epp&formato=excel&ubicacion=__none__');
       expect(res.status).toBe(200);
     });
 

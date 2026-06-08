@@ -95,7 +95,7 @@ const exportQuerySchema = Joi.object({
   formato: Joi.string().valid('excel', 'pdf').required(),
   estado:  Joi.string().valid(...ESTADOS).optional(),
   search:  Joi.string().optional(),
-  ciudad:  Joi.string().optional(),
+  ubicacion: Joi.string().optional(),
 }).options({ allowUnknown: false });
 
 const batchSchema = Joi.object({

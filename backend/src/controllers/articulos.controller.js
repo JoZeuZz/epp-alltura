@@ -19,7 +19,7 @@ class ArticulosController {
 
   static async export(req, res, next) {
     try {
-      const { tipo, formato, estado, search, ciudad } = req.query;
+      const { tipo, formato, estado, search, ubicacion } = req.query;
       const timestamp = new Date().toISOString().slice(0, 10);
 
       const { items: allItems } = await ArticulosService.list({
@@ -29,7 +29,7 @@ class ArticulosController {
         limit: 5000,
       });
 
-      const items = applyCiudadFilter(allItems, ciudad);
+      const items = applyLocationFilter(allItems, ubicacion);
 
       const TIPO_LABEL = { epp: 'EPP', herramienta: 'Herramientas', equipo: 'Equipos' };
       const label = TIPO_LABEL[tipo] ?? tipo;
@@ -220,12 +220,12 @@ function buildExcelBuffer(items) {
   return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 }
 
-function applyCiudadFilter(items, ciudad) {
-  if (!ciudad) return items;
-  if (ciudad === '__none__') {
-    return items.filter((a) => a.bodega_ciudad == null && a.proyecto_ciudad == null);
+function applyLocationFilter(items, ubicacion) {
+  if (!ubicacion) return items;
+  if (ubicacion === '__none__') {
+    return items.filter((a) => a.bodega_nombre == null && a.proyecto_nombre == null);
   }
-  return items.filter((a) => a.bodega_ciudad === ciudad || a.proyecto_ciudad === ciudad);
+  return items.filter((a) => a.bodega_nombre === ubicacion || a.proyecto_nombre === ubicacion);
 }
 
 module.exports = ArticulosController;
