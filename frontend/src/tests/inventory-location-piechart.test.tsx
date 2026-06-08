@@ -23,68 +23,92 @@ const makeItem = (overrides: Partial<Articulo> = {}): Articulo => ({
 });
 
 const ITEMS: Articulo[] = [
-  makeItem({ id: '1', bodega_ciudad: 'Santiago' }),
-  makeItem({ id: '2', bodega_ciudad: 'Santiago' }),
-  makeItem({ id: '3', bodega_ciudad: 'Valparaíso' }),
-  makeItem({ id: '4', bodega_ciudad: null, proyecto_ciudad: null }),
+  makeItem({ id: '1', bodega_nombre: 'Bodega Santiago' }),
+  makeItem({ id: '2', bodega_nombre: 'Bodega Santiago' }),
+  makeItem({ id: '3', bodega_nombre: 'Bodega Valparaíso' }),
+  makeItem({ id: '4', bodega_nombre: null, proyecto_nombre: null }),
 ];
 
 describe('InventoryLocationPieChart', () => {
   it('renders loading skeleton when isLoading=true', () => {
     const { container } = render(
-      <InventoryLocationPieChart items={[]} isLoading={true} onCityClick={vi.fn()} />
+      <InventoryLocationPieChart items={[]} isLoading={true} onLocationClick={vi.fn()} />
     );
     const skeleton = container.querySelector('.animate-pulse');
     expect(skeleton).toBeInTheDocument();
   });
 
   it('renders "sin datos" message when fewer than 2 cities', () => {
-    const items = [makeItem({ id: '1', bodega_ciudad: 'Santiago' })];
-    render(<InventoryLocationPieChart items={items} isLoading={false} onCityClick={vi.fn()} />);
+    const items = [makeItem({ id: '1', bodega_nombre: 'Bodega Santiago' })];
+    render(<InventoryLocationPieChart items={items} isLoading={false} onLocationClick={vi.fn()} />);
     expect(screen.getByText(/sin datos suficientes/i)).toBeInTheDocument();
   });
 
-  it('renders a slice label for each unique city', () => {
-    render(<InventoryLocationPieChart items={ITEMS} isLoading={false} onCityClick={vi.fn()} />);
-    expect(screen.getByText('Santiago')).toBeInTheDocument();
-    expect(screen.getByText('Valparaíso')).toBeInTheDocument();
+  it('renders a slice label for each unique location', () => {
+    render(<InventoryLocationPieChart items={ITEMS} isLoading={false} onLocationClick={vi.fn()} />);
+    expect(screen.getByText('Bodega Santiago')).toBeInTheDocument();
+    expect(screen.getByText('Bodega Valparaíso')).toBeInTheDocument();
     expect(screen.getByText('Sin ubicación')).toBeInTheDocument();
   });
 
   it('shows total article count badge', () => {
-    render(<InventoryLocationPieChart items={ITEMS} isLoading={false} onCityClick={vi.fn()} />);
+    render(<InventoryLocationPieChart items={ITEMS} isLoading={false} onLocationClick={vi.fn()} />);
     expect(screen.getByText(`${ITEMS.length} artículos`)).toBeInTheDocument();
   });
 
   it('shows "Ver inventario" strip after clicking a slice', () => {
-    render(<InventoryLocationPieChart items={ITEMS} isLoading={false} onCityClick={vi.fn()} />);
-    const santiagoSlice = screen.getAllByRole('group').find(el =>
-      el.getAttribute('aria-label')?.startsWith('Santiago')
+    render(<InventoryLocationPieChart items={ITEMS} isLoading={false} onLocationClick={vi.fn()} />);
+    const bodegaSantiagoSlice = screen.getAllByRole('group').find(el =>
+      el.getAttribute('aria-label')?.startsWith('Bodega Santiago')
     );
-    expect(santiagoSlice).toBeDefined();
-    fireEvent.click(santiagoSlice!);
+    expect(bodegaSantiagoSlice).toBeDefined();
+    fireEvent.click(bodegaSantiagoSlice!);
     expect(screen.getByText(/ver inventario/i)).toBeInTheDocument();
   });
 
-  it('calls onCityClick with city string when "Ver inventario" is clicked', () => {
-    const onCityClick = vi.fn();
-    render(<InventoryLocationPieChart items={ITEMS} isLoading={false} onCityClick={onCityClick} />);
-    const santiagoSlice = screen.getAllByRole('group').find(el =>
-      el.getAttribute('aria-label')?.startsWith('Santiago')
+  it('calls onLocationClick with location string when "Ver inventario" is clicked', () => {
+    const onLocationClick = vi.fn();
+    render(<InventoryLocationPieChart items={ITEMS} isLoading={false} onLocationClick={onLocationClick} />);
+    const slice = screen.getAllByRole('group').find(el =>
+      el.getAttribute('aria-label')?.startsWith('Bodega Santiago')
     );
-    fireEvent.click(santiagoSlice!);
+    fireEvent.click(slice!);
     fireEvent.click(screen.getByRole('button', { name: /ver inventario/i }));
-    expect(onCityClick).toHaveBeenCalledWith('Santiago');
+    expect(onLocationClick).toHaveBeenCalledWith('Bodega Santiago');
   });
 
-  it('calls onCityClick with null for "Sin ubicación"', () => {
-    const onCityClick = vi.fn();
-    render(<InventoryLocationPieChart items={ITEMS} isLoading={false} onCityClick={onCityClick} />);
-    const sinUbicacionSlice = screen.getAllByRole('group').find(el =>
+  it('calls onLocationClick with null for "Sin ubicación"', () => {
+    const onLocationClick = vi.fn();
+    render(<InventoryLocationPieChart items={ITEMS} isLoading={false} onLocationClick={onLocationClick} />);
+    const slice = screen.getAllByRole('group').find(el =>
       el.getAttribute('aria-label')?.startsWith('Sin ubicación')
     );
-    fireEvent.click(sinUbicacionSlice!);
+    fireEvent.click(slice!);
     fireEvent.click(screen.getByRole('button', { name: /ver inventario/i }));
-    expect(onCityClick).toHaveBeenCalledWith(null);
+    expect(onLocationClick).toHaveBeenCalledWith(null);
+  });
+
+  it('truncates labels longer than 18 chars and shows full name in strip', () => {
+    const longName = 'Bodega Central Antofagasta Norte';
+    const items = [
+      makeItem({ id: '1', bodega_nombre: longName }),
+      makeItem({ id: '2', bodega_nombre: 'Bodega Sur' }),
+    ];
+    render(<InventoryLocationPieChart items={items} isLoading={false} onLocationClick={vi.fn()} />);
+
+    // El SVG label debe mostrar versión truncada (slice(0,18) + '…')
+    // "Bodega Central Antofagasta Norte".slice(0,18) === "Bodega Central Ant"
+    expect(screen.getByText('Bodega Central Ant…')).toBeInTheDocument();
+    // El nombre completo NO debe aparecer en el DOM antes de hacer click
+    expect(screen.queryByText(longName)).not.toBeInTheDocument();
+
+    // Hacer click en el sector con nombre largo
+    const slice = screen.getAllByRole('group').find(el =>
+      el.getAttribute('aria-label')?.startsWith(longName)
+    );
+    fireEvent.click(slice!);
+
+    // La franja inferior muestra el nombre completo
+    expect(screen.getByText(longName)).toBeInTheDocument();
   });
 });
