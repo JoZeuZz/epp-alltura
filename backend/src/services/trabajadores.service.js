@@ -1,4 +1,5 @@
 const db = require('../db');
+const { buildError } = require('../lib/errors');
 const PersonaModel = require('../models/persona');
 const TrabajadorModel = require('../models/trabajador');
 const { normalizeRut } = require('../lib/rut');
@@ -215,6 +216,23 @@ class TrabajadoresService {
       const error = new Error('Trabajador not found');
       error.statusCode = 404;
       throw error;
+    }
+
+    // Guard: bloquear si tiene entregas pendientes
+    const { rows: pendientes } = await db.query(
+      `SELECT COUNT(*) AS total
+       FROM entrega
+       WHERE trabajador_id = $1
+         AND estado IN ('borrador', 'pendiente_firma')`,
+      [id]
+    );
+
+    if (parseInt(pendientes[0].total, 10) > 0) {
+      throw buildError(
+        'El trabajador tiene entregas pendientes. Confirma o anula las entregas antes de desactivarlo.',
+        409,
+        'WORKER_HAS_PENDING_DELIVERIES'
+      );
     }
 
     const result = await TrabajadorModel.update(id, { estado: 'inactivo' });
