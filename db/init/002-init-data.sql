@@ -2,7 +2,7 @@
 -- 002-init-data.sql  — Data base para producción
 -- Idempotente: puede ejecutarse en DB ya inicializada.
 -- IMPORTANTE: Cambiar la contraseña del admin antes de usar en producción.
---             El hash corresponde a: Alltura2024!
+--             Usar script: cd backend && node src/scripts/create-admin.js
 -- ============================================================
 
 DO $$
