@@ -6,7 +6,8 @@ import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Modal from '../Modal';
 import { createProveedor, type Proveedor } from '../../services/apiService';
-import { extractApiError } from '../../lib/apiError';
+import { useFormErrors } from '../../hooks/useFormErrors';
+import ErrorAlert from '../ui/ErrorAlert';
 
 const schema = z.object({
   nombre:   z.string().min(2, 'Mínimo 2 caracteres').max(150),
@@ -27,17 +28,18 @@ const ProveedorCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) =
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
   });
+  const { error, handleError, clearError } = useFormErrors();
 
   const mutation = useMutation({
     mutationFn: (data: FormValues) => createProveedor(data),
     onSuccess: (proveedor) => {
       toast.success(`Proveedor "${proveedor.nombre}" creado`);
+      clearError();
       reset();
       onCreated(proveedor);
     },
     onError: (err: unknown) => {
-      const { message } = extractApiError(err);
-      toast.error(message);
+      handleError(err);
     },
   });
 
@@ -85,6 +87,8 @@ const ProveedorCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) =
           />
           {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
         </div>
+
+        <ErrorAlert message={error} className="mb-3" />
 
         <div className="flex justify-end gap-2 pt-2">
           <button

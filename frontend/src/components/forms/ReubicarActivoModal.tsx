@@ -7,7 +7,8 @@ import {
   reubicarActivo,
   type InventoryActivoDetailRow,
 } from '../../services/apiService';
-import { extractApiError } from '../../lib/apiError';
+import { useFormErrors } from '../../hooks/useFormErrors';
+import ErrorAlert from '../ui/ErrorAlert';
 
 interface BodegaOption {
   id: string;
@@ -25,6 +26,7 @@ const ReubicarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) =>
   const [ubicacionId, setUbicacionId] = useState('');
   const [motivo, setMotivo] = useState('');
   const queryClient = useQueryClient();
+  const { error, handleError, clearError } = useFormErrors();
 
   const { data: bodegas } = useGet<BodegaOption[]>(
     ['bodegas'],
@@ -41,12 +43,13 @@ const ReubicarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) =>
       }),
     onSuccess: () => {
       toast.success('Activo reubicado correctamente.');
+      clearError();
       queryClient.invalidateQueries({ queryKey: ['inventory-activos'] });
       queryClient.invalidateQueries({ queryKey: ['activo-profile'] });
       queryClient.invalidateQueries({ queryKey: ['admin-inventory'] });
       onSuccess();
     },
-    onError: (err: unknown) => { const { message } = extractApiError(err); toast.error(message); },
+    onError: (err: unknown) => { handleError(err); },
   });
 
   const canSubmit = ubicacionId && ubicacionId !== currentBodegaId;
@@ -86,6 +89,8 @@ const ReubicarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) =>
             className="w-full rounded-md border border-edge-strong px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
           />
         </div>
+
+        <ErrorAlert message={error} className="mb-3" />
 
         <div className="flex justify-end gap-2 pt-2">
           <button

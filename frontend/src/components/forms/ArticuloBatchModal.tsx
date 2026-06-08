@@ -10,7 +10,8 @@ import {
   type Plantilla,
 } from '../../services/apiService';
 import { PlantillaCreateModal } from './PlantillaCreateModal';
-import { extractApiError } from '../../lib/apiError';
+import { useFormErrors } from '../../hooks/useFormErrors';
+import ErrorAlert from '../ui/ErrorAlert';
 
 interface Props {
   tipo: ArticuloTipo;
@@ -37,6 +38,7 @@ export function ArticuloBatchModal({ tipo, bodegas, isOpen, onClose }: Props) {
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [rows, setRows] = useState<Row[]>(() => [newRow()]);
   const [showPlantillaCreate, setShowPlantillaCreate] = useState(false);
+  const { error, handleError, clearError } = useFormErrors();
 
   const { data: plantillas = [] } = useQuery<Plantilla[]>({
     queryKey: ['plantillas', tipo],
@@ -78,6 +80,7 @@ export function ArticuloBatchModal({ tipo, bodegas, isOpen, onClose }: Props) {
     onSuccess: (result) => {
       toast.success(`${result.created} ${TIPO_LABELS[tipo]}(s) creados correctamente`);
       queryClient.invalidateQueries({ queryKey: ['articulos'] });
+      clearError();
       setStep(1);
       setPlantillaId('');
       setBodegaId('');
@@ -86,8 +89,7 @@ export function ArticuloBatchModal({ tipo, bodegas, isOpen, onClose }: Props) {
       onClose();
     },
     onError: (err: unknown) => {
-      const { message } = extractApiError(err);
-      toast.error(message);
+      handleError(err);
     },
   });
 
@@ -285,6 +287,8 @@ export function ArticuloBatchModal({ tipo, bodegas, isOpen, onClose }: Props) {
               </tbody>
             </table>
           </div>
+
+          <ErrorAlert message={error} className="mb-3" />
 
           <div className="flex justify-between items-center pt-2">
             <button

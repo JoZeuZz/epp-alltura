@@ -10,7 +10,8 @@ import {
   type PlantillaWithCount,
   type ArticuloEspecialidad,
 } from '../../services/apiService';
-import { extractApiError } from '../../lib/apiError';
+import { useFormErrors } from '../../hooks/useFormErrors';
+import ErrorAlert from '../ui/ErrorAlert';
 
 const ESPECIALIDADES: ArticuloEspecialidad[] = [
   'oocc',
@@ -45,6 +46,7 @@ interface Props {
 
 export function PlantillaEditModal({ plantilla, isOpen, onClose, onUpdated }: Props) {
   const queryClient = useQueryClient();
+  const { error, handleError, clearError } = useFormErrors();
   const {
     register,
     handleSubmit,
@@ -74,13 +76,13 @@ export function PlantillaEditModal({ plantilla, isOpen, onClose, onUpdated }: Pr
     mutationFn: (data: FormValues) => updatePlantilla(plantilla.id, data),
     onSuccess: (updated) => {
       toast.success('Plantilla actualizada');
+      clearError();
       queryClient.invalidateQueries({ queryKey: ['plantillas'] });
       onUpdated(updated);
       onClose();
     },
     onError: (err: unknown) => {
-      const { message } = extractApiError(err);
-      toast.error(message);
+      handleError(err);
     },
   });
 
@@ -192,6 +194,8 @@ export function PlantillaEditModal({ plantilla, isOpen, onClose, onUpdated }: Pr
         </div>
 
         {/* Actions */}
+        <ErrorAlert message={error} className="mb-3" />
+
         <div className="flex justify-end gap-2 pt-2">
           <button
             type="button"

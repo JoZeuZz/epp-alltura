@@ -21,7 +21,8 @@ import {
 import ProveedorCreateModal from './forms/ProveedorCreateModal';
 import FotoEvidenciaUpload from './forms/FotoEvidenciaUpload';
 import { PlantillaCreateModal, PlantillaEditModal } from './forms';
-import { extractApiError } from '../lib/apiError';
+import { useFormErrors } from '../hooks/useFormErrors';
+import ErrorAlert from './ui/ErrorAlert';
 
 const ESPECIALIDADES = ['oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida'] as const;
 
@@ -91,6 +92,7 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
   const [showPlantillaCreate, setShowPlantillaCreate] = useState(false);
   const [showPlantillaEdit, setShowPlantillaEdit] = useState(false);
   const [selectedPlantilla, setSelectedPlantilla] = useState<PlantillaWithCount | null>(null);
+  const { error, handleError, clearError } = useFormErrors();
 
   const { data: proveedores = [] } = useQuery<Proveedor[]>({
     queryKey: ['proveedores'],
@@ -129,14 +131,14 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
       toast.success(`${TIPO_LABELS[tipo]} creado correctamente`);
       queryClient.invalidateQueries({ queryKey: ['articulos'] });
       reset();
+      clearError();
       setFotoFile(null); setFotoError(null); setFacturaFile(null); setManualFile(null); setCertFiles([]);
       setHasVenc(false);
       onClose();
       onSuccess?.(articulo);
     },
     onError: (err: unknown) => {
-      const { message } = extractApiError(err);
-      toast.error(message);
+      handleError(err);
     },
   });
 
@@ -409,6 +411,8 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
           )}
           <p className="text-xs text-content-muted mt-1">Las certificaciones se suben una vez creado el artículo.</p>
         </div>
+
+        <ErrorAlert message={error} className="mb-3" />
 
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" onClick={onClose} className="btn-secondary">Cancelar</button>

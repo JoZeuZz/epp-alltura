@@ -14,7 +14,8 @@ import {
   type ArticuloCertificacion,
   type Proveedor,
 } from '../../services/apiService';
-import { extractApiError } from '../../lib/apiError';
+import { useFormErrors } from '../../hooks/useFormErrors';
+import ErrorAlert from '../ui/ErrorAlert';
 
 const ESPECIALIDADES = ['oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida'] as const;
 const ESP_LABELS: Record<string, string> = {
@@ -61,6 +62,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
 
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [showProveedorModal, setShowProveedorModal] = useState(false);
+  const { error, handleError, clearError } = useFormErrors();
 
   const { data: proveedores = [] } = useQuery<Proveedor[]>({
     queryKey: ['proveedores'],
@@ -93,12 +95,13 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
     },
     onSuccess: () => {
       toast.success('Artículo actualizado correctamente.');
+      clearError();
       queryClient.invalidateQueries({ queryKey: ['articulos'] });
       queryClient.invalidateQueries({ queryKey: ['activo-profile'] });
       queryClient.invalidateQueries({ queryKey: ['inventory-activos'] });
       onSuccess();
     },
-    onError: (err: unknown) => { const { message } = extractApiError(err); toast.error(message); },
+    onError: (err: unknown) => { handleError(err); },
   });
 
   const addCertMutation = useMutation({
@@ -113,7 +116,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
       queryClient.invalidateQueries({ queryKey: ['articulos'] });
       onSuccess();
     },
-    onError: (err: unknown) => { const { message } = extractApiError(err); toast.error(message); },
+    onError: (err: unknown) => { handleError(err); },
   });
 
   const deleteCertMutation = useMutation({
@@ -124,7 +127,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
       queryClient.invalidateQueries({ queryKey: ['articulos'] });
       onSuccess();
     },
-    onError: (err: unknown) => { const { message } = extractApiError(err); toast.error(message); },
+    onError: (err: unknown) => { handleError(err); },
   });
 
   const toggleEsp = (esp: ArticuloEspecialidad) => {
@@ -343,6 +346,8 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
             required={false}
           />
         </section>
+
+        <ErrorAlert message={error} className="mb-3" />
 
         <div className="flex justify-end gap-2 pt-2 border-t border-edge">
           <button type="button" onClick={onClose}

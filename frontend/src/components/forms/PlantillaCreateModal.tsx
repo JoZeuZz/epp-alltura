@@ -11,7 +11,8 @@ import {
   type ArticuloTipo,
   type ArticuloEspecialidad,
 } from '../../services/apiService';
-import { extractApiError } from '../../lib/apiError';
+import { useFormErrors } from '../../hooks/useFormErrors';
+import ErrorAlert from '../ui/ErrorAlert';
 
 const TIPOS: ArticuloTipo[] = ['epp', 'herramienta', 'equipo'];
 const TIPO_LABELS: Record<ArticuloTipo, string> = {
@@ -69,6 +70,7 @@ export function PlantillaCreateModal({ isOpen, onClose, defaultTipo = 'epp', onC
   const [fotoFile, setFotoFile]   = useState<File | null>(null);
   const [manualFile, setManualFile] = useState<File | null>(null);
   const [manualTab, setManualTab]  = useState<'url' | 'file'>('url');
+  const { error, handleError, clearError } = useFormErrors();
 
   const mutation = useMutation({
     mutationFn: (data: FormValues) =>
@@ -82,6 +84,7 @@ export function PlantillaCreateModal({ isOpen, onClose, defaultTipo = 'epp', onC
       ),
     onSuccess: (plantilla) => {
       toast.success('Plantilla creada correctamente');
+      clearError();
       queryClient.invalidateQueries({ queryKey: ['plantillas'] });
       reset();
       setFotoFile(null);
@@ -90,8 +93,7 @@ export function PlantillaCreateModal({ isOpen, onClose, defaultTipo = 'epp', onC
       onClose();
     },
     onError: (err: unknown) => {
-      const { message } = extractApiError(err);
-      toast.error(message);
+      handleError(err);
     },
   });
 
@@ -253,6 +255,8 @@ export function PlantillaCreateModal({ isOpen, onClose, defaultTipo = 'epp', onC
         </div>
 
         {/* Actions */}
+        <ErrorAlert message={error} className="mb-3" />
+
         <div className="flex justify-end gap-2 pt-2">
           <button
             type="button"
