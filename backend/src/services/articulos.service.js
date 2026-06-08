@@ -231,6 +231,23 @@ class ArticulosService {
       );
     }
 
+    const { rows: draftCheck } = await db.query(
+      `SELECT 1
+       FROM entrega_detalle ed
+       JOIN entrega e ON e.id = ed.entrega_id
+       WHERE ed.articulo_id = $1
+         AND e.estado NOT IN ('confirmada', 'anulada')
+       LIMIT 1`,
+      [id]
+    );
+    if (draftCheck.length > 0) {
+      throw buildError(
+        'El artículo está incluido en una entrega pendiente o en borrador y no puede eliminarse.',
+        409,
+        'ARTICULO_IN_DRAFT_DELIVERY'
+      );
+    }
+
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');

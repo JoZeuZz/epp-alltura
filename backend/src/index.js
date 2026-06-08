@@ -45,6 +45,7 @@ const healthRoutes = require('./routes/health');
 
 const { startScheduler } = require('./scheduler');
 const { initializeDatabase } = require('./db/initialize');
+const { bootstrapAdmin } = require('./db/bootstrap');
 
 // Swagger/OpenAPI
 const swaggerUi = require('swagger-ui-express');
@@ -254,6 +255,7 @@ app.use(errorHandler);
 const startServer = async () => {
   try {
     await initializeDatabase();
+    await bootstrapAdmin();
 
     logger.info('Conectando a Redis...');
     await redisClient.connect();

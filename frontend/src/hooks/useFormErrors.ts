@@ -11,10 +11,8 @@ export const useFormErrors = () => {
 
     if (isServerError) {
       toast.error(message);
-      setError('');
-    } else {
-      setError(message);
     }
+    setError(message);
 
     setFieldErrors(fe);
   }, []);
