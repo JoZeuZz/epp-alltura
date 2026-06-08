@@ -125,7 +125,8 @@ class EntregasService {
       selectedArticuloIds.add(articuloId);
 
       const assetResult = await client.query(
-        `SELECT id, estado, bodega_actual_id
+        `SELECT id, estado, bodega_actual_id,
+                COALESCE(nro_serie, nombre, 'artículo') AS label
          FROM articulo
          WHERE id = $1
          FOR UPDATE`,
@@ -140,7 +141,7 @@ class EntregasService {
 
       if (asset.estado !== 'en_stock') {
         throw buildError(
-          `El artículo ${articuloId} no está disponible para entregar`,
+          `El artículo "${asset.label}" no está disponible para entregar`,
           409,
           'ASSET_NOT_AVAILABLE'
         );
@@ -148,7 +149,7 @@ class EntregasService {
 
       if (asset.bodega_actual_id !== ubicacionOrigenId) {
         throw buildError(
-          `El artículo ${articuloId} no se encuentra en la bodega de origen`,
+          `El artículo "${asset.label}" no se encuentra en la bodega de origen`,
           409,
           'ASSET_WRONG_LOCATION'
         );
@@ -166,7 +167,7 @@ class EntregasService {
 
       if (custodyResult.rows.length) {
         throw buildError(
-          `El artículo ${articuloId} ya tiene custodia activa`,
+          `El artículo "${asset.label}" ya tiene custodia activa`,
           409,
           'ACTIVE_CUSTODY_EXISTS'
         );
@@ -499,7 +500,8 @@ class EntregasService {
 
       for (const detail of detailResult.rows) {
         const assetResult = await client.query(
-          `SELECT id, estado, bodega_actual_id
+          `SELECT id, estado, bodega_actual_id,
+                  COALESCE(nro_serie, nombre, 'artículo') AS label
            FROM articulo
            WHERE id = $1
            FOR UPDATE`,
@@ -514,7 +516,7 @@ class EntregasService {
 
         if (asset.estado !== 'en_stock') {
           throw buildError(
-            `El artículo ${asset.id} ya no está disponible para confirmar`,
+            `El artículo "${asset.label}" ya no está disponible para confirmar`,
             409,
             'ASSET_NOT_AVAILABLE'
           );
@@ -522,7 +524,7 @@ class EntregasService {
 
         if (asset.bodega_actual_id !== entrega.bodega_origen_id) {
           throw buildError(
-            `El artículo ${asset.id} ya no se encuentra en la bodega de origen`,
+            `El artículo "${asset.label}" ya no se encuentra en la bodega de origen`,
             409,
             'ASSET_WRONG_LOCATION'
           );
@@ -540,7 +542,7 @@ class EntregasService {
 
         if (custodyResult.rows.length) {
           throw buildError(
-            `El artículo ${asset.id} ya tiene custodia activa`,
+            `El artículo "${asset.label}" ya tiene custodia activa`,
             409,
             'ACTIVE_CUSTODY_EXISTS'
           );

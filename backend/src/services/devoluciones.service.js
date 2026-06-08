@@ -158,8 +158,10 @@ class DevolucionesService {
       selectedCustodiaIds.add(custodiaId);
 
       const custodyResult = await client.query(
-        `SELECT ca.id, ca.articulo_id, ca.trabajador_id, ca.proyecto_id, ca.estado, ca.entrega_id
+        `SELECT ca.id, ca.articulo_id, ca.trabajador_id, ca.proyecto_id, ca.estado, ca.entrega_id,
+                COALESCE(a.nro_serie, a.nombre, 'artículo') AS label
          FROM custodia_activo ca
+         JOIN articulo a ON a.id = ca.articulo_id
          WHERE ca.id = $1
            AND ca.estado = 'activa'
          FOR UPDATE`,
@@ -168,7 +170,7 @@ class DevolucionesService {
 
       if (!custodyResult.rows.length) {
         throw buildError(
-          `La custodia ${custodiaId} no está activa o no existe`,
+          'La custodia no está activa o no existe',
           400,
           'NO_ACTIVE_CUSTODY'
         );
@@ -177,7 +179,7 @@ class DevolucionesService {
       const custody = custodyResult.rows[0];
       if (custody.trabajador_id !== trabajadorId) {
         throw buildError(
-          `La custodia ${custodiaId} no pertenece al trabajador seleccionado`,
+          `El artículo "${custody.label}" no pertenece al trabajador seleccionado`,
           409,
           'WORKER_CUSTODY_MISMATCH'
         );
@@ -720,7 +722,8 @@ class DevolucionesService {
         }
 
         const assetResult = await client.query(
-          `SELECT id, estado, proyecto_actual_id
+          `SELECT id, estado, proyecto_actual_id,
+                  COALESCE(nro_serie, nombre, 'artículo') AS label
            FROM articulo
            WHERE id = $1
            FOR UPDATE`,
@@ -734,7 +737,7 @@ class DevolucionesService {
         const asset = assetResult.rows[0];
         if (asset.estado !== 'asignado') {
           throw buildError(
-            `El artículo ${asset.id} no está en estado asignado`,
+            `El artículo "${asset.label}" no está en estado asignado`,
             409,
             'ASSET_NOT_ASSIGNED'
           );
@@ -742,7 +745,7 @@ class DevolucionesService {
 
         if (asset.proyecto_actual_id !== custody.proyecto_id) {
           throw buildError(
-            `El artículo ${asset.id} no está en el proyecto esperado`,
+            `El artículo "${asset.label}" no está en el proyecto esperado`,
             409,
             'ASSET_WRONG_PROJECT'
           );
