@@ -22,6 +22,16 @@ class ProveedoresController {
       return next(error);
     }
   }
+
+  static async remove(req, res, next) {
+    try {
+      const data = await ProveedoresService.remove(req.params.id);
+      return sendSuccess(res, { message: 'Proveedor desactivado correctamente', data });
+    } catch (error) {
+      logger.error('Error removing proveedor:', error);
+      return next(error);
+    }
+  }
 }
 
 module.exports = ProveedoresController;

@@ -38,4 +38,11 @@ router.post(
   ProveedoresController.create
 );
 
+router.delete(
+  '/:id',
+  authMiddleware,
+  checkRole(['admin']),
+  ProveedoresController.remove
+);
+
 module.exports = router;

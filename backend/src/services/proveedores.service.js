@@ -60,6 +60,37 @@ class ProveedoresService {
     }).catch((err) => logger.warn('Audit proveedor crear failed', { id: rows[0].id, error: err.message }));
     return rows[0];
   }
+
+  static async remove(id) {
+    const existing = await db.query('SELECT id FROM proveedor WHERE id = $1 LIMIT 1', [id]);
+    if (!existing.rows.length) {
+      throw buildError('Proveedor no encontrado', 404, 'PROVEEDOR_NOT_FOUND');
+    }
+
+    // Guard: bloquear si tiene artículos asociados
+    const { rows: conArticulos } = await db.query(
+      `SELECT COUNT(*) AS total FROM articulo WHERE proveedor_id = $1`,
+      [id]
+    );
+
+    if (parseInt(conArticulos[0].total, 10) > 0) {
+      throw buildError(
+        'El proveedor tiene artículos registrados. Reasigna o elimina los artículos antes de desactivar el proveedor.',
+        409,
+        'PROVEEDOR_HAS_ARTICULOS'
+      );
+    }
+
+    await db.query(`UPDATE proveedor SET estado = 'inactivo' WHERE id = $1`, [id]);
+    await writeAuditEvent({
+      entidadTipo: 'proveedor',
+      entidadId: id,
+      accion: 'eliminar',
+      usuarioId: null,
+      diff: { estado: 'inactivo' },
+    }).catch((err) => logger.warn('Audit proveedor eliminar failed', { id, error: err.message }));
+    return { id, estado: 'inactivo' };
+  }
 }
 
 module.exports = ProveedoresService;
