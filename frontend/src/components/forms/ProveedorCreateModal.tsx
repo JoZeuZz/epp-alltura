@@ -6,6 +6,7 @@ import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Modal from '../Modal';
 import { createProveedor, type Proveedor } from '../../services/apiService';
+import { extractApiError } from '../../lib/apiError';
 
 const schema = z.object({
   nombre:   z.string().min(2, 'Mínimo 2 caracteres').max(150),
@@ -35,8 +36,8 @@ const ProveedorCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) =
       onCreated(proveedor);
     },
     onError: (err: unknown) => {
-      const e = err as { response?: { data?: { message?: string } }; message?: string };
-      toast.error(e?.response?.data?.message ?? e?.message ?? 'Error al crear proveedor');
+      const { message } = extractApiError(err);
+      toast.error(message);
     },
   });
 

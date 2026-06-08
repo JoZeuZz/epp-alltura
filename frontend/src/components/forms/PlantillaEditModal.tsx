@@ -10,6 +10,7 @@ import {
   type PlantillaWithCount,
   type ArticuloEspecialidad,
 } from '../../services/apiService';
+import { extractApiError } from '../../lib/apiError';
 
 const ESPECIALIDADES: ArticuloEspecialidad[] = [
   'oocc',
@@ -78,8 +79,8 @@ export function PlantillaEditModal({ plantilla, isOpen, onClose, onUpdated }: Pr
       onClose();
     },
     onError: (err: unknown) => {
-      const e = err as { response?: { data?: { message?: string } }; message?: string };
-      toast.error(e?.response?.data?.message ?? e?.message ?? 'Error al actualizar plantilla');
+      const { message } = extractApiError(err);
+      toast.error(message);
     },
   });
 

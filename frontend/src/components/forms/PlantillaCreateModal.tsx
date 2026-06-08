@@ -11,6 +11,7 @@ import {
   type ArticuloTipo,
   type ArticuloEspecialidad,
 } from '../../services/apiService';
+import { extractApiError } from '../../lib/apiError';
 
 const TIPOS: ArticuloTipo[] = ['epp', 'herramienta', 'equipo'];
 const TIPO_LABELS: Record<ArticuloTipo, string> = {
@@ -89,8 +90,8 @@ export function PlantillaCreateModal({ isOpen, onClose, defaultTipo = 'epp', onC
       onClose();
     },
     onError: (err: unknown) => {
-      const e = err as { response?: { data?: { message?: string } }; message?: string };
-      toast.error(e?.response?.data?.message ?? e?.message ?? 'Error al crear plantilla');
+      const { message } = extractApiError(err);
+      toast.error(message);
     },
   });
 
