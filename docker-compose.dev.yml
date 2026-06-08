@@ -28,6 +28,9 @@ services:
       - "55432:5432"
     volumes:
       # Usa los SQL del checkout actual al reconstruir la base con `down -v && up -d`.
+      # NOTA DESARROLLO: Para cargar datos de prueba en una DB nueva, ejecutar manualmente:
+      #   docker exec -i <postgres_container> psql -U postgres herramientas_epp < scripts/dev-seed.sql
+      # El seed de desarrollo YA NO se carga automáticamente.
       - ./db/init:/docker-entrypoint-initdb.d:ro
       - postgres_dev_data:/var/lib/postgresql/data
     restart: unless-stopped
