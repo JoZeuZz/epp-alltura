@@ -9,6 +9,8 @@ import {
   type DevolucionRow,
 } from '../../services/apiService';
 import { useDeliverySignatureEvents } from '../../hooks/useDeliverySignatureEvents';
+import { useFormErrors } from '../../hooks/useFormErrors';
+import ErrorAlert from '../ui/ErrorAlert';
 
 interface DevolucionFirmaModalProps {
   isOpen: boolean;
@@ -40,7 +42,7 @@ const DevolucionFirmaModal: React.FC<DevolucionFirmaModalProps> = ({
   const lastPos = useRef<{ x: number; y: number } | null>(null);
 
   const [hasFirma, setHasFirma] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { error, handleError, clearError } = useFormErrors();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [qrMeta, setQrMeta] = useState<QrMeta | null>(null);
   const [isGeneratingQr, setIsGeneratingQr] = useState(false);
@@ -54,20 +56,17 @@ const DevolucionFirmaModal: React.FC<DevolucionFirmaModalProps> = ({
     if (!devolucion || confirmingRef.current) return;
     confirmingRef.current = true;
     setIsSubmitting(true);
-    setError(null);
+    clearError();
     try {
       await confirmDevolucion(devolucion.id);
       toast.success('Devolución confirmada y activo actualizado.');
       onCompleted();
     } catch (err: unknown) {
-      const apiError = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(
-        apiError?.response?.data?.message ?? apiError?.message ?? 'No se pudo confirmar la devolución.'
-      );
+      handleError(err);
       confirmingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [devolucion, onCompleted]);
+  }, [devolucion, onCompleted, handleError, clearError]);
 
   useDeliverySignatureEvents({
     enabled: isOpen && Boolean(devolucion?.id),
@@ -81,7 +80,7 @@ const DevolucionFirmaModal: React.FC<DevolucionFirmaModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       setHasFirma(false);
-      setError(null);
+      clearError();
       setIsSubmitting(false);
       setQrMeta(null);
       setIsGeneratingQr(false);
@@ -89,7 +88,7 @@ const DevolucionFirmaModal: React.FC<DevolucionFirmaModalProps> = ({
       lastPos.current = null;
       confirmingRef.current = false;
     }
-  }, [isOpen]);
+  }, [isOpen, clearError]);
 
   // Fondo blanco del canvas al abrir
   useEffect(() => {
@@ -114,10 +113,7 @@ const DevolucionFirmaModal: React.FC<DevolucionFirmaModalProps> = ({
         if (!cancelled) setQrMeta({ token: data.token, expira_en: data.expira_en });
       } catch (err: unknown) {
         if (!cancelled) {
-          const apiError = err as { response?: { data?: { message?: string } }; message?: string };
-          setError(
-            apiError?.response?.data?.message ?? apiError?.message ?? 'No se pudo generar el QR de firma.'
-          );
+          handleError(err);
         }
       } finally {
         if (!cancelled) setIsGeneratingQr(false);
@@ -126,7 +122,7 @@ const DevolucionFirmaModal: React.FC<DevolucionFirmaModalProps> = ({
 
     void loadQr();
     return () => { cancelled = true; };
-  }, [devolucion?.id, isOpen]);
+  }, [devolucion?.id, isOpen, handleError]);
 
   const getPos = (
     e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>,
@@ -193,10 +189,10 @@ const DevolucionFirmaModal: React.FC<DevolucionFirmaModalProps> = ({
   };
 
   const handleConfirmar = async () => {
-    setError(null);
+    clearError();
     if (!devolucion) return;
     if (!hasFirma) {
-      setError('Debes firmar antes de confirmar.');
+      handleError(new Error('Debes firmar antes de confirmar.'));
       return;
     }
     const canvas = canvasRef.current;
@@ -207,8 +203,7 @@ const DevolucionFirmaModal: React.FC<DevolucionFirmaModalProps> = ({
       await firmarDevolucionDispositivo(devolucion.id, firmaBase64, TEXTO_ACEPTACION);
       await finalizeDevolucion();
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(e?.response?.data?.message ?? e?.message ?? 'Error al registrar la firma.');
+      handleError(err);
       setIsSubmitting(false);
     }
   };
@@ -343,12 +338,8 @@ const DevolucionFirmaModal: React.FC<DevolucionFirmaModalProps> = ({
       </div>
 
       {error && (
-        <div
-          id={signatureErrorId}
-          className="mt-3 p-3 bg-danger-subtle border border-danger-border rounded-lg text-sm text-danger-text"
-          role="alert"
-        >
-          {error}
+        <div id={signatureErrorId}>
+          <ErrorAlert message={error} className="mb-3" />
         </div>
       )}
 
