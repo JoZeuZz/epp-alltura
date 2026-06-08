@@ -5,6 +5,8 @@ import Modal from '../Modal';
 import { useGet } from '../../hooks';
 import { createDevolucion, type DevolucionRow } from '../../services/apiService';
 import FotoEvidenciaUpload from './FotoEvidenciaUpload';
+import { useFormErrors } from '../../hooks/useFormErrors';
+import ErrorAlert from '../ui/ErrorAlert';
 
 interface BodegaOption {
   id: string;
@@ -50,7 +52,7 @@ const DevolucionActivoModal: React.FC<Props> = ({
   const [condicion, setCondicion] = useState<'ok' | 'usado' | 'danado' | 'perdido'>('ok');
   const [disposicion, setDisposicion] = useState<'devuelto' | 'perdido' | 'baja' | 'mantencion'>('devuelto');
   const [notas, setNotas] = useState('');
-  const [formError, setFormError] = useState<string | null>(null);
+  const { error: formError, handleError: handleFormError, clearError: clearFormError } = useFormErrors();
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoError, setFotoError] = useState<string | null>(null);
 
@@ -87,20 +89,18 @@ const DevolucionActivoModal: React.FC<Props> = ({
       onDraftCreated(devolucion);
     },
     onError: (error: unknown) => {
-      const e = error as { response?: { data?: { message?: string } }; message?: string };
-      const msg = e?.response?.data?.message ?? e?.message ?? 'No se pudo crear la devolución.';
-      setFormError(msg);
+      handleFormError(error);
     },
   });
 
   const handleSubmit = () => {
-    setFormError(null);
+    clearFormError();
     if (!fotoFile) {
       setFotoError('La foto de evidencia es obligatoria.');
       return;
     }
     if (!ubicacionId) {
-      setFormError('Selecciona una ubicación de recepción.');
+      handleFormError(new Error('Selecciona una ubicación de recepción.'));
       return;
     }
     mutation.mutate();
@@ -189,11 +189,7 @@ const DevolucionActivoModal: React.FC<Props> = ({
           />
         </div>
 
-        {formError && (
-          <div className="p-3 bg-danger-subtle border border-danger-border rounded-lg text-sm text-danger-text" role="alert">
-            {formError}
-          </div>
-        )}
+        {formError && <ErrorAlert message={formError} className="mb-3" />}
 
         <div className="flex gap-3 pt-1">
           <button
