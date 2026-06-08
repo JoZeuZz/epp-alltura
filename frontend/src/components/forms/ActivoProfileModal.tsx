@@ -3,6 +3,7 @@ import { Maximize2, Minimize2 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import Modal from '../Modal';
+import { extractApiError } from '../../lib/apiError';
 import EntregaCreateModal from './EntregaCreateModal';
 import EntregaFirmaModal from './EntregaFirmaModal';
 import DevolucionActivoModal from './DevolucionActivoModal';
@@ -163,8 +164,8 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
       onClose();
     },
     onError: (err: unknown) => {
-      const e = err as { response?: { data?: { message?: string } }; message?: string };
-      toast.error(e?.response?.data?.message ?? e?.message ?? 'Error al eliminar');
+      const { message } = extractApiError(err);
+      toast.error(message);
     },
   });
 
@@ -279,8 +280,8 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
       toast.success('Entrega creada. Continúa con la firma del trabajador para completar el flujo.');
     },
     onError: (err: unknown) => {
-      const e = err as { response?: { data?: { message?: string } }; message?: string };
-      toast.error(e?.response?.data?.message ?? e?.message ?? 'No se pudo crear la entrega.');
+      const { message } = extractApiError(err);
+      toast.error(message);
     },
   });
 
@@ -296,8 +297,8 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
       onRefresh?.();
     },
     onError: (err: unknown) => {
-      const e = err as { response?: { data?: { message?: string } }; message?: string };
-      toast.error(e?.response?.data?.message ?? e?.message ?? 'No se pudo cambiar el estado del artículo.');
+      const { message } = extractApiError(err);
+      toast.error(message);
     },
   });
 

@@ -10,6 +10,7 @@ import {
   type Plantilla,
 } from '../../services/apiService';
 import { PlantillaCreateModal } from './PlantillaCreateModal';
+import { extractApiError } from '../../lib/apiError';
 
 interface Props {
   tipo: ArticuloTipo;
@@ -85,8 +86,8 @@ export function ArticuloBatchModal({ tipo, bodegas, isOpen, onClose }: Props) {
       onClose();
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
-      toast.error(msg ?? 'Error al crear artículos');
+      const { message } = extractApiError(err);
+      toast.error(message);
     },
   });
 

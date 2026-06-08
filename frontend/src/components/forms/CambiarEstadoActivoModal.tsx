@@ -7,6 +7,7 @@ import {
   cambiarEstadoActivo,
   type InventoryActivoDetailRow,
 } from '../../services/apiService';
+import { extractApiError } from '../../lib/apiError';
 
 interface BodegaOption {
   id: string;
@@ -49,12 +50,6 @@ interface Props {
   onSuccess: () => void;
 }
 
-const toErrorMessage = (error: unknown): string => {
-  if (error instanceof Error && error.message) return error.message;
-  const payload = error as { response?: { data?: { message?: string } } };
-  return payload?.response?.data?.message || 'No se pudo completar la operación.';
-};
-
 const CambiarEstadoActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
   const transiciones = TRANSICIONES[activo.estado ?? ''] ?? [];
   const [selectedEstado, setSelectedEstado] = useState<string | null>(null);
@@ -85,7 +80,7 @@ const CambiarEstadoActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess 
       queryClient.invalidateQueries({ queryKey: ['admin-inventory'] });
       onSuccess();
     },
-    onError: (err) => toast.error(toErrorMessage(err)),
+    onError: (err: unknown) => { const { message } = extractApiError(err); toast.error(message); },
   });
 
   const canSubmit =

@@ -21,6 +21,7 @@ import {
 import ProveedorCreateModal from './forms/ProveedorCreateModal';
 import FotoEvidenciaUpload from './forms/FotoEvidenciaUpload';
 import { PlantillaCreateModal, PlantillaEditModal } from './forms';
+import { extractApiError } from '../lib/apiError';
 
 const ESPECIALIDADES = ['oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida'] as const;
 
@@ -133,9 +134,9 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
       onClose();
       onSuccess?.(articulo);
     },
-    onError: (err) => {
-      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
-      toast.error(msg ?? 'Error al crear');
+    onError: (err: unknown) => {
+      const { message } = extractApiError(err);
+      toast.error(message);
     },
   });
 

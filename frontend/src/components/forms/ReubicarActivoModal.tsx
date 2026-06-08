@@ -7,18 +7,13 @@ import {
   reubicarActivo,
   type InventoryActivoDetailRow,
 } from '../../services/apiService';
+import { extractApiError } from '../../lib/apiError';
 
 interface BodegaOption {
   id: string;
   nombre: string;
   estado: string;
 }
-
-const toErrorMessage = (error: unknown): string => {
-  if (error instanceof Error && error.message) return error.message;
-  const payload = error as { response?: { data?: { message?: string } } };
-  return payload?.response?.data?.message || 'No se pudo completar la operación.';
-};
 
 interface Props {
   activo: InventoryActivoDetailRow;
@@ -51,7 +46,7 @@ const ReubicarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) =>
       queryClient.invalidateQueries({ queryKey: ['admin-inventory'] });
       onSuccess();
     },
-    onError: (err) => toast.error(toErrorMessage(err)),
+    onError: (err: unknown) => { const { message } = extractApiError(err); toast.error(message); },
   });
 
   const canSubmit = ubicacionId && ubicacionId !== currentBodegaId;

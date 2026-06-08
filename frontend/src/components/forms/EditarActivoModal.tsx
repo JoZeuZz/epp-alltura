@@ -14,6 +14,7 @@ import {
   type ArticuloCertificacion,
   type Proveedor,
 } from '../../services/apiService';
+import { extractApiError } from '../../lib/apiError';
 
 const ESPECIALIDADES = ['oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida'] as const;
 const ESP_LABELS: Record<string, string> = {
@@ -21,12 +22,6 @@ const ESP_LABELS: Record<string, string> = {
   ooee: 'OOEE',
   equipos: 'Equipos',
   trabajos_verticales_lineas_de_vida: 'Trabajos Verticales / Líneas de Vida',
-};
-
-const toErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  const p = error as { response?: { data?: { message?: string } } };
-  return p?.response?.data?.message || 'No se pudo completar la operación.';
 };
 
 interface Props {
@@ -103,7 +98,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
       queryClient.invalidateQueries({ queryKey: ['inventory-activos'] });
       onSuccess();
     },
-    onError: (err) => toast.error(toErrorMessage(err)),
+    onError: (err: unknown) => { const { message } = extractApiError(err); toast.error(message); },
   });
 
   const addCertMutation = useMutation({
@@ -118,7 +113,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
       queryClient.invalidateQueries({ queryKey: ['articulos'] });
       onSuccess();
     },
-    onError: (err) => toast.error(toErrorMessage(err)),
+    onError: (err: unknown) => { const { message } = extractApiError(err); toast.error(message); },
   });
 
   const deleteCertMutation = useMutation({
@@ -129,7 +124,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
       queryClient.invalidateQueries({ queryKey: ['articulos'] });
       onSuccess();
     },
-    onError: (err) => toast.error(toErrorMessage(err)),
+    onError: (err: unknown) => { const { message } = extractApiError(err); toast.error(message); },
   });
 
   const toggleEsp = (esp: ArticuloEspecialidad) => {
