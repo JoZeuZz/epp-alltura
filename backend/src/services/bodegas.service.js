@@ -1,5 +1,5 @@
 const BodegaModel = require('../models/bodega');
-
+const db = require('../db');
 const { buildError } = require('../lib/errors');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
 const { logger } = require('../lib/logger');
@@ -45,6 +45,24 @@ class BodegasService {
   static async remove(id) {
     const existing = await BodegaModel.findById(id);
     if (!existing) throw buildError('Bodega no encontrada', 404);
+
+    // Guard: bloquear si hay artículos en stock en esta bodega
+    const { rows: stock } = await db.query(
+      `SELECT COUNT(*) AS total
+       FROM articulo
+       WHERE bodega_actual_id = $1
+         AND estado = 'en_stock'`,
+      [id]
+    );
+
+    if (parseInt(stock[0].total, 10) > 0) {
+      throw buildError(
+        'La bodega tiene artículos en stock. Redistribuye o da de baja los artículos antes de desactivar la bodega.',
+        409,
+        'BODEGA_HAS_STOCK'
+      );
+    }
+
     const result = await BodegaModel.update(id, { estado: 'inactivo' });
     await writeAuditEvent({
       entidadTipo: 'bodega',
