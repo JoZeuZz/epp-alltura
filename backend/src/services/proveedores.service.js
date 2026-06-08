@@ -69,7 +69,8 @@ class ProveedoresService {
 
     // Guard: bloquear si tiene artículos asociados
     const { rows: conArticulos } = await db.query(
-      `SELECT COUNT(*) AS total FROM articulo WHERE proveedor_id = $1`,
+      `SELECT COUNT(*) AS total FROM articulo
+       WHERE proveedor_id = $1 AND estado NOT IN ('dado_de_baja', 'perdido')`,
       [id]
     );
 
