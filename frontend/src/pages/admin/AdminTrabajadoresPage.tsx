@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { keepPreviousData, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { extractApiError } from '../../lib/apiError';
 import Modal from '../../components/Modal';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import TrabajadorProfileModal from '../../components/forms/TrabajadorProfileModal';
@@ -70,12 +71,6 @@ const mapTrabajadorToForm = (t?: Trabajador | null): TrabajadorFormValues => {
   };
 };
 
-const toErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  const payload = error as { response?: { data?: { message?: string } } };
-  return payload?.response?.data?.message ?? 'No se pudo completar la operación.';
-};
-
 const validateForm = (values: TrabajadorFormValues, isEdit: boolean): FormErrors => {
   const errors: FormErrors = {};
   if (!isEdit) {
@@ -119,14 +114,12 @@ const TrabajadorFormModal: React.FC<TrabajadorFormModalProps> = ({
 }) => {
   const [values, setValues] = useState<TrabajadorFormValues>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [generalError, setGeneralError] = useState('');
   const isEdit = mode === 'edit';
 
   React.useEffect(() => {
     if (isOpen) {
       setValues(mapTrabajadorToForm(initialValues));
       setErrors({});
-      setGeneralError('');
     }
   }, [isOpen, initialValues]);
 
@@ -142,11 +135,11 @@ const TrabajadorFormModal: React.FC<TrabajadorFormModalProps> = ({
       setErrors(formErrors);
       return;
     }
-    setGeneralError('');
     try {
       await onSubmit(values);
-    } catch (err) {
-      setGeneralError(toErrorMessage(err));
+    } catch (err: unknown) {
+      const { message } = extractApiError(err);
+      toast.error(message);
     }
   };
 
@@ -272,12 +265,6 @@ const TrabajadorFormModal: React.FC<TrabajadorFormModalProps> = ({
           )}
         </div>
 
-        {generalError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-            <p className="text-red-700 text-sm">{generalError}</p>
-          </div>
-        )}
-
         <div className="flex gap-3 pt-2">
           <button
             type="button"
@@ -361,8 +348,9 @@ const AdminTrabajadoresPage: React.FC = () => {
       toast.success('Trabajador creado correctamente.');
       setModalOpen(false);
     },
-    onError: (err) => {
-      toast.error(toErrorMessage(err));
+    onError: (err: unknown) => {
+      const { message } = extractApiError(err);
+      toast.error(message);
     },
   });
 
@@ -376,8 +364,9 @@ const AdminTrabajadoresPage: React.FC = () => {
       setModalOpen(false);
       setEditTarget(null);
     },
-    onError: (err) => {
-      toast.error(toErrorMessage(err));
+    onError: (err: unknown) => {
+      const { message } = extractApiError(err);
+      toast.error(message);
     },
   });
 
@@ -393,8 +382,9 @@ const AdminTrabajadoresPage: React.FC = () => {
       toast.success(`Trabajador ${accion} correctamente.`);
       setConfirmAction(null);
     },
-    onError: (err) => {
-      toast.error(toErrorMessage(err));
+    onError: (err: unknown) => {
+      const { message } = extractApiError(err);
+      toast.error(message);
       setConfirmAction(null);
     },
   });

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { extractApiError } from '../../lib/apiError';
 import Modal from '../../components/Modal';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import { ResponsiveTable, type TableColumn } from '../../components/layout';
@@ -37,12 +38,6 @@ const INITIAL_FORM: BodegaFormValues = {
   direccion: '',
   descripcion: '',
   estado: 'activo',
-};
-
-const toErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  const p = error as { response?: { data?: { message?: string } } };
-  return p?.response?.data?.message ?? 'No se pudo completar la operación.';
 };
 
 const mapToForm = (b?: Bodega | null): BodegaFormValues => {
@@ -84,14 +79,12 @@ const BodegaFormModal: React.FC<BodegaFormModalProps> = ({
 }) => {
   const [values, setValues] = useState<BodegaFormValues>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
-  const [generalError, setGeneralError] = useState('');
   const isEdit = mode === 'edit';
 
   React.useEffect(() => {
     if (isOpen) {
       setValues(mapToForm(initialValues));
       setErrors({});
-      setGeneralError('');
     }
   }, [isOpen, initialValues]);
 
@@ -104,11 +97,11 @@ const BodegaFormModal: React.FC<BodegaFormModalProps> = ({
     e.preventDefault();
     const formErrors = validateForm(values);
     if (Object.keys(formErrors).length > 0) { setErrors(formErrors); return; }
-    setGeneralError('');
     try {
       await onSubmit(values);
-    } catch (err) {
-      setGeneralError(toErrorMessage(err));
+    } catch (err: unknown) {
+      const { message } = extractApiError(err);
+      toast.error(message);
     }
   };
 
@@ -188,12 +181,6 @@ const BodegaFormModal: React.FC<BodegaFormModalProps> = ({
           </div>
         )}
 
-        {generalError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-            <p className="text-red-700 text-sm">{generalError}</p>
-          </div>
-        )}
-
         <div className="flex gap-3 pt-2">
           <button
             type="button"
@@ -262,7 +249,7 @@ const AdminBodegasPage: React.FC = () => {
       toast.success('Bodega creada correctamente.');
       setModalOpen(false);
     },
-    onError: (err) => toast.error(toErrorMessage(err)),
+    onError: (err: unknown) => { const { message } = extractApiError(err); toast.error(message); },
   });
 
   const updateMutation = useMutation({
@@ -275,7 +262,7 @@ const AdminBodegasPage: React.FC = () => {
       setModalOpen(false);
       setEditTarget(null);
     },
-    onError: (err) => toast.error(toErrorMessage(err)),
+    onError: (err: unknown) => { const { message } = extractApiError(err); toast.error(message); },
   });
 
   const toggleMutation = useMutation({
@@ -287,7 +274,7 @@ const AdminBodegasPage: React.FC = () => {
       toast.success(b.estado === 'activo' ? 'Bodega desactivada.' : 'Bodega activada.');
       setConfirmState(null);
     },
-    onError: (err) => toast.error(toErrorMessage(err)),
+    onError: (err: unknown) => { const { message } = extractApiError(err); toast.error(message); },
   });
 
   const handleFormSubmit = async (values: BodegaFormValues) => {

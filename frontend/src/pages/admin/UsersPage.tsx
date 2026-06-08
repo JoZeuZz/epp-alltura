@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import ConfirmationModal from '../../components/ConfirmationModal';
+import { extractApiError } from '../../lib/apiError';
 import Modal from '../../components/Modal';
 import { EntityCard } from '../../components/cards';
 import { ResponsiveTable, type TableColumn } from '../../components/layout';
@@ -133,12 +134,6 @@ const buildFormFromUser = (user: UserRecord): UserFormValues => ({
   rut: getDisplayRut(user.rut),
   phone_number: user.phone_number || '',
 });
-
-const toErrorMessage = (error: unknown): string => {
-  if (error instanceof Error && error.message) return error.message;
-  const p = error as { response?: { data?: { message?: string } } };
-  return p?.response?.data?.message || 'No se pudo completar la operación.';
-};
 
 const validateForm = (values: UserFormValues, isEditing: boolean): UserFormErrors => {
   const errors: UserFormErrors = {};
@@ -332,8 +327,9 @@ const UsersPage: React.FC = () => {
         toast.success('Usuario creado correctamente.');
       }
       closeFormModal();
-    } catch (err) {
-      toast.error(toErrorMessage(err));
+    } catch (err: unknown) {
+      const { message } = extractApiError(err);
+      toast.error(message);
     }
   };
 
@@ -352,8 +348,9 @@ const UsersPage: React.FC = () => {
           : 'Usuario desactivado por tener asignaciones.'
       );
       closeDeleteModal();
-    } catch (err) {
-      toast.error(toErrorMessage(err));
+    } catch (err: unknown) {
+      const { message } = extractApiError(err);
+      toast.error(message);
     }
   };
 
@@ -563,7 +560,7 @@ const UsersPage: React.FC = () => {
           </svg>
           <div>
             <p className="label-base text-danger-text font-semibold">Error al cargar usuarios</p>
-            <p className="body-small text-danger-text mt-0.5">{toErrorMessage(error)}</p>
+            <p className="body-small text-danger-text mt-0.5">{extractApiError(error).message}</p>
           </div>
         </section>
       )}
