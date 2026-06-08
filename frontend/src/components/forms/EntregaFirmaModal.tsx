@@ -9,6 +9,8 @@ import {
   type EntregaRow,
 } from '../../services/apiService';
 import { useDeliverySignatureEvents } from '../../hooks/useDeliverySignatureEvents';
+import { useFormErrors } from '../../hooks/useFormErrors';
+import ErrorAlert from '../ui/ErrorAlert';
 
 interface EntregaFirmaModalProps {
   isOpen: boolean;
@@ -57,7 +59,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
   const lastPos = useRef<{ x: number; y: number } | null>(null);
   const confirmingRef = useRef(false);
   const [hasFirma, setHasFirma] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { error, handleError, clearError } = useFormErrors();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [qrMeta, setQrMeta] = useState<DeliveryTokenMeta | null>(null);
   const [isGeneratingQr, setIsGeneratingQr] = useState(false);
@@ -77,7 +79,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
 
     confirmingRef.current = true;
     setIsSubmitting(true);
-    setError(null);
+    clearError();
 
     try {
       // Extension point: no-op by default, future use for photo evidence
@@ -138,17 +140,11 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
       toast.success('Entrega confirmada y activo actualizado.');
       onCompleted();
     } catch (err: unknown) {
-      const apiError = err as { response?: { data?: { message?: string } }; message?: string };
-      const message =
-        apiError?.response?.data?.message ??
-        apiError?.message ??
-        'No se pudo confirmar la entrega.';
-
-      setError(message);
+      handleError(err);
       confirmingRef.current = false;
       setIsSubmitting(false);
     }
-  }, [entrega, onCompleted, afterSignatureBeforeConfirm]);
+  }, [entrega, onCompleted, afterSignatureBeforeConfirm, handleError]);
 
   useDeliverySignatureEvents({
     enabled: isOpen && Boolean(entrega?.id),
@@ -165,7 +161,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
   useEffect(() => {
     if (!isOpen) {
       setHasFirma(false);
-      setError(null);
+      clearError();
       setIsSubmitting(false);
       setQrMeta(null);
       setIsGeneratingQr(false);
@@ -173,7 +169,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
       isDrawing.current = false;
       confirmingRef.current = false;
     }
-  }, [isOpen]);
+  }, [isOpen, clearError]);
 
   useEffect(() => {
     if (!isOpen || !entrega?.id) {
@@ -194,12 +190,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
         }
       } catch (err: unknown) {
         if (!cancelled) {
-          const apiError = err as { response?: { data?: { message?: string } }; message?: string };
-          setError(
-            apiError?.response?.data?.message ??
-              apiError?.message ??
-              'No se pudo generar el QR de firma.'
-          );
+          handleError(err);
         }
       } finally {
         if (!cancelled) {
@@ -213,7 +204,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [entrega?.id, isOpen]);
+  }, [entrega?.id, isOpen, handleError]);
 
   // Set canvas background to white when it mounts
   useEffect(() => {
@@ -299,7 +290,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
   };
 
   const handleConfirmar = async () => {
-    setError(null);
+    clearError();
     const canvas = canvasRef.current;
     if (!canvas) return;
     if (!entrega) return;
@@ -315,7 +306,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
     }
 
     if (!hasFirma) {
-      setError('Debes firmar antes de confirmar.');
+      handleError(new Error('Debes firmar antes de confirmar.'));
       return;
     }
 
@@ -327,8 +318,7 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
       await firmarEntregaDispositivo(entrega.id, firmaBase64, acceptanceText);
       await finalizeDelivery();
     } catch (err: unknown) {
-      const e = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(e?.response?.data?.message ?? e?.message ?? 'Error al registrar la firma.');
+      handleError(err);
       setIsSubmitting(false);
     }
   };
@@ -482,12 +472,8 @@ const EntregaFirmaModal: React.FC<EntregaFirmaModalProps> = ({
 
       {/* Error */}
       {error && (
-        <div
-          id={signatureErrorId}
-          className="mt-3 p-3 bg-danger-subtle border border-danger-border rounded-lg text-sm text-danger-text"
-          role="alert"
-        >
-          {error}
+        <div id={signatureErrorId}>
+          <ErrorAlert message={error} className="mb-3" />
         </div>
       )}
 
