@@ -90,11 +90,12 @@ describe('InventoryLocationPieChart', () => {
 
   it('truncates labels longer than 18 chars and shows full name in strip', () => {
     const longName = 'Bodega Central Antofagasta Norte';
+    const onLocationClick = vi.fn();
     const items = [
       makeItem({ id: '1', bodega_nombre: longName }),
       makeItem({ id: '2', bodega_nombre: 'Bodega Sur' }),
     ];
-    render(<InventoryLocationPieChart items={items} isLoading={false} onLocationClick={vi.fn()} />);
+    render(<InventoryLocationPieChart items={items} isLoading={false} onLocationClick={onLocationClick} />);
 
     // El SVG label debe mostrar versión truncada (slice(0,18) + '…')
     // "Bodega Central Antofagasta Norte".slice(0,18) === "Bodega Central Ant"
@@ -110,5 +111,20 @@ describe('InventoryLocationPieChart', () => {
 
     // La franja inferior muestra el nombre completo
     expect(screen.getByText(longName)).toBeInTheDocument();
+
+    // Click en "Ver inventario" llama onLocationClick con el nombre completo sin truncar
+    fireEvent.click(screen.getByRole('button', { name: /ver inventario/i }));
+    expect(onLocationClick).toHaveBeenCalledWith(longName);
+  });
+
+  it('groups by proyecto_nombre when bodega_nombre is null', () => {
+    const items = [
+      makeItem({ id: '1', bodega_nombre: null, proyecto_nombre: 'Proyecto Minera' }),
+      makeItem({ id: '2', bodega_nombre: null, proyecto_nombre: 'Proyecto Minera' }),
+      makeItem({ id: '3', bodega_nombre: 'Bodega Sur', proyecto_nombre: null }),
+    ];
+    render(<InventoryLocationPieChart items={items} isLoading={false} onLocationClick={vi.fn()} />);
+    expect(screen.getByText('Proyecto Minera')).toBeInTheDocument();
+    expect(screen.getByText('Bodega Sur')).toBeInTheDocument();
   });
 });

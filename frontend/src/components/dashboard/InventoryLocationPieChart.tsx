@@ -17,32 +17,37 @@ function slicePath(startDeg: number, endDeg: number): string {
   return `M ${CX} ${CY} L ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${R} ${R} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)} Z`;
 }
 
+const LABEL_MAX = 18;
+function truncateLabel(name: string): string {
+  return name.length > LABEL_MAX ? name.slice(0, LABEL_MAX) + '…' : name;
+}
+
 interface Props {
   items: Articulo[];
   isLoading: boolean;
-  onCityClick: (ciudad: string | null) => void;
+  onLocationClick: (location: string | null) => void;
 }
 
-const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityClick }) => {
+const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onLocationClick }) => {
   const [hovered, setHovered] = useState<number | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
 
-  const cityData = useMemo(() => {
+  const locationData = useMemo(() => {
     const map = new Map<string, number>();
     items.forEach(a => {
-      const key = a.bodega_ciudad ?? a.proyecto_ciudad ?? 'Sin ubicación';
+      const key = a.bodega_nombre ?? a.proyecto_nombre ?? 'Sin ubicación';
       map.set(key, (map.get(key) ?? 0) + 1);
     });
     return Array.from(map.entries())
-      .map(([city, count], i) => ({
-        city,
+      .map(([name, count], i) => ({
+        name,
         count,
-        color: city === 'Sin ubicación' ? COLOR_NONE : COLORS[i % COLORS.length],
+        color: name === 'Sin ubicación' ? COLOR_NONE : COLORS[i % COLORS.length],
       }))
       .sort((a, b) => b.count - a.count);
   }, [items]);
 
-  const total = useMemo(() => cityData.reduce((s, d) => s + d.count, 0), [cityData]);
+  const total = useMemo(() => locationData.reduce((s, d) => s + d.count, 0), [locationData]);
 
   if (isLoading) {
     return (
@@ -53,7 +58,7 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
     );
   }
 
-  if (cityData.length < 2) {
+  if (locationData.length < 2) {
     return (
       <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-5 flex items-center justify-center h-40">
         <p className="text-sm text-gray-400">
@@ -64,7 +69,7 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
   }
 
   let angle = 0;
-  const slices = cityData.map((d, i) => {
+  const slices = locationData.map((d, i) => {
     const sweep = (d.count / total) * 360;
     const startDeg = angle;
     angle += sweep;
@@ -75,7 +80,7 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
     <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-5">
       <div className="flex items-center justify-between mb-5">
         <span className="text-xs font-bold uppercase tracking-widest text-gray-400">
-          Distribución por ciudad
+          Distribución por bodega / proyecto
         </span>
         <span className="text-xs font-bold text-dark-blue bg-blue-50 border border-blue-100 rounded-full px-3 py-1">
           {total} artículos
@@ -97,9 +102,9 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
 
           return (
             <g
-              key={s.city}
+              key={s.name}
               role="group"
-              aria-label={`${s.city}: ${s.count} artículos (${pct}%)`}
+              aria-label={`${s.name}: ${s.count} artículos (${pct}%)`}
               transform={`translate(${dx}, ${dy})`}
               style={{ cursor: 'pointer', transition: 'transform 0.18s cubic-bezier(.4,0,.2,1)' }}
               onClick={() => setSelected(selected === s.index ? null : s.index)}
@@ -146,7 +151,7 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
                   transition: 'fill 0.18s ease',
                 }}
               >
-                {s.city}
+                {truncateLabel(s.name)}
               </text>
               <text
                 x={lbl.x.toFixed(2)} y={(lbl.y + 16).toFixed(2)}
@@ -170,14 +175,13 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
       {selected !== null && (
         <div className="mt-2 flex items-center justify-between bg-blue-50 border border-blue-100 rounded-lg px-4 py-2.5">
           <span className="text-sm text-dark-blue font-medium">
-            Ciudad:{' '}
-            <strong className="text-primary-blue">{slices[selected].city}</strong>
+            <strong className="text-primary-blue">{slices[selected].name}</strong>
           </span>
           <button
             type="button"
             onClick={() => {
-              const city = slices[selected!].city;
-              onCityClick(city === 'Sin ubicación' ? null : city);
+              const name = slices[selected!].name;
+              onLocationClick(name === 'Sin ubicación' ? null : name);
             }}
             className="text-xs font-semibold text-white bg-dark-blue rounded-md px-3 py-1.5 hover:bg-primary-blue transition-colors"
           >
@@ -188,7 +192,7 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onCityCl
 
       <p className="text-center text-xs text-gray-300 mt-2">
         Click en un sector para{' '}
-        <span className="text-gray-400 font-medium">filtrar por ciudad</span>
+        <span className="text-gray-400 font-medium">filtrar por bodega o proyecto</span>
       </p>
     </div>
   );
