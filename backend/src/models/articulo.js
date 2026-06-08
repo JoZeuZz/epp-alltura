@@ -196,6 +196,104 @@ class ArticuloModel {
     await client.query(`DELETE FROM articulo WHERE id = $1`, [id]);
   }
 
+  static async exportAll() {
+    const { rows } = await db.query(`
+      SELECT a.*,
+        COALESCE(
+          json_agg(ae.especialidad ORDER BY ae.especialidad)
+          FILTER (WHERE ae.especialidad IS NOT NULL),
+          '[]'
+        ) AS especialidades
+      FROM articulo a
+      LEFT JOIN articulo_especialidad ae ON ae.articulo_id = a.id
+      GROUP BY a.id
+      ORDER BY a.creado_en ASC
+    `);
+    return rows;
+  }
+
+  static async upsertBatch(rows) {
+    const client = await db.pool.connect();
+    let inserted = 0;
+    let updated = 0;
+    const errors = [];
+
+    try {
+      await client.query('BEGIN');
+
+      for (const row of rows) {
+        await client.query('SAVEPOINT row_save');
+        try {
+          const result = await client.query(`
+            INSERT INTO articulo
+              (id, tipo, nombre, marca, modelo, descripcion, nro_serie, codigo, valor,
+               foto_url, estado, bodega_actual_id, proyecto_actual_id, fecha_vencimiento,
+               fecha_compra, proveedor_id, factura_url, manual_url, plantilla_id,
+               creado_por_usuario_id, creado_en)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+            ON CONFLICT (id) DO UPDATE SET
+              tipo                 = EXCLUDED.tipo,
+              nombre               = EXCLUDED.nombre,
+              marca                = EXCLUDED.marca,
+              modelo               = EXCLUDED.modelo,
+              descripcion          = EXCLUDED.descripcion,
+              nro_serie            = EXCLUDED.nro_serie,
+              codigo               = EXCLUDED.codigo,
+              valor                = EXCLUDED.valor,
+              foto_url             = EXCLUDED.foto_url,
+              estado               = EXCLUDED.estado,
+              bodega_actual_id     = EXCLUDED.bodega_actual_id,
+              proyecto_actual_id   = EXCLUDED.proyecto_actual_id,
+              fecha_vencimiento    = EXCLUDED.fecha_vencimiento,
+              fecha_compra         = EXCLUDED.fecha_compra,
+              proveedor_id         = EXCLUDED.proveedor_id,
+              factura_url          = EXCLUDED.factura_url,
+              manual_url           = EXCLUDED.manual_url,
+              plantilla_id         = EXCLUDED.plantilla_id,
+              creado_por_usuario_id = EXCLUDED.creado_por_usuario_id
+            RETURNING (xmax = 0) AS was_inserted
+          `, [
+            row.id, row.tipo, row.nombre, row.marca ?? null, row.modelo ?? null,
+            row.descripcion ?? null, row.nro_serie ?? null, row.codigo, row.valor ?? null,
+            row.foto_url ?? null, row.estado, row.bodega_actual_id ?? null,
+            row.proyecto_actual_id ?? null, row.fecha_vencimiento ?? null,
+            row.fecha_compra ?? null, row.proveedor_id ?? null,
+            row.factura_url ?? null, row.manual_url ?? null,
+            row.plantilla_id ?? null, row.creado_por_usuario_id ?? null,
+            row.creado_en ?? new Date().toISOString(),
+          ]);
+
+          if (result.rows[0].was_inserted) inserted++;
+          else updated++;
+
+          // sync especialidades
+          const especialidades = Array.isArray(row.especialidades) ? row.especialidades : [];
+          await client.query(
+            'DELETE FROM articulo_especialidad WHERE articulo_id = $1', [row.id]
+          );
+          for (const esp of especialidades) {
+            await client.query(
+              'INSERT INTO articulo_especialidad (articulo_id, especialidad) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+              [row.id, esp]
+            );
+          }
+        } catch (err) {
+          await client.query('ROLLBACK TO SAVEPOINT row_save');
+          errors.push({ id: row.id, error: err.message });
+        }
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    return { inserted, updated, errors };
+  }
+
   static async upsertEspecialidades(client, articuloId, especialidades) {
     await client.query(`DELETE FROM articulo_especialidad WHERE articulo_id = $1`, [articuloId]);
     for (const esp of especialidades) {

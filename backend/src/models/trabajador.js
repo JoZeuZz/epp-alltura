@@ -75,6 +75,87 @@ class TrabajadorModel {
 
     return rows.length ? new TrabajadorModel(rows[0]) : null;
   }
+
+  static async exportAll() {
+    const { rows } = await db.query(`
+      SELECT t.*,
+        json_build_object(
+          'id', p.id, 'rut', p.rut, 'nombres', p.nombres,
+          'apellidos', p.apellidos, 'telefono', p.telefono,
+          'email', p.email, 'foto_url', p.foto_url,
+          'estado', p.estado, 'creado_en', p.creado_en
+        ) AS persona
+      FROM trabajador t
+      INNER JOIN persona p ON p.id = t.persona_id
+      ORDER BY t.creado_en ASC
+    `);
+    return rows;
+  }
+
+  static async upsertBatch(rows) {
+    const client = await db.pool.connect();
+    let inserted = 0;
+    let updated = 0;
+    const errors = [];
+
+    try {
+      await client.query('BEGIN');
+
+      for (const row of rows) {
+        await client.query('SAVEPOINT row_save');
+        try {
+          const p = row.persona;
+          if (!p || !p.id) throw new Error('persona.id requerido');
+
+          // upsert persona
+          await client.query(`
+            INSERT INTO persona (id, rut, nombres, apellidos, telefono, email, foto_url, estado, creado_en)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+            ON CONFLICT (id) DO UPDATE SET
+              rut       = EXCLUDED.rut,
+              nombres   = EXCLUDED.nombres,
+              apellidos = EXCLUDED.apellidos,
+              telefono  = EXCLUDED.telefono,
+              email     = EXCLUDED.email,
+              foto_url  = EXCLUDED.foto_url,
+              estado    = EXCLUDED.estado
+          `, [p.id, p.rut, p.nombres, p.apellidos, p.telefono ?? null,
+              p.email ?? null, p.foto_url ?? null, p.estado ?? 'activo',
+              p.creado_en ?? new Date().toISOString()]);
+
+          // upsert trabajador
+          const result = await client.query(`
+            INSERT INTO trabajador (id, persona_id, cargo, fecha_ingreso, fecha_salida, estado, creado_en)
+            VALUES ($1,$2,$3,$4,$5,$6,$7)
+            ON CONFLICT (id) DO UPDATE SET
+              persona_id    = EXCLUDED.persona_id,
+              cargo         = EXCLUDED.cargo,
+              fecha_ingreso = EXCLUDED.fecha_ingreso,
+              fecha_salida  = EXCLUDED.fecha_salida,
+              estado        = EXCLUDED.estado
+            RETURNING (xmax = 0) AS was_inserted
+          `, [row.id, row.persona_id, row.cargo ?? null, row.fecha_ingreso ?? null,
+              row.fecha_salida ?? null, row.estado ?? 'activo',
+              row.creado_en ?? new Date().toISOString()]);
+
+          if (result.rows[0].was_inserted) inserted++;
+          else updated++;
+        } catch (err) {
+          await client.query('ROLLBACK TO SAVEPOINT row_save');
+          errors.push({ id: row.id, error: err.message });
+        }
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    return { inserted, updated, errors };
+  }
 }
 
 module.exports = TrabajadorModel;

@@ -84,6 +84,61 @@ class ProyectoModel {
     );
     return rows.length ? new ProyectoModel(rows[0]) : null;
   }
+
+  static async exportAll() {
+    const { rows } = await db.query(
+      'SELECT * FROM proyectos ORDER BY creado_en ASC'
+    );
+    return rows;
+  }
+
+  static async upsertBatch(rows) {
+    const client = await db.pool.connect();
+    let inserted = 0;
+    let updated = 0;
+    const errors = [];
+
+    try {
+      await client.query('BEGIN');
+
+      for (const row of rows) {
+        try {
+          const result = await client.query(`
+            INSERT INTO proyectos
+              (id, nombre, descripcion, ciudad, cliente, presupuesto_clp, estado, fecha_inicio, fecha_fin, creado_en)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+            ON CONFLICT (id) DO UPDATE SET
+              nombre          = EXCLUDED.nombre,
+              descripcion     = EXCLUDED.descripcion,
+              ciudad          = EXCLUDED.ciudad,
+              cliente         = EXCLUDED.cliente,
+              presupuesto_clp = EXCLUDED.presupuesto_clp,
+              estado          = EXCLUDED.estado,
+              fecha_inicio    = EXCLUDED.fecha_inicio,
+              fecha_fin       = EXCLUDED.fecha_fin
+            RETURNING (xmax = 0) AS was_inserted
+          `, [row.id, row.nombre, row.descripcion ?? null, row.ciudad ?? null,
+              row.cliente ?? null, row.presupuesto_clp ?? null,
+              row.estado ?? 'activo', row.fecha_inicio ?? null,
+              row.fecha_fin ?? null, row.creado_en ?? new Date().toISOString()]);
+
+          if (result.rows[0].was_inserted) inserted++;
+          else updated++;
+        } catch (err) {
+          errors.push({ id: row.id, error: err.message });
+        }
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    return { inserted, updated, errors };
+  }
 }
 
 module.exports = ProyectoModel;
