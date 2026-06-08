@@ -129,8 +129,8 @@ interface AdminInventoryScopedAssetCardsProps {
   isError: boolean;
   onRefetch: () => void;
   copy: InventoryAssetScopeCopy;
-  ciudadFilter?: string | null;   // undefined = sin filtro, null = sin ubicación
-  onClearCiudad?: () => void;
+  locationFilter?: string | null;   // undefined = sin filtro, null = sin ubicación
+  onClearLocation?: () => void;
 }
 
 const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsProps> = ({
@@ -140,8 +140,8 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
   isError,
   onRefetch,
   copy,
-  ciudadFilter,
-  onClearCiudad,
+  locationFilter,
+  onClearLocation,
 }) => {
   const [search, setSearch] = useState('');
   const [estadoFilter, setEstadoFilter] = useState<string>('all');
@@ -154,7 +154,7 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
     tipo: copy.tipo,
     estado: estadoFilter,
     search,
-    ciudadFilter,
+    locationFilter,
   });
 
   useTourActions({
@@ -184,14 +184,14 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
       ].filter(Boolean).join(' ').toLowerCase();
       const matchesSearch = !term || haystack.includes(term);
       const matchesEstado = estadoFilter === 'all' || a.estado === estadoFilter;
-      const matchesCiudad =
-        ciudadFilter === undefined ||
-        (ciudadFilter === null
-          ? a.bodega_ciudad == null && a.proyecto_ciudad == null
-          : a.bodega_ciudad === ciudadFilter || a.proyecto_ciudad === ciudadFilter);
-      return matchesSearch && matchesEstado && matchesCiudad;
+      const matchesLocation =
+        locationFilter === undefined ||
+        (locationFilter === null
+          ? a.bodega_nombre == null && a.proyecto_nombre == null
+          : a.bodega_nombre === locationFilter || a.proyecto_nombre === locationFilter);
+      return matchesSearch && matchesEstado && matchesLocation;
     });
-  }, [items, search, estadoFilter, ciudadFilter]);
+  }, [items, search, estadoFilter, locationFilter]);
 
   return (
     <div className="space-y-4">
@@ -204,16 +204,16 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Filtros</span>
           <div className="flex items-center gap-2">
-            {ciudadFilter !== undefined && (
+            {locationFilter !== undefined && (
               <div className="flex items-center gap-2 text-xs bg-blue-50 border border-blue-100 rounded-md px-3 py-1.5">
                 <span className="text-blue-700 font-medium">
-                  Ciudad: {ciudadFilter ?? 'Sin ubicación'}
+                  Ubicación: {locationFilter ?? 'Sin ubicación'}
                 </span>
                 <button
                   type="button"
-                  onClick={onClearCiudad}
+                  onClick={onClearLocation}
                   className="text-blue-400 hover:text-blue-600 font-bold leading-none"
-                  aria-label="Quitar filtro de ciudad"
+                  aria-label="Quitar filtro de ubicación"
                 >
                   ×
                 </button>

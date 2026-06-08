@@ -36,7 +36,7 @@ describe('useInventoryExport', () => {
 
   it('calls apiService.get with tipo and formato=excel', async () => {
     const { result } = renderHook(() =>
-      useInventoryExport({ tipo: 'epp', estado: 'all', search: '', ciudadFilter: undefined })
+      useInventoryExport({ tipo: 'epp', estado: 'all', search: '', locationFilter: undefined })
     );
     await act(() => result.current.exportExcel());
     expect(mockGet).toHaveBeenCalledWith(
@@ -51,7 +51,7 @@ describe('useInventoryExport', () => {
 
   it('calls apiService.get with formato=pdf', async () => {
     const { result } = renderHook(() =>
-      useInventoryExport({ tipo: 'equipo', estado: 'all', search: '', ciudadFilter: undefined })
+      useInventoryExport({ tipo: 'equipo', estado: 'all', search: '', locationFilter: undefined })
     );
     await act(() => result.current.exportPdf());
     expect(mockGet).toHaveBeenCalledWith(
@@ -62,7 +62,7 @@ describe('useInventoryExport', () => {
 
   it('omits estado param when "all"', async () => {
     const { result } = renderHook(() =>
-      useInventoryExport({ tipo: 'epp', estado: 'all', search: '', ciudadFilter: undefined })
+      useInventoryExport({ tipo: 'epp', estado: 'all', search: '', locationFilter: undefined })
     );
     await act(() => result.current.exportExcel());
     const url = mockGet.mock.calls[0][0] as string;
@@ -71,7 +71,7 @@ describe('useInventoryExport', () => {
 
   it('includes estado param when not "all"', async () => {
     const { result } = renderHook(() =>
-      useInventoryExport({ tipo: 'epp', estado: 'en_stock', search: '', ciudadFilter: undefined })
+      useInventoryExport({ tipo: 'epp', estado: 'en_stock', search: '', locationFilter: undefined })
     );
     await act(() => result.current.exportExcel());
     const url = mockGet.mock.calls[0][0] as string;
@@ -80,34 +80,34 @@ describe('useInventoryExport', () => {
 
   it('includes search param when non-empty', async () => {
     const { result } = renderHook(() =>
-      useInventoryExport({ tipo: 'epp', estado: 'all', search: 'casco', ciudadFilter: undefined })
+      useInventoryExport({ tipo: 'epp', estado: 'all', search: 'casco', locationFilter: undefined })
     );
     await act(() => result.current.exportExcel());
     const url = mockGet.mock.calls[0][0] as string;
     expect(url).toContain('search=casco');
   });
 
-  it('encodes ciudad=__none__ when ciudadFilter is null', async () => {
+  it('encodes ubicacion=__none__ when locationFilter is null', async () => {
     const { result } = renderHook(() =>
-      useInventoryExport({ tipo: 'epp', estado: 'all', search: '', ciudadFilter: null })
+      useInventoryExport({ tipo: 'epp', estado: 'all', search: '', locationFilter: null })
     );
     await act(() => result.current.exportExcel());
     const url = mockGet.mock.calls[0][0] as string;
-    expect(url).toContain('ciudad=__none__');
+    expect(url).toContain('ubicacion=__none__');
   });
 
-  it('encodes ciudad param when ciudadFilter is a string', async () => {
+  it('encodes ubicacion param when locationFilter is a string', async () => {
     const { result } = renderHook(() =>
-      useInventoryExport({ tipo: 'epp', estado: 'all', search: '', ciudadFilter: 'Santiago' })
+      useInventoryExport({ tipo: 'epp', estado: 'all', search: '', locationFilter: 'Santiago' })
     );
     await act(() => result.current.exportExcel());
     const url = mockGet.mock.calls[0][0] as string;
-    expect(url).toContain('ciudad=Santiago');
+    expect(url).toContain('ubicacion=Santiago');
   });
 
   it('triggers anchor click to download the file', async () => {
     const { result } = renderHook(() =>
-      useInventoryExport({ tipo: 'epp', estado: 'all', search: '', ciudadFilter: undefined })
+      useInventoryExport({ tipo: 'epp', estado: 'all', search: '', locationFilter: undefined })
     );
     await act(() => result.current.exportExcel());
     expect(mockClick).toHaveBeenCalled();

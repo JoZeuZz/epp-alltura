@@ -5,7 +5,7 @@ export interface UseInventoryExportOptions {
   tipo: string;
   estado: string;
   search: string;
-  ciudadFilter: string | null | undefined;
+  locationFilter: string | null | undefined;
 }
 
 export function useInventoryExport(opts: UseInventoryExportOptions) {
@@ -20,8 +20,8 @@ export function useInventoryExport(opts: UseInventoryExportOptions) {
       params.set('formato', formato);
       if (opts.estado !== 'all') params.set('estado', opts.estado);
       if (opts.search) params.set('search', opts.search);
-      if (opts.ciudadFilter !== undefined) {
-        params.set('ciudad', opts.ciudadFilter === null ? '__none__' : opts.ciudadFilter);
+      if (opts.locationFilter !== undefined) {
+        params.set('ubicacion', opts.locationFilter === null ? '__none__' : opts.locationFilter);
       }
 
       const ext = formato === 'excel' ? 'xlsx' : 'pdf';

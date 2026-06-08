@@ -13,7 +13,7 @@ vi.mock('../hooks', () => ({
 }));
 vi.mock('../pages/admin/inventory/AdminInventoryScopedAssetListView', () => ({ default: () => <div data-testid="list-view" /> }));
 
-const makeItem = (id: string, bodega_ciudad: string | null, proyecto_ciudad: string | null = null): Articulo => ({
+const makeItem = (id: string, bodega_nombre: string | null, proyecto_nombre: string | null = null): Articulo => ({
   id,
   tipo: 'epp',
   nombre: `Item ${id}`,
@@ -24,17 +24,17 @@ const makeItem = (id: string, bodega_ciudad: string | null, proyecto_ciudad: str
   especialidades: [],
   creado_en: '2024-01-01T00:00:00.000Z',
   bodega_actual_id: null,
-  bodega_nombre: null,
-  bodega_ciudad,
+  bodega_nombre,
+  bodega_ciudad: null,
   proyecto_actual_id: null,
-  proyecto_nombre: null,
-  proyecto_ciudad,
+  proyecto_nombre,
+  proyecto_ciudad: null,
 });
 
 const ITEMS: Articulo[] = [
-  makeItem('1', 'Santiago'),
-  makeItem('2', 'Santiago'),
-  makeItem('3', 'Valparaíso'),
+  makeItem('1', 'Bodega Central'),
+  makeItem('2', 'Bodega Central'),
+  makeItem('3', 'Bodega Norte'),
   makeItem('4', null),
 ];
 
@@ -47,36 +47,36 @@ const BASE_PROPS = {
   copy: INVENTORY_ASSET_SCOPE_COPY.epp,
 };
 
-describe('AdminInventoryScopedAssetCards — ciudad filter', () => {
-  it('shows all items when ciudadFilter is undefined', () => {
-    render(<AdminInventoryScopedAssetCards {...BASE_PROPS} ciudadFilter={undefined} onClearCiudad={vi.fn()} />);
+describe('AdminInventoryScopedAssetCards — location filter', () => {
+  it('shows all items when locationFilter is undefined', () => {
+    render(<AdminInventoryScopedAssetCards {...BASE_PROPS} locationFilter={undefined} onClearLocation={vi.fn()} />);
     expect(screen.getByText('Item 1')).toBeInTheDocument();
     expect(screen.getByText('Item 3')).toBeInTheDocument();
     expect(screen.getByText('Item 4')).toBeInTheDocument();
   });
 
-  it('shows only Santiago items when ciudadFilter="Santiago"', () => {
-    render(<AdminInventoryScopedAssetCards {...BASE_PROPS} ciudadFilter="Santiago" onClearCiudad={vi.fn()} />);
+  it('shows only matching items when locationFilter="Bodega Central"', () => {
+    render(<AdminInventoryScopedAssetCards {...BASE_PROPS} locationFilter="Bodega Central" onClearLocation={vi.fn()} />);
     expect(screen.getByText('Item 1')).toBeInTheDocument();
     expect(screen.getByText('Item 2')).toBeInTheDocument();
     expect(screen.queryByText('Item 3')).not.toBeInTheDocument();
     expect(screen.queryByText('Item 4')).not.toBeInTheDocument();
   });
 
-  it('shows only items with no location when ciudadFilter=null', () => {
-    render(<AdminInventoryScopedAssetCards {...BASE_PROPS} ciudadFilter={null} onClearCiudad={vi.fn()} />);
+  it('shows only items with no location when locationFilter=null', () => {
+    render(<AdminInventoryScopedAssetCards {...BASE_PROPS} locationFilter={null} onClearLocation={vi.fn()} />);
     expect(screen.queryByText('Item 1')).not.toBeInTheDocument();
     expect(screen.queryByText('Item 3')).not.toBeInTheDocument();
     expect(screen.getByText('Item 4')).toBeInTheDocument();
   });
 
-  it('shows ciudad chip when ciudadFilter is set', () => {
-    render(<AdminInventoryScopedAssetCards {...BASE_PROPS} ciudadFilter="Santiago" onClearCiudad={vi.fn()} />);
-    expect(screen.getByText(/santiago/i)).toBeInTheDocument();
+  it('shows location chip when locationFilter is set', () => {
+    render(<AdminInventoryScopedAssetCards {...BASE_PROPS} locationFilter="Bodega Central" onClearLocation={vi.fn()} />);
+    expect(screen.getByText(/ubicación:.*bodega central/i)).toBeInTheDocument();
   });
 
-  it('does not show ciudad chip when ciudadFilter is undefined', () => {
-    render(<AdminInventoryScopedAssetCards {...BASE_PROPS} ciudadFilter={undefined} onClearCiudad={vi.fn()} />);
-    expect(screen.queryByRole('button', { name: /quitar filtro de ciudad/i })).not.toBeInTheDocument();
+  it('does not show location chip when locationFilter is undefined', () => {
+    render(<AdminInventoryScopedAssetCards {...BASE_PROPS} locationFilter={undefined} onClearLocation={vi.fn()} />);
+    expect(screen.queryByRole('button', { name: /quitar filtro de ubicación/i })).not.toBeInTheDocument();
   });
 });

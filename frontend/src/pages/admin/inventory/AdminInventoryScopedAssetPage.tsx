@@ -46,11 +46,11 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
   const [showCreate, setShowCreate] = useState(false);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'inventario'>('dashboard');
-  const [ciudadFilter, setCiudadFilter] = useState<string | null | undefined>(undefined);
+  const [locationFilter, setLocationFilter] = useState<string | null | undefined>(undefined);
   const queryClient = useQueryClient();
 
-  const handleCityClick = (ciudad: string | null) => {
-    setCiudadFilter(ciudad);
+  const handleLocationClick = (location: string | null) => {
+    setLocationFilter(location);
     setActiveTab('inventario');
   };
 
@@ -104,7 +104,7 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
               onClick={() => setShowBatchModal(true)}
               className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-sm text-gray-600 bg-white hover:bg-gray-50 transition-colors min-h-[44px]"
             >
-              📋 Crear en lote
+               Crear en lote
             </button>
             <button
               type="button"
@@ -182,7 +182,7 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
             <InventoryLocationPieChart
               items={items}
               isLoading={isLoading}
-              onCityClick={handleCityClick}
+              onLocationClick={handleLocationClick}
             />
           )}
         </>
@@ -197,8 +197,8 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
           isError={isError}
           onRefetch={() => { void refetch(); }}
           copy={copy}
-          ciudadFilter={ciudadFilter}
-          onClearCiudad={() => setCiudadFilter(undefined)}
+          locationFilter={locationFilter}
+          onClearLocation={() => setLocationFilter(undefined)}
         />
       )}
 
