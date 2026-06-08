@@ -1,45 +1,28 @@
 import { useState, useCallback } from 'react';
-import type { ApiError } from '../types/api';
+import toast from 'react-hot-toast';
+import { extractApiError } from '../lib/apiError';
 
-/**
- * Hook simplificado para manejar errores generales de API
- * Los errores de validación por campo son manejados por React Hook Form + Zod
- */
 export const useFormErrors = () => {
-  const [generalError, setGeneralError] = useState<string>('');
+  const [error, setError] = useState<string>('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  /**
-   * Procesa un error de API y extrae el mensaje general
-   */
-  const handleApiError = useCallback((error: unknown) => {
-    const apiError = error as ApiError;
-    
-    // Resetear error previo
-    setGeneralError('');
+  const handleError = useCallback((err: unknown) => {
+    const { message, fieldErrors: fe, isServerError } = extractApiError(err);
 
-    // Extraer datos del error
-    const errorData = apiError.response?.data;
-    
-    if (!errorData) {
-      setGeneralError('Error de conexión. Por favor, intente de nuevo.');
-      return;
+    if (isServerError) {
+      toast.error(message);
+      setError('');
+    } else {
+      setError(message);
     }
 
-    // Obtener mensaje de error (priorizar message sobre error)
-    const errorMessage = errorData.message || errorData.error || 'Ocurrió un error. Por favor, intente de nuevo.';
-    setGeneralError(errorMessage);
+    setFieldErrors(fe);
   }, []);
 
-  /**
-   * Limpia el error general
-   */
-  const clearErrors = useCallback(() => {
-    setGeneralError('');
+  const clearError = useCallback(() => {
+    setError('');
+    setFieldErrors({});
   }, []);
 
-  return {
-    generalError,
-    handleApiError,
-    clearErrors,
-  };
+  return { error, fieldErrors, handleError, clearError };
 };

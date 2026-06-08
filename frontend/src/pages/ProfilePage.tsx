@@ -54,7 +54,7 @@ const ProfilePage: React.FC = () => {
 
   const updateUser = usePut<UserUpdateResponse, Partial<User>>('user-update', '/users/me');
   
-  const { generalError, handleApiError, clearErrors } = useFormErrors();
+  const { error, handleError, clearError } = useFormErrors();
 
   const {
     register,
@@ -95,7 +95,7 @@ const ProfilePage: React.FC = () => {
   };
 
   const onSubmit = async (data: ProfileFormData) => {
-    clearErrors();
+    clearError();
 
     const updateData: Partial<User> = {
       first_name: data.first_name,
@@ -147,7 +147,7 @@ const ProfilePage: React.FC = () => {
         return;
       }
       console.error(err);
-      handleApiError(err);
+      handleError(err);
       const apiError = err as { response?: { data?: { message?: string; error?: string } } };
       const errorMsg = apiError?.response?.data?.message || apiError?.response?.data?.error || 'Error al actualizar el perfil';
       toast.error(errorMsg);
@@ -170,9 +170,9 @@ const ProfilePage: React.FC = () => {
       <h1 className="text-2xl sm:text-3xl font-bold text-dark-blue">Mi Perfil</h1>
 
       <div className="bg-white rounded-lg shadow-md p-4 sm:p-6 max-w-3xl">
-        {generalError && (
+        {error && (
           <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-3 rounded" role="alert">
-            <p className="text-red-800 text-sm font-medium">{generalError}</p>
+            <p className="text-red-800 text-sm font-medium">{error}</p>
           </div>
         )}
         
