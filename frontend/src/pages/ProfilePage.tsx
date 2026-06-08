@@ -148,9 +148,6 @@ const ProfilePage: React.FC = () => {
       }
       console.error(err);
       handleError(err);
-      const apiError = err as { response?: { data?: { message?: string; error?: string } } };
-      const errorMsg = apiError?.response?.data?.message || apiError?.response?.data?.error || 'Error al actualizar el perfil';
-      toast.error(errorMsg);
     } finally {
       uploadControllerRef.current = null;
     }
