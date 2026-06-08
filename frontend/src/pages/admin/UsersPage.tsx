@@ -147,8 +147,8 @@ const validateForm = (values: UserFormValues, isEditing: boolean): UserFormError
   if (!isEditing && !values.password.trim()) {
     errors.password = 'La contraseña es obligatoria para crear usuarios.';
   }
-  if (values.password && values.password.length < 12) {
-    errors.password = 'La contraseña debe tener al menos 12 caracteres.';
+  if (values.password && values.password.length < 8) {
+    errors.password = 'La contraseña debe tener al menos 8 caracteres.';
   }
   if (values.password && values.password !== values.confirmPassword) {
     errors.confirmPassword = 'Las contraseñas no coinciden.';
@@ -716,7 +716,7 @@ const UsersPage: React.FC = () => {
                 helpText={
                   editingUser
                     ? 'Dejar vacío para mantener la contraseña actual.'
-                    : 'Mínimo 12 caracteres.'
+                    : 'Mínimo 8 caracteres.'
                 }
               >
                 <input

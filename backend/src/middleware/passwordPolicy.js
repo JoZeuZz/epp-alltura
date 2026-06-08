@@ -11,7 +11,7 @@ const { logger } = require('../lib/logger');
  */
 
 const PASSWORD_CONFIG = {
-  MIN_LENGTH: 12, // NIST recomienda mínimo 8, usamos 12 para mayor seguridad
+  MIN_LENGTH: 8,
   MAX_LENGTH: 128, // Prevenir DoS con contraseñas extremadamente largas
   MIN_STRENGTH_SCORE: 3, // Score mínimo de zxcvbn (0-4)
   BCRYPT_ROUNDS: 12, // OWASP recomienda 12+ rounds

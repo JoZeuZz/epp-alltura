@@ -8,7 +8,7 @@ const PATTERNS = {
 };
 
 const email = Joi.string().trim().lowercase().email({ tlds: { allow: false } }).max(255);
-const password = Joi.string().min(12).max(128);
+const password = Joi.string().min(8).max(128);
 const personName = Joi.string().trim().min(2).max(100).pattern(PATTERNS.NAME);
 
 /**
