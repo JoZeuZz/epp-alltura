@@ -47,8 +47,8 @@ function makeBaseProps() {
     isError: false,
     onRefetch: vi.fn(),
     copy: INVENTORY_ASSET_SCOPE_COPY.epp,
-    ciudadFilter: undefined as string | null | undefined,
-    onClearCiudad: vi.fn(),
+    locationFilter: undefined as string | null | undefined,
+    onClearLocation: vi.fn(),
   };
 }
 
