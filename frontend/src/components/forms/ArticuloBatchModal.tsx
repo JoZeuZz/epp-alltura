@@ -103,7 +103,7 @@ export function ArticuloBatchModal({ tipo, bodegas, isOpen, onClose }: Props) {
     <Modal isOpen={isOpen} onClose={onClose} title={`Crear ${TIPO_LABELS[tipo]}s en lote`}>
       {/* Advisory banner */}
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2 mb-4 text-xs text-amber-800">
-        <span>💻</span>
+        <span></span>
         <span>
           <strong>Mejor desde computador.</strong> En celular podés crear las unidades y agregar
           fotos individuales después desde cada artículo.
