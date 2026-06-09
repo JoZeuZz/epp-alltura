@@ -1,3 +1,4 @@
+-- UP
 CREATE TABLE IF NOT EXISTS asignacion_usuario (
   id                        UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   articulo_id               UUID        NOT NULL REFERENCES articulo(id),
@@ -26,3 +27,10 @@ CREATE INDEX IF NOT EXISTS idx_asignacion_usuario_estado
   ON asignacion_usuario(estado);
 CREATE INDEX IF NOT EXISTS idx_asignacion_usuario_articulo
   ON asignacion_usuario(articulo_id);
+
+-- DOWN
+DROP INDEX IF EXISTS idx_asignacion_usuario_articulo;
+DROP INDEX IF EXISTS idx_asignacion_usuario_estado;
+DROP INDEX IF EXISTS idx_asignacion_usuario_usuario_id;
+DROP INDEX IF EXISTS uq_asignacion_usuario_activa;
+DROP TABLE IF EXISTS asignacion_usuario;
