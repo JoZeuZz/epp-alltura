@@ -149,6 +149,7 @@ const MisArticulosAsignadosPanel: React.FC<Props> = ({ onDeliverSelected }) => {
               tabIndex={multiSelect.isSelectMode ? 0 : undefined}
               role={multiSelect.isSelectMode ? 'checkbox' : undefined}
               aria-checked={multiSelect.isSelectMode ? selected : undefined}
+              aria-label={multiSelect.isSelectMode ? art.nombre : undefined}
               className={`relative bg-surface rounded-lg border p-4 flex flex-col gap-2 transition-all ${
                 multiSelect.isSelectMode
                   ? `cursor-pointer ${selected ? 'border-primary ring-2 ring-primary/40 bg-primary/5' : 'border-edge hover:border-primary/50'}`

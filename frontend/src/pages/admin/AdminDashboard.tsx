@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLoaderData, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -238,9 +238,13 @@ const AdminDashboard: React.FC = () => {
   });
   const tieneMisArticulos = (misAsignaciones?.total ?? 0) > 0;
   const [dashTab, setDashTab] = useState<'mis-articulos' | 'principal'>('principal');
+  const dashTabInitialized = useRef(false);
 
-  React.useEffect(() => {
-    if (tieneMisArticulos) setDashTab('mis-articulos');
+  useEffect(() => {
+    if (tieneMisArticulos && !dashTabInitialized.current) {
+      setDashTab('mis-articulos');
+      dashTabInitialized.current = true;
+    }
   }, [tieneMisArticulos]);
 
   const pendFirma = Number(entregas.pendiente_firma || 0);
