@@ -270,6 +270,10 @@ class AsignacionesUsuarioService {
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
+    values.push(Number(limit), Number(offset));
+    const limitIdx = values.length - 1;
+    const offsetIdx = values.length;
+
     const query = `
       SELECT
         a.id,
@@ -295,7 +299,7 @@ class AsignacionesUsuarioService {
       LEFT JOIN persona p_asig ON p_asig.id = u_asig.persona_id
       ${whereClause}
       ORDER BY au.desde_en DESC
-      LIMIT ${limit} OFFSET ${offset}
+      LIMIT $${limitIdx} OFFSET $${offsetIdx}
     `;
 
     const { rows } = await db.query(query, values);
@@ -492,10 +496,10 @@ class AsignacionesUsuarioService {
       LEFT JOIN persona p_asig ON p_asig.id = u_asig.persona_id
       WHERE au.usuario_id = $1
       ORDER BY au.desde_en DESC
-      LIMIT ${limit} OFFSET ${offset}
+      LIMIT $2 OFFSET $3
     `;
 
-    const { rows } = await db.query(query, [userId]);
+    const { rows } = await db.query(query, [userId, Number(limit), Number(offset)]);
     return { items: rows, total: rows.length };
   }
 }
