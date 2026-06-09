@@ -103,7 +103,7 @@ class ArticuloModel {
     const result = await client.query(
       `${RICH_SELECT}
        WHERE a.id = $1
-       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad, u.email_login, prov.nombre, ua.id, pa.nombres, pa.apellidos, ua.email_login`,
+       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad, pr.estado, u.email_login, prov.nombre, ua.id, pa.nombres, pa.apellidos`,
       [id]
     );
     return result.rows[0] || null;
@@ -129,7 +129,7 @@ class ArticuloModel {
 
   static async getForStateChange(client, id) {
     const { rows } = await client.query(
-      `SELECT id, estado, bodega_actual_id, proyecto_actual_id FROM articulo WHERE id = $1 FOR UPDATE`,
+      `SELECT id, estado, bodega_actual_id, proyecto_actual_id, usuario_actual_id FROM articulo WHERE id = $1 FOR UPDATE`,
       [id]
     );
     return rows[0] || null;
@@ -200,10 +200,10 @@ class ArticuloModel {
     );
   }
 
-  static async updateEstado(client, id, { estado, bodega_actual_id, proyecto_actual_id }) {
+  static async updateEstado(client, id, { estado, bodega_actual_id, proyecto_actual_id, usuario_actual_id }) {
     await client.query(
-      `UPDATE articulo SET estado = $1, bodega_actual_id = $2, proyecto_actual_id = $3 WHERE id = $4`,
-      [estado, bodega_actual_id, proyecto_actual_id, id]
+      `UPDATE articulo SET estado = $1, bodega_actual_id = $2, proyecto_actual_id = $3, usuario_actual_id = $4 WHERE id = $5`,
+      [estado, bodega_actual_id, proyecto_actual_id, usuario_actual_id ?? null, id]
     );
   }
 

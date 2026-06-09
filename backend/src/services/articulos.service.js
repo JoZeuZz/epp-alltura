@@ -381,6 +381,7 @@ class ArticulosService {
         estado:            nuevo_estado,
         bodega_actual_id:  transicion.cambia_bodega ? nuevaBodega : art.bodega_actual_id,
         proyecto_actual_id: nuevo_estado === 'en_stock' ? null : (art.proyecto_actual_id ?? null),
+        usuario_actual_id: null,
       });
 
       await ArticuloModel.insertMovimiento(client, {
