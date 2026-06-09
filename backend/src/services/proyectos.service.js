@@ -61,6 +61,19 @@ class ProyectosService {
   static async remove(id) {
     const existing = await ProyectoModel.findById(id);
     if (!existing) throw buildError('Proyecto no encontrado', 404);
+
+    const { rows: [{ count }] } = await db.query(
+      'SELECT COUNT(*)::int AS count FROM articulo WHERE proyecto_actual_id = $1',
+      [id]
+    );
+    if (Number(count) > 0) {
+      throw buildError(
+        `El proyecto tiene ${count} artículo(s) asignados. Devuélvelos o trasládalos antes de desactivar.`,
+        409,
+        'PROYECTO_HAS_ARTICULOS'
+      );
+    }
+
     const result = await ProyectoModel.update(id, { estado: 'inactivo' });
     await writeAuditEvent({
       entidadTipo: 'proyecto',
