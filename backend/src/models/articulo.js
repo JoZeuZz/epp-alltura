@@ -26,7 +26,8 @@ const RICH_SELECT = `
       ELSE false
     END AS alerta_devolucion,
     u.email_login AS creado_por_email,
-    prov.nombre   AS proveedor_nombre
+    prov.nombre   AS proveedor_nombre,
+    COALESCE(pa.nombres || ' ' || pa.apellidos, ua.email_login) AS usuario_actual_nombre
   FROM articulo a
   LEFT JOIN articulo_especialidad ae          ON ae.articulo_id   = a.id
   LEFT JOIN articulo_certificacion ac         ON ac.articulo_id   = a.id
@@ -35,6 +36,8 @@ const RICH_SELECT = `
   LEFT JOIN proyectos pr                      ON pr.id            = a.proyecto_actual_id
   LEFT JOIN usuario u                         ON u.id             = a.creado_por_usuario_id
   LEFT JOIN proveedor prov                    ON prov.id          = a.proveedor_id
+  LEFT JOIN usuario ua      ON ua.id   = a.usuario_actual_id
+  LEFT JOIN persona pa      ON pa.id   = ua.persona_id
 `;
 
 class ArticuloModel {
@@ -60,6 +63,10 @@ class ArticuloModel {
       );
       params.push(especialidad);
     }
+    if (filters.usuario_id) {
+      conditions.push(`a.usuario_actual_id = $${p++}`);
+      params.push(filters.usuario_id);
+    }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -70,12 +77,15 @@ class ArticuloModel {
               pr.nombre  AS proyecto_nombre,
               b.ciudad   AS bodega_ciudad,
               pr.ciudad  AS proyecto_ciudad
+              ,COALESCE(pa.nombres || ' ' || pa.apellidos, ua.email_login) AS usuario_actual_nombre
        FROM articulo a
        LEFT JOIN articulo_especialidad ae ON ae.articulo_id = a.id
        LEFT JOIN bodegas b                ON b.id           = a.bodega_actual_id
        LEFT JOIN proyectos pr             ON pr.id          = a.proyecto_actual_id
+       LEFT JOIN usuario ua               ON ua.id          = a.usuario_actual_id
+       LEFT JOIN persona pa               ON pa.id          = ua.persona_id
        ${where}
-       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad
+       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad, ua.id, pa.nombres, pa.apellidos, ua.email_login
        ORDER BY a.creado_en DESC
        LIMIT $${p} OFFSET $${p + 1}`,
       [...params, Number(limit), Number(offset)]
@@ -93,7 +103,7 @@ class ArticuloModel {
     const result = await client.query(
       `${RICH_SELECT}
        WHERE a.id = $1
-       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad, u.email_login, prov.nombre`,
+       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad, u.email_login, prov.nombre, ua.id, pa.nombres, pa.apellidos, ua.email_login`,
       [id]
     );
     return result.rows[0] || null;
