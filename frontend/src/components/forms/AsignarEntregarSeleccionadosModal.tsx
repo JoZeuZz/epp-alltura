@@ -49,8 +49,12 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
   // From user custody → worker (POST /asignaciones-usuario/entregar-a-trabajador)
   const deliverFromUsuarioMutation = useMutation({
     mutationFn: (p: DeliverAssignedPayload) => deliverAssignedArticulosToTrabajador(p),
-    onSuccess: () => {
-      toast.success('Entrega creada. Completa la firma para confirmar.');
+    onSuccess: (data) => {
+      const entregaId: string | undefined = (data as { id?: string })?.id;
+      toast.success(
+        `Entrega creada (ID: ${entregaId ? entregaId.slice(0, 8) : '?'}). Ve a Entregas para completar la firma del trabajador.`,
+        { duration: 6000 }
+      );
       void queryClient.invalidateQueries({ queryKey: ['mis-asignaciones'] });
       void queryClient.invalidateQueries({ queryKey: ['articulos'] });
       onClose();
@@ -64,8 +68,12 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
   // From bodega → worker via regular entrega (POST /entregas)
   const deliverFromBodegaMutation = useMutation({
     mutationFn: (p: EntregaCreatePayload) => createEntrega(p),
-    onSuccess: () => {
-      toast.success('Entrega creada. Completa la firma para confirmar.');
+    onSuccess: (data) => {
+      const entregaId: string | undefined = (data as { id?: string })?.id;
+      toast.success(
+        `Entrega creada (ID: ${entregaId ? entregaId.slice(0, 8) : '?'}). Ve a Entregas para completar la firma del trabajador.`,
+        { duration: 6000 }
+      );
       void queryClient.invalidateQueries({ queryKey: ['articulos'] });
       onClose();
     },
@@ -107,6 +115,12 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
       } else {
         // Items are in bodega → POST /entregas (regular delivery)
         if (!bodegaOrigenEntregaId) { toast.error('Selecciona la bodega origen'); return; }
+        // TODO(bulk-mixed-bodega): articuloIds may contain articles from different bodegas.
+        // The modal has no access to each article's bodega_actual_id, so it cannot validate
+        // that all selected articles belong to bodegaOrigenEntregaId before submitting.
+        // The backend will reject individual articles that don't match, but the UX is poor for
+        // bulk selections spanning multiple bodegas. Future fix: receive article metadata via
+        // props or a separate query and pre-filter / warn the user before submission.
         deliverFromBodegaMutation.mutate({
           trabajador_id: trabajadorId,
           ubicacion_origen_id: bodegaOrigenEntregaId,
