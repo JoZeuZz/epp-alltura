@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLoaderData, useNavigate } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import MetricCard from '../../components/dashboard/MetricCard';
 import { ResponsiveTable, type TableColumn } from '../../components/layout';
@@ -12,12 +12,14 @@ import DevolucionRapidaModal from '../../components/forms/DevolucionRapidaModal'
 import { useGet } from '../../hooks';
 import {
   createEntrega,
+  getMisAsignacionesUsuario,
   type EntregaCreatePayload,
   type EntregaRow,
   type DevolucionRow,
   type ReturnEligibleAssetRow,
 } from '../../services/apiService';
 import type { AlertasData, AlertaCustodia } from '../../router';
+import MisArticulosAsignadosPanel from '../../components/dashboard/MisArticulosAsignadosPanel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -228,6 +230,19 @@ const AdminDashboard: React.FC = () => {
   const [devPhase, setDevPhase]                         = useState<'activo' | 'firma' | null>(null);
   const [devDraftCreated, setDevDraftCreated]           = useState<DevolucionRow | null>(null);
 
+  // Query mis artículos asignados
+  const { data: misAsignaciones } = useQuery({
+    queryKey: ['mis-asignaciones'],
+    queryFn: () => getMisAsignacionesUsuario(),
+    staleTime: 30_000,
+  });
+  const tieneMisArticulos = (misAsignaciones?.total ?? 0) > 0;
+  const [dashTab, setDashTab] = useState<'mis-articulos' | 'principal'>('principal');
+
+  React.useEffect(() => {
+    if (tieneMisArticulos) setDashTab('mis-articulos');
+  }, [tieneMisArticulos]);
+
   const pendFirma = Number(entregas.pendiente_firma || 0);
   const agotados  = Number(activos.mantencion || 0);
 
@@ -324,90 +339,131 @@ const AdminDashboard: React.FC = () => {
         <p className="body-small text-content-muted">Vista operativa de inventario, entregas, devoluciones y firmas.</p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
-
-        {/* SIDEBAR — stacks first on mobile via order-first lg:order-last */}
-        <aside className="w-full lg:w-72 xl:w-80 flex-shrink-0 space-y-4 order-first lg:order-last">
-
-          {/* Acciones rápidas */}
-          <div className="bg-dark-blue rounded-lg p-4">
-            <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-white/50 mb-3">
-              Acciones rápidas
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setShowEntrega(true)}
-                className="flex flex-col items-center gap-1.5 bg-primary hover:bg-primary/90 text-white rounded-lg py-3 px-2 text-xs font-semibold transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-                Nueva Entrega
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDevolucionRapida(true)}
-                disabled={devPhase !== null}
-                className="flex flex-col items-center gap-1.5 bg-primary hover:bg-primary/90 text-white rounded-lg py-3 px-2 text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
-                </svg>
-                Devolución
-              </button>
-              <button type="button" onClick={() => navigate('/inventario/epp')}
-                className="flex flex-col items-center gap-1.5 bg-white/10 hover:bg-white/15 text-white/85 rounded-lg py-3 px-2 text-xs font-semibold transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3l7 3v5c0 4.97-3.05 8.88-7 10-3.95-1.12-7-5.03-7-10V6l7-3z" />
-                </svg>
-                EPP
-              </button>
-              <button type="button" onClick={() => navigate('/inventario/herramientas')}
-                className="flex flex-col items-center gap-1.5 bg-white/10 hover:bg-white/15 text-white/85 rounded-lg py-3 px-2 text-xs font-semibold transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.7 6.3a1 1 0 010 1.4l-2.3 2.3a3 3 0 01-4.2 4.2l-4.8 4.8 1.4 1.4 4.8-4.8a3 3 0 004.2-4.2l2.3-2.3a1 1 0 011.4 0l1.4 1.4-1.4 1.4" />
-                </svg>
-                Herramientas
-              </button>
-            </div>
-          </div>
-
-          <AlertasPanel alertas={alertasData.alertas} total={alertasData.total} vencidas={alertasData.vencidas} />
-          <StockResumen en_stock={activos.en_stock || 0} asignado={activos.asignado || 0} mantencion={agotados} />
-        </aside>
-
-        {/* MAIN COLUMN */}
-        <div className="flex-1 min-w-0 space-y-6">
-          <div className="grid grid-cols-2 gap-4" data-tour="admin-dashboard-kpis">
-            <MetricCard title="Activos Totales"          value={activos.total || 0}    icon={IconCube}      colorClass="text-primary" />
-            <MetricCard title="Activos Asignados"        value={activos.asignado || 0} icon={IconUserCheck} colorClass="text-info"
-              subtitle={activos.total > 0 ? `de ${activos.total} totales` : undefined} />
-            <MetricCard title="Entregas pend. firma"     value={pendFirma}             icon={IconClipboard}
-              colorClass={pendFirma > 0 ? 'text-warning' : 'text-content-muted'} />
-            <MetricCard title="Firmas (últimos 30 días)" value={firmas.firmadas_30d || 0} icon={IconPen}    colorClass="text-success" />
-          </div>
-
-          <section aria-labelledby="hdr-top-articulos" className="space-y-3">
-            <SectionHeader title="Artículos más activos (30 días)" id="hdr-top-articulos" />
-            <ResponsiveTable<TopArticuloRow>
-              columns={COLS_TOP_ARTICULOS}
-              data={topArticulosData}
-              caption="Artículos con mayor movimiento en los últimos 30 días"
-              emptyMessage="Sin datos de movimiento disponibles."
-              getRowKey={(_, i) => i}
-            />
-          </section>
-
-          <section aria-labelledby="hdr-mov-activo" className="space-y-3">
-            <SectionHeader title="Movimientos de Activo Recientes" id="hdr-mov-activo" />
-            <ResponsiveTable<ActivoMovRow>
-              columns={COLS_ACTIVO_MOV}
-              data={activoMovData}
-              caption="Movimientos de activo recientes"
-              emptyMessage="Sin movimientos de activo registrados."
-              getRowKey={(_, i) => i}
-            />
-          </section>
+      {/* Tabs condicionales — solo si hay artículos asignados al usuario actual */}
+      {tieneMisArticulos && (
+        <div className="flex gap-1 border-b border-edge" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={dashTab === 'mis-articulos'}
+            onClick={() => setDashTab('mis-articulos')}
+            className={`px-4 py-2.5 text-sm font-semibold rounded-t-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+              dashTab === 'mis-articulos'
+                ? 'bg-primary-blue text-white'
+                : 'text-content-secondary hover:text-content-primary hover:bg-surface-overlay'
+            }`}
+          >
+            Mis artículos ({misAsignaciones?.total ?? 0})
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={dashTab === 'principal'}
+            onClick={() => setDashTab('principal')}
+            className={`px-4 py-2.5 text-sm font-semibold rounded-t-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+              dashTab === 'principal'
+                ? 'bg-primary-blue text-white'
+                : 'text-content-secondary hover:text-content-primary hover:bg-surface-overlay'
+            }`}
+          >
+            Panel principal
+          </button>
         </div>
-      </div>
+      )}
+
+      {tieneMisArticulos && dashTab === 'mis-articulos' ? (
+        <MisArticulosAsignadosPanel
+          onDeliverSelected={(ids) => {
+            // TODO: open AsignarEntregarSeleccionadosModal (Task 14)
+            console.log('Entregar desde mis artículos:', ids);
+          }}
+        />
+      ) : (
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
+
+          {/* SIDEBAR — stacks first on mobile via order-first lg:order-last */}
+          <aside className="w-full lg:w-72 xl:w-80 flex-shrink-0 space-y-4 order-first lg:order-last">
+
+            {/* Acciones rápidas */}
+            <div className="bg-dark-blue rounded-lg p-4">
+              <p className="text-[10px] font-bold tracking-[0.08em] uppercase text-white/50 mb-3">
+                Acciones rápidas
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setShowEntrega(true)}
+                  className="flex flex-col items-center gap-1.5 bg-primary hover:bg-primary/90 text-white rounded-lg py-3 px-2 text-xs font-semibold transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                  Nueva Entrega
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDevolucionRapida(true)}
+                  disabled={devPhase !== null}
+                  className="flex flex-col items-center gap-1.5 bg-primary hover:bg-primary/90 text-white rounded-lg py-3 px-2 text-xs font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                  </svg>
+                  Devolución
+                </button>
+                <button type="button" onClick={() => navigate('/inventario/epp')}
+                  className="flex flex-col items-center gap-1.5 bg-white/10 hover:bg-white/15 text-white/85 rounded-lg py-3 px-2 text-xs font-semibold transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3l7 3v5c0 4.97-3.05 8.88-7 10-3.95-1.12-7-5.03-7-10V6l7-3z" />
+                  </svg>
+                  EPP
+                </button>
+                <button type="button" onClick={() => navigate('/inventario/herramientas')}
+                  className="flex flex-col items-center gap-1.5 bg-white/10 hover:bg-white/15 text-white/85 rounded-lg py-3 px-2 text-xs font-semibold transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.7 6.3a1 1 0 010 1.4l-2.3 2.3a3 3 0 01-4.2 4.2l-4.8 4.8 1.4 1.4 4.8-4.8a3 3 0 004.2-4.2l2.3-2.3a1 1 0 011.4 0l1.4 1.4-1.4 1.4" />
+                  </svg>
+                  Herramientas
+                </button>
+              </div>
+            </div>
+
+            <AlertasPanel alertas={alertasData.alertas} total={alertasData.total} vencidas={alertasData.vencidas} />
+            <StockResumen en_stock={activos.en_stock || 0} asignado={activos.asignado || 0} mantencion={agotados} />
+          </aside>
+
+          {/* MAIN COLUMN */}
+          <div className="flex-1 min-w-0 space-y-6">
+            <div className="grid grid-cols-2 gap-4" data-tour="admin-dashboard-kpis">
+              <MetricCard title="Activos Totales"          value={activos.total || 0}    icon={IconCube}      colorClass="text-primary" />
+              <MetricCard title="Activos Asignados"        value={activos.asignado || 0} icon={IconUserCheck} colorClass="text-info"
+                subtitle={activos.total > 0 ? `de ${activos.total} totales` : undefined} />
+              <MetricCard title="Entregas pend. firma"     value={pendFirma}             icon={IconClipboard}
+                colorClass={pendFirma > 0 ? 'text-warning' : 'text-content-muted'} />
+              <MetricCard title="Firmas (últimos 30 días)" value={firmas.firmadas_30d || 0} icon={IconPen}    colorClass="text-success" />
+            </div>
+
+            <section aria-labelledby="hdr-top-articulos" className="space-y-3">
+              <SectionHeader title="Artículos más activos (30 días)" id="hdr-top-articulos" />
+              <ResponsiveTable<TopArticuloRow>
+                columns={COLS_TOP_ARTICULOS}
+                data={topArticulosData}
+                caption="Artículos con mayor movimiento en los últimos 30 días"
+                emptyMessage="Sin datos de movimiento disponibles."
+                getRowKey={(_, i) => i}
+              />
+            </section>
+
+            <section aria-labelledby="hdr-mov-activo" className="space-y-3">
+              <SectionHeader title="Movimientos de Activo Recientes" id="hdr-mov-activo" />
+              <ResponsiveTable<ActivoMovRow>
+                columns={COLS_ACTIVO_MOV}
+                data={activoMovData}
+                caption="Movimientos de activo recientes"
+                emptyMessage="Sin movimientos de activo registrados."
+                getRowKey={(_, i) => i}
+              />
+            </section>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       <EntregaCreateModal
