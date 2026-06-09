@@ -49,6 +49,7 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
   const [activeTab, setActiveTab] = useState<'dashboard' | 'inventario'>('dashboard');
   const [locationFilter, setLocationFilter] = useState<string | null | undefined>(undefined);
   const [bulkModalIds, setBulkModalIds] = useState<string[]>([]);
+  const [bulkModalAction, setBulkModalAction] = useState<'entregar' | 'asignar'>('asignar');
   const [showBulkModal, setShowBulkModal] = useState(false);
   const queryClient = useQueryClient();
 
@@ -202,8 +203,9 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
           copy={copy}
           locationFilter={locationFilter}
           onClearLocation={() => setLocationFilter(undefined)}
-          onBulkAction={(ids) => {
+          onBulkAction={(ids, action) => {
             setBulkModalIds(ids);
+            setBulkModalAction(action);
             setShowBulkModal(true);
           }}
         />
@@ -234,6 +236,7 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
           onClose={() => { setShowBulkModal(false); setBulkModalIds([]); }}
           articuloIds={bulkModalIds}
           sourceIsUsuario={false}
+          initialDestType={bulkModalAction === 'entregar' ? 'trabajador' : 'usuario'}
         />
       )}
     </div>

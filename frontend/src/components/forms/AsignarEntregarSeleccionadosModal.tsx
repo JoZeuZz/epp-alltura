@@ -4,8 +4,10 @@ import toast from 'react-hot-toast';
 import {
   assignArticulosToUsuario,
   deliverAssignedArticulosToTrabajador,
+  createEntrega,
   type AssignArticulosPayload,
   type DeliverAssignedPayload,
+  type EntregaCreatePayload,
 } from '../../services/apiService';
 import { useGet } from '../../hooks';
 
@@ -14,38 +16,56 @@ interface UbicacionOption { id: string; nombre: string; }
 interface UsuarioOption { id: string; email_login: string; nombre?: string; }
 interface BodegaOption { id: string; nombre: string; }
 
+type DestType = 'trabajador' | 'usuario';
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   articuloIds: string[];
   articuloLabels?: string[];
   sourceIsUsuario?: boolean;
+  initialDestType?: DestType;
 }
 
-type DestType = 'trabajador' | 'usuario';
-
 const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
-  isOpen, onClose, articuloIds, articuloLabels = [], sourceIsUsuario = false,
+  isOpen, onClose, articuloIds, articuloLabels = [], sourceIsUsuario = false, initialDestType,
 }) => {
   const queryClient = useQueryClient();
-  const [destType, setDestType] = useState<DestType>(sourceIsUsuario ? 'trabajador' : 'usuario');
+  const [destType, setDestType] = useState<DestType>(initialDestType ?? (sourceIsUsuario ? 'trabajador' : 'usuario'));
   const [trabajadorId, setTrabajadorId] = useState('');
   const [proyectoId, setProyectoId] = useState('');
   const [usuarioId, setUsuarioId] = useState('');
   const [bodegaOrigenId, setBodegaOrigenId] = useState('');
   const [fechaDevolucion, setFechaDevolucion] = useState('');
   const [notas, setNotas] = useState('');
+  // For the bodega→trabajador path (sourceIsUsuario=false), we need bodega origen for POST /entregas
+  const [bodegaOrigenEntregaId, setBodegaOrigenEntregaId] = useState('');
 
   const { data: trabajadores = [] } = useGet<TrabajadorOption[]>(['trabajadores'], '/trabajadores');
   const { data: proyectos = [] } = useGet<UbicacionOption[]>(['proyectos-activos'], '/proyectos?estado=activo');
   const { data: usuarios = [] } = useGet<UsuarioOption[]>(['usuarios'], '/users');
   const { data: bodegas = [] } = useGet<BodegaOption[]>(['bodegas'], '/bodegas');
 
-  const deliverMutation = useMutation({
+  // From user custody → worker (POST /asignaciones-usuario/entregar-a-trabajador)
+  const deliverFromUsuarioMutation = useMutation({
     mutationFn: (p: DeliverAssignedPayload) => deliverAssignedArticulosToTrabajador(p),
     onSuccess: () => {
       toast.success('Entrega creada. Completa la firma para confirmar.');
       void queryClient.invalidateQueries({ queryKey: ['mis-asignaciones'] });
+      void queryClient.invalidateQueries({ queryKey: ['articulos'] });
+      onClose();
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      toast.error(e?.response?.data?.message ?? e?.message ?? 'Error al crear entrega');
+    },
+  });
+
+  // From bodega → worker via regular entrega (POST /entregas)
+  const deliverFromBodegaMutation = useMutation({
+    mutationFn: (p: EntregaCreatePayload) => createEntrega(p),
+    onSuccess: () => {
+      toast.success('Entrega creada. Completa la firma para confirmar.');
       void queryClient.invalidateQueries({ queryKey: ['articulos'] });
       onClose();
     },
@@ -68,20 +88,34 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
     },
   });
 
-  const isSubmitting = deliverMutation.isPending || assignMutation.isPending;
+  const isSubmitting = deliverFromUsuarioMutation.isPending || deliverFromBodegaMutation.isPending || assignMutation.isPending;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (destType === 'trabajador') {
       if (!trabajadorId) { toast.error('Selecciona un trabajador'); return; }
       if (!proyectoId) { toast.error('Selecciona un proyecto destino'); return; }
-      deliverMutation.mutate({
-        trabajador_id: trabajadorId,
-        proyecto_destino_id: proyectoId,
-        articulo_ids: articuloIds,
-        nota_destino: notas || undefined,
-        fecha_devolucion_esperada: fechaDevolucion || undefined,
-      });
+      if (sourceIsUsuario) {
+        // Items are in user custody → POST /asignaciones-usuario/entregar-a-trabajador
+        deliverFromUsuarioMutation.mutate({
+          trabajador_id: trabajadorId,
+          proyecto_destino_id: proyectoId,
+          articulo_ids: articuloIds,
+          nota_destino: notas || undefined,
+          fecha_devolucion_esperada: fechaDevolucion || undefined,
+        });
+      } else {
+        // Items are in bodega → POST /entregas (regular delivery)
+        if (!bodegaOrigenEntregaId) { toast.error('Selecciona la bodega origen'); return; }
+        deliverFromBodegaMutation.mutate({
+          trabajador_id: trabajadorId,
+          ubicacion_origen_id: bodegaOrigenEntregaId,
+          ubicacion_destino_id: proyectoId,
+          nota_destino: notas || null,
+          fecha_devolucion_esperada: fechaDevolucion || null,
+          detalles: articuloIds.map((id) => ({ articulo_id: id, condicion_salida: 'ok' as const })),
+        });
+      }
     } else {
       if (!usuarioId) { toast.error('Selecciona un usuario'); return; }
       if (!bodegaOrigenId) { toast.error('Selecciona bodega origen'); return; }
@@ -170,6 +204,25 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
                   ))}
                 </select>
               </div>
+              {!sourceIsUsuario && (
+                <div>
+                  <label htmlFor="sel-bodega-entrega" className="block text-sm font-medium text-gray-700 mb-1">
+                    Bodega origen <span aria-hidden="true" className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="sel-bodega-entrega"
+                    value={bodegaOrigenEntregaId}
+                    onChange={(e) => setBodegaOrigenEntregaId(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-md border border-gray-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-blue"
+                    required
+                  >
+                    <option value="">Seleccionar bodega…</option>
+                    {bodegas.map((b) => (
+                      <option key={b.id} value={b.id}>{b.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label htmlFor="sel-proyecto" className="block text-sm font-medium text-gray-700 mb-1">
                   Proyecto destino <span aria-hidden="true" className="text-red-500">*</span>
