@@ -520,8 +520,14 @@ class EntregasService {
 
         const asset = assetResult.rows[0];
 
-        if (entrega.usuario_origen_id) {
-          // Origin is a system user
+        if (entrega.usuario_origen_id != null) {
+          // Origin is a system user — lock asignacion_usuario before update to prevent deadlock
+          await client.query(
+            `SELECT id FROM asignacion_usuario
+             WHERE articulo_id = $1 AND estado = 'activa'
+             FOR UPDATE`,
+            [detail.articulo_id]
+          );
           if (asset.estado !== 'asignado') {
             throw buildError(
               `El artículo "${asset.label}" no está asignado`,
@@ -583,7 +589,7 @@ class EntregasService {
         );
 
         // If origin was a system user, close their active assignment
-        if (entrega.usuario_origen_id) {
+        if (entrega.usuario_origen_id != null) {
           await client.query(
             `UPDATE asignacion_usuario
              SET estado = 'cerrada',
