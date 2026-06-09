@@ -96,8 +96,12 @@ class EntregasService {
       throw buildError('La bodega de origen debe estar activa', 400, 'ORIGIN_BODEGA_NOT_ACTIVE');
     }
 
-    if (proyectoResult.rows[0].estado === 'inactivo') {
-      throw buildError('El proyecto de destino no puede estar inactivo', 400, 'DESTINATION_PROJECT_INACTIVE');
+    if (proyectoResult.rows[0].estado !== 'activo') {
+      throw buildError(
+        'El proyecto de destino debe estar activo para recibir artículos',
+        400,
+        'DESTINATION_PROJECT_NOT_ACTIVE'
+      );
     }
   }
 
