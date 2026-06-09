@@ -464,6 +464,7 @@ export interface ActivoProfileResponse {
     total_devoluciones: number;
     dias_total_custodia: number;
   };
+  alerta_devolucion?: boolean;
 }
 
 export const getActivoProfile = (id: string) =>

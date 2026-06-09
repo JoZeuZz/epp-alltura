@@ -32,6 +32,7 @@ import ConfirmationModal from '../ConfirmationModal';
 import { formatCLP } from '../../utils/currency';
 import { getToolStatusBadgeClasses, getToolStatusLabel } from '../../utils/toolPresentation';
 import { buildImageUrl, DEFAULT_IMAGE_PLACEHOLDER } from '../../utils/image';
+import AlertaDevolucionBadge from '../AlertaDevolucionBadge';
 
 type SubModal = 'entregar' | 'firmar-entrega' | 'devolver' | 'firmar-devolucion' | null;
 
@@ -413,6 +414,14 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
       )}
       {profile && (
         <div className="space-y-6">
+          {profile.alerta_devolucion && (
+            <div className="mx-4 mt-3 p-3 rounded-lg bg-red-50 border border-red-200 flex items-center gap-2">
+              <AlertaDevolucionBadge alerta={true} />
+              <span className="text-sm text-red-700">
+                Este artículo está asignado a un proyecto finalizado y pendiente de devolución.
+              </span>
+            </div>
+          )}
           {/* Header */}
           <div className="space-y-4" data-tour="activo-modal-header">
             {/* Mobile */}

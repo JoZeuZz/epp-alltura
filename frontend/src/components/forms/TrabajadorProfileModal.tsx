@@ -9,6 +9,7 @@ import {
   type TrabajadorActaRow,
 } from '../../services/apiService';
 import ActaDetailModal from './ActaDetailModal';
+import AlertaDevolucionBadge from '../AlertaDevolucionBadge';
 
 const formatDate = (dateStr: string | null | undefined) => {
   if (!dateStr) return '—';
@@ -254,7 +255,12 @@ const CustodiaTable: React.FC<{
           {custodias.map((c) => (
             <tr key={c.custodia_id} className="hover:bg-surface-muted">
               <td className="px-3 py-2 font-mono text-xs text-content-primary">{c.codigo}</td>
-              <td className="px-3 py-2 text-content-secondary">{c.nombre}</td>
+              <td className="px-3 py-2 text-content-secondary">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {c.nombre}
+                  <AlertaDevolucionBadge alerta={c.alerta_devolucion} />
+                </div>
+              </td>
               <td className="px-3 py-2 text-content-muted text-xs">{formatDate(c.desde_en)}</td>
               <td className="px-3 py-2">
                 {onOpenActivoProfile && (

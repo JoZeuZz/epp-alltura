@@ -285,9 +285,14 @@ class TrabajadoresService {
         CASE
           WHEN ca.fecha_devolucion_esperada IS NULL THEN NULL
           ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (ca.fecha_devolucion_esperada - NOW())) / 86400))::int
-        END AS dias_restantes
+        END AS dias_restantes,
+        CASE
+          WHEN pr.estado = 'finalizado' AND ar.proyecto_actual_id IS NOT NULL THEN true
+          ELSE false
+        END AS alerta_devolucion
       FROM custodia_activo ca
       INNER JOIN articulo ar ON ar.id = ca.articulo_id
+      LEFT JOIN proyectos pr ON pr.id = ar.proyecto_actual_id
 
       WHERE ca.trabajador_id = $1 AND ca.estado = 'activa'
       ORDER BY

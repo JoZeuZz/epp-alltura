@@ -8,6 +8,7 @@ import type { AssetScopeKey, InventoryAssetScopeCopy } from './inventoryAssetSco
 import { formatCLP } from '../../../utils/currency';
 import AdminInventoryScopedAssetListView from './AdminInventoryScopedAssetListView';
 import { useInventoryExport } from '../../../hooks';
+import AlertaDevolucionBadge from '../../../components/AlertaDevolucionBadge';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -76,9 +77,12 @@ const ArticuloCard: React.FC<{ articulo: Articulo; onClick: () => void }> = ({
             </p>
           )}
         </div>
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${badge.classes}`}>
-          {badge.label}
-        </span>
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badge.classes}`}>
+            {badge.label}
+          </span>
+          <AlertaDevolucionBadge alerta={articulo.alerta_devolucion} />
+        </div>
       </div>
 
       {/* Details */}
