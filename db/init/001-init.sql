@@ -175,6 +175,7 @@ CREATE TABLE IF NOT EXISTS articulo (
                           CHECK (estado IN ('en_stock', 'asignado', 'mantencion', 'dado_de_baja', 'perdido')),
   bodega_actual_id      UUID REFERENCES bodegas(id),
   proyecto_actual_id    UUID REFERENCES proyectos(id),
+  usuario_actual_id     UUID        REFERENCES usuario(id),
   fecha_vencimiento     TIMESTAMPTZ,
   fecha_compra          DATE,
   proveedor_id          UUID REFERENCES proveedor(id) ON DELETE SET NULL,
@@ -183,7 +184,11 @@ CREATE TABLE IF NOT EXISTS articulo (
   creado_por_usuario_id UUID REFERENCES usuario(id),
   creado_en             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT chk_articulo_ubicacion CHECK (
-    NOT (bodega_actual_id IS NOT NULL AND proyecto_actual_id IS NOT NULL)
+    (
+      (bodega_actual_id IS NOT NULL)::int +
+      (proyecto_actual_id IS NOT NULL)::int +
+      (usuario_actual_id IS NOT NULL)::int
+    ) <= 1
   )
 );
 
@@ -233,6 +238,36 @@ BEGIN
 END $$;
 
 -- ============================================================
+-- CUSTODIA INTERNA POR USUARIO DE SISTEMA
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS asignacion_usuario (
+  id                        UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  articulo_id               UUID        NOT NULL REFERENCES articulo(id),
+  usuario_id                UUID        NOT NULL REFERENCES usuario(id),
+  asignado_por_usuario_id   UUID        NOT NULL REFERENCES usuario(id),
+  bodega_origen_id          UUID        REFERENCES bodegas(id),
+  usuario_origen_id         UUID        REFERENCES usuario(id),
+  estado                    VARCHAR(20) NOT NULL DEFAULT 'activa'
+    CHECK (estado IN ('activa', 'cerrada', 'anulada')),
+  desde_en                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  hasta_en                  TIMESTAMPTZ,
+  cerrado_por_usuario_id    UUID        REFERENCES usuario(id),
+  motivo_cierre             TEXT,
+  notas                     TEXT,
+  CONSTRAINT chk_au_origen CHECK (
+    (bodega_origen_id IS NOT NULL)::int + (usuario_origen_id IS NOT NULL)::int = 1
+  )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_asignacion_usuario_activa
+  ON asignacion_usuario(articulo_id) WHERE estado = 'activa';
+CREATE INDEX IF NOT EXISTS idx_asignacion_usuario_usuario_id
+  ON asignacion_usuario(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_articulo_usuario_actual_id
+  ON articulo(usuario_actual_id) WHERE usuario_actual_id IS NOT NULL;
+
+-- ============================================================
 -- DELIVERY / CUSTODY
 -- ============================================================
 
@@ -240,7 +275,8 @@ CREATE TABLE IF NOT EXISTS entrega (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   creado_por_usuario_id UUID NOT NULL REFERENCES usuario(id),
   trabajador_id UUID NOT NULL REFERENCES trabajador(id),
-  bodega_origen_id UUID NOT NULL REFERENCES bodegas(id),
+  bodega_origen_id UUID REFERENCES bodegas(id),
+  usuario_origen_id UUID REFERENCES usuario(id),
   proyecto_destino_id UUID NOT NULL REFERENCES proyectos(id),
   tipo VARCHAR(20) NOT NULL CHECK (tipo IN ('entrega')),
   estado VARCHAR(25) NOT NULL DEFAULT 'borrador' CHECK (estado IN ('borrador', 'pendiente_firma', 'confirmada', 'anulada', 'revertida_admin')),
@@ -255,6 +291,9 @@ CREATE TABLE IF NOT EXISTS entrega (
   CONSTRAINT chk_entrega_motivo_anulacion CHECK (
     estado <> 'anulada'
     OR (motivo_anulacion IS NOT NULL AND length(btrim(motivo_anulacion)) >= 5)
+  ),
+  CONSTRAINT chk_entrega_origen CHECK (
+    (bodega_origen_id IS NOT NULL)::int + (usuario_origen_id IS NOT NULL)::int = 1
   )
 );
 
@@ -381,8 +420,9 @@ CREATE TABLE IF NOT EXISTS movimiento_activo (
   id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   articulo_id            UUID NOT NULL REFERENCES articulo(id),
   fecha_movimiento       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  tipo                   VARCHAR(20) NOT NULL
-    CHECK (tipo IN ('entrada', 'entrega', 'devolucion', 'ajuste', 'baja', 'mantencion', 'reubicacion')),
+  tipo                   VARCHAR(30) NOT NULL
+    CHECK (tipo IN ('entrada', 'entrega', 'devolucion', 'ajuste', 'baja', 'mantencion', 'reubicacion',
+                    'asignacion_usuario', 'devolucion_usuario_bodega', 'entrega_desde_usuario')),
   bodega_origen_id       UUID REFERENCES bodegas(id) ON DELETE SET NULL,
   proyecto_origen_id     UUID REFERENCES proyectos(id) ON DELETE SET NULL,
   bodega_destino_id      UUID REFERENCES bodegas(id) ON DELETE SET NULL,
@@ -390,6 +430,9 @@ CREATE TABLE IF NOT EXISTS movimiento_activo (
   responsable_usuario_id UUID NOT NULL REFERENCES usuario(id),
   entrega_id             UUID REFERENCES entrega(id) ON DELETE SET NULL,
   devolucion_id          UUID REFERENCES devolucion(id) ON DELETE SET NULL,
+  usuario_origen_id      UUID REFERENCES usuario(id),
+  usuario_destino_id     UUID REFERENCES usuario(id),
+  asignacion_id          UUID REFERENCES asignacion_usuario(id) ON DELETE SET NULL,
   notas                  TEXT,
   CONSTRAINT chk_ma_origen  CHECK (bodega_origen_id IS NULL OR proyecto_origen_id IS NULL),
   CONSTRAINT chk_ma_destino CHECK (bodega_destino_id IS NULL OR proyecto_destino_id IS NULL)
