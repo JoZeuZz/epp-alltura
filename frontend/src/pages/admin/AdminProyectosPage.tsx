@@ -353,11 +353,16 @@ const AdminProyectosPage: React.FC = () => {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: ProyectoFormValues }) =>
-      put<Proyecto>(`/proyectos/${id}`, formToPayload(payload)),
-    onSuccess: () => {
+      put<Proyecto & { warnings?: { code: string; count: number }[] }>(`/proyectos/${id}`, formToPayload(payload)),
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       queryClient.invalidateQueries({ queryKey: ['proyectos'] });
-      toast.success('Proyecto actualizado correctamente.');
+      const warn = data?.warnings?.[0];
+      if (warn?.code === 'articulos_pendientes') {
+        toast.success(`Proyecto finalizado. ⚠ ${warn.count} artículo(s) pendiente(s) de devolución — revisa las notificaciones.`);
+      } else {
+        toast.success('Proyecto actualizado correctamente.');
+      }
       setModalOpen(false);
       setEditTarget(null);
     },
