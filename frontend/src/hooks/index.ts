@@ -14,3 +14,5 @@ export { usePdfDownload } from './usePdfDownload';
 export { useTourActions } from '@jozeuzz/alltura-ui';
 export { useInventoryExport } from './useInventoryExport';
 export type { UseInventoryExportOptions } from './useInventoryExport';
+export { useMultiSelect } from './useMultiSelect';
+export type { UseMultiSelectReturn } from './useMultiSelect';
