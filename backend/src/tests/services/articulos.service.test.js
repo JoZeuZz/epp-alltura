@@ -369,9 +369,9 @@ describe('ArticulosService.cambiarEstado', () => {
   it('rechaza transición de estado no permitida', async () => {
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'ROLLBACK') return {};
-      if (/SELECT id, estado, bodega_actual_id, proyecto_actual_id FROM articulo/.test(sql)) {
+      if (/SELECT id, estado, bodega_actual_id, proyecto_actual_id(?:, usuario_actual_id)? FROM articulo/.test(sql)) {
         return {
-          rows: [{ id: ARTICULO_ID, estado: 'asignado', bodega_actual_id: BODEGA_ID, proyecto_actual_id: null }],
+          rows: [{ id: ARTICULO_ID, estado: 'asignado', bodega_actual_id: BODEGA_ID, proyecto_actual_id: null, usuario_actual_id: null }],
         };
       }
       return { rows: [] };
@@ -386,9 +386,9 @@ describe('ArticulosService.cambiarEstado', () => {
   it('cambia estado en_stock → mantencion correctamente', async () => {
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return {};
-      if (/SELECT id, estado, bodega_actual_id, proyecto_actual_id FROM articulo/.test(sql)) {
+      if (/SELECT id, estado, bodega_actual_id, proyecto_actual_id(?:, usuario_actual_id)? FROM articulo/.test(sql)) {
         return {
-          rows: [{ id: ARTICULO_ID, estado: 'en_stock', bodega_actual_id: BODEGA_ID, proyecto_actual_id: null }],
+          rows: [{ id: ARTICULO_ID, estado: 'en_stock', bodega_actual_id: BODEGA_ID, proyecto_actual_id: null, usuario_actual_id: null }],
         };
       }
       if (/FROM custodia_activo/.test(sql)) return { rows: [] };
@@ -414,9 +414,9 @@ describe('ArticulosService.cambiarEstado', () => {
   it('rechaza el cambio de estado cuando hay custodia activa', async () => {
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'ROLLBACK') return {};
-      if (/SELECT id, estado, bodega_actual_id, proyecto_actual_id FROM articulo/.test(sql)) {
+      if (/SELECT id, estado, bodega_actual_id, proyecto_actual_id(?:, usuario_actual_id)? FROM articulo/.test(sql)) {
         return {
-          rows: [{ id: ARTICULO_ID, estado: 'en_stock', bodega_actual_id: BODEGA_ID, proyecto_actual_id: null }],
+          rows: [{ id: ARTICULO_ID, estado: 'en_stock', bodega_actual_id: BODEGA_ID, proyecto_actual_id: null, usuario_actual_id: null }],
         };
       }
       if (/FROM custodia_activo/.test(sql)) return { rows: [{ id: 'cust-1' }] };
