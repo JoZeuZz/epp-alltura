@@ -35,8 +35,9 @@ class ProyectosController {
 
   static async update(req, res, next) {
     try {
-      const data = await ProyectosService.update(req.params.id, req.body);
-      return sendSuccess(res, { message: 'Proyecto actualizado correctamente', data });
+      const { data, warnings } = await ProyectosService.update(req.params.id, req.body);
+      const responseData = warnings.length ? { ...data, warnings } : data;
+      return sendSuccess(res, { message: 'Proyecto actualizado correctamente', data: responseData });
     } catch (error) {
       logger.error('Error updating proyecto:', error);
       return next(error);
