@@ -7,6 +7,8 @@ RUN npm ci --silent --omit=dev
 COPY backend/ .
 # Copy DB schema so initialize.js can apply migrations on startup
 COPY db/init/ db/init/
+# Copy migrations so migrate.js can run them on startup
+COPY db/migrations/ db/migrations/
 
 # Runtime stage: smaller image using only production files
 FROM node:20-alpine AS runtime
@@ -20,6 +22,7 @@ RUN addgroup -S app && adduser -S app -G app
 RUN mkdir -p uploads logs && chown -R app:app /usr/src/app/uploads /usr/src/app/logs
 USER app
 ENV NODE_ENV=production
+ENV MIGRATIONS_DIR=/usr/src/app/db/migrations
 EXPOSE 5000
 # Healthcheck against /health endpoint
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD curl -fsS http://localhost:5000/health/ready || exit 1

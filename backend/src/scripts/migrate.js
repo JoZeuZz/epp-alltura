@@ -35,7 +35,8 @@ const { getPoolConfig } = require('../db/poolConfig');
 // Configuration
 // ---------------------------------------------------------------------------
 
-const MIGRATIONS_DIR = path.resolve(__dirname, '../../../db/migrations');
+const MIGRATIONS_DIR = process.env.MIGRATIONS_DIR
+  || path.resolve(__dirname, '../../../db/migrations');
 
 // Unique advisory lock key for this app — prevents concurrent migration runs.
 // Change if you ever run two separate EPP apps against the same DB.
