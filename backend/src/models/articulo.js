@@ -20,6 +20,11 @@ const RICH_SELECT = `
     pr.nombre  AS proyecto_nombre,
     b.ciudad   AS bodega_ciudad,
     pr.ciudad  AS proyecto_ciudad,
+    pr.estado  AS proyecto_estado,
+    CASE
+      WHEN pr.estado = 'finalizado' AND a.proyecto_actual_id IS NOT NULL THEN true
+      ELSE false
+    END AS alerta_devolucion,
     u.email_login AS creado_por_email,
     prov.nombre   AS proveedor_nombre
   FROM articulo a
