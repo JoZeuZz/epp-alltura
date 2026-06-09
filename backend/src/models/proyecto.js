@@ -1,3 +1,5 @@
+'use strict';
+
 const db = require('../db');
 const { buildSetClause, normalizePagination } = require('./modelUtils');
 
@@ -6,7 +8,7 @@ class ProyectoModel {
     this.id = data.id;
     this.nombre = data.nombre;
     this.descripcion = data.descripcion;
-    this.ciudad = data.ciudad ?? null;
+    this.sitio = data.sitio ?? null;
     this.cliente = data.cliente;
     this.presupuesto_clp = data.presupuesto_clp;
     this.estado = data.estado;
@@ -16,12 +18,12 @@ class ProyectoModel {
     this.actualizado_en = data.actualizado_en;
   }
 
-  static async create({ nombre, descripcion, ciudad, cliente, presupuesto_clp, estado = 'activo', fecha_inicio, fecha_fin }) {
+  static async create({ nombre, descripcion, sitio, cliente, presupuesto_clp, estado = 'activo', fecha_inicio, fecha_fin }) {
     const { rows } = await db.query(
-      `INSERT INTO proyectos (nombre, descripcion, ciudad, cliente, presupuesto_clp, estado, fecha_inicio, fecha_fin)
+      `INSERT INTO proyectos (nombre, descripcion, sitio, cliente, presupuesto_clp, estado, fecha_inicio, fecha_fin)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [nombre, descripcion || null, ciudad || null, cliente || null, presupuesto_clp ?? null, estado, fecha_inicio || null, fecha_fin || null]
+      [nombre, descripcion || null, sitio || null, cliente || null, presupuesto_clp ?? null, estado, fecha_inicio || null, fecha_fin || null]
     );
     return new ProyectoModel(rows[0]);
   }
@@ -67,7 +69,7 @@ class ProyectoModel {
     const { clause, values } = buildSetClause({
       nombre: fields.nombre,
       descripcion: fields.descripcion,
-      ciudad: fields.ciudad,
+      sitio: fields.sitio,
       cliente: fields.cliente,
       presupuesto_clp: fields.presupuesto_clp,
       estado: fields.estado,
@@ -86,9 +88,7 @@ class ProyectoModel {
   }
 
   static async exportAll() {
-    const { rows } = await db.query(
-      'SELECT * FROM proyectos ORDER BY creado_en ASC'
-    );
+    const { rows } = await db.query('SELECT * FROM proyectos ORDER BY creado_en ASC');
     return rows;
   }
 
@@ -105,19 +105,19 @@ class ProyectoModel {
         try {
           const result = await client.query(`
             INSERT INTO proyectos
-              (id, nombre, descripcion, ciudad, cliente, presupuesto_clp, estado, fecha_inicio, fecha_fin, creado_en)
+              (id, nombre, descripcion, sitio, cliente, presupuesto_clp, estado, fecha_inicio, fecha_fin, creado_en)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
             ON CONFLICT (id) DO UPDATE SET
               nombre          = EXCLUDED.nombre,
               descripcion     = EXCLUDED.descripcion,
-              ciudad          = EXCLUDED.ciudad,
+              sitio           = EXCLUDED.sitio,
               cliente         = EXCLUDED.cliente,
               presupuesto_clp = EXCLUDED.presupuesto_clp,
               estado          = EXCLUDED.estado,
               fecha_inicio    = EXCLUDED.fecha_inicio,
               fecha_fin       = EXCLUDED.fecha_fin
             RETURNING (xmax = 0) AS was_inserted
-          `, [row.id, row.nombre, row.descripcion ?? null, row.ciudad ?? null,
+          `, [row.id, row.nombre, row.descripcion ?? null, row.sitio ?? null,
               row.cliente ?? null, row.presupuesto_clp ?? null,
               row.estado ?? 'activo', row.fecha_inicio ?? null,
               row.fecha_fin ?? null, row.creado_en ?? new Date().toISOString()]);

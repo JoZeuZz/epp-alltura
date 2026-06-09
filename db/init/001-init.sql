@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS proyectos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nombre VARCHAR(150) NOT NULL,
   descripcion TEXT,
-  ciudad VARCHAR(100),
+  sitio VARCHAR(100),
   cliente VARCHAR(150),
   presupuesto_clp BIGINT,
   estado VARCHAR(20) NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo', 'inactivo', 'finalizado')),
