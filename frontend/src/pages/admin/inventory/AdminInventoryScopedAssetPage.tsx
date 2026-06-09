@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArticuloCreateModal } from '../../../components/ArticuloCreateModal';
 import { ArticuloBatchModal } from '../../../components/forms';
+import AsignarEntregarSeleccionadosModal from '../../../components/forms/AsignarEntregarSeleccionadosModal';
 import {
   getArticulos,
   type Articulo,
@@ -47,6 +48,8 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'inventario'>('dashboard');
   const [locationFilter, setLocationFilter] = useState<string | null | undefined>(undefined);
+  const [bulkModalIds, setBulkModalIds] = useState<string[]>([]);
+  const [showBulkModal, setShowBulkModal] = useState(false);
   const queryClient = useQueryClient();
 
   const handleLocationClick = (location: string | null) => {
@@ -104,7 +107,7 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
               onClick={() => setShowBatchModal(true)}
               className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-gray-200 text-sm text-gray-600 bg-white hover:bg-gray-50 transition-colors min-h-[44px]"
             >
-              📋 Crear en lote
+               Crear en lote
             </button>
             <button
               type="button"
@@ -199,6 +202,10 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
           copy={copy}
           locationFilter={locationFilter}
           onClearLocation={() => setLocationFilter(undefined)}
+          onBulkAction={(ids) => {
+            setBulkModalIds(ids);
+            setShowBulkModal(true);
+          }}
         />
       )}
 
@@ -218,6 +225,15 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
           bodegas={bodegas}
           isOpen={showBatchModal}
           onClose={() => setShowBatchModal(false)}
+        />
+      )}
+
+      {showBulkModal && bulkModalIds.length > 0 && (
+        <AsignarEntregarSeleccionadosModal
+          isOpen={showBulkModal}
+          onClose={() => { setShowBulkModal(false); setBulkModalIds([]); }}
+          articuloIds={bulkModalIds}
+          sourceIsUsuario={false}
         />
       )}
     </div>

@@ -27,7 +27,27 @@ const renderVence = (fecha: string | null | undefined): React.ReactNode => {
   return <span>{label}</span>;
 };
 
-const COLUMNS: TableColumn<Articulo>[] = [
+interface MultiSelectHookSlice {
+  isSelectMode: boolean;
+  isSelected: (id: string) => boolean;
+  toggle: (id: string) => void;
+}
+
+const buildColumns = (multiSelectHook?: MultiSelectHookSlice): TableColumn<Articulo>[] => [
+  ...(multiSelectHook?.isSelectMode ? [{
+    key: 'id' as const,
+    header: '',
+    render: (_: unknown, row: Articulo) => (
+      <input
+        type="checkbox"
+        checked={multiSelectHook.isSelected(row.id)}
+        onChange={() => multiSelectHook.toggle(row.id)}
+        onClick={(e) => e.stopPropagation()}
+        aria-label={`Seleccionar ${row.nombre}`}
+        className="w-4 h-4 rounded border-gray-300 text-primary-blue focus:ring-primary-blue cursor-pointer"
+      />
+    ),
+  } as TableColumn<Articulo>] : []),
   {
     key: 'nombre',
     header: 'Nombre',
@@ -90,6 +110,7 @@ interface AdminInventoryScopedAssetListViewProps {
   onSelect: (id: string) => void;
   isLoading: boolean;
   emptyMessage: string;
+  multiSelectHook?: MultiSelectHookSlice;
 }
 
 const AdminInventoryScopedAssetListView: React.FC<AdminInventoryScopedAssetListViewProps> = ({
@@ -97,9 +118,10 @@ const AdminInventoryScopedAssetListView: React.FC<AdminInventoryScopedAssetListV
   onSelect,
   isLoading,
   emptyMessage,
+  multiSelectHook,
 }) => (
   <ResponsiveTable<Articulo>
-    columns={COLUMNS}
+    columns={buildColumns(multiSelectHook)}
     data={items}
     loading={isLoading}
     emptyMessage={emptyMessage}

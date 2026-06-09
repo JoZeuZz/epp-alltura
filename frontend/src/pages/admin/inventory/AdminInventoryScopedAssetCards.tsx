@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { LayoutGrid, List } from 'lucide-react';
 import ActivoProfileModal from '../../../components/forms/ActivoProfileModal';
-import { useTourActions } from '../../../hooks';
+import { useTourActions, useMultiSelect } from '../../../hooks';
 import TourDemoActivoModal from '../../../components/forms/TourDemoActivoModal';
 import type { Articulo, ArticuloEstado } from '../../../services/apiService';
 import type { AssetScopeKey, InventoryAssetScopeCopy } from './inventoryAssetScope.constants';
@@ -9,6 +9,7 @@ import { formatCLP } from '../../../utils/currency';
 import AdminInventoryScopedAssetListView from './AdminInventoryScopedAssetListView';
 import { useInventoryExport } from '../../../hooks';
 import AlertaDevolucionBadge from '../../../components/AlertaDevolucionBadge';
+import BulkSelectionToolbar from '../../../components/BulkSelectionToolbar';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -38,24 +39,45 @@ const ESP_LABELS: Record<string, string> = {
 
 // ── Article card ───────────────────────────────────────────────────────────────
 
-const ArticuloCard: React.FC<{ articulo: Articulo; onClick: () => void }> = ({
-  articulo,
-  onClick,
-}) => {
+const ArticuloCard: React.FC<{
+  articulo: Articulo;
+  onClick: () => void;
+  isSelectMode?: boolean;
+  isSelected?: boolean;
+}> = ({ articulo, onClick, isSelectMode = false, isSelected = false }) => {
   const badge = ESTADO_BADGE[articulo.estado] ?? { label: articulo.estado, classes: 'bg-gray-100 text-gray-600' };
   const ubicacion = articulo.bodega_nombre ?? articulo.proyecto_nombre ?? null;
 
   return (
     <article
-      className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 flex flex-col gap-3 cursor-pointer hover:border-primary-blue hover:shadow-md transition-all"
+      className={`relative bg-white rounded-lg shadow-sm border p-4 flex flex-col gap-3 transition-all ${
+        isSelectMode
+          ? `cursor-pointer ${isSelected ? 'border-primary-blue ring-2 ring-primary-blue/30 bg-blue-50' : 'border-gray-100 hover:border-primary-blue'}`
+          : 'border-gray-100 cursor-pointer hover:border-primary-blue hover:shadow-md'
+      }`}
       onClick={onClick}
       tabIndex={0}
-      role="button"
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
-      aria-label={`Ver perfil de ${articulo.nombre}`}
+      role={isSelectMode ? 'checkbox' : 'button'}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+      aria-label={isSelectMode ? articulo.nombre : `Ver perfil de ${articulo.nombre}`}
+      aria-checked={isSelectMode ? isSelected : undefined}
     >
+      {isSelectMode && (
+        <div
+          className={`absolute top-2 left-2 w-5 h-5 rounded border-2 flex items-center justify-center ${
+            isSelected ? 'bg-primary-blue border-primary-blue text-white' : 'border-gray-300 bg-white'
+          }`}
+          aria-hidden="true"
+        >
+          {isSelected && (
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </div>
+      )}
       {/* Header */}
-      <div className="flex items-start gap-3">
+      <div className={`flex items-start gap-3 ${isSelectMode ? 'pl-6' : ''}`}>
         {articulo.foto_url ? (
           <img
             src={articulo.foto_url}
@@ -135,6 +157,7 @@ interface AdminInventoryScopedAssetCardsProps {
   copy: InventoryAssetScopeCopy;
   locationFilter?: string | null;   // undefined = sin filtro, null = sin ubicación
   onClearLocation?: () => void;
+  onBulkAction?: (ids: string[], action: 'entregar' | 'asignar') => void;
 }
 
 const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsProps> = ({
@@ -146,6 +169,7 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
   copy,
   locationFilter,
   onClearLocation,
+  onBulkAction,
 }) => {
   const [search, setSearch] = useState('');
   const [estadoFilter, setEstadoFilter] = useState<string>('all');
@@ -153,6 +177,7 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
   const [showDemoModal, setShowDemoModal] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
   const [exportOpen, setExportOpen] = useState(false);
+  const multiSelect = useMultiSelect<Articulo>((a) => a.id);
 
   const { exporting, exportExcel, exportPdf } = useInventoryExport({
     tipo: copy.tipo,
@@ -282,6 +307,18 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
                 </>
               )}
             </div>
+            <button
+              type="button"
+              onClick={multiSelect.toggleSelectMode}
+              aria-pressed={multiSelect.isSelectMode}
+              className={`px-3 py-1.5 text-sm rounded-md border transition-colors min-h-[32px] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-blue ${
+                multiSelect.isSelectMode
+                  ? 'bg-primary-blue text-white border-primary-blue'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              {multiSelect.isSelectMode ? '✓ Seleccionando' : 'Seleccionar'}
+            </button>
             <div className="flex rounded-md border border-gray-200 overflow-hidden">
             <button
               type="button"
@@ -355,9 +392,17 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
       ) : viewMode === 'list' ? (
         <AdminInventoryScopedAssetListView
           items={filtered}
-          onSelect={setSelectedId}
+          onSelect={(id) => {
+            if (multiSelect.isSelectMode) multiSelect.toggle(id);
+            else setSelectedId(id);
+          }}
           isLoading={isLoading}
           emptyMessage={copy.emptyMessage}
+          multiSelectHook={multiSelect.isSelectMode ? {
+            isSelectMode: multiSelect.isSelectMode,
+            isSelected: multiSelect.isSelected,
+            toggle: multiSelect.toggle,
+          } : undefined}
         />
       ) : isLoading ? (
         <div
@@ -394,14 +439,22 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
         </div>
       ) : (
         <div
-          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
+          className={`grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 ${multiSelect.isSelectMode ? 'pb-20' : ''}`}
           data-tour="admin-inventory-grid"
         >
           {filtered.map((articulo) => (
             <ArticuloCard
               key={articulo.id}
               articulo={articulo}
-              onClick={() => setSelectedId(articulo.id)}
+              isSelectMode={multiSelect.isSelectMode}
+              isSelected={multiSelect.isSelected(articulo.id)}
+              onClick={() => {
+                if (multiSelect.isSelectMode) {
+                  multiSelect.toggle(articulo.id);
+                } else {
+                  setSelectedId(articulo.id);
+                }
+              }}
             />
           ))}
         </div>
@@ -419,6 +472,20 @@ const AdminInventoryScopedAssetCards: React.FC<AdminInventoryScopedAssetCardsPro
       {showDemoModal && (
         <TourDemoActivoModal onClose={() => setShowDemoModal(false)} />
       )}
+
+      <BulkSelectionToolbar
+        isSelectMode={multiSelect.isSelectMode}
+        count={multiSelect.count}
+        totalVisible={filtered.length}
+        onClear={multiSelect.clearAll}
+        onSelectAll={() => multiSelect.selectAll(filtered)}
+        onDeliver={() => {
+          if (onBulkAction) onBulkAction([...multiSelect.selectedIds], 'entregar');
+        }}
+        onAssignToUser={() => {
+          if (onBulkAction) onBulkAction([...multiSelect.selectedIds], 'asignar');
+        }}
+      />
     </div>
   );
 };
