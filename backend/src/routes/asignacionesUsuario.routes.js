@@ -5,6 +5,7 @@ const Joi = require('joi');
 const AsignacionesUsuarioController = require('../controllers/asignacionesUsuario.controller');
 const { authMiddleware } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roles');
+const { imageUpload, validateImageMagic, parseMultipartPayload } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -102,6 +103,9 @@ router.post(
   '/entregar-a-trabajador',
   authMiddleware,
   checkRole(['admin', 'supervisor']),
+  imageUpload.single('foto'),
+  validateImageMagic,
+  parseMultipartPayload,
   validateBody(entregarATrabajadorSchema),
   AsignacionesUsuarioController.deliverToTrabajador
 );

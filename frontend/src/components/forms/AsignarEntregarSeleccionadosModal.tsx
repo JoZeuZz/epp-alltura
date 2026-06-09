@@ -40,15 +40,30 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
   const [notas, setNotas] = useState('');
   // For the bodega→trabajador path (sourceIsUsuario=false), we need bodega origen for POST /entregas
   const [bodegaOrigenEntregaId, setBodegaOrigenEntregaId] = useState('');
+  const [fotoFile, setFotoFile] = useState<File | null>(null);
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
 
   const { data: trabajadores = [] } = useGet<TrabajadorOption[]>(['trabajadores'], '/trabajadores');
   const { data: proyectos = [] } = useGet<UbicacionOption[]>(['proyectos-activos'], '/proyectos?estado=activo');
   const { data: usuarios = [] } = useGet<UsuarioOption[]>(['usuarios'], '/users');
   const { data: bodegas = [] } = useGet<BodegaOption[]>(['bodegas'], '/bodegas');
 
+  const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setFotoFile(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => setFotoPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setFotoPreview(null);
+    }
+  };
+
   // From user custody → worker (POST /asignaciones-usuario/entregar-a-trabajador)
   const deliverFromUsuarioMutation = useMutation({
-    mutationFn: (p: DeliverAssignedPayload) => deliverAssignedArticulosToTrabajador(p),
+    mutationFn: ({ fotoFile: file, ...p }: DeliverAssignedPayload & { fotoFile: File }) =>
+      deliverAssignedArticulosToTrabajador(p, file),
     onSuccess: (data) => {
       const entregaId: string | undefined = (data as { id?: string })?.id;
       toast.success(
@@ -67,7 +82,8 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
 
   // From bodega → worker via regular entrega (POST /entregas)
   const deliverFromBodegaMutation = useMutation({
-    mutationFn: (p: EntregaCreatePayload) => createEntrega(p),
+    mutationFn: ({ payload, fotoFile: file }: { payload: EntregaCreatePayload; fotoFile: File }) =>
+      createEntrega(payload, file),
     onSuccess: (data) => {
       const entregaId: string | undefined = (data as { id?: string })?.id;
       toast.success(
@@ -101,11 +117,13 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (destType === 'trabajador') {
+      if (!fotoFile) { toast.error('Se requiere foto de evidencia'); return; }
       if (!trabajadorId) { toast.error('Selecciona un trabajador'); return; }
       if (!proyectoId) { toast.error('Selecciona un proyecto destino'); return; }
       if (sourceIsUsuario) {
         // Items are in user custody → POST /asignaciones-usuario/entregar-a-trabajador
         deliverFromUsuarioMutation.mutate({
+          fotoFile,
           trabajador_id: trabajadorId,
           proyecto_destino_id: proyectoId,
           articulo_ids: articuloIds,
@@ -122,12 +140,15 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
         // bulk selections spanning multiple bodegas. Future fix: receive article metadata via
         // props or a separate query and pre-filter / warn the user before submission.
         deliverFromBodegaMutation.mutate({
-          trabajador_id: trabajadorId,
-          ubicacion_origen_id: bodegaOrigenEntregaId,
-          ubicacion_destino_id: proyectoId,
-          nota_destino: notas || null,
-          fecha_devolucion_esperada: fechaDevolucion || null,
-          detalles: articuloIds.map((id) => ({ articulo_id: id, condicion_salida: 'ok' as const })),
+          fotoFile,
+          payload: {
+            trabajador_id: trabajadorId,
+            ubicacion_origen_id: bodegaOrigenEntregaId,
+            ubicacion_destino_id: proyectoId,
+            nota_destino: notas || null,
+            fecha_devolucion_esperada: fechaDevolucion || null,
+            detalles: articuloIds.map((id) => ({ articulo_id: id, condicion_salida: 'ok' as const })),
+          },
         });
       }
     } else {
@@ -253,6 +274,27 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
                     <option key={p.id} value={p.id}>{p.nombre}</option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label htmlFor="foto-evidencia" className="block text-sm font-medium text-gray-700 mb-1">
+                  Foto de evidencia <span aria-hidden="true" className="text-red-500">*</span>
+                </label>
+                <input
+                  id="foto-evidencia"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleFotoChange}
+                  required
+                  className="w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary-blue file:text-white hover:file:bg-blue-700"
+                />
+                {fotoPreview && (
+                  <img
+                    src={fotoPreview}
+                    alt="Vista previa de evidencia"
+                    className="mt-2 rounded border border-gray-200 max-h-32 object-cover"
+                  />
+                )}
               </div>
               <div>
                 <label htmlFor="fecha-devolucion" className="block text-sm font-medium text-gray-700 mb-1">

@@ -6,6 +6,7 @@ import MetricCard from '../../components/dashboard/MetricCard';
 import { ResponsiveTable, type TableColumn } from '../../components/layout';
 import EntregaCreateModal from '../../components/forms/EntregaCreateModal';
 import EntregaFirmaModal from '../../components/forms/EntregaFirmaModal';
+import AsignarEntregarSeleccionadosModal from '../../components/forms/AsignarEntregarSeleccionadosModal';
 import DevolucionActivoModal from '../../components/forms/DevolucionActivoModal';
 import DevolucionFirmaModal from '../../components/forms/DevolucionFirmaModal';
 import DevolucionRapidaModal from '../../components/forms/DevolucionRapidaModal';
@@ -222,6 +223,10 @@ const AdminDashboard: React.FC = () => {
   const [draftEntrega, setDraftEntrega]         = useState<EntregaRow | null>(null);
   const [showFirmaEntrega, setShowFirmaEntrega] = useState(false);
 
+  // Modal state — deliver from mis artículos
+  const [showDeliverModal, setShowDeliverModal] = useState(false);
+  const [deliverIds, setDeliverIds] = useState<string[]>([]);
+
   // Modal state — devolución rápida flow
   const [showDevolucionRapida, setShowDevolucionRapida] = useState(false);
   const [devCustodiaQueue, setDevCustodiaQueue]         = useState<ReturnEligibleAssetRow[]>([]);
@@ -377,10 +382,7 @@ const AdminDashboard: React.FC = () => {
 
       {tieneMisArticulos && dashTab === 'mis-articulos' ? (
         <MisArticulosAsignadosPanel
-          onDeliverSelected={(ids) => {
-            // TODO: open AsignarEntregarSeleccionadosModal (Task 14)
-            console.log('Entregar desde mis artículos:', ids);
-          }}
+          onDeliverSelected={(ids) => { setDeliverIds(ids); setShowDeliverModal(true); }}
         />
       ) : (
         <div className="flex flex-col lg:flex-row gap-6 items-start">
@@ -513,6 +515,16 @@ const AdminDashboard: React.FC = () => {
           onClose={handleFirmaDevolucionClose}
           devolucion={devDraftCreated}
           onCompleted={handleFirmaDevolucionCompleted}
+        />
+      )}
+
+      {showDeliverModal && deliverIds.length > 0 && (
+        <AsignarEntregarSeleccionadosModal
+          isOpen={showDeliverModal}
+          onClose={() => { setShowDeliverModal(false); setDeliverIds([]); }}
+          articuloIds={deliverIds}
+          sourceIsUsuario={true}
+          initialDestType="trabajador"
         />
       )}
     </div>

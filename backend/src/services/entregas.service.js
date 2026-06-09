@@ -260,11 +260,13 @@ class EntregasService {
   }
 
   static async create(payload, userId, imageFile = null) {
-    // Photo is optional at draft creation time; it is required before confirmation/signature.
-    // See migration 2026-06-09-006-entrega-evidencia-foto-nullable.sql.
     let uploadedEvidenceUrl = null;
     if (imageFile) {
       uploadedEvidenceUrl = await uploadFile(imageFile, { folder: 'entregas/evidencias' });
+    }
+    const finalEvidenciaUrl = uploadedEvidenceUrl || payload.evidencia_foto_url || null;
+    if (!finalEvidenciaUrl) {
+      throw buildError('Se requiere foto de evidencia para crear la entrega', 400, 'FOTO_REQUERIDA');
     }
 
     const client = await db.pool.connect();
@@ -301,7 +303,7 @@ class EntregasService {
           payload.ubicacion_destino_id,
           payload.nota_destino || null,
           payload.fecha_devolucion_esperada || null,
-          uploadedEvidenceUrl || payload.evidencia_foto_url || null,
+          finalEvidenciaUrl,
         ]
       );
 
@@ -671,7 +673,16 @@ class EntregasService {
     }
   }
 
-  static async createFromUsuario(payload, userId) {
+  static async createFromUsuario(payload, userId, imageFile = null) {
+    let uploadedEvidenceUrl = null;
+    if (imageFile) {
+      uploadedEvidenceUrl = await uploadFile(imageFile, { folder: 'entregas/evidencias' });
+    }
+    const finalEvidenciaUrl = uploadedEvidenceUrl || payload.evidencia_foto_url || null;
+    if (!finalEvidenciaUrl) {
+      throw buildError('Se requiere foto de evidencia para entregar a trabajador', 400, 'FOTO_REQUERIDA');
+    }
+
     const {
       usuario_origen_id,
       trabajador_id,
@@ -754,8 +765,9 @@ class EntregasService {
         `INSERT INTO entrega (
            creado_por_usuario_id, trabajador_id,
            usuario_origen_id, proyecto_destino_id,
-           tipo, estado, nota_destino, fecha_devolucion_esperada
-         ) VALUES ($1, $2, $3, $4, 'entrega', 'borrador', $5, $6)
+           tipo, estado, nota_destino, fecha_devolucion_esperada,
+           evidencia_foto_url
+         ) VALUES ($1, $2, $3, $4, 'entrega', 'borrador', $5, $6, $7)
          RETURNING id`,
         [
           userId,
@@ -764,6 +776,7 @@ class EntregasService {
           proyecto_destino_id,
           nota_destino || null,
           fecha_devolucion_esperada || null,
+          finalEvidenciaUrl,
         ]
       );
       const entregaId = entRows[0].id;
@@ -794,6 +807,9 @@ class EntregasService {
       return data;
     } catch (err) {
       await client.query('ROLLBACK');
+      if (uploadedEvidenceUrl) {
+        try { await deleteFileByUrl(uploadedEvidenceUrl); } catch (_) {}
+      }
       throw err;
     } finally {
       client.release();

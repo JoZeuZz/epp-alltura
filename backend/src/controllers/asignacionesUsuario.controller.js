@@ -69,7 +69,7 @@ class AsignacionesUsuarioController {
     try {
       const EntregasService = require('../services/entregas.service');
       const payload = { ...req.body, usuario_origen_id: req.user.id };
-      const result = await EntregasService.createFromUsuario(payload, req.user.id);
+      const result = await EntregasService.createFromUsuario(payload, req.user.id, req.file ?? null);
       return sendSuccess(res, {
         status: 201,
         message: 'Entrega a trabajador creada correctamente',

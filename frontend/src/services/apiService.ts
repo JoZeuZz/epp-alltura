@@ -22,6 +22,9 @@ export const patch = <T = unknown>(url: string, data?: unknown) =>
 export const del = <T = unknown>(url: string) =>
   httpClient.del<T>(url);
 
+export const postForm = <T = unknown>(url: string, form: FormData) =>
+  apiService.post<T>(url, form, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
+
 type UploadMethod = 'post' | 'put' | 'patch';
 
 export const uploadWithProgress = <T = unknown>(
@@ -943,6 +946,7 @@ export interface DeliverAssignedPayload {
   articulo_ids: string[];
   nota_destino?: string;
   fecha_devolucion_esperada?: string;
+  evidencia_foto_url?: string;
 }
 
 export interface ReturnToBodegaPayload {
@@ -978,8 +982,22 @@ export const assignArticulosToUsuario = (payload: AssignArticulosPayload) =>
     payload
   );
 
-export const deliverAssignedArticulosToTrabajador = (payload: DeliverAssignedPayload) =>
-  post<EntregaRow>('/asignaciones-usuario/entregar-a-trabajador', payload);
+export const deliverAssignedArticulosToTrabajador = (
+  payload: DeliverAssignedPayload,
+  imageFile?: File
+) => {
+  if (imageFile) {
+    const form = new FormData();
+    form.append('foto', imageFile);
+    form.append('trabajador_id', payload.trabajador_id);
+    form.append('proyecto_destino_id', payload.proyecto_destino_id);
+    payload.articulo_ids.forEach((id) => form.append('articulo_ids[]', id));
+    if (payload.nota_destino) form.append('nota_destino', payload.nota_destino);
+    if (payload.fecha_devolucion_esperada) form.append('fecha_devolucion_esperada', payload.fecha_devolucion_esperada);
+    return postForm<EntregaRow>('/asignaciones-usuario/entregar-a-trabajador', form);
+  }
+  return post<EntregaRow>('/asignaciones-usuario/entregar-a-trabajador', payload);
+};
 
 export const returnAssignedArticulosToBodega = (payload: ReturnToBodegaPayload) =>
   post<{ ok: boolean; cerradas: number }>('/asignaciones-usuario/devolver-bodega', payload);
