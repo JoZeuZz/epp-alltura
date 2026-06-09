@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const Joi = require('joi');
 const { authMiddleware } = require('../middleware/auth');
-const { isAdmin } = require('../middleware/roles');
+const { isAdmin, checkRole } = require('../middleware/roles');
 const { imageUpload, validateImageMagic } = require('../middleware/upload');
 const UserController = require('../controllers/users.controller');
+const AsignacionesUsuarioController = require('../controllers/asignacionesUsuario.controller');
 const {
   email,
   password,
@@ -121,5 +122,14 @@ router.put(
 );
 
 router.delete('/:id', authMiddleware, isAdmin, validateParam(userIdParamSchema), UserController.deleteUser);
+
+// GET /api/users/:id/asignaciones — historial de asignaciones de un usuario
+router.get(
+  '/:id/asignaciones',
+  authMiddleware,
+  checkRole(['admin', 'supervisor']),
+  validateParam(userIdParamSchema),
+  AsignacionesUsuarioController.getHistorialByUser
+);
 
 module.exports = router;
