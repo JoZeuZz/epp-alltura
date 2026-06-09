@@ -3,6 +3,7 @@ import React from 'react';
 interface BulkSelectionToolbarProps {
   count: number;
   totalVisible: number;
+  isSelectMode: boolean;
   onClear: () => void;
   onSelectAll: () => void;
   onDeliver?: () => void;
@@ -14,6 +15,7 @@ interface BulkSelectionToolbarProps {
 const BulkSelectionToolbar: React.FC<BulkSelectionToolbarProps> = ({
   count,
   totalVisible,
+  isSelectMode,
   onClear,
   onSelectAll,
   onDeliver,
@@ -21,7 +23,7 @@ const BulkSelectionToolbar: React.FC<BulkSelectionToolbarProps> = ({
   onReturnToBodega,
   isSubmitting = false,
 }) => {
-  if (count === 0 && totalVisible === 0) return null;
+  if (!isSelectMode) return null;
 
   return (
     <div
@@ -42,7 +44,8 @@ const BulkSelectionToolbar: React.FC<BulkSelectionToolbarProps> = ({
           <button
             type="button"
             onClick={onSelectAll}
-            className="text-xs text-white/80 hover:text-white underline focus:outline-none focus-visible:ring-2 focus-visible:ring-white rounded"
+            disabled={isSubmitting}
+            className="text-xs text-white/80 hover:text-white underline focus:outline-none focus-visible:ring-2 focus-visible:ring-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Seleccionar todos ({totalVisible})
           </button>

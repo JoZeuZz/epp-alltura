@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 export interface UseMultiSelectReturn<T> {
   selectedIds: Set<string>;
@@ -16,6 +16,9 @@ export function useMultiSelect<T>(
 ): UseMultiSelectReturn<T> {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
+  // Stabilize getId to avoid selectAll recreating on every render when callers pass inline arrows
+  const getIdRef = useRef(getId);
+  getIdRef.current = getId;
 
   const isSelected = useCallback((id: string) => selectedIds.has(id), [selectedIds]);
 
@@ -29,18 +32,20 @@ export function useMultiSelect<T>(
   }, []);
 
   const selectAll = useCallback(
-    (items: T[]) => setSelectedIds(new Set(items.map(getId))),
-    [getId]
+    (items: T[]) => setSelectedIds(new Set(items.map((i) => getIdRef.current(i)))),
+    []
   );
 
   const clearAll = useCallback(() => setSelectedIds(new Set()), []);
 
   const toggleSelectMode = useCallback(() => {
-    setIsSelectMode((prev) => {
-      if (prev) setSelectedIds(new Set());
-      return !prev;
+    setIsSelectMode((prev) => !prev);
+    // Clear selection when exiting select mode — separate setState call (not inside updater)
+    setSelectedIds((prev) => {
+      if (isSelectMode) return new Set();
+      return prev;
     });
-  }, []);
+  }, [isSelectMode]);
 
   return {
     selectedIds,
