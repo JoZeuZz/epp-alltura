@@ -17,6 +17,7 @@ const mapHeaderRow = (row) => ({
   apellidos: row.apellidos,
   rut: row.rut,
   ubicacion_origen_id: row.ubicacion_origen_id,
+  usuario_origen_id: row.usuario_origen_id || null,
   ubicacion_destino_id: row.ubicacion_destino_id,
   tipo: row.tipo,
   estado: row.estado,
@@ -200,6 +201,7 @@ class EntregasService {
          p_creator.nombres AS creador_nombres,
          p_creator.apellidos AS creador_apellidos,
          e.bodega_origen_id AS ubicacion_origen_id,
+         e.usuario_origen_id,
          e.proyecto_destino_id AS ubicacion_destino_id,
          e.tipo,
          e.estado,
@@ -504,7 +506,7 @@ class EntregasService {
 
       for (const detail of detailResult.rows) {
         const assetResult = await client.query(
-          `SELECT id, estado, bodega_actual_id,
+          `SELECT id, estado, bodega_actual_id, usuario_actual_id,
                   COALESCE(nro_serie, nombre, 'artículo') AS label
            FROM articulo
            WHERE id = $1
@@ -518,48 +520,80 @@ class EntregasService {
 
         const asset = assetResult.rows[0];
 
-        if (asset.estado !== 'en_stock') {
-          throw buildError(
-            `El artículo "${asset.label}" ya no está disponible para confirmar`,
-            409,
-            'ASSET_NOT_AVAILABLE'
-          );
-        }
+        if (entrega.usuario_origen_id) {
+          // Origin is a system user
+          if (asset.estado !== 'asignado') {
+            throw buildError(
+              `El artículo "${asset.label}" no está asignado`,
+              409,
+              'ASSET_NOT_AVAILABLE'
+            );
+          }
+          if (asset.usuario_actual_id !== entrega.usuario_origen_id) {
+            throw buildError(
+              `El artículo "${asset.label}" ya no está asignado al usuario origen`,
+              409,
+              'ASSET_WRONG_LOCATION'
+            );
+          }
+        } else {
+          // Original path: origin is bodega
+          if (asset.estado !== 'en_stock') {
+            throw buildError(
+              `El artículo "${asset.label}" ya no está disponible para confirmar`,
+              409,
+              'ASSET_NOT_AVAILABLE'
+            );
+          }
+          if (asset.bodega_actual_id !== entrega.bodega_origen_id) {
+            throw buildError(
+              `El artículo "${asset.label}" ya no se encuentra en la bodega de origen`,
+              409,
+              'ASSET_WRONG_LOCATION'
+            );
+          }
 
-        if (asset.bodega_actual_id !== entrega.bodega_origen_id) {
-          throw buildError(
-            `El artículo "${asset.label}" ya no se encuentra en la bodega de origen`,
-            409,
-            'ASSET_WRONG_LOCATION'
+          // Only check custodia for bodega-origin path
+          const custodyResult = await client.query(
+            `SELECT id
+             FROM custodia_activo
+             WHERE articulo_id = $1
+               AND estado = 'activa'
+             LIMIT 1
+             FOR UPDATE`,
+            [asset.id]
           );
-        }
-
-        const custodyResult = await client.query(
-          `SELECT id
-           FROM custodia_activo
-           WHERE articulo_id = $1
-             AND estado = 'activa'
-           LIMIT 1
-           FOR UPDATE`,
-          [asset.id]
-        );
-
-        if (custodyResult.rows.length) {
-          throw buildError(
-            `El artículo "${asset.label}" ya tiene custodia activa`,
-            409,
-            'ACTIVE_CUSTODY_EXISTS'
-          );
+          if (custodyResult.rows.length) {
+            throw buildError(
+              `El artículo "${asset.label}" ya tiene custodia activa`,
+              409,
+              'ACTIVE_CUSTODY_EXISTS'
+            );
+          }
         }
 
         await client.query(
           `UPDATE articulo
            SET estado = 'asignado',
                bodega_actual_id = NULL,
-               proyecto_actual_id = $1
+               proyecto_actual_id = $1,
+               usuario_actual_id = NULL
            WHERE id = $2`,
           [entrega.proyecto_destino_id, asset.id]
         );
+
+        // If origin was a system user, close their active assignment
+        if (entrega.usuario_origen_id) {
+          await client.query(
+            `UPDATE asignacion_usuario
+             SET estado = 'cerrada',
+                 hasta_en = NOW(),
+                 cerrado_por_usuario_id = $1,
+                 motivo_cierre = 'entregado_a_trabajador'
+             WHERE articulo_id = $2 AND estado = 'activa'`,
+            [userId, asset.id]
+          );
+        }
 
         await client.query(
           `INSERT INTO custodia_activo (
@@ -581,17 +615,16 @@ class EntregasService {
 
         await client.query(
           `INSERT INTO movimiento_activo (
-             articulo_id,
-             tipo,
-             bodega_origen_id,
+             articulo_id, tipo,
+             bodega_origen_id, usuario_origen_id,
              proyecto_destino_id,
-             responsable_usuario_id,
-             entrega_id,
-             notas
-           ) VALUES ($1, 'entrega', $2, $3, $4, $5, $6)`,
+             responsable_usuario_id, entrega_id, notas
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
             asset.id,
-            entrega.bodega_origen_id,
+            entrega.usuario_origen_id ? 'entrega_desde_usuario' : 'entrega',
+            entrega.usuario_origen_id ? null : entrega.bodega_origen_id,
+            entrega.usuario_origen_id || null,
             entrega.proyecto_destino_id,
             userId,
             entrega.id,
@@ -629,6 +662,135 @@ class EntregasService {
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async createFromUsuario(payload, userId) {
+    const {
+      usuario_origen_id,
+      trabajador_id,
+      proyecto_destino_id,
+      articulo_ids,
+      nota_destino,
+      fecha_devolucion_esperada,
+    } = payload;
+
+    if (!isUuid(usuario_origen_id))
+      throw buildError('usuario_origen_id inválido', 400, 'INVALID_USUARIO_ORIGEN');
+    if (!isUuid(trabajador_id))
+      throw buildError('trabajador_id inválido', 400, 'INVALID_TRABAJADOR_ID');
+    if (!isUuid(proyecto_destino_id))
+      throw buildError('proyecto_destino_id inválido', 400, 'INVALID_PROYECTO_ID');
+    if (!Array.isArray(articulo_ids) || !articulo_ids.length)
+      throw buildError('Debe incluir al menos un artículo', 400, 'DETAILS_REQUIRED');
+
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      await this._validateWorkerActive(client, trabajador_id);
+
+      // Validate proyecto destino active
+      const { rows: proyRows } = await client.query(
+        `SELECT id, estado FROM proyectos WHERE id = $1 LIMIT 1`,
+        [proyecto_destino_id]
+      );
+      if (!proyRows.length)
+        throw buildError('Proyecto destino no encontrado', 404, 'PROJECT_NOT_FOUND');
+      if (proyRows[0].estado !== 'activo')
+        throw buildError('Proyecto destino no está activo', 400, 'PROJECT_NOT_ACTIVE');
+
+      // Validate each article is assigned to usuario_origen_id
+      const uniqueIds = [...new Set(articulo_ids.map(String))];
+      const detalles = [];
+
+      for (const articuloId of uniqueIds) {
+        if (!isUuid(articuloId))
+          throw buildError(`ID inválido: ${articuloId}`, 400, 'DETAIL_ARTICLE_INVALID');
+
+        const { rows: artRows } = await client.query(
+          `SELECT id, estado, usuario_actual_id, COALESCE(nro_serie, nombre, 'artículo') AS label
+           FROM articulo WHERE id = $1 FOR UPDATE`,
+          [articuloId]
+        );
+        if (!artRows.length)
+          throw buildError(`Artículo ${articuloId} no encontrado`, 404, 'ASSET_NOT_FOUND');
+
+        const art = artRows[0];
+        if (art.estado !== 'asignado')
+          throw buildError(
+            `El artículo "${art.label}" no está asignado`,
+            409, 'ASSET_NOT_AVAILABLE'
+          );
+        if (art.usuario_actual_id !== usuario_origen_id)
+          throw buildError(
+            `El artículo "${art.label}" no está asignado al usuario origen`,
+            409, 'ASSET_WRONG_LOCATION'
+          );
+
+        const { rows: auRows } = await client.query(
+          `SELECT id FROM asignacion_usuario
+           WHERE articulo_id = $1 AND estado = 'activa'
+           LIMIT 1 FOR UPDATE`,
+          [articuloId]
+        );
+        if (!auRows.length)
+          throw buildError(
+            `El artículo "${art.label}" no tiene asignación activa`,
+            409, 'NO_ACTIVE_ASSIGNMENT'
+          );
+
+        detalles.push({ articulo_id: articuloId, condicion_salida: 'ok', notas: null });
+      }
+
+      // Create entrega with usuario_origen_id (no bodega_origen_id)
+      const { rows: entRows } = await client.query(
+        `INSERT INTO entrega (
+           creado_por_usuario_id, trabajador_id,
+           usuario_origen_id, proyecto_destino_id,
+           tipo, estado, nota_destino, fecha_devolucion_esperada
+         ) VALUES ($1, $2, $3, $4, 'entrega', 'borrador', $5, $6)
+         RETURNING id`,
+        [
+          userId,
+          trabajador_id,
+          usuario_origen_id,
+          proyecto_destino_id,
+          nota_destino || null,
+          fecha_devolucion_esperada || null,
+        ]
+      );
+      const entregaId = entRows[0].id;
+
+      for (const det of detalles) {
+        await client.query(
+          `INSERT INTO entrega_detalle (entrega_id, articulo_id, condicion_salida, notas)
+           VALUES ($1, $2, $3, $4)`,
+          [entregaId, det.articulo_id, det.condicion_salida, det.notas]
+        );
+      }
+
+      await writeAuditEvent({
+        client,
+        entidadTipo: 'entrega',
+        entidadId: entregaId,
+        accion: 'crear',
+        usuarioId: userId,
+        diff: {
+          trabajador_id,
+          usuario_origen_id,
+          cantidad_items: detalles.length,
+        },
+      });
+
+      const data = await this._getByIdWithClient(client, entregaId);
+      await client.query('COMMIT');
+      return data;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
     } finally {
       client.release();
     }
