@@ -116,6 +116,7 @@ const AdminInventoryHerramientasPage = lazy(
   () => import('../pages/admin/inventory/AdminInventoryHerramientasPage')
 );
 const AdminProyectosPage = lazy(() => import('../pages/admin/AdminProyectosPage'));
+const AdminProyectoDetailPage = lazy(() => import('../pages/admin/AdminProyectoDetailPage'));
 const AdminBodegasPage = lazy(() => import('../pages/admin/AdminBodegasPage'));
 const DevPanel = lazy(() => import('../pages/DevPanel'));
 
@@ -317,6 +318,11 @@ export const router = createBrowserRouter([
         path: 'ubicacion/proyectos',
         loader: requireRole(['admin', 'supervisor']),
         element: <AdminProyectosPage />,
+      },
+      {
+        path: 'ubicacion/proyectos/:id',
+        loader: requireRole(['admin', 'supervisor']),
+        element: <AdminProyectoDetailPage />,
       },
       {
         path: 'ubicacion/bodegas',

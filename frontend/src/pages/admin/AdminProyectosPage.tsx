@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { keepPreviousData, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { extractApiError } from '../../lib/apiError';
 import Modal from '../../components/Modal';
@@ -15,7 +16,7 @@ type EstadoProyecto = 'activo' | 'inactivo' | 'finalizado';
 interface Proyecto {
   id: string;
   nombre: string;
-  ciudad?: string | null;
+  sitio?: string | null;
   descripcion?: string | null;
   cliente?: string | null;
   presupuesto_clp?: number | null;
@@ -27,7 +28,7 @@ interface Proyecto {
 
 interface ProyectoFormValues {
   nombre: string;
-  ciudad: string;
+  sitio: string;
   descripcion: string;
   cliente: string;
   presupuesto_clp: string;
@@ -42,7 +43,7 @@ type FormErrors = Partial<Record<keyof ProyectoFormValues, string>>;
 
 const INITIAL_FORM: ProyectoFormValues = {
   nombre: '',
-  ciudad: '',
+  sitio: '',
   descripcion: '',
   cliente: '',
   presupuesto_clp: '',
@@ -55,7 +56,7 @@ const mapToForm = (p?: Proyecto | null): ProyectoFormValues => {
   if (!p) return INITIAL_FORM;
   return {
     nombre:          p.nombre ?? '',
-    ciudad:          p.ciudad ?? '',
+    sitio:           p.sitio ?? '',
     descripcion:     p.descripcion ?? '',
     cliente:         p.cliente ?? '',
     presupuesto_clp: p.presupuesto_clp != null ? String(p.presupuesto_clp) : '',
@@ -67,7 +68,7 @@ const mapToForm = (p?: Proyecto | null): ProyectoFormValues => {
 
 const formToPayload = (v: ProyectoFormValues) => ({
   nombre:          v.nombre.trim(),
-  ciudad:          v.ciudad.trim() || null,
+  sitio:           v.sitio.trim() || null,
   descripcion:     v.descripcion.trim() || null,
   cliente:         v.cliente.trim() || null,
   presupuesto_clp: v.presupuesto_clp !== '' ? parseInt(v.presupuesto_clp, 10) : null,
@@ -176,14 +177,14 @@ const ProyectoFormModal: React.FC<ProyectoFormModalProps> = ({
 
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">
-            Ciudad
+            Sitio
             <span className="text-gray-400 font-normal ml-1">(opcional)</span>
           </label>
           <input
-            className={inputClass('ciudad')}
-            placeholder="Ej: Antofagasta"
-            value={values.ciudad}
-            onChange={(e) => setField('ciudad', e.target.value)}
+            className={inputClass('sitio')}
+            placeholder="Ej: Faena El Teniente"
+            value={values.sitio}
+            onChange={(e) => setField('sitio', e.target.value)}
           />
         </div>
 
@@ -310,6 +311,7 @@ const QUERY_KEY = 'proyectos-admin';
 
 const AdminProyectosPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filterEstado, setFilterEstado] = useState<EstadoProyecto | 'todos'>('todos');
   const [modalOpen, setModalOpen] = useState(false);
@@ -541,6 +543,8 @@ const AdminProyectosPage: React.FC = () => {
             columns={columns}
             data={filtered}
             getRowKey={(p) => p.id}
+            onRowClick={(p) => navigate(`/ubicacion/proyectos/${p.id}`)}
+            rowClassName={() => 'cursor-pointer hover:bg-gray-50 transition-colors'}
             mobileKebab={(p) => [
               { label: 'Editar', onClick: () => { setEditTarget(p); setModalOpen(true); }, variant: 'primary' },
               ...(p.estado !== 'finalizado' ? [{
