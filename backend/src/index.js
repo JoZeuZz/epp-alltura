@@ -44,6 +44,9 @@ const plantillasRoutes = require('./routes/plantillas.routes');
 const devRoutes = require('./routes/dev.routes');
 const healthRoutes = require('./routes/health');
 
+const { Pool } = require('pg');
+const { getPoolConfig } = require('./db/poolConfig');
+const { runUp: runMigrations } = require('./scripts/migrate');
 const { startScheduler } = require('./scheduler');
 const { initializeDatabase } = require('./db/initialize');
 const { bootstrapAdmin } = require('./db/bootstrap');
@@ -256,6 +259,15 @@ app.use(errorHandler);
 // Inicializar base de datos y luego iniciar el servidor
 const startServer = async () => {
   try {
+    const migratePool = new Pool(getPoolConfig());
+    try {
+      process.stdout.write('[BACKEND] Running pending migrations…\n');
+      await runMigrations(migratePool);
+      process.stdout.write('[BACKEND] Migrations OK\n');
+    } finally {
+      await migratePool.end().catch(() => {});
+    }
+
     await initializeDatabase();
     await bootstrapAdmin();
 
