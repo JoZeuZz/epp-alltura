@@ -130,10 +130,10 @@ export interface Articulo {
   estado: ArticuloEstado;
   bodega_actual_id?: string | null;
   bodega_nombre?: string | null;
-  bodega_ciudad?: string | null;
   proyecto_actual_id?: string | null;
   proyecto_nombre?: string | null;
-  proyecto_ciudad?: string | null;
+  proyecto_estado?: 'activo' | 'inactivo' | 'finalizado' | null;
+  alerta_devolucion?: boolean;
   especialidades: ArticuloEspecialidad[];
   fecha_vencimiento?: string | null;
   fecha_compra?: string | null;
@@ -735,6 +735,7 @@ export interface TrabajadorCustodiaRow {
   tipo: ArticuloTipo;
   bodega_nombre?: string | null;
   proyecto_nombre?: string | null;
+  alerta_devolucion?: boolean;
   dias_en_custodia: number;
   semaforo: 'verde' | 'amarillo' | 'rojo' | 'sin_plazo';
   dias_restantes: number | null;

@@ -25,10 +25,8 @@ const makeItem = (id: string, bodega_nombre: string | null, proyecto_nombre: str
   creado_en: '2024-01-01T00:00:00.000Z',
   bodega_actual_id: null,
   bodega_nombre,
-  bodega_ciudad: null,
   proyecto_actual_id: null,
   proyecto_nombre,
-  proyecto_ciudad: null,
 });
 
 const ITEMS: Articulo[] = [

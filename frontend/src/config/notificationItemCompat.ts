@@ -16,6 +16,7 @@ const LEGACY_NOTIFICATION_ICONS: Record<string, string> = {
   custodia_vencida: '',
   custodia_proxima_vencer: '',
   system: '',
+  proyecto_finalizado_con_articulos: '',
 };
 
 const LEGACY_NOTIFICATION_COLORS: Record<string, string> = {
@@ -28,6 +29,7 @@ const LEGACY_NOTIFICATION_COLORS: Record<string, string> = {
   custodia_vencida: 'bg-red-50 border-red-200',
   custodia_proxima_vencer: 'bg-yellow-50 border-yellow-200',
   system: 'bg-gray-50 border-gray-200',
+  proyecto_finalizado_con_articulos: 'bg-orange-50 border-orange-200',
 };
 
 export const ALLOWED_NOTIFICATION_PATHS = new Set([
@@ -36,6 +38,7 @@ export const ALLOWED_NOTIFICATION_PATHS = new Set([
   '/supervisor/dashboard',
   '/notifications',
   '/profile',
+  '/ubicacion/proyectos',
 ]);
 
 export const resolveNotificationItemIcon = (type: string): string => {
@@ -57,7 +60,18 @@ export const resolveNotificationItemNavigationLink = (
     return '/notifications';
   }
 
+  // Reject path traversal
+  if (link.includes('..') || link.includes('//')) {
+    return '/notifications';
+  }
+
   const [path] = link.split('?');
+
+  // Allow dynamic paths under /ubicacion/proyectos/
+  if (path.startsWith('/ubicacion/proyectos/') && path.split('/').length === 4) {
+    return link;
+  }
+
   if (ALLOWED_NOTIFICATION_PATHS.has(path)) {
     return link;
   }

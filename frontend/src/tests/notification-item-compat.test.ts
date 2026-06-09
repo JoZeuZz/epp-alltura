@@ -53,4 +53,26 @@ describe('notificationItemCompat', () => {
       navigationLink: '/notifications',
     });
   });
+
+  it('retorna color naranja para proyecto_finalizado_con_articulos', () => {
+    expect(resolveNotificationItemUnreadColorClass('proyecto_finalizado_con_articulos')).toBe(
+      'bg-orange-50 border-orange-200'
+    );
+  });
+
+  it('permite path dinámico /ubicacion/proyectos/:id en navigation link', () => {
+    const uuid = '550e8400-e29b-41d4-a716-446655440000';
+    expect(resolveNotificationItemNavigationLink(`/ubicacion/proyectos/${uuid}`)).toBe(
+      `/ubicacion/proyectos/${uuid}`
+    );
+  });
+
+  it('sigue rechazando paths no permitidos bajo /ubicacion/proyectos/', () => {
+    expect(resolveNotificationItemNavigationLink('/ubicacion/proyectos')).toBe(
+      '/ubicacion/proyectos'
+    );
+    expect(resolveNotificationItemNavigationLink('/ubicacion/proyectos/../admin')).toBe(
+      '/notifications'
+    );
+  });
 });

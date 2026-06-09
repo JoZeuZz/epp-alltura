@@ -15,10 +15,8 @@ const makeItem = (overrides: Partial<Articulo> = {}): Articulo => ({
   creado_en: '2024-01-01T00:00:00.000Z',
   bodega_actual_id: null,
   bodega_nombre: null,
-  bodega_ciudad: null,
   proyecto_actual_id: null,
   proyecto_nombre: null,
-  proyecto_ciudad: null,
   ...overrides,
 });
 
