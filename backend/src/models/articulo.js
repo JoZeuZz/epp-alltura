@@ -19,7 +19,7 @@ const RICH_SELECT = `
     b.nombre   AS bodega_nombre,
     pr.nombre  AS proyecto_nombre,
     b.ciudad   AS bodega_ciudad,
-    pr.ciudad  AS proyecto_ciudad,
+    pr.sitio   AS proyecto_ciudad,
     pr.estado  AS proyecto_estado,
     CASE
       WHEN pr.estado = 'finalizado' AND a.proyecto_actual_id IS NOT NULL THEN true
@@ -76,7 +76,7 @@ class ArticuloModel {
               b.nombre   AS bodega_nombre,
               pr.nombre  AS proyecto_nombre,
               b.ciudad   AS bodega_ciudad,
-              pr.ciudad  AS proyecto_ciudad
+              pr.sitio   AS proyecto_ciudad
               ,COALESCE(pa.nombres || ' ' || pa.apellidos, ua.email_login) AS usuario_actual_nombre
        FROM articulo a
        LEFT JOIN articulo_especialidad ae ON ae.articulo_id = a.id
@@ -85,7 +85,7 @@ class ArticuloModel {
        LEFT JOIN usuario ua               ON ua.id          = a.usuario_actual_id
        LEFT JOIN persona pa               ON pa.id          = ua.persona_id
        ${where}
-       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad, ua.id, pa.nombres, pa.apellidos, ua.email_login
+       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.sitio, ua.id, pa.nombres, pa.apellidos, ua.email_login
        ORDER BY a.creado_en DESC
        LIMIT $${p} OFFSET $${p + 1}`,
       [...params, Number(limit), Number(offset)]
@@ -103,7 +103,7 @@ class ArticuloModel {
     const result = await client.query(
       `${RICH_SELECT}
        WHERE a.id = $1
-       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.ciudad, pr.estado, u.email_login, prov.nombre, ua.id, pa.nombres, pa.apellidos`,
+       GROUP BY a.id, b.nombre, pr.nombre, b.ciudad, pr.sitio, pr.estado, u.email_login, prov.nombre, ua.id, pa.nombres, pa.apellidos`,
       [id]
     );
     return result.rows[0] || null;
