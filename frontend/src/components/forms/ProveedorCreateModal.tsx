@@ -52,7 +52,7 @@ const ProveedorCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) =
           </label>
           <input
             {...register('nombre')}
-            className="w-full rounded-md border border-edge-strong px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+            className="w-full rounded-md border border-edge px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
             placeholder="Ej: MSA Safety Chile"
           />
           {errors.nombre && <p className="text-red-500 text-xs mt-1">{errors.nombre.message}</p>}
@@ -63,7 +63,7 @@ const ProveedorCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) =
             <label className="block text-sm font-medium text-content-secondary mb-1">RUT</label>
             <input
               {...register('rut')}
-              className="w-full rounded-md border border-edge-strong px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+              className="w-full rounded-md border border-edge px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
               placeholder="76.100.001-1"
             />
           </div>
@@ -71,7 +71,7 @@ const ProveedorCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) =
             <label className="block text-sm font-medium text-content-secondary mb-1">Teléfono</label>
             <input
               {...register('telefono')}
-              className="w-full rounded-md border border-edge-strong px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+              className="w-full rounded-md border border-edge px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
               placeholder="+56222000001"
             />
           </div>
@@ -82,7 +82,7 @@ const ProveedorCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) =
           <input
             {...register('email')}
             type="email"
-            className="w-full rounded-md border border-edge-strong px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+            className="w-full rounded-md border border-edge px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none"
             placeholder="ventas@proveedor.cl"
           />
           {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
@@ -90,7 +90,7 @@ const ProveedorCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) =
 
         <ErrorAlert message={error} className="mb-3" />
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-2 pt-4 border-t border-edge">
           <button
             type="button"
             onClick={onClose}
@@ -101,7 +101,7 @@ const ProveedorCreateModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) =
           <button
             type="submit"
             disabled={mutation.isPending}
-            className="px-4 py-2 text-sm text-white bg-primary rounded-md hover:bg-primary-hover disabled:opacity-50"
+            className="px-4 py-2 text-sm text-white bg-primary-blue rounded-md hover:bg-dark-blue disabled:opacity-50"
           >
             {mutation.isPending ? 'Creando...' : 'Crear proveedor'}
           </button>
