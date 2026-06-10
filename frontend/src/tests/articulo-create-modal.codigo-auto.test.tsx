@@ -62,4 +62,9 @@ describe('ArticuloCreateModal — código automático', () => {
     render(<ArticuloCreateModal {...defaultProps} tipo="equipo" />);
     expect(screen.getByText('EQP-00001')).toBeInTheDocument();
   });
+
+  it('muestra el campo Descripción en la sección Identificación', () => {
+    render(<ArticuloCreateModal {...defaultProps} />);
+    expect(screen.getByLabelText(/descripción/i)).toBeInTheDocument();
+  });
 });

@@ -79,6 +79,9 @@ const ESP_LABELS: Record<string, string> = {
 };
 
 const fileCls = 'w-full text-sm text-content-secondary file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:bg-surface-overlay file:text-sm file:cursor-pointer';
+const inputCls        = 'w-full rounded-md border border-edge px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none';
+const sectionTitleCls = 'text-xs font-semibold text-content-muted uppercase tracking-wide border-b border-edge pb-2';
+const labelCls        = 'block text-sm font-medium text-content-secondary mb-1';
 
 export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess }: Props) {
   const queryClient = useQueryClient();
@@ -189,15 +192,18 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Nuevo ${TIPO_LABELS[tipo]}`}>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <Modal isOpen={isOpen} onClose={onClose} title={`Nuevo ${TIPO_LABELS[tipo]}`} mobileFullscreen>
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
-        {/* ── Plantilla (opcional) ── */}
-        <div>
-          <label className="label-sm block mb-1">Plantilla <span className="text-xs text-gray-400 font-normal">(opcional)</span></label>
+        {/* PLANTILLA — bloque card, sin section header */}
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            Desde plantilla{' '}
+            <span className="normal-case font-normal text-xs text-content-muted">(opcional)</span>
+          </div>
           <div className="flex gap-2">
             <select
-              className="input flex-1"
+              className={`${inputCls} flex-1`}
               onChange={(e) => applyPlantillaSnapshot(e.target.value)}
               defaultValue=""
             >
@@ -208,224 +214,307 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
                 </option>
               ))}
             </select>
-            <button type="button"
+            <button
+              type="button"
               onClick={() => setShowPlantillaCreate(true)}
-              className="px-3 py-2 text-xs border border-gray-200 rounded-md text-gray-500 hover:bg-gray-50 whitespace-nowrap">
+              className="px-3 py-2 text-xs border border-edge rounded-md text-content-secondary hover:bg-surface-muted whitespace-nowrap"
+            >
               + Nueva
             </button>
             {selectedPlantilla && (
-              <button type="button"
+              <button
+                type="button"
                 onClick={() => setShowPlantillaEdit(true)}
                 className="px-3 py-2 text-xs border border-amber-300 rounded-md text-amber-700 hover:bg-amber-50 whitespace-nowrap"
-                title="Editar esta plantilla">
+                title="Editar esta plantilla"
+              >
                 ✏
               </button>
             )}
           </div>
+          {selectedPlantilla && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
+              Campos heredados de la plantilla — podés editarlos para esta unidad
+            </div>
+          )}
         </div>
 
-        {selectedPlantilla && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 text-xs text-blue-700">
-            Campos heredados de la plantilla — podés editarlos para esta unidad
-          </div>
-        )}
+        {/* SECCIÓN: FOTO */}
+        <section className="space-y-3">
+          <h4 className={sectionTitleCls}>Foto</h4>
+          <FotoEvidenciaUpload
+            value={fotoFile}
+            onChange={(f) => { setFotoFile(f); if (f) setFotoError(null); }}
+            error={fotoError}
+            required
+          />
+        </section>
 
-        <FotoEvidenciaUpload
-          value={fotoFile}
-          onChange={(f) => { setFotoFile(f); if (f) setFotoError(null); }}
-          error={fotoError}
-          required
-        />
+        {/* SECCIÓN: IDENTIFICACIÓN */}
+        <section className="space-y-3">
+          <h4 className={sectionTitleCls}>Identificación</h4>
 
-        <div>
-          <label className="label-sm block mb-1">Nombre *</label>
-          <input {...register('nombre')} className="input w-full" placeholder="Ej: Casco de seguridad V-Gard" />
-          {errors.nombre && <p className="text-red-500 text-xs mt-1">{errors.nombre.message}</p>}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="label-sm block mb-1">Marca</label>
-            <input {...register('marca')} className="input w-full" />
+            <label className={labelCls}>Nombre *</label>
+            <input {...register('nombre')} className={inputCls} placeholder="Ej: Casco de seguridad V-Gard" />
+            {errors.nombre && <p className="text-red-500 text-xs mt-1">{errors.nombre.message}</p>}
           </div>
-          <div>
-            <label className="label-sm block mb-1">Modelo</label>
-            <input {...register('modelo')} className="input w-full" />
-          </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="label-sm block mb-1">N° de Serie <span className="text-xs text-gray-400 font-normal">(opcional)</span></label>
-            <input {...register('nro_serie')} className="input w-full" placeholder="Ej: MSA-VGARD-001" />
-            {errors.nro_serie && <p className="text-red-500 text-xs mt-1">{errors.nro_serie.message}</p>}
-          </div>
-          <div className="flex flex-col justify-end pb-1">
-            <label className="label-sm block mb-1">Código interno</label>
-            <div className="text-xs text-content-secondary bg-surface-muted rounded px-3 py-2 border border-edge leading-snug">
-              Se asignará automáticamente al guardar.{' '}
-              <span className="font-mono">{CODIGO_PREFIX[tipo]}-00001</span>, <span className="font-mono">{CODIGO_PREFIX[tipo]}-00002</span>…
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Marca</label>
+              <input {...register('marca')} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Modelo</label>
+              <input {...register('modelo')} className={inputCls} />
             </div>
           </div>
-        </div>
 
-        <div>
-          <label className="label-sm block mb-1">Valor (CLP) *</label>
-          <input {...register('valor')} type="number" min={0} className="input w-full" placeholder="0" />
-          {errors.valor && <p className="text-red-500 text-xs mt-1">{errors.valor.message}</p>}
-        </div>
-
-        <div>
-          <label className="label-sm block mb-1">Bodega inicial *</label>
-          <select {...register('bodega_id')} className="input w-full">
-            <option value="">Seleccione bodega...</option>
-            {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
-          </select>
-          {errors.bodega_id && <p className="text-red-500 text-xs mt-1">{errors.bodega_id.message}</p>}
-        </div>
-
-        <div>
-          <label className="label-sm block mb-2">Especialidades</label>
-          <div className="flex flex-wrap gap-2">
-            {ESPECIALIDADES.map(esp => {
-              const checked = (watch('especialidades') ?? []).includes(esp);
-              return (
-                <button
-                  key={esp}
-                  type="button"
-                  onClick={() => toggleEsp(esp)}
-                  className={`px-3 py-1 rounded-full text-xs border transition-colors ${
-                    checked
-                      ? 'bg-primary-blue text-white border-primary-blue'
-                      : 'bg-white text-gray-600 border-gray-300 hover:border-primary-blue'
-                  }`}
-                >
-                  {ESP_LABELS[esp]}
-                </button>
-              );
-            })}
+          <div>
+            <label className={labelCls}>
+              N° de Serie{' '}
+              <span className="text-xs text-content-muted font-normal">(opcional)</span>
+            </label>
+            <input {...register('nro_serie')} className={inputCls} placeholder="Ej: MSA-VGARD-001" />
+            {errors.nro_serie && <p className="text-red-500 text-xs mt-1">{errors.nro_serie.message}</p>}
           </div>
-        </div>
 
-        {/* New provenance fields */}
+          <div>
+            <label htmlFor="create-descripcion" className={labelCls}>Descripción</label>
+            <textarea
+              id="create-descripcion"
+              {...register('descripcion')}
+              rows={2}
+              className={inputCls}
+            />
+          </div>
+        </section>
 
-        <div>
-          <label className="label-sm block mb-1">Fecha de compra</label>
-          <input {...register('fecha_compra')} type="date" className="input w-full" />
-        </div>
+        {/* SECCIÓN: UBICACIÓN INICIAL */}
+        <section className="space-y-3">
+          <h4 className={sectionTitleCls}>Ubicación inicial</h4>
 
-        <div>
-          <label className="label-sm block mb-1">Proveedor</label>
-          <div className="flex gap-2">
-            <select {...register('proveedor_id')} className="input flex-1">
-              <option value="">Sin proveedor</option>
-              {proveedores.map(p => (
-                <option key={p.id} value={p.id}>{p.nombre}</option>
-              ))}
+          <div>
+            <label className={labelCls}>Bodega *</label>
+            <select {...register('bodega_id')} className={inputCls}>
+              <option value="">Seleccione bodega...</option>
+              {bodegas.map(b => <option key={b.id} value={b.id}>{b.nombre}</option>)}
             </select>
-            <button
-              type="button"
-              onClick={() => setShowProveedorModal(true)}
-              className="px-3 py-2 text-xs border border-edge rounded-md text-content-secondary hover:bg-surface-muted whitespace-nowrap"
-            >
-              + Nuevo
-            </button>
+            {errors.bodega_id && <p className="text-red-500 text-xs mt-1">{errors.bodega_id.message}</p>}
           </div>
-        </div>
 
-        <div>
-          <label className="label-sm block mb-1">Factura (PDF, opcional)</label>
-          <input
-            type="file" accept=".pdf,application/pdf"
-            onChange={(e) => setFacturaFile(e.target.files?.[0] ?? null)}
-            className={fileCls}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={hasVenc}
-              onChange={() => {
-                setHasVenc(v => {
-                  if (v) setValue('fecha_vencimiento', undefined);
-                  return !v;
-                });
-              }}
-              className="rounded border-gray-300 text-primary-blue focus:ring-primary-blue"
-            />
-            <span className="label-sm">¿Tiene fecha de vencimiento?</span>
-          </label>
-          {hasVenc && (
-            <input
-              {...register('fecha_vencimiento')}
-              type="date"
-              className="input w-full"
-            />
-          )}
-        </div>
-
-        <div>
-          <label className="label-sm block mb-1">Manual / Ficha de especificaciones</label>
-          <div className="flex gap-2 mb-2">
-            <button type="button" onClick={() => setManualTab('file')}
-              className={`px-3 py-1 text-xs rounded border transition-colors ${manualTab === 'file' ? 'bg-primary-blue text-white border-primary-blue' : 'bg-white border-gray-300 text-gray-600'}`}>
-              Subir PDF
-            </button>
-            <button type="button" onClick={() => setManualTab('url')}
-              className={`px-3 py-1 text-xs rounded border transition-colors ${manualTab === 'url' ? 'bg-primary-blue text-white border-primary-blue' : 'bg-white border-gray-300 text-gray-600'}`}>
-              Pegar link
-            </button>
+          <div>
+            <label className={labelCls}>Código interno</label>
+            <div className="text-xs text-content-secondary bg-surface-muted rounded px-3 py-2 border border-edge leading-snug">
+              Se asignará automáticamente al guardar.{' '}
+              <span className="font-mono">{CODIGO_PREFIX[tipo]}-00001</span>,{' '}
+              <span className="font-mono">{CODIGO_PREFIX[tipo]}-00002</span>…
+            </div>
           </div>
-          {manualTab === 'file' ? (
+        </section>
+
+        {/* SECCIÓN: COMPRA */}
+        <section className="space-y-3">
+          <h4 className={sectionTitleCls}>Compra</h4>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Fecha de compra</label>
+              <input {...register('fecha_compra')} type="date" className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Valor (CLP) *</label>
+              <input {...register('valor')} type="number" min={0} className={inputCls} placeholder="0" />
+              {errors.valor && <p className="text-red-500 text-xs mt-1">{errors.valor.message}</p>}
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Proveedor</label>
+            <div className="flex gap-2">
+              <select {...register('proveedor_id')} className={`${inputCls} flex-1`}>
+                <option value="">Sin proveedor</option>
+                {proveedores.map(p => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowProveedorModal(true)}
+                className="px-3 py-2 text-xs border border-edge rounded-md text-content-secondary hover:bg-surface-muted whitespace-nowrap"
+              >
+                + Nuevo
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>
+              Factura{' '}
+              <span className="text-xs text-content-muted font-normal">(PDF, opcional)</span>
+            </label>
             <input
-              type="file" accept=".pdf,application/pdf"
-              onChange={(e) => setManualFile(e.target.files?.[0] ?? null)}
+              type="file"
+              accept=".pdf,application/pdf"
+              onChange={(e) => setFacturaFile(e.target.files?.[0] ?? null)}
               className={fileCls}
             />
-          ) : (
-            <>
-              <input {...register('manual_url')} type="url" className="input w-full" placeholder="https://..." />
-              {errors.manual_url && <p className="text-red-500 text-xs mt-1">{errors.manual_url.message}</p>}
-            </>
-          )}
-        </div>
+          </div>
+        </section>
 
-        <div>
-          <label className="label-sm block mb-1">
-            Certificaciones (PDF, máx 5)
-            <span className="ml-2 text-xs text-content-muted">{certFiles.length}/5</span>
-          </label>
-          <input
-            type="file" accept=".pdf,application/pdf" multiple
-            disabled={certFiles.length >= 5}
-            onChange={(e) => {
-              const incoming = Array.from(e.target.files ?? []);
-              setCertFiles(prev => [...prev, ...incoming].slice(0, 5));
-              e.target.value = '';
-            }}
-            className={`${fileCls} disabled:opacity-50`}
-          />
-          {certFiles.length > 0 && (
-            <ul className="mt-2 space-y-1">
-              {certFiles.map((f, i) => (
-                <li key={i} className="flex items-center justify-between text-xs bg-surface-muted px-2 py-1 rounded">
-                  <span className="truncate">{f.name}</span>
-                  <button type="button" onClick={() => setCertFiles(prev => prev.filter((_, idx) => idx !== i))}
-                    className="ml-2 text-danger hover:text-danger-text">✕</button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="text-xs text-content-muted mt-1">Las certificaciones se suben una vez creado el artículo.</p>
-        </div>
+        {/* SECCIÓN: DOCUMENTOS */}
+        <section className="space-y-3">
+          <h4 className={sectionTitleCls}>Documentos</h4>
+
+          <div>
+            <label className={labelCls}>Manual / Ficha de especificaciones</label>
+            <div className="flex gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() => setManualTab('file')}
+                className={`px-3 py-1 text-xs rounded border transition-colors ${
+                  manualTab === 'file'
+                    ? 'bg-primary-blue text-white border-primary-blue'
+                    : 'bg-surface border-edge text-content-secondary hover:border-primary-blue'
+                }`}
+              >
+                Subir PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => setManualTab('url')}
+                className={`px-3 py-1 text-xs rounded border transition-colors ${
+                  manualTab === 'url'
+                    ? 'bg-primary-blue text-white border-primary-blue'
+                    : 'bg-surface border-edge text-content-secondary hover:border-primary-blue'
+                }`}
+              >
+                Pegar link
+              </button>
+            </div>
+            {manualTab === 'file' ? (
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={(e) => setManualFile(e.target.files?.[0] ?? null)}
+                className={fileCls}
+              />
+            ) : (
+              <>
+                <input {...register('manual_url')} type="url" className={inputCls} placeholder="https://..." />
+                {errors.manual_url && <p className="text-red-500 text-xs mt-1">{errors.manual_url.message}</p>}
+              </>
+            )}
+          </div>
+
+          <div>
+            <label className={labelCls}>
+              Certificaciones{' '}
+              <span className="text-xs text-content-muted font-normal">
+                (PDF, máx 5 — {certFiles.length}/5)
+              </span>
+            </label>
+            <input
+              type="file"
+              accept=".pdf,application/pdf"
+              multiple
+              disabled={certFiles.length >= 5}
+              onChange={(e) => {
+                const incoming = Array.from(e.target.files ?? []);
+                setCertFiles(prev => [...prev, ...incoming].slice(0, 5));
+                e.target.value = '';
+              }}
+              className={`${fileCls} disabled:opacity-50`}
+            />
+            {certFiles.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {certFiles.map((f, i) => (
+                  <li key={i} className="flex items-center justify-between text-xs bg-surface-muted px-2 py-1 rounded">
+                    <span className="truncate">{f.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setCertFiles(prev => prev.filter((_, idx) => idx !== i))}
+                      className="ml-2 text-danger hover:text-danger-text"
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="text-xs text-content-muted mt-1">Las certificaciones se suben una vez creado el artículo.</p>
+          </div>
+        </section>
+
+        {/* SECCIÓN: VIGENCIA */}
+        <section className="space-y-3">
+          <h4 className={sectionTitleCls}>Vigencia</h4>
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={hasVenc}
+                onChange={() => {
+                  setHasVenc(v => {
+                    if (v) setValue('fecha_vencimiento', undefined);
+                    return !v;
+                  });
+                }}
+                className="rounded border-edge text-primary-blue focus:ring-primary-blue"
+              />
+              <span className="text-sm font-medium text-content-secondary">¿Tiene fecha de vencimiento?</span>
+            </label>
+            {hasVenc && (
+              <input
+                {...register('fecha_vencimiento')}
+                type="date"
+                className={inputCls}
+                aria-label="Fecha de vencimiento"
+              />
+            )}
+          </div>
+
+          <div>
+            <label className={labelCls}>Especialidades</label>
+            <div className="flex flex-wrap gap-2">
+              {ESPECIALIDADES.map(esp => {
+                const checked = (watch('especialidades') ?? []).includes(esp);
+                return (
+                  <button
+                    key={esp}
+                    type="button"
+                    onClick={() => toggleEsp(esp)}
+                    className={`px-3 py-1 rounded-full text-xs border transition-colors ${
+                      checked
+                        ? 'bg-primary-blue text-white border-primary-blue'
+                        : 'bg-surface text-content-secondary border-edge hover:border-primary-blue'
+                    }`}
+                  >
+                    {ESP_LABELS[esp]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
 
         <ErrorAlert message={error} className="mb-3" />
 
-        <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="btn-secondary">Cancelar</button>
-          <button type="submit" disabled={mutation.isPending} className="btn-primary">
+        <div className="flex justify-end gap-3 pt-4 border-t border-edge">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm text-content-secondary bg-surface-overlay rounded-md hover:bg-edge"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={mutation.isPending}
+            className="px-4 py-2 text-sm text-white bg-primary-blue rounded-md hover:bg-dark-blue disabled:opacity-50"
+          >
             {mutation.isPending ? 'Creando...' : `Crear ${TIPO_LABELS[tipo]}`}
           </button>
         </div>
