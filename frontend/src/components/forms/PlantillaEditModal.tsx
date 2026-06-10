@@ -94,14 +94,15 @@ export function PlantillaEditModal({ plantilla, isOpen, onClose, onUpdated }: Pr
     );
   };
 
-  const inputCls =
-    'w-full rounded-md border border-edge-strong px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none';
+  const inputCls = 'w-full rounded-md border border-edge px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none';
+  const sectionTitleCls = 'text-xs font-semibold text-content-muted uppercase tracking-wide border-b border-edge pb-2';
+  const labelCls = 'block text-sm font-medium text-content-secondary mb-1';
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Editar Plantilla">
-      <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+      <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-6">
 
-        {/* Warning banner when instances exist */}
+        {/* Warning banner — sin section header, es info contextual */}
         {plantilla.instance_count > 0 && (
           <div className="bg-amber-50 border border-amber-300 rounded-lg p-3 flex gap-3">
             <span className="text-lg">⚠️</span>
@@ -116,62 +117,40 @@ export function PlantillaEditModal({ plantilla, isOpen, onClose, onUpdated }: Pr
           </div>
         )}
 
-        {/* Nombre */}
-        <div>
-          <label className="block text-sm font-medium text-content-secondary mb-1">
-            Nombre <span className="text-danger">*</span>
-          </label>
-          <input
-            {...register('nombre')}
-            className={inputCls}
-            placeholder="Ej: Casco de Seguridad V-Gard"
-          />
-          {errors.nombre && (
-            <p className="text-red-500 text-xs mt-1">{errors.nombre.message}</p>
-          )}
-        </div>
+        {/* SECCIÓN: CONTENIDO */}
+        <section className="space-y-3">
+          <h4 className={sectionTitleCls}>Contenido</h4>
 
-        {/* Marca + Modelo */}
-        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-content-secondary mb-1">Marca</label>
-            <input {...register('marca')} className={inputCls} placeholder="MSA" />
+            <label className={labelCls}>Nombre <span className="text-danger">*</span></label>
+            <input
+              {...register('nombre')}
+              className={inputCls}
+              placeholder="Ej: Casco de Seguridad V-Gard"
+            />
+            {errors.nombre && <p className="text-red-500 text-xs mt-1">{errors.nombre.message}</p>}
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Marca</label>
+              <input {...register('marca')} className={inputCls} placeholder="MSA" />
+            </div>
+            <div>
+              <label className={labelCls}>Modelo</label>
+              <input {...register('modelo')} className={inputCls} placeholder="V-Gard 500" />
+            </div>
+          </div>
+
           <div>
-            <label className="block text-sm font-medium text-content-secondary mb-1">Modelo</label>
-            <input {...register('modelo')} className={inputCls} placeholder="V-Gard 500" />
+            <label className={labelCls}>Descripción / Ficha técnica</label>
+            <textarea {...register('descripcion')} className={inputCls} rows={3} />
           </div>
-        </div>
+        </section>
 
-        {/* Descripcion */}
-        <div>
-          <label className="block text-sm font-medium text-content-secondary mb-1">
-            Descripción / Ficha técnica
-          </label>
-          <textarea {...register('descripcion')} className={inputCls} rows={3} />
-        </div>
-
-        {/* Manual URL */}
-        <div>
-          <label className="block text-sm font-medium text-content-secondary mb-1">
-            Manual / Ficha de especificaciones (URL)
-          </label>
-          <input
-            {...register('manual_url')}
-            type="url"
-            className={inputCls}
-            placeholder="https://..."
-          />
-          {errors.manual_url && (
-            <p className="text-red-500 text-xs mt-1">{errors.manual_url.message}</p>
-          )}
-        </div>
-
-        {/* Especialidades */}
-        <div>
-          <label className="block text-sm font-medium text-content-secondary mb-2">
-            Especialidades
-          </label>
+        {/* SECCIÓN: ESPECIALIDADES */}
+        <section className="space-y-3">
+          <h4 className={sectionTitleCls}>Especialidades</h4>
           <div className="flex flex-wrap gap-2">
             {ESPECIALIDADES.map((esp) => {
               const checked = ((watch('especialidades') ?? []) as ArticuloEspecialidad[]).includes(esp);
@@ -182,8 +161,8 @@ export function PlantillaEditModal({ plantilla, isOpen, onClose, onUpdated }: Pr
                   onClick={() => toggleEsp(esp)}
                   className={`px-3 py-1 rounded-full text-xs border transition-colors ${
                     checked
-                      ? 'bg-primary text-white border-primary'
-                      : 'bg-white text-gray-600 border-gray-300 hover:border-primary'
+                      ? 'bg-primary-blue text-white border-primary-blue'
+                      : 'bg-surface text-content-secondary border-edge hover:border-primary-blue'
                   }`}
                 >
                   {ESP_LABELS[esp]}
@@ -191,12 +170,26 @@ export function PlantillaEditModal({ plantilla, isOpen, onClose, onUpdated }: Pr
               );
             })}
           </div>
-        </div>
+        </section>
 
-        {/* Actions */}
+        {/* SECCIÓN: DOCUMENTOS */}
+        <section className="space-y-3">
+          <h4 className={sectionTitleCls}>Documentos</h4>
+          <div>
+            <label className={labelCls}>Manual / Ficha de especificaciones (URL)</label>
+            <input
+              {...register('manual_url')}
+              type="url"
+              className={inputCls}
+              placeholder="https://..."
+            />
+            {errors.manual_url && <p className="text-red-500 text-xs mt-1">{errors.manual_url.message}</p>}
+          </div>
+        </section>
+
         <ErrorAlert message={error} className="mb-3" />
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-2 pt-4 border-t border-edge">
           <button
             type="button"
             onClick={onClose}
@@ -207,7 +200,7 @@ export function PlantillaEditModal({ plantilla, isOpen, onClose, onUpdated }: Pr
           <button
             type="submit"
             disabled={mutation.isPending}
-            className="px-4 py-2 text-sm text-white bg-primary rounded-md hover:bg-primary-hover disabled:opacity-50"
+            className="px-4 py-2 text-sm text-white bg-primary-blue rounded-md hover:bg-dark-blue disabled:opacity-50"
           >
             {mutation.isPending ? 'Guardando...' : 'Guardar cambios'}
           </button>
