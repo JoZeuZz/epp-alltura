@@ -143,9 +143,13 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
   });
 
   const onSubmit = (data: FormOutput) => {
+    if (!fotoFile) {
+      setFotoError('La foto del artículo es obligatoria.');
+      return;
+    }
     if (!hasVenc) data.fecha_vencimiento = undefined;
     const files: ArticleFiles = {};
-    if (fotoFile) files.foto = fotoFile;
+    files.foto = fotoFile;
     if (facturaFile) files.factura = facturaFile;
     if (manualFile && manualTab === 'file') files.manual = manualFile;
     mutation.mutate({ data, files });
@@ -226,10 +230,8 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
           value={fotoFile}
           onChange={(f) => { setFotoFile(f); if (f) setFotoError(null); }}
           error={fotoError}
+          required
         />
-        <p className="text-xs text-gray-400 -mt-2">
-          La foto es opcional — podés agregarla después desde el perfil del artículo.
-        </p>
 
         <div>
           <label className="label-sm block mb-1">Nombre *</label>
