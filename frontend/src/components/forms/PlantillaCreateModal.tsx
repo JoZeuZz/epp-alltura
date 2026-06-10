@@ -105,18 +105,18 @@ export function PlantillaCreateModal({ isOpen, onClose, defaultTipo = 'epp', onC
     );
   };
 
-  const inputCls =
-    'w-full rounded-md border border-edge-strong px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:outline-none';
-  const fileCls =
-    'w-full text-sm text-gray-500 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:bg-gray-100 file:text-sm file:cursor-pointer';
+  const inputCls = 'w-full rounded-md border border-edge px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none';
+  const fileCls  = 'w-full text-sm text-content-secondary file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:bg-surface-overlay file:text-sm file:cursor-pointer';
+  const sectionTitleCls = 'text-xs font-semibold text-content-muted uppercase tracking-wide border-b border-edge pb-2';
+  const labelCls = 'block text-sm font-medium text-content-secondary mb-1';
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Nueva Plantilla de Artículo">
-      <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+      <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-6">
 
-        {/* Tipo */}
+        {/* Tipo — selector de contexto, sin section header */}
         <div>
-          <label className="block text-sm font-medium text-content-secondary mb-2">Tipo *</label>
+          <label className={labelCls}>Tipo *</label>
           <div className="flex gap-2">
             {TIPOS.map((t) => (
               <button
@@ -125,8 +125,8 @@ export function PlantillaCreateModal({ isOpen, onClose, defaultTipo = 'epp', onC
                 onClick={() => setValue('tipo', t)}
                 className={`px-4 py-1.5 rounded-full text-xs border transition-colors ${
                   watch('tipo') === t
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white text-gray-600 border-gray-300 hover:border-primary'
+                    ? 'bg-primary-blue text-white border-primary-blue'
+                    : 'bg-surface text-content-secondary border-edge hover:border-primary-blue'
                 }`}
               >
                 {TIPO_LABELS[t]}
@@ -135,104 +135,40 @@ export function PlantillaCreateModal({ isOpen, onClose, defaultTipo = 'epp', onC
           </div>
         </div>
 
-        {/* Nombre */}
-        <div>
-          <label className="block text-sm font-medium text-content-secondary mb-1">
-            Nombre <span className="text-danger">*</span>
-          </label>
-          <input
-            {...register('nombre')}
-            className={inputCls}
-            placeholder="Ej: Casco de Seguridad V-Gard"
-          />
-          {errors.nombre && (
-            <p className="text-red-500 text-xs mt-1">{errors.nombre.message}</p>
-          )}
-        </div>
+        {/* SECCIÓN: CONTENIDO */}
+        <section className="space-y-3">
+          <h4 className={sectionTitleCls}>Contenido</h4>
 
-        {/* Marca + Modelo */}
-        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium text-content-secondary mb-1">Marca</label>
-            <input {...register('marca')} className={inputCls} placeholder="MSA" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-content-secondary mb-1">Modelo</label>
-            <input {...register('modelo')} className={inputCls} placeholder="V-Gard 500" />
-          </div>
-        </div>
-
-        {/* Descripcion */}
-        <div>
-          <label className="block text-sm font-medium text-content-secondary mb-1">
-            Descripción / Ficha técnica
-          </label>
-          <textarea {...register('descripcion')} className={inputCls} rows={3} />
-        </div>
-
-        {/* Foto */}
-        <div>
-          <label className="block text-sm font-medium text-content-secondary mb-1">
-            Foto de referencia del modelo
-          </label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setFotoFile(e.target.files?.[0] ?? null)}
-            className={fileCls}
-          />
-        </div>
-
-        {/* Manual — tab switcher */}
-        <div>
-          <label className="block text-sm font-medium text-content-secondary mb-1">
-            Manual / Ficha de especificaciones
-          </label>
-          <div className="flex gap-2 mb-2">
-            {(['url', 'file'] as const).map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => {
-                  setManualTab(tab);
-                  if (tab === 'url') setManualFile(null);
-                  else setValue('manual_url', '');
-                }}
-                className={`px-3 py-1 text-xs rounded border transition-colors ${
-                  manualTab === tab
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white border-gray-300 text-gray-600 hover:border-primary'
-                }`}
-              >
-                {tab === 'url' ? 'Pegar link' : 'Subir PDF'}
-              </button>
-            ))}
-          </div>
-          {manualTab === 'url' ? (
+            <label className={labelCls}>Nombre <span className="text-danger">*</span></label>
             <input
-              {...register('manual_url')}
-              type="url"
+              {...register('nombre')}
               className={inputCls}
-              placeholder="https://..."
+              placeholder="Ej: Casco de Seguridad V-Gard"
             />
-          ) : (
-            <input
-              type="file"
-              accept=".pdf,application/pdf"
-              onChange={(e) => setManualFile(e.target.files?.[0] ?? null)}
-              className={fileCls}
-            />
-          )}
-          {errors.manual_url && (
-            <p className="text-red-500 text-xs mt-1">{errors.manual_url.message}</p>
-          )}
-        </div>
+            {errors.nombre && <p className="text-red-500 text-xs mt-1">{errors.nombre.message}</p>}
+          </div>
 
-        {/* Especialidades */}
-        <div>
-          <label className="block text-sm font-medium text-content-secondary mb-2">
-            Especialidades
-          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Marca</label>
+              <input {...register('marca')} className={inputCls} placeholder="MSA" />
+            </div>
+            <div>
+              <label className={labelCls}>Modelo</label>
+              <input {...register('modelo')} className={inputCls} placeholder="V-Gard 500" />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Descripción / Ficha técnica</label>
+            <textarea {...register('descripcion')} className={inputCls} rows={3} />
+          </div>
+        </section>
+
+        {/* SECCIÓN: ESPECIALIDADES */}
+        <section className="space-y-3">
+          <h4 className={sectionTitleCls}>Especialidades</h4>
           <div className="flex flex-wrap gap-2">
             {ESPECIALIDADES.map((esp) => {
               const checked = ((watch('especialidades') ?? []) as ArticuloEspecialidad[]).includes(esp);
@@ -243,8 +179,8 @@ export function PlantillaCreateModal({ isOpen, onClose, defaultTipo = 'epp', onC
                   onClick={() => toggleEsp(esp)}
                   className={`px-3 py-1 rounded-full text-xs border transition-colors ${
                     checked
-                      ? 'bg-primary text-white border-primary'
-                      : 'bg-white text-gray-600 border-gray-300 hover:border-primary'
+                      ? 'bg-primary-blue text-white border-primary-blue'
+                      : 'bg-surface text-content-secondary border-edge hover:border-primary-blue'
                   }`}
                 >
                   {ESP_LABELS[esp]}
@@ -252,12 +188,61 @@ export function PlantillaCreateModal({ isOpen, onClose, defaultTipo = 'epp', onC
               );
             })}
           </div>
-        </div>
+        </section>
 
-        {/* Actions */}
+        {/* SECCIÓN: DOCUMENTOS */}
+        <section className="space-y-3">
+          <h4 className={sectionTitleCls}>Documentos</h4>
+
+          <div>
+            <label className={labelCls}>Foto de referencia del modelo</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setFotoFile(e.target.files?.[0] ?? null)}
+              className={fileCls}
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>Manual / Ficha de especificaciones</label>
+            <div className="flex gap-2 mb-2">
+              {(['url', 'file'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => {
+                    setManualTab(tab);
+                    if (tab === 'url') setManualFile(null);
+                    else setValue('manual_url', '');
+                  }}
+                  className={`px-3 py-1 text-xs rounded border transition-colors ${
+                    manualTab === tab
+                      ? 'bg-primary-blue text-white border-primary-blue'
+                      : 'bg-surface border-edge text-content-secondary hover:border-primary-blue'
+                  }`}
+                >
+                  {tab === 'url' ? 'Pegar link' : 'Subir PDF'}
+                </button>
+              ))}
+            </div>
+            {manualTab === 'url' ? (
+              <input {...register('manual_url')} type="url" className={inputCls} placeholder="https://..." />
+            ) : (
+              <input
+                type="file"
+                accept=".pdf,application/pdf"
+                onChange={(e) => setManualFile(e.target.files?.[0] ?? null)}
+                className={fileCls}
+              />
+            )}
+            {errors.manual_url && <p className="text-red-500 text-xs mt-1">{errors.manual_url.message}</p>}
+          </div>
+        </section>
+
         <ErrorAlert message={error} className="mb-3" />
 
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-2 pt-4 border-t border-edge">
           <button
             type="button"
             onClick={onClose}
@@ -268,7 +253,7 @@ export function PlantillaCreateModal({ isOpen, onClose, defaultTipo = 'epp', onC
           <button
             type="submit"
             disabled={mutation.isPending}
-            className="px-4 py-2 text-sm text-white bg-primary rounded-md hover:bg-primary-hover disabled:opacity-50"
+            className="px-4 py-2 text-sm text-white bg-primary-blue rounded-md hover:bg-dark-blue disabled:opacity-50"
           >
             {mutation.isPending ? 'Creando...' : 'Guardar plantilla'}
           </button>
