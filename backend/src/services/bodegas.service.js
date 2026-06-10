@@ -15,19 +15,19 @@ class BodegasService {
     return bodega;
   }
 
-  static async create(data) {
+  static async create(data, userId) {
     const result = await BodegaModel.create(data);
     await writeAuditEvent({
       entidadTipo: 'bodega',
       entidadId: result.id,
       accion: 'crear',
-      usuarioId: null,
+      usuarioId: userId,
       diff: { nombre: result.nombre },
     }).catch((err) => logger.warn('Audit bodega crear failed', { id: result.id, error: err.message }));
     return result;
   }
 
-  static async update(id, data) {
+  static async update(id, data, userId) {
     const current = await BodegaModel.findById(id);
     if (!current) throw buildError('Bodega no encontrada', 404);
     const updated = await BodegaModel.update(id, data);
@@ -36,13 +36,13 @@ class BodegasService {
       entidadTipo: 'bodega',
       entidadId: id,
       accion: 'actualizar',
-      usuarioId: null,
+      usuarioId: userId,
       diff: data,
     }).catch((err) => logger.warn('Audit bodega actualizar failed', { id, error: err.message }));
     return updated;
   }
 
-  static async remove(id) {
+  static async remove(id, userId) {
     const existing = await BodegaModel.findById(id);
     if (!existing) throw buildError('Bodega no encontrada', 404);
 
@@ -68,7 +68,7 @@ class BodegasService {
       entidadTipo: 'bodega',
       entidadId: id,
       accion: 'eliminar',
-      usuarioId: null,
+      usuarioId: userId,
       diff: { estado: 'inactivo' },
     }).catch((err) => logger.warn('Audit bodega eliminar failed', { id, error: err.message }));
     return result;

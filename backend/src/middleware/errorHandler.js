@@ -162,7 +162,7 @@ const errorHandler = (err, req, res, _next) => {
     errorResponse = handleValidationError(err);
   } else if (err.name === 'MulterError' || err.code === 'LIMIT_FILE_SIZE') {
     errorResponse = handleMulterError(err);
-  } else if (err.name === 'DatabaseError' || err.code?.startsWith('23')) {
+  } else if (err.name === 'DatabaseError' || err.code?.startsWith('23') || (err.code && /^[0-9A-Z]{5}$/i.test(err.code))) {
     errorResponse = handleDatabaseError(err);
   } else if (err.name === 'UnauthorizedError' || err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
     errorResponse = handleAuthError(err);

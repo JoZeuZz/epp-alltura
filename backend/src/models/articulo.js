@@ -7,14 +7,14 @@ const RICH_SELECT = `
   SELECT a.*,
     COALESCE(json_agg(DISTINCT ae.especialidad) FILTER (WHERE ae.especialidad IS NOT NULL), '[]') AS especialidades,
     COALESCE(
-      json_agg(DISTINCT json_build_object('id', ac.id, 'nombre', ac.nombre, 'url', ac.url, 'creado_en', ac.creado_en))
+      jsonb_agg(DISTINCT jsonb_build_object('id', ac.id, 'nombre', ac.nombre, 'url', ac.url, 'creado_en', ac.creado_en))
       FILTER (WHERE ac.id IS NOT NULL),
-      '[]'::json
+      '[]'::jsonb
     ) ||
     COALESCE(
-      json_agg(DISTINCT json_build_object('id', pc.id, 'nombre', pc.nombre, 'url', pc.url, 'creado_en', pc.creado_en))
+      jsonb_agg(DISTINCT jsonb_build_object('id', pc.id, 'nombre', pc.nombre, 'url', pc.url, 'creado_en', pc.creado_en))
       FILTER (WHERE pc.id IS NOT NULL),
-      '[]'::json
+      '[]'::jsonb
     ) AS certificaciones,
     b.nombre   AS bodega_nombre,
     pr.nombre  AS proyecto_nombre,
