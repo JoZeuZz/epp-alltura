@@ -65,6 +65,12 @@ const TIPO_LABELS: Record<ArticuloTipo, string> = {
   equipo: 'Equipo',
 };
 
+const CODIGO_PREFIX: Record<ArticuloTipo, string> = {
+  epp: 'EPP',
+  herramienta: 'HRR',
+  equipo: 'EQP',
+};
+
 const ESP_LABELS: Record<string, string> = {
   oocc: 'OOCC',
   ooee: 'OOEE',
@@ -105,8 +111,6 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
     enabled: !!tipo,
   });
 
-  const nroSerie = watch('nro_serie') ?? '';
-  const codigoPreview = nroSerie.replace(/\s/g, '').slice(-3).toUpperCase() || '---';
 
   const mutation = useMutation({
     mutationFn: async ({ data, files }: { data: FormOutput; files: ArticleFiles }) => {
@@ -256,9 +260,12 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
             <input {...register('nro_serie')} className="input w-full" placeholder="Ej: MSA-VGARD-001" />
             {errors.nro_serie && <p className="text-red-500 text-xs mt-1">{errors.nro_serie.message}</p>}
           </div>
-          <div>
-            <label className="label-sm block mb-1">Código (auto)</label>
-            <div className="input w-full bg-gray-50 text-gray-500 select-none">{codigoPreview}</div>
+          <div className="flex flex-col justify-end pb-1">
+            <label className="label-sm block mb-1">Código interno</label>
+            <div className="text-xs text-content-secondary bg-surface-muted rounded px-3 py-2 border border-edge leading-snug">
+              Se asignará automáticamente al guardar.{' '}
+              <span className="font-mono">{CODIGO_PREFIX[tipo]}-00001</span>, <span className="font-mono">{CODIGO_PREFIX[tipo]}-00002</span>…
+            </div>
           </div>
         </div>
 
