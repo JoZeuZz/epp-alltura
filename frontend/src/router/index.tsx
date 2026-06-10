@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import { lazy, useRef, useCallback } from 'react';
-import { createBrowserRouter, redirect, useNavigate } from 'react-router-dom';
+import { lazy } from 'react';
+import { createBrowserRouter, redirect } from 'react-router-dom';
 import AppLayout from '../layouts/AppLayout';
 import type { NavItem } from '@jozeuzz/alltura-ui';
 import LoginPage from '../pages/LoginPage';
@@ -118,8 +118,6 @@ const AdminInventoryHerramientasPage = lazy(
 const AdminProyectosPage = lazy(() => import('../pages/admin/AdminProyectosPage'));
 const AdminProyectoDetailPage = lazy(() => import('../pages/admin/AdminProyectoDetailPage'));
 const AdminBodegasPage = lazy(() => import('../pages/admin/AdminBodegasPage'));
-const DevPanel = lazy(() => import('../pages/DevPanel'));
-
 type RouteRole = 'admin' | 'supervisor';
 
 function normalizeRole(role?: string | null): RouteRole | '' {
@@ -251,27 +249,11 @@ async function dashboardLoader() {
 }
 
 function RootLayout() {
-  const navigate = useNavigate();
-  const clickCount = useRef(0);
-  const resetTimer = useRef<number | null>(null);
-
-  const handleLogoClick = useCallback(() => {
-    clickCount.current += 1;
-    if (resetTimer.current) window.clearTimeout(resetTimer.current);
-    if (clickCount.current >= 5) {
-      clickCount.current = 0;
-      navigate('/dev');
-      return;
-    }
-    resetTimer.current = window.setTimeout(() => { clickCount.current = 0; }, 1500);
-  }, [navigate]);
-
   return (
     <AppLayout
       navItems={navItems}
       logoSrc={logoWhite}
       notificationBell={<NotificationBell variant="dark" />}
-      onLogoClick={handleLogoClick}
     />
   );
 }
@@ -377,12 +359,6 @@ export const router = createBrowserRouter([
       { path: 'admin/inventario/herramientas', loader: () => redirect('/inventario/herramientas') },
       { path: 'supervisor/dashboard',          loader: () => redirect('/dashboard') },
     ],
-  },
-  {
-    path: '/dev',
-    loader: requireRole(['admin']),
-    element: <DevPanel />,
-    errorElement: <ErrorPage />,
   },
   {
     path: '*',
