@@ -61,6 +61,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
   );
 
   const [fotoFile, setFotoFile] = useState<File | null>(null);
+  const [nroSerie, setNroSerie] = useState(activo.nro_serie ?? '');
   const [showProveedorModal, setShowProveedorModal] = useState(false);
   const { error, handleError, clearError } = useFormErrors();
 
@@ -83,6 +84,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
           marca:             marca.trim()       || undefined,
           modelo:            modelo.trim()      || undefined,
           descripcion:       descripcion.trim() || undefined,
+          nro_serie:         nroSerie.trim()    || undefined,
           valor:             valor.trim() ? parseInt(valor, 10) : undefined,
           fecha_vencimiento: hasVencimiento ? fechaVencimiento || null : null,
           fecha_compra:      fechaCompra     || null,
@@ -163,6 +165,15 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
               <label className={labelCls}>Modelo</label>
               <input value={modelo} onChange={e => setModelo(e.target.value)} className={inputCls} />
             </div>
+          </div>
+          <div>
+            <label className={labelCls}>N° de Serie</label>
+            <input
+              value={nroSerie}
+              onChange={e => setNroSerie(e.target.value)}
+              className={inputCls}
+              placeholder="Ej: MSA-VGARD-001"
+            />
           </div>
           <div>
             <label className={labelCls}>Descripción</label>
