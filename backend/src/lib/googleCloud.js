@@ -7,6 +7,14 @@ const { PassThrough, Transform } = require('stream');
 const { pipeline } = require('stream/promises');
 const { logger } = require('./logger');
 
+const getRedisClient = () => {
+  try {
+    return require('./redis');
+  } catch {
+    return null;
+  }
+};
+
 // Verificar si Google Cloud está configurado
 const isGCSConfigured = process.env.GCS_PROJECT_ID &&
                         process.env.GCS_BUCKET_NAME &&
@@ -54,6 +62,7 @@ const stripMetadataEnabled =
 const maxImageBytes = parseInt(process.env.IMAGE_MAX_BYTES || '26214400', 10);
 const maxDocumentBytes = parseInt(process.env.DOCUMENT_MAX_BYTES || '26214400', 10);
 const jpegQuality = parseInt(process.env.IMAGE_JPEG_QUALITY || '92', 10);
+const webpQuality = parseInt(process.env.IMAGE_WEBP_QUALITY || '85', 10);
 const cacheControl =
   process.env.IMAGE_CACHE_CONTROL || 'private, max-age=31536000, immutable';
 
@@ -255,44 +264,39 @@ const createReadableStream = async (file) => {
     mimetype.startsWith('image/');
 
   if (shouldProcess) {
-    let transformer = sharp(file.path || file.buffer, { failOnError: false });
-
-    if (stripMetadataEnabled) {
-      transformer = transformer.rotate();
+    // Extract dominant color via separate Sharp instance (fast stats read)
+    let dominantColor = null;
+    try {
+      const stats = await sharp(file.path || file.buffer, { failOnError: false }).stats();
+      const r = Math.round(stats.channels[0].mean);
+      const g = Math.round(stats.channels[1].mean);
+      const b = Math.round(stats.channels[2].mean);
+      dominantColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    } catch {
+      // non-fatal — dominant color stays null
     }
 
-    if (mimetype === 'image/jpeg' || mimetype === 'image/jpg') {
-      transformer = transformer.jpeg({
-        quality: jpegQuality,
-        mozjpeg: true,
-      });
-      return { stream: transformer, contentType: 'image/jpeg' };
-    }
+    // Convert all images to WebP
+    const transformer = sharp(file.path || file.buffer, { failOnError: false })
+      .rotate()
+      .webp({ quality: webpQuality });
 
-    if (mimetype === 'image/png') {
-      transformer = transformer.png({ compressionLevel: 9, adaptiveFiltering: true });
-      return { stream: transformer, contentType: 'image/png' };
-    }
-
-    if (mimetype === 'image/webp') {
-      transformer = transformer.webp({ lossless: losslessCompressionEnabled, quality: 100 });
-      return { stream: transformer, contentType: 'image/webp' };
-    }
-
-    if (mimetype === 'image/avif') {
-      transformer = transformer.avif({ lossless: losslessCompressionEnabled });
-      return { stream: transformer, contentType: 'image/avif' };
-    }
+    return { stream: transformer, contentType: 'image/webp', dominantColor };
   }
 
+  // Sharp unavailable or processing disabled — pass through as-is
   if (file.buffer) {
     const pass = new PassThrough();
     pass.end(file.buffer);
-    return { stream: pass, contentType: mimetype || 'application/octet-stream' };
+    return { stream: pass, contentType: mimetype || 'application/octet-stream', dominantColor: null };
   }
 
   if (file.path) {
-    return { stream: fs.createReadStream(file.path), contentType: mimetype || 'application/octet-stream' };
+    return {
+      stream: fs.createReadStream(file.path),
+      contentType: mimetype || 'application/octet-stream',
+      dominantColor: null,
+    };
   }
 
   throw new Error('Archivo inválido para carga de imagen.');
@@ -504,7 +508,7 @@ const uploadFile = async (file, options = {}) => {
     );
   }
 
-  const { stream, contentType } = await createReadableStream(file);
+  const { stream, contentType, dominantColor } = await createReadableStream(file);
   const { limiter, getTotalBytes } = createSizeLimiter(maxImageBytes);
 
   const extensionByMime = {
@@ -533,7 +537,7 @@ const uploadFile = async (file, options = {}) => {
       logger.debug('Imagen procesada localmente', { baseFilename, size: getTotalBytes() });
       const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
       const relPath = folder ? `${folder}/${baseFilename}` : baseFilename;
-      return `${backendUrl}/uploads/${relPath}`;
+      return { url: `${backendUrl}/uploads/${relPath}`, dominantColor };
     }
 
     const objectNameParts = [gcsPrefix, folder, baseFilename].filter(Boolean);
@@ -550,7 +554,7 @@ const uploadFile = async (file, options = {}) => {
     await pipeline(stream, limiter, blobStream);
     logger.debug('Imagen subida a GCS', { objectName, size: getTotalBytes() });
 
-    return `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
+    return { url: `https://storage.googleapis.com/${bucket.name}/${blob.name}`, dominantColor };
   } catch (error) {
     if (error.statusCode) {
       throw error;
@@ -725,6 +729,32 @@ const deleteFileByUrl = async (imageUrl) => {
     logger.info(`Imagen eliminada: ${localPath}`);
   } catch (error) {
     logger.warn(`No se pudo eliminar la imagen ${imageUrl}: ${error.message}`);
+  }
+
+  // Invalidate proxy thumbnail cache
+  try {
+    const rc = getRedisClient();
+    if (rc) {
+      const client = await rc.getClient();
+      const sizes = ['thumb', 'medium'];
+      if (isGcsUrl(imageUrl)) {
+        const gcsInfo = parseGcsUrl(imageUrl);
+        if (gcsInfo) {
+          await Promise.all(
+            sizes.map(s => client.del(`imgcache:${s}:${gcsInfo.bucketName}:${gcsInfo.objectName}`))
+          );
+        }
+      } else {
+        const relativePath = getLocalRelativePath(imageUrl);
+        if (relativePath) {
+          await Promise.all(
+            sizes.map(s => client.del(`imgcache:${s}:local:${relativePath}`))
+          );
+        }
+      }
+    }
+  } catch (err) {
+    logger.warn('Failed to invalidate image proxy cache', { error: err.message });
   }
 };
 

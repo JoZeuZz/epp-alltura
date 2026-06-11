@@ -54,13 +54,19 @@ describe('googleCloud.uploadFile', () => {
     await expect(uploadFile(file)).rejects.toThrow(/tamaño máximo/i);
   });
 
-  it('uploads a valid JPEG to local storage and returns a URL', async () => {
+  it('uploads a valid JPEG to local storage and returns {url, dominantColor}', async () => {
     const file = await makeJpegFile();
     const { uploadFile } = require('../../lib/googleCloud');
-    const url = await uploadFile(file);
-    expect(url).toMatch(/^http:\/\/localhost:5000\/uploads\/.+\.jpg$/);
-    // cleanup uploaded file
-    const uploaded = url.replace('http://localhost:5000', path.join(__dirname, '../../..'));
+    const result = await uploadFile(file);
+    // Shape must be object with url and dominantColor
+    expect(result).toHaveProperty('url');
+    expect(result).toHaveProperty('dominantColor');
+    // Sharp disabled in tests (IMAGE_LOSSLESS_COMPRESSION=false + IMAGE_STRIP_METADATA=false)
+    // so extension stays .jpg and dominantColor is null
+    expect(result.url).toMatch(/^http:\/\/localhost:5000\/uploads\/.+\.jpg$/);
+    expect(result.dominantColor).toBeNull();
+    // cleanup
+    const uploaded = result.url.replace('http://localhost:5000', path.join(__dirname, '../../..'));
     try { await fs.promises.unlink(uploaded); } catch { /* ignore */ }
   });
 });
