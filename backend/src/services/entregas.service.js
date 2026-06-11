@@ -262,7 +262,7 @@ class EntregasService {
   static async create(payload, userId, imageFile = null) {
     let uploadedEvidenceUrl = null;
     if (imageFile) {
-      uploadedEvidenceUrl = await uploadFile(imageFile, { folder: 'entregas/evidencias' });
+      uploadedEvidenceUrl = (await uploadFile(imageFile, { folder: 'entregas/evidencias' })).url;
     }
     const finalEvidenciaUrl = uploadedEvidenceUrl || payload.evidencia_foto_url || null;
     if (!finalEvidenciaUrl) {
@@ -676,7 +676,7 @@ class EntregasService {
   static async createFromUsuario(payload, userId, imageFile = null) {
     let uploadedEvidenceUrl = null;
     if (imageFile) {
-      uploadedEvidenceUrl = await uploadFile(imageFile, { folder: 'entregas/evidencias' });
+      uploadedEvidenceUrl = (await uploadFile(imageFile, { folder: 'entregas/evidencias' })).url;
     }
     const finalEvidenciaUrl = uploadedEvidenceUrl || payload.evidencia_foto_url || null;
     if (!finalEvidenciaUrl) {

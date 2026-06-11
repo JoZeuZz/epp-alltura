@@ -438,7 +438,7 @@ class DevolucionesService {
 
     let uploadedEvidenceUrl = null;
     if (imageFile) {
-      uploadedEvidenceUrl = await uploadFile(imageFile, { folder: 'devoluciones/evidencias' });
+      uploadedEvidenceUrl = (await uploadFile(imageFile, { folder: 'devoluciones/evidencias' })).url;
     }
 
     const client = await db.pool.connect();

@@ -42,7 +42,7 @@ class PlantillasService {
 
     let uploadedFotoUrl   = null;
     let uploadedManualUrl = null;
-    if (fotoFile)   uploadedFotoUrl   = await uploadFile(fotoFile, { folder: 'plantillas/fotos', filePrefix: payload.nombre });
+    if (fotoFile)   uploadedFotoUrl   = (await uploadFile(fotoFile, { folder: 'plantillas/fotos', filePrefix: payload.nombre })).url;
     if (manualFile) uploadedManualUrl = await uploadDocument(manualFile, { folder: 'plantillas/manuales', filePrefix: payload.nombre });
 
     if (Array.isArray(payload.especialidades)) validateEspecialidades(payload.especialidades);
@@ -96,7 +96,7 @@ class PlantillasService {
 
     let uploadedFotoUrl   = null;
     let uploadedManualUrl = null;
-    if (fotoFile)   uploadedFotoUrl   = await uploadFile(fotoFile, { folder: 'plantillas/fotos', filePrefix: id });
+    if (fotoFile)   uploadedFotoUrl   = (await uploadFile(fotoFile, { folder: 'plantillas/fotos', filePrefix: id })).url;
     if (manualFile) uploadedManualUrl = await uploadDocument(manualFile, { folder: 'plantillas/manuales', filePrefix: id });
 
     if (Array.isArray(payload.especialidades)) validateEspecialidades(payload.especialidades);
