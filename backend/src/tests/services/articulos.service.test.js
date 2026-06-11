@@ -52,7 +52,7 @@ describe('ArticulosService.create', () => {
       especialidades: ['ooee'],
     };
     const imageFile = { originalname: 'casco.jpg' };
-    uploadFile.mockResolvedValue('uploads/catalogo/casco.jpg');
+    uploadFile.mockResolvedValue({ url: 'uploads/catalogo/casco.jpg', dominantColor: null });
 
     // Mock the pre-transaction bodega check
     db.query.mockResolvedValueOnce({ rows: [{ id: BODEGA_ID }] });
@@ -85,7 +85,7 @@ describe('ArticulosService.create', () => {
 
   it('limpia foto subida y hace rollback si falla la creación', async () => {
     const imageFile = { originalname: 'casco.jpg' };
-    uploadFile.mockResolvedValue('uploads/catalogo/casco.jpg');
+    uploadFile.mockResolvedValue({ url: 'uploads/catalogo/casco.jpg', dominantColor: null });
 
     // Pre-transaction bodega check succeeds
     db.query.mockResolvedValueOnce({ rows: [{ id: BODEGA_ID }] });
@@ -143,7 +143,7 @@ describe('ArticulosService.update', () => {
 
   it('borra foto antigua al actualizar con nueva imagen', async () => {
     const imageFile = { originalname: 'casco-v2.jpg' };
-    uploadFile.mockResolvedValue('uploads/catalogo/casco-v2.jpg');
+    uploadFile.mockResolvedValue({ url: 'uploads/catalogo/casco-v2.jpg', dominantColor: null });
 
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return {};
@@ -167,7 +167,7 @@ describe('ArticulosService.update', () => {
 
   it('no borra foto antigua si el artículo no tenía foto', async () => {
     const imageFile = { originalname: 'casco-v2.jpg' };
-    uploadFile.mockResolvedValue('uploads/catalogo/casco-v2.jpg');
+    uploadFile.mockResolvedValue({ url: 'uploads/catalogo/casco-v2.jpg', dominantColor: null });
 
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return {};
@@ -190,7 +190,7 @@ describe('ArticulosService.update', () => {
 
   it('limpia nueva foto si update falla (no borra la antigua)', async () => {
     const imageFile = { originalname: 'casco-v2.jpg' };
-    uploadFile.mockResolvedValue('uploads/catalogo/casco-v2.jpg');
+    uploadFile.mockResolvedValue({ url: 'uploads/catalogo/casco-v2.jpg', dominantColor: null });
     deleteFileByUrl.mockResolvedValue(undefined);
 
     const client = makeClient(async (sql) => {

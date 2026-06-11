@@ -42,7 +42,8 @@ class ArticulosService {
       throw buildError('La foto del artículo es obligatoria.', 422, 'FOTO_REQUIRED');
     }
 
-    let uploadedFotoUrl    = null;
+    let uploadedFotoUrl   = null;
+    let uploadedFotoColor = null;
     let uploadedFacturaUrl = null;
     let uploadedManualUrl  = null;
 
@@ -55,7 +56,11 @@ class ArticulosService {
 
     // Upload files BEFORE opening transaction (keeps transactions short, avoids holding DB connection during network I/O)
     // Note: codigo is generated inside transaction, so we use payload.nombre as prefix for now
-    if (fotoFile)    uploadedFotoUrl    = await uploadFile(fotoFile, { folder: 'articulos/fotos', filePrefix: payload.nombre });
+    if (fotoFile) {
+      const fotoResult = await uploadFile(fotoFile, { folder: 'articulos/fotos', filePrefix: payload.nombre });
+      uploadedFotoUrl  = fotoResult.url;
+      uploadedFotoColor = fotoResult.dominantColor;
+    }
     if (facturaFile) uploadedFacturaUrl = await uploadDocument(facturaFile, { folder: 'articulos/facturas', filePrefix: payload.nombre });
     if (manualFile)  uploadedManualUrl  = await uploadDocument(manualFile, { folder: 'articulos/manuales', filePrefix: payload.nombre });
 
@@ -76,7 +81,8 @@ class ArticulosService {
         nro_serie:   payload.nro_serie,
         codigo,
         valor:            payload.valor,
-        foto_url:         uploadedFotoUrl    || payload.foto_url    || null,
+        foto_url:             uploadedFotoUrl    || payload.foto_url    || null,
+        foto_color_dominante: uploadedFotoColor,
         bodega_id:        payload.bodega_id,
         fecha_vencimiento: payload.fecha_vencimiento,
         fecha_compra:      payload.fecha_compra,
@@ -138,7 +144,8 @@ class ArticulosService {
     const facturaFile = files.factura?.[0] || null;
     const manualFile  = files.manual?.[0]  || null;
 
-    let uploadedFotoUrl    = null;
+    let uploadedFotoUrl   = null;
+    let uploadedFotoColor = null;
     let uploadedFacturaUrl = null;
     let uploadedManualUrl  = null;
 
@@ -146,7 +153,11 @@ class ArticulosService {
     if (!preRows.length) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');
     const uploadCodigo = preRows[0].codigo;
 
-    if (fotoFile)    uploadedFotoUrl    = await uploadFile(fotoFile, { folder: 'articulos/fotos', filePrefix: uploadCodigo });
+    if (fotoFile) {
+      const fotoResult = await uploadFile(fotoFile, { folder: 'articulos/fotos', filePrefix: uploadCodigo });
+      uploadedFotoUrl   = fotoResult.url;
+      uploadedFotoColor = fotoResult.dominantColor;
+    }
     if (facturaFile) uploadedFacturaUrl = await uploadDocument(facturaFile, { folder: 'articulos/facturas', filePrefix: uploadCodigo });
     if (manualFile)  uploadedManualUrl  = await uploadDocument(manualFile, { folder: 'articulos/manuales', filePrefix: uploadCodigo });
 
@@ -162,6 +173,7 @@ class ArticulosService {
       const has = (k) => Object.prototype.hasOwnProperty.call(payload, k);
       const newNroSerie    = payload.nro_serie ?? old.nro_serie;
       const newFotoUrl     = uploadedFotoUrl    || payload.foto_url    || old.foto_url;
+      const newFotoColor   = fotoFile ? uploadedFotoColor : (old.foto_color_dominante ?? null);
       const newFacturaUrl  = uploadedFacturaUrl || (payload.factura_url ?? old.factura_url);
       const newManualUrl   = uploadedManualUrl  || (payload.manual_url  ?? old.manual_url);
       const newFechaVenc   = has('fecha_vencimiento') ? (payload.fecha_vencimiento || null) : (old.fecha_vencimiento ?? null);
@@ -176,6 +188,7 @@ class ArticulosService {
         nro_serie:   newNroSerie,
         valor:            payload.valor,
         foto_url:         newFotoUrl,
+        foto_color_dominante: newFotoColor,
         fecha_vencimiento: newFechaVenc,
         fecha_compra:      newFechaComp,
         proveedor_id:      newProveedorId,
@@ -415,12 +428,15 @@ class ArticulosService {
   }
   static async createBatch(payload, userId, files = {}) {
     const fotoFile = files.foto?.[0] || null;
-    let sharedFotoUrl = null;
+    let sharedFotoUrl   = null;
+    let sharedFotoColor = null;
     if (fotoFile) {
-      sharedFotoUrl = await uploadFile(fotoFile, {
+      const fotoResult = await uploadFile(fotoFile, {
         folder: 'articulos/fotos',
         filePrefix: `batch_${payload.plantilla_id}`,
       });
+      sharedFotoUrl   = fotoResult.url;
+      sharedFotoColor = fotoResult.dominantColor;
     }
 
     const PlantillaModel = require('../models/plantilla');
@@ -451,7 +467,8 @@ class ArticulosService {
           modelo:      plantilla.modelo,
           descripcion: plantilla.descripcion,
           manual_url:  plantilla.manual_url,
-          foto_url:    sharedFotoUrl || plantilla.foto_url || null,
+          foto_url:             sharedFotoUrl || plantilla.foto_url || null,
+          foto_color_dominante: sharedFotoUrl ? sharedFotoColor : null,
           plantilla_id: plantilla.id,
           codigo,
           nro_serie:         inst.nro_serie || null,
