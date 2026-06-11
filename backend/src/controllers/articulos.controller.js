@@ -3,7 +3,7 @@
 const { ArticulosService } = require('../services/articulos.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
 const { bufferInforme, drawSectionLabel, drawTableHeader, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
 
 class ArticulosController {
@@ -36,7 +36,7 @@ class ArticulosController {
       const filename = `inventario-${tipo}-${timestamp}.${formato === 'excel' ? 'xlsx' : 'pdf'}`;
 
       if (formato === 'excel') {
-        const buffer = buildExcelBuffer(items);
+        const buffer = await buildExcelBuffer(items);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.setHeader('Content-Length', buffer.length);
@@ -202,22 +202,32 @@ function formatDate(iso) {
   return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
 }
 
-function buildExcelBuffer(items) {
-  const rows = items.map((a) => ({
-    'Código':         a.codigo ?? '—',
-    'Nombre':         a.nombre ?? '—',
-    'Marca/Modelo':   [a.marca, a.modelo].filter(Boolean).join(' · ') || '—',
-    'Estado':         ESTADO_LABEL[a.estado] ?? a.estado,
-    'Ubicación':      a.bodega_nombre ?? a.proyecto_nombre ?? '—',
-    'Valor (CLP)':    a.valor ?? 0,
-    'Fecha Compra':   formatDate(a.fecha_compra),
-    'Proveedor':      a.proveedor_nombre ?? '—',
-    'Especialidades': (a.especialidades ?? []).join(', '),
-  }));
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
-  return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+async function buildExcelBuffer(items) {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Inventario');
+  ws.columns = [
+    { header: 'Código',         key: 'codigo' },
+    { header: 'Nombre',         key: 'nombre' },
+    { header: 'Marca/Modelo',   key: 'marca_modelo' },
+    { header: 'Estado',         key: 'estado' },
+    { header: 'Ubicación',      key: 'ubicacion' },
+    { header: 'Valor (CLP)',    key: 'valor' },
+    { header: 'Fecha Compra',   key: 'fecha_compra' },
+    { header: 'Proveedor',      key: 'proveedor' },
+    { header: 'Especialidades', key: 'especialidades' },
+  ];
+  ws.addRows(items.map((a) => ({
+    codigo:         a.codigo ?? '—',
+    nombre:         a.nombre ?? '—',
+    marca_modelo:   [a.marca, a.modelo].filter(Boolean).join(' · ') || '—',
+    estado:         ESTADO_LABEL[a.estado] ?? a.estado,
+    ubicacion:      a.bodega_nombre ?? a.proyecto_nombre ?? '—',
+    valor:          a.valor ?? 0,
+    fecha_compra:   formatDate(a.fecha_compra),
+    proveedor:      a.proveedor_nombre ?? '—',
+    especialidades: (a.especialidades ?? []).join(', '),
+  })));
+  return wb.xlsx.writeBuffer();
 }
 
 function applyLocationFilter(items, ubicacion) {

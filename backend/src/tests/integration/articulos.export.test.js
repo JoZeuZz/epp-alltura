@@ -162,6 +162,32 @@ describe('GET /api/articulos/export', () => {
       const res = await request(buildApp()).get('/api/articulos/export?tipo=epp&formato=excel');
       expect(res.headers['content-length']).toBeDefined();
     });
+
+    it('buffer contains sheet "Inventario" with correct 9 headers and ≥1 data row', async () => {
+      const ExcelJS = require('exceljs');
+      const res = await request(buildApp())
+        .get('/api/articulos/export?tipo=epp&formato=excel')
+        .buffer(true)
+        .parse((response, callback) => {
+          const chunks = [];
+          response.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+          response.on('end', () => callback(null, Buffer.concat(chunks)));
+        });
+
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(res.body);
+
+      const ws = wb.getWorksheet('Inventario');
+      expect(ws).toBeDefined();
+
+      const headerRow = ws.getRow(1).values.filter(Boolean);
+      expect(headerRow).toEqual([
+        'Código', 'Nombre', 'Marca/Modelo', 'Estado', 'Ubicación',
+        'Valor (CLP)', 'Fecha Compra', 'Proveedor', 'Especialidades',
+      ]);
+
+      expect(ws.rowCount).toBeGreaterThanOrEqual(2);
+    });
   });
 
   describe('PDF export', () => {
