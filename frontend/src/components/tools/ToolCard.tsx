@@ -45,6 +45,8 @@ const ToolCard: React.FC<ToolCardProps> = ({ tool, selected = false, onSelect })
           src={fotoSrc}
           alt={name}
           className="h-full w-full object-cover"
+          loading="lazy"
+          decoding="async"
           onError={(e) => { e.currentTarget.src = DEFAULT_IMAGE_PLACEHOLDER; }}
         />
       </div>

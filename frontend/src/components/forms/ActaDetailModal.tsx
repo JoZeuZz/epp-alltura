@@ -102,6 +102,8 @@ function EntregaDetail({ data, onDownload, isPdfLoading }: { data: EntregaRow; o
             src={buildImageUrl(data.evidencia_foto_url, 'medium') || data.evidencia_foto_url}
             alt="Evidencia de entrega"
             className="max-h-48 w-full object-contain rounded-lg border border-edge"
+            loading="lazy"
+            decoding="async"
           />
         </section>
       )}
@@ -114,6 +116,8 @@ function EntregaDetail({ data, onDownload, isPdfLoading }: { data: EntregaRow; o
               src={buildImageUrl(data.firma_imagen_url, 'medium') || data.firma_imagen_url}
               alt="Firma del receptor"
               className="max-h-24 object-contain rounded border border-edge"
+              loading="lazy"
+              decoding="async"
             />
             <p className="text-xs text-content-secondary mt-1">Firmado el {formatDateTime(data.firmado_en)}</p>
           </>
@@ -209,6 +213,8 @@ function DevolucionDetail({ data, onDownload, isPdfLoading }: { data: Devolucion
             src={buildImageUrl(data.evidencia_foto_url, 'medium') || data.evidencia_foto_url}
             alt="Evidencia de devolución"
             className="max-h-48 w-full object-contain rounded-lg border border-edge"
+            loading="lazy"
+            decoding="async"
           />
         </section>
       )}
@@ -221,6 +227,8 @@ function DevolucionDetail({ data, onDownload, isPdfLoading }: { data: Devolucion
               src={buildImageUrl(data.firma_imagen_url, 'medium') || data.firma_imagen_url}
               alt="Firma del trabajador"
               className="max-h-24 object-contain rounded border border-edge"
+              loading="lazy"
+              decoding="async"
             />
             <p className="text-xs text-content-secondary mt-1">Firmado el {formatDateTime(data.firmado_en)}</p>
           </>

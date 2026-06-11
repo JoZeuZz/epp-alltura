@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { buildImageUrl } from '../../utils/image';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getMisAsignacionesUsuario,
@@ -173,7 +174,15 @@ const MisArticulosAsignadosPanel: React.FC<Props> = ({ onDeliverSelected }) => {
 
               <div className={`flex items-start gap-3 ${multiSelect.isSelectMode ? 'pl-6' : ''}`}>
                 {art.foto_url ? (
-                  <img src={art.foto_url} alt={art.nombre} className="h-10 w-10 rounded object-cover flex-shrink-0 border border-edge" />
+                  <img
+                    src={buildImageUrl(art.foto_url, 'thumb')}
+                    alt={art.nombre}
+                    width={40}
+                    height={40}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-10 w-10 rounded object-cover flex-shrink-0 border border-edge"
+                  />
                 ) : (
                   <div className="h-10 w-10 rounded bg-surface-overlay flex items-center justify-center flex-shrink-0 text-content-muted" aria-hidden="true">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

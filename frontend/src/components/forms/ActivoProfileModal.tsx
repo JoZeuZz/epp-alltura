@@ -105,6 +105,8 @@ const ArticuloImageToggle: React.FC<ArticuloImageToggleProps> = ({ src, alt, exp
           src={src}
           alt={alt}
           className="w-full max-h-72 object-contain rounded-lg border border-edge transition-all duration-200"
+          loading="lazy"
+          decoding="async"
           onError={(e) => { e.currentTarget.src = DEFAULT_IMAGE_PLACEHOLDER; }}
         />
         <div className="absolute top-2 right-2 bg-black/40 rounded p-0.5">
@@ -125,6 +127,8 @@ const ArticuloImageToggle: React.FC<ArticuloImageToggleProps> = ({ src, alt, exp
         src={src}
         alt={alt}
         className="w-24 h-24 object-cover rounded-lg border border-edge"
+        loading="lazy"
+        decoding="async"
         onError={(e) => { e.currentTarget.src = DEFAULT_IMAGE_PLACEHOLDER; }}
       />
       <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 rounded-lg transition-opacity duration-150">
