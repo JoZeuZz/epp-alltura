@@ -14,6 +14,7 @@ jest.mock('../../middleware/roles', () => ({
 jest.mock('../../services/articulos.service', () => ({
   ArticulosService: {
     list: jest.fn(),
+    listForExport: jest.fn(),
     getById: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),
@@ -34,6 +35,7 @@ const errorHandler = require('../../middleware/errorHandler');
 const articulosRoutes = require('../../routes/articulos.routes');
 const { ArticulosService } = require('../../services/articulos.service');
 const { authMiddleware } = require('../../middleware/auth');
+const EXPORT_MAX_ROWS_DEFAULT = parseInt(process.env.EXPORT_MAX_ROWS ?? '5000', 10);
 
 const MOCK_ITEMS = [
   {
@@ -84,6 +86,7 @@ describe('GET /api/articulos/export', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     ArticulosService.list.mockResolvedValue({ items: MOCK_ITEMS, total: 2 });
+    ArticulosService.listForExport.mockResolvedValue({ items: MOCK_ITEMS, truncated: false });
   });
 
   describe('validation', () => {
@@ -131,17 +134,19 @@ describe('GET /api/articulos/export', () => {
       expect(res.headers['content-disposition']).toMatch(/inventario-epp-.+\.xlsx/);
     });
 
-    it('calls ArticulosService.list with tipo and high limit', async () => {
+    it('calls ArticulosService.listForExport with tipo and maxRows', async () => {
       await request(buildApp()).get('/api/articulos/export?tipo=epp&formato=excel');
-      expect(ArticulosService.list).toHaveBeenCalledWith(
-        expect.objectContaining({ tipo: 'epp', limit: 5000 })
+      expect(ArticulosService.listForExport).toHaveBeenCalledWith(
+        expect.objectContaining({ tipo: 'epp' }),
+        expect.any(Number)
       );
     });
 
-    it('passes estado filter to ArticulosService.list', async () => {
+    it('passes estado filter to ArticulosService.listForExport', async () => {
       await request(buildApp()).get('/api/articulos/export?tipo=epp&formato=excel&estado=en_stock');
-      expect(ArticulosService.list).toHaveBeenCalledWith(
-        expect.objectContaining({ estado: 'en_stock' })
+      expect(ArticulosService.listForExport).toHaveBeenCalledWith(
+        expect.objectContaining({ estado: 'en_stock' }),
+        expect.any(Number)
       );
     });
 
@@ -161,6 +166,19 @@ describe('GET /api/articulos/export', () => {
     it('returns Content-Length header', async () => {
       const res = await request(buildApp()).get('/api/articulos/export?tipo=epp&formato=excel');
       expect(res.headers['content-length']).toBeDefined();
+    });
+
+    it('export truncado → responde 200 con header X-Export-Truncated: true', async () => {
+      ArticulosService.listForExport.mockResolvedValueOnce({ items: MOCK_ITEMS, truncated: true });
+      const res = await request(buildApp()).get('/api/articulos/export?tipo=epp&formato=excel');
+      expect(res.status).toBe(200);
+      expect(res.headers['x-export-truncated']).toBe('true');
+    });
+
+    it('export normal → sin header X-Export-Truncated', async () => {
+      const res = await request(buildApp()).get('/api/articulos/export?tipo=epp&formato=excel');
+      expect(res.status).toBe(200);
+      expect(res.headers['x-export-truncated']).toBeUndefined();
     });
 
     it('buffer contains sheet "Inventario" with correct 9 headers and ≥1 data row', async () => {

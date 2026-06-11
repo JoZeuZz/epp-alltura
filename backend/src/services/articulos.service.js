@@ -133,6 +133,23 @@ class ArticulosService {
     return result;
   }
 
+  static async listForExport(filters = {}, maxRows = 5000) {
+    const CHUNK = 500;
+    const allItems = [];
+    let offset = 0;
+
+    while (allItems.length <= maxRows) {
+      const fetchLimit = Math.min(CHUNK, maxRows - allItems.length + 1);
+      const { items } = await ArticuloModel.findAll({ ...filters, limit: fetchLimit, offset });
+      allItems.push(...items);
+      offset += items.length;
+      if (items.length < fetchLimit) break;
+    }
+
+    const truncated = allItems.length > maxRows;
+    return { items: allItems.slice(0, maxRows), truncated };
+  }
+
   static async getById(id) {
     const art = await ArticuloModel.findById(id);
     if (!art) throw buildError('Artículo no encontrado', 404, 'ARTICULO_NOT_FOUND');

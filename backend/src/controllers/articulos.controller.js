@@ -22,12 +22,11 @@ class ArticulosController {
       const { tipo, formato, estado, search, ubicacion } = req.query;
       const timestamp = new Date().toISOString().slice(0, 10);
 
-      const { items: allItems } = await ArticulosService.list({
-        tipo,
-        ...(estado && { estado }),
-        ...(search && { search }),
-        limit: 5000,
-      });
+      const maxRows = parseInt(process.env.EXPORT_MAX_ROWS ?? '5000', 10);
+      const { items: allItems, truncated } = await ArticulosService.listForExport(
+        { tipo, ...(estado && { estado }), ...(search && { search }) },
+        maxRows
+      );
 
       const items = applyLocationFilter(allItems, ubicacion);
 
@@ -35,8 +34,10 @@ class ArticulosController {
       const label = TIPO_LABEL[tipo] ?? tipo;
       const filename = `inventario-${tipo}-${timestamp}.${formato === 'excel' ? 'xlsx' : 'pdf'}`;
 
+      if (truncated) res.setHeader('X-Export-Truncated', 'true');
+
       if (formato === 'excel') {
-        const buffer = await buildExcelBuffer(items);
+        const buffer = await buildExcelBuffer(items, truncated);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.setHeader('Content-Length', buffer.length);
@@ -44,6 +45,12 @@ class ArticulosController {
       }
 
       const pdfBuffer = await bufferInforme(`Inventario: ${label}`, async (doc) => {
+        if (truncated) {
+          doc.fontSize(9).fillColor('#CC0000')
+             .text(`AVISO: Export truncado a ${items.length} filas — algunos registros no están incluidos.`, { align: 'center' });
+          doc.moveDown(0.5);
+        }
+
         if (items.length === 0) {
           doc.fontSize(9).fillColor(MUTED_GRAY).text('Sin artículos para los filtros seleccionados.');
           return;
@@ -202,7 +209,7 @@ function formatDate(iso) {
   return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
 }
 
-async function buildExcelBuffer(items) {
+async function buildExcelBuffer(items, truncated = false) {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Inventario');
   ws.columns = [
@@ -227,6 +234,9 @@ async function buildExcelBuffer(items) {
     proveedor:      a.proveedor_nombre ?? '—',
     especialidades: (a.especialidades ?? []).join(', '),
   })));
+  if (truncated) {
+    ws.spliceRows(1, 0, [`AVISO: Export truncado a ${items.length} filas`]);
+  }
   return wb.xlsx.writeBuffer();
 }
 
