@@ -82,7 +82,7 @@ class ArticulosService {
         codigo,
         valor:            payload.valor,
         foto_url:             uploadedFotoUrl    || payload.foto_url    || null,
-        foto_color_dominante: uploadedFotoColor,
+        foto_color_dominante: uploadedFotoColor ?? null,
         bodega_id:        payload.bodega_id,
         fecha_vencimiento: payload.fecha_vencimiento,
         fecha_compra:      payload.fecha_compra,
