@@ -22,6 +22,19 @@ const getRateLimitConfig = (envPrefix, defaults) => {
   return { windowMs, max };
 };
 
+const memoryBuckets = new Map(); // key -> { count, resetAt }
+
+const memoryRateLimit = (key, windowMs, max) => {
+  const now = Date.now();
+  const bucket = memoryBuckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    memoryBuckets.set(key, { count: 1, resetAt: now + windowMs });
+    return { blocked: false, remaining: max - 1, resetAt: now + windowMs };
+  }
+  bucket.count += 1;
+  return { blocked: bucket.count > max, remaining: Math.max(0, max - bucket.count), resetAt: bucket.resetAt };
+};
+
 const createRedisRateLimiter = ({ keyPrefix, windowMs, max, getKey, message }) => {
   return async (req, res, next) => {
     const identifier = (typeof getKey === 'function' && getKey(req)) || req.ip || 'unknown';
@@ -43,10 +56,33 @@ const createRedisRateLimiter = ({ keyPrefix, windowMs, max, getKey, message }) =
 
       return next();
     } catch (error) {
-      logger.warn('Rate limit check failed', {
+      logger.error('Rate limit check failed, usando fallback in-memory', {
         error: error.message,
         keyPrefix,
       });
+
+      if (memoryBuckets.size > 10000) {
+        const now = Date.now();
+        for (const [k, v] of memoryBuckets) {
+          if (v.resetAt <= now) {
+            memoryBuckets.delete(k);
+          }
+        }
+      }
+
+      const result = memoryRateLimit(key, windowMs, max);
+
+      res.setHeader('RateLimit-Limit', max);
+      res.setHeader('RateLimit-Remaining', result.remaining);
+      res.setHeader('RateLimit-Reset', Math.ceil(result.resetAt / 1000));
+
+      if (result.blocked) {
+        res.setHeader('Retry-After', Math.ceil(windowMs / 1000));
+        return res.status(429).json({
+          message: message || 'Demasiadas solicitudes, intenta nuevamente más tarde.',
+        });
+      }
+
       return next();
     }
   };
