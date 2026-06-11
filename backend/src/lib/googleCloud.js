@@ -600,7 +600,8 @@ const uploadDocument = async (file, options = {}) => {
   const detectedMime = await validateDocumentSignature(file);
 
   if (detectedMime && detectedMime.startsWith('image/')) {
-    return uploadFile(file, options);
+    const result = await uploadFile(file, options);
+    return result.url;
   }
 
   if (resolvedProvider === 'gcs' && !isGCSConfigured) {
@@ -714,6 +715,21 @@ const deleteFileByUrl = async (imageUrl) => {
     const targetBucket = storage.bucket(gcsInfo.bucketName);
     await targetBucket.file(gcsInfo.objectName).delete({ ignoreNotFound: true });
     logger.info(`Imagen eliminada en GCS: ${imageUrl}`);
+
+    // Invalidate proxy thumbnail cache for GCS
+    try {
+      const rc = getRedisClient();
+      if (rc) {
+        const client = await rc.getClient();
+        const sizes = ['thumb', 'medium'];
+        await Promise.all(
+          sizes.map(s => client.del(`imgcache:${s}:${gcsInfo.bucketName}:${gcsInfo.objectName}`))
+        );
+      }
+    } catch (err) {
+      logger.warn('Failed to invalidate GCS image proxy cache', { error: err.message });
+    }
+
     return;
   }
 
@@ -731,30 +747,21 @@ const deleteFileByUrl = async (imageUrl) => {
     logger.warn(`No se pudo eliminar la imagen ${imageUrl}: ${error.message}`);
   }
 
-  // Invalidate proxy thumbnail cache
+  // Invalidate proxy thumbnail cache for local files
   try {
     const rc = getRedisClient();
     if (rc) {
       const client = await rc.getClient();
       const sizes = ['thumb', 'medium'];
-      if (isGcsUrl(imageUrl)) {
-        const gcsInfo = parseGcsUrl(imageUrl);
-        if (gcsInfo) {
-          await Promise.all(
-            sizes.map(s => client.del(`imgcache:${s}:${gcsInfo.bucketName}:${gcsInfo.objectName}`))
-          );
-        }
-      } else {
-        const relativePath = getLocalRelativePath(imageUrl);
-        if (relativePath) {
-          await Promise.all(
-            sizes.map(s => client.del(`imgcache:${s}:local:${relativePath}`))
-          );
-        }
+      const relativePath = getLocalRelativePath(imageUrl);
+      if (relativePath) {
+        await Promise.all(
+          sizes.map(s => client.del(`imgcache:${s}:local:${relativePath}`))
+        );
       }
     }
   } catch (err) {
-    logger.warn('Failed to invalidate image proxy cache', { error: err.message });
+    logger.warn('Failed to invalidate local image proxy cache', { error: err.message });
   }
 };
 
