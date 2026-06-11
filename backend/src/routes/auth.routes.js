@@ -5,6 +5,7 @@ const { authMiddleware } = require('../middleware/auth');
 const { passwordValidationMiddleware } = require('../middleware/passwordPolicy');
 const rateLimit = require('express-rate-limit');
 const { email, password, personName, rut, phoneNumber, userRole } = require('../lib/validation');
+const { createRedisRateLimiter, getRateLimitConfig } = require('../middleware/rateLimit');
 
 /**
  * AuthRoutes
@@ -48,6 +49,18 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // No contar intentos exitosos
+});
+
+const { windowMs: authRefreshWindowMs, max: authRefreshMax } = getRateLimitConfig('AUTH_REFRESH', {
+  windowMs: 60 * 1000,
+  max: 20,
+});
+
+const authRefreshLimiter = createRedisRateLimiter({
+  keyPrefix: 'auth-refresh',
+  windowMs: authRefreshWindowMs,
+  max: authRefreshMax,
+  message: 'Demasiadas solicitudes de renovación de token. Intenta nuevamente más tarde.',
 });
 
 // ============================================
@@ -154,7 +167,7 @@ router.post('/logout', authMiddleware, AuthController.logout);
  * - Token rotation: revoca token antiguo
  * - Retorna: nuevos tokens
  */
-router.post('/refresh', validateBody(refreshSchema), AuthController.refresh);
+router.post('/refresh', authRefreshLimiter, validateBody(refreshSchema), AuthController.refresh);
 
 /**
  * POST /api/auth/change-password

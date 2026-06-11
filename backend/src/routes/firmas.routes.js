@@ -7,6 +7,19 @@ const { checkRole } = require('../middleware/roles');
 const { imageUpload, validateImageMagic } = require('../middleware/upload');
 
 const { buildError } = require('../lib/errors');
+const { createRedisRateLimiter, getRateLimitConfig } = require('../middleware/rateLimit');
+
+const { windowMs: firmasPublicWindowMs, max: firmasPublicMax } = getRateLimitConfig('FIRMAS_PUBLIC', {
+  windowMs: 60 * 1000,
+  max: 30,
+});
+
+const firmasPublicLimiter = createRedisRateLimiter({
+  keyPrefix: 'firmas-public',
+  windowMs: firmasPublicWindowMs,
+  max: firmasPublicMax,
+  message: 'Demasiadas solicitudes. Intenta nuevamente más tarde.',
+});
 
 const router = express.Router();
 
@@ -158,7 +171,7 @@ const optionalSignatureUpload = (req, res, next) => {
   return next();
 };
 
-router.get('/tokens/:token', FirmasController.getTokenInfo);
+router.get('/tokens/:token', firmasPublicLimiter, FirmasController.getTokenInfo);
 router.post(
   '/events/deliveries/token',
   authMiddleware,
@@ -173,6 +186,7 @@ router.get(
 );
 router.post(
   '/tokens/:token/firmar',
+  firmasPublicLimiter,
   optionalSignatureUpload,
   validateImageMagic,
   normalizeSignaturePayload,
@@ -210,10 +224,11 @@ router.post(
   FirmasController.generateReturnToken
 );
 
-router.get('/devoluciones/:token', FirmasController.getReturnTokenInfo);
+router.get('/devoluciones/:token', firmasPublicLimiter, FirmasController.getReturnTokenInfo);
 
 router.post(
   '/devoluciones/:token/firmar',
+  firmasPublicLimiter,
   optionalSignatureUpload,
   validateImageMagic,
   normalizeSignaturePayload,
