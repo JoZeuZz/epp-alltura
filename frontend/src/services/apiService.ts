@@ -130,6 +130,7 @@ export interface Articulo {
   codigo: string;
   valor: number;
   foto_url?: string | null;
+  foto_color_dominante?: string | null;
   estado: ArticuloEstado;
   bodega_actual_id?: string | null;
   bodega_nombre?: string | null;

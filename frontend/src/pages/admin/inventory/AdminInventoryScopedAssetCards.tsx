@@ -6,6 +6,7 @@ import TourDemoActivoModal from '../../../components/forms/TourDemoActivoModal';
 import type { Articulo, ArticuloEstado } from '../../../services/apiService';
 import type { AssetScopeKey, InventoryAssetScopeCopy } from './inventoryAssetScope.constants';
 import { formatCLP } from '../../../utils/currency';
+import { buildImageUrl } from '../../../utils/image';
 import AdminInventoryScopedAssetListView from './AdminInventoryScopedAssetListView';
 import { useInventoryExport } from '../../../hooks';
 import AlertaDevolucionBadge from '../../../components/AlertaDevolucionBadge';
@@ -80,8 +81,13 @@ const ArticuloCard: React.FC<{
       <div className={`flex items-start gap-3 ${isSelectMode ? 'pl-6' : ''}`}>
         {articulo.foto_url ? (
           <img
-            src={articulo.foto_url}
+            src={buildImageUrl(articulo.foto_url, 'thumb')}
             alt={articulo.nombre}
+            width={48}
+            height={48}
+            loading="lazy"
+            decoding="async"
+            style={{ backgroundColor: articulo.foto_color_dominante ?? '#f3f4f6' }}
             className="h-12 w-12 rounded object-cover flex-shrink-0 border border-gray-200"
           />
         ) : (
