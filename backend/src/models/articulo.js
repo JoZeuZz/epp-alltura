@@ -120,7 +120,8 @@ class ArticuloModel {
 
   static async getRawForUpdate(client, id) {
     const { rows } = await client.query(
-      `SELECT id, estado, foto_url, factura_url, manual_url, nro_serie, proveedor_id, fecha_compra, fecha_vencimiento
+      `SELECT id, estado, foto_url, factura_url, manual_url, nro_serie,
+              proveedor_id, fecha_compra, fecha_vencimiento, foto_color_dominante
        FROM articulo WHERE id = $1 FOR UPDATE`,
       [id]
     );
@@ -141,9 +142,8 @@ class ArticuloModel {
          (tipo, nombre, marca, modelo, descripcion, nro_serie, codigo, valor,
           foto_url, estado, bodega_actual_id, fecha_vencimiento,
           fecha_compra, proveedor_id, factura_url, manual_url,
-          plantilla_id,
-          creado_por_usuario_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'en_stock',$10,$11,$12,$13,$14,$15,$16,$17)
+          plantilla_id, foto_color_dominante, creado_por_usuario_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'en_stock',$10,$11,$12,$13,$14,$15,$16,$17,$18)
        RETURNING id`,
       [
         fields.tipo,              fields.nombre,
@@ -160,6 +160,7 @@ class ArticuloModel {
         fields.factura_url   || null,
         fields.manual_url    || null,
         fields.plantilla_id      || null,
+        fields.foto_color_dominante || null,
         fields.creado_por_usuario_id,
       ]
     );
@@ -180,8 +181,9 @@ class ArticuloModel {
          fecha_compra      = $9,
          proveedor_id      = $10,
          factura_url       = $11,
-         manual_url        = $12
-       WHERE id = $13`,
+         manual_url        = $12,
+         foto_color_dominante = $13
+       WHERE id = $14`,
       [
         fields.nombre      || null,
         fields.marca       || null,
@@ -195,6 +197,7 @@ class ArticuloModel {
         fields.proveedor_id,
         fields.factura_url,
         fields.manual_url,
+        fields.foto_color_dominante ?? null,
         id,
       ]
     );
@@ -243,9 +246,9 @@ class ArticuloModel {
             INSERT INTO articulo
               (id, tipo, nombre, marca, modelo, descripcion, nro_serie, codigo, valor,
                foto_url, estado, bodega_actual_id, proyecto_actual_id, fecha_vencimiento,
-               fecha_compra, proveedor_id, factura_url, manual_url, plantilla_id,
-               creado_por_usuario_id, creado_en)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+               fecha_compra, proveedor_id, factura_url, manual_url, foto_color_dominante,
+               plantilla_id, creado_por_usuario_id, creado_en)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
             ON CONFLICT (id) DO UPDATE SET
               tipo                 = EXCLUDED.tipo,
               nombre               = EXCLUDED.nombre,
@@ -264,6 +267,7 @@ class ArticuloModel {
               proveedor_id         = EXCLUDED.proveedor_id,
               factura_url          = EXCLUDED.factura_url,
               manual_url           = EXCLUDED.manual_url,
+              foto_color_dominante = EXCLUDED.foto_color_dominante,
               plantilla_id         = EXCLUDED.plantilla_id,
               creado_por_usuario_id = EXCLUDED.creado_por_usuario_id
             RETURNING (xmax = 0) AS was_inserted
@@ -274,6 +278,7 @@ class ArticuloModel {
             row.proyecto_actual_id ?? null, row.fecha_vencimiento ?? null,
             row.fecha_compra ?? null, row.proveedor_id ?? null,
             row.factura_url ?? null, row.manual_url ?? null,
+            row.foto_color_dominante ?? null,
             row.plantilla_id ?? null, row.creado_por_usuario_id ?? null,
             row.creado_en ?? new Date().toISOString(),
           ]);
