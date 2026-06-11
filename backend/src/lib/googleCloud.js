@@ -61,7 +61,6 @@ const stripMetadataEnabled =
   (process.env.IMAGE_STRIP_METADATA || 'true').toLowerCase() !== 'false';
 const maxImageBytes = parseInt(process.env.IMAGE_MAX_BYTES || '26214400', 10);
 const maxDocumentBytes = parseInt(process.env.DOCUMENT_MAX_BYTES || '26214400', 10);
-const jpegQuality = parseInt(process.env.IMAGE_JPEG_QUALITY || '92', 10);
 const webpQuality = parseInt(process.env.IMAGE_WEBP_QUALITY || '85', 10);
 const cacheControl =
   process.env.IMAGE_CACHE_CONTROL || 'private, max-age=31536000, immutable';
@@ -258,6 +257,8 @@ const createSizeLimiter = (maxBytes) => {
 const createReadableStream = async (file) => {
   const mimetype = normalizeMimeType(file.mimetype);
   const sharp = getSharp();
+  // shouldProcess gate: reuses losslessCompressionEnabled + stripMetadataEnabled as
+  // "Sharp processing enabled" flags. Both false = bypass all processing (used in tests).
   const shouldProcess =
     !!sharp &&
     (losslessCompressionEnabled || stripMetadataEnabled) &&
@@ -267,7 +268,9 @@ const createReadableStream = async (file) => {
     // Extract dominant color via separate Sharp instance (fast stats read)
     let dominantColor = null;
     try {
-      const stats = await sharp(file.path || file.buffer, { failOnError: false }).stats();
+      const stats = await sharp(file.path || file.buffer, { failOnError: false })
+        .resize(1, 1, { fit: 'fill' })
+        .stats();
       const r = Math.round(stats.channels[0].mean);
       const g = Math.round(stats.channels[1].mean);
       const b = Math.round(stats.channels[2].mean);
