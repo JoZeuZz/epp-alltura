@@ -6,6 +6,42 @@ const fs = require('fs');
 const { logger } = require('../lib/logger');
 const { createRedisRateLimiter, getRateLimitConfig } = require('../middleware/rateLimit');
 
+let redisClient = null;
+try {
+  redisClient = require('../lib/redis');
+} catch {
+  // Redis unavailable — cache disabled
+}
+
+const CACHE_TTL_SECONDS = parseInt(process.env.IMAGE_PROXY_TTL_SECONDS || '2592000', 10);
+
+const getCacheKey = (size, payload) => {
+  if (payload.t === 'local' || payload.f) return `imgcache:${size}:local:${payload.f}`;
+  return `imgcache:${size}:${payload.b}:${payload.o}`;
+};
+
+const getCachedImage = async (key) => {
+  if (!redisClient) return null;
+  try {
+    const client = await redisClient.getClient();
+    const cached = await client.get(key);
+    if (!cached) return null;
+    return JSON.parse(cached);
+  } catch {
+    return null;
+  }
+};
+
+const setCachedImage = async (key, data, contentType) => {
+  if (!redisClient) return;
+  try {
+    const client = await redisClient.getClient();
+    await client.setEx(key, CACHE_TTL_SECONDS, JSON.stringify({ data: data.toString('base64'), contentType }));
+  } catch {
+    // non-fatal
+  }
+};
+
 const router = express.Router();
 
 let sharp = null;
@@ -19,8 +55,8 @@ const proxySecret = process.env.IMAGE_PROXY_SECRET || process.env.JWT_SECRET;
 const proxyTokenTtlSeconds = parseInt(process.env.IMAGE_PROXY_TTL_SECONDS || '2592000', 10);
 const proxyMaxCacheSeconds = Math.min(proxyTokenTtlSeconds, 3600);
 const sizePresets = {
-  thumb: { width: 320, height: 240 },
-  medium: { width: 1024, height: 768 },
+  thumb:  { width: 200, height: 200, fit: 'cover' },
+  medium: { width: 1024, height: 768, fit: 'inside' },
 };
 
 const storageOptions = {};
@@ -144,23 +180,31 @@ router.get('/', async (req, res) => {
       })();
 
       if (size && sizePresets[size] && sharp) {
+        const cacheKey = getCacheKey(size, payload);
+
+        const cached = await getCachedImage(cacheKey);
+        if (cached) {
+          res.setHeader('Content-Type', cached.contentType);
+          res.setHeader('Cache-Control', `private, max-age=${cacheMaxAge}`);
+          res.setHeader('X-Cache', 'HIT');
+          return res.end(Buffer.from(cached.data, 'base64'));
+        }
+
         const fileBuffer = await fs.promises.readFile(resolvedPath);
         const preset = sizePresets[size];
         const pipeline = sharp(fileBuffer, { failOnError: false })
           .rotate()
-          .resize({
-            width: preset.width,
-            height: preset.height,
-            fit: 'inside',
-            withoutEnlargement: true,
-          });
+          .resize({ width: preset.width, height: preset.height, fit: preset.fit || 'inside', withoutEnlargement: true })
+          .webp({ quality: 85 });
 
         const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
-        const resolvedContentType =
-          info.format === 'jpeg' ? 'image/jpeg' : info.format ? `image/${info.format}` : contentType;
+        const resolvedContentType = info.format ? `image/${info.format}` : contentType;
+
+        await setCachedImage(cacheKey, data, resolvedContentType);
 
         res.setHeader('Content-Type', resolvedContentType);
         res.setHeader('Cache-Control', `private, max-age=${cacheMaxAge}`);
+        res.setHeader('X-Cache', 'MISS');
         return res.end(data);
       }
 
@@ -190,6 +234,18 @@ router.get('/', async (req, res) => {
   }
 
   try {
+    // Check Redis cache before hitting GCS (size variants only)
+    if (size && sizePresets[size] && sharp) {
+      const cacheKey = getCacheKey(size, payload);
+      const cached = await getCachedImage(cacheKey);
+      if (cached) {
+        res.setHeader('Content-Type', cached.contentType);
+        res.setHeader('Cache-Control', `private, max-age=${proxyMaxCacheSeconds}`);
+        res.setHeader('X-Cache', 'HIT');
+        return res.end(Buffer.from(cached.data, 'base64'));
+      }
+    }
+
     const bucket = storage.bucket(bucketName);
     const file = bucket.file(objectName);
 
@@ -222,23 +278,24 @@ router.get('/', async (req, res) => {
     }
 
     if (size && sizePresets[size] && sharp) {
+      const cacheKey = getCacheKey(size, payload);
+
+      // Cache MISS — process and store
       const [fileBuffer] = await file.download();
       const preset = sizePresets[size];
       const pipeline = sharp(fileBuffer, { failOnError: false })
         .rotate()
-        .resize({
-          width: preset.width,
-          height: preset.height,
-          fit: 'inside',
-          withoutEnlargement: true,
-        });
+        .resize({ width: preset.width, height: preset.height, fit: preset.fit || 'inside', withoutEnlargement: true })
+        .webp({ quality: 85 });
 
       const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
-      const resolvedContentType =
-        info.format === 'jpeg' ? 'image/jpeg' : info.format ? `image/${info.format}` : contentType;
+      const resolvedContentType = info.format ? `image/${info.format}` : contentType;
+
+      await setCachedImage(cacheKey, data, resolvedContentType);
 
       res.setHeader('Content-Type', resolvedContentType);
       res.setHeader('Cache-Control', metadata.cacheControl || `private, max-age=${cacheMaxAge}`);
+      res.setHeader('X-Cache', 'MISS');
       return res.end(data);
     }
 
