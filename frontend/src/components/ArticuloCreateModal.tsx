@@ -121,6 +121,9 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
         {
           ...data,
           tipo,
+          marca:       data.marca       || undefined,
+          modelo:      data.modelo      || undefined,
+          descripcion: data.descripcion || undefined,
           manual_url: manualTab === 'url' ? (data.manual_url || undefined) : undefined,
         },
         files
