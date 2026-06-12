@@ -4,6 +4,7 @@ const ArticuloModel = require('../models/articulo');
 const { uploadFile, uploadDocument, deleteFileByUrl, resolveImageUrl } = require('../lib/googleCloud');
 const { buildError } = require('../lib/errors');
 const { writeAuditEvent } = require('../lib/auditoriaDb');
+const { logger } = require('../lib/logger');
 const db = require('../db');
 
 const VALID_ESPECIALIDADES = ['oocc', 'ooee', 'equipos', 'trabajos_verticales_lineas_de_vida'];
@@ -115,7 +116,13 @@ class ArticulosService {
       return data;
     } catch (error) {
       await client.query('ROLLBACK');
-      await Promise.allSettled([uploadedFotoUrl, uploadedFacturaUrl, uploadedManualUrl].filter(Boolean).map(url => deleteFileByUrl(url)));
+      const cleanupUrls = [uploadedFotoUrl, uploadedFacturaUrl, uploadedManualUrl].filter(Boolean);
+      const cleanupResults = await Promise.allSettled(cleanupUrls.map((url) => deleteFileByUrl(url)));
+      for (let i = 0; i < cleanupResults.length; i++) {
+        if (cleanupResults[i].status === 'rejected') {
+          logger.warn('Orphaned file cleanup failed', { url: cleanupUrls[i], error: cleanupResults[i].reason?.message });
+        }
+      }
       throw error;
     } finally {
       client.release();
