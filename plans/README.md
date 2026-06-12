@@ -19,7 +19,7 @@ Regla global del repo (aplica a TODOS los planes): commits estilo conventional c
 | 009 | Batch de queries N+1 en entregas/devoluciones | P3 | S | 002 | DONE |
 | 010 | Higiene: log de huérfanos GCS, TTL proxy 7d, typecheck backend | P3 | S | — | DONE |
 | 011 | Spike: Web Push — cablear a eventos de negocio o eliminar | P3 | M | — | DONE |
-| 012 | Diseño: import de inventario por Excel | P3 | M | 004 (hard) | TODO |
+| 012 | Diseño: import de inventario por Excel | P3 | M | 004 (hard) | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (con motivo en una línea) | REJECTED (con justificación — hallazgo corregido por otra vía o enfoque abandonado)
 
