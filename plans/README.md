@@ -17,7 +17,7 @@ Regla global del repo (aplica a TODOS los planes): commits estilo conventional c
 | 007 | Tests de integración para `ActivoProfileModal` (workflows) | P2 | M | — | DONE |
 | 008 | Descomponer `ActivoProfileModal` (963 líneas) | P3 | L | 007 | DONE |
 | 009 | Batch de queries N+1 en entregas/devoluciones | P3 | S | 002 | DONE |
-| 010 | Higiene: log de huérfanos GCS, TTL proxy 7d, typecheck backend | P3 | S | — | TODO |
+| 010 | Higiene: log de huérfanos GCS, TTL proxy 7d, typecheck backend | P3 | S | — | DONE |
 | 011 | Spike: Web Push — cablear a eventos de negocio o eliminar | P3 | M | — | TODO |
 | 012 | Diseño: import de inventario por Excel | P3 | M | 004 (hard) | TODO |
 
