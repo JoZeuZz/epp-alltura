@@ -20,9 +20,13 @@ jest.mock('../../lib/googleCloud', () => ({
 jest.mock('../../lib/auditoriaDb', () => ({
   writeAuditEvent: jest.fn(async () => {}),
 }));
+jest.mock('../../lib/logger', () => ({
+  logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
+}));
 
 const db = require('../../db');
 const { uploadFile, deleteFileByUrl } = require('../../lib/googleCloud');
+const { logger } = require('../../lib/logger');
 const { ArticulosService } = require('../../services/articulos.service');
 
 const BODEGA_ID = '22222222-2222-4222-8222-222222222222';
@@ -111,6 +115,36 @@ describe('ArticulosService.create', () => {
 
     expect(deleteFileByUrl).toHaveBeenCalledWith('uploads/catalogo/casco.jpg');
     expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+  });
+
+  it('loggea warn si la limpieza del archivo huérfano falla, pero propaga el error original', async () => {
+    const imageFile = { originalname: 'casco.jpg' };
+    uploadFile.mockResolvedValue({ url: 'uploads/catalogo/casco.jpg', dominantColor: null });
+    deleteFileByUrl.mockRejectedValue(new Error('GCS unavailable'));
+
+    db.query.mockResolvedValueOnce({ rows: [{ id: BODEGA_ID }] });
+
+    const client = makeClient(async (sql) => {
+      if (sql === 'BEGIN' || sql === 'ROLLBACK') return {};
+      if (/nextval/.test(sql)) return { rows: [{ val: '1' }] };
+      if (/FROM bodegas/.test(sql)) return { rows: [{ id: BODEGA_ID }] };
+      if (/INSERT INTO articulo/.test(sql)) throw new Error('db failed');
+      return { rows: [] };
+    });
+    db.pool.connect.mockResolvedValue(client);
+
+    await expect(
+      ArticulosService.create(
+        { tipo: 'epp', nombre: 'Casco', nro_serie: 'CAS-0007', bodega_id: BODEGA_ID },
+        'user-1',
+        { foto: [imageFile] }
+      )
+    ).rejects.toThrow('db failed');
+
+    expect(logger.warn).toHaveBeenCalledWith('Orphaned file cleanup failed', {
+      url: 'uploads/catalogo/casco.jpg',
+      error: 'GCS unavailable',
+    });
   });
 
   it('rechaza creación si la bodega no existe o está inactiva', async () => {

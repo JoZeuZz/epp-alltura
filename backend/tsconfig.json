@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "module": "commonjs",
+    "target": "es2022",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.js"],
+  "exclude": ["src/tests/**"]
+}

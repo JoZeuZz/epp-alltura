@@ -113,13 +113,13 @@ class EntregasService {
 
     const normalized = [];
     const selectedArticuloIds = new Set();
+    const orderedIds = [];
 
     for (const detail of detalles) {
       const articuloId = String(detail?.articulo_id || '').trim();
       if (!isUuid(articuloId)) {
         throw buildError('Artículo inválido en detalle de entrega', 400, 'DETAIL_ARTICLE_INVALID');
       }
-
       if (selectedArticuloIds.has(articuloId)) {
         throw buildError(
           'No puedes repetir el mismo artículo en más de un ítem',
@@ -128,22 +128,37 @@ class EntregasService {
         );
       }
       selectedArticuloIds.add(articuloId);
+      orderedIds.push(articuloId);
+    }
 
-      const assetResult = await client.query(
-        `SELECT id, estado, bodega_actual_id,
-                COALESCE(nro_serie, nombre, 'artículo') AS label
-         FROM articulo
-         WHERE id = $1
-         FOR UPDATE`,
-        [articuloId]
-      );
+    const { rows: assetRows } = await client.query(
+      `SELECT id, estado, bodega_actual_id,
+              COALESCE(nro_serie, nombre, 'artículo') AS label
+       FROM articulo
+       WHERE id = ANY($1::uuid[])
+       FOR UPDATE`,
+      [orderedIds]
+    );
+    const assetMap = new Map(assetRows.map((r) => [r.id, r]));
 
-      if (!assetResult.rows.length) {
+    const { rows: custodyRows } = await client.query(
+      `SELECT articulo_id
+       FROM custodia_activo
+       WHERE articulo_id = ANY($1::uuid[])
+         AND estado = 'activa'
+       FOR UPDATE`,
+      [orderedIds]
+    );
+    const activeCustodiaSet = new Set(custodyRows.map((r) => r.articulo_id));
+
+    for (let i = 0; i < detalles.length; i++) {
+      const detail = detalles[i];
+      const articuloId = orderedIds[i];
+      const asset = assetMap.get(articuloId);
+
+      if (!asset) {
         throw buildError('Artículo no encontrado en detalle de entrega', 404, 'ASSET_NOT_FOUND');
       }
-
-      const asset = assetResult.rows[0];
-
       if (asset.estado !== 'en_stock') {
         throw buildError(
           `El artículo "${asset.label}" no está disponible para entregar`,
@@ -151,7 +166,6 @@ class EntregasService {
           'ASSET_NOT_AVAILABLE'
         );
       }
-
       if (asset.bodega_actual_id !== ubicacionOrigenId) {
         throw buildError(
           `El artículo "${asset.label}" no se encuentra en la bodega de origen`,
@@ -159,18 +173,7 @@ class EntregasService {
           'ASSET_WRONG_LOCATION'
         );
       }
-
-      const custodyResult = await client.query(
-        `SELECT id
-         FROM custodia_activo
-         WHERE articulo_id = $1
-           AND estado = 'activa'
-         LIMIT 1
-         FOR UPDATE`,
-        [articuloId]
-      );
-
-      if (custodyResult.rows.length) {
+      if (activeCustodiaSet.has(articuloId)) {
         throw buildError(
           `El artículo "${asset.label}" ya tiene custodia activa`,
           409,
@@ -309,13 +312,16 @@ class EntregasService {
 
       const entregaId = entregaResult.rows[0].id;
 
-      for (const detail of normalizedDetails) {
-        await client.query(
-          `INSERT INTO entrega_detalle (entrega_id, articulo_id, condicion_salida, notas)
-           VALUES ($1, $2, $3, $4)`,
-          [entregaId, detail.articulo_id, detail.condicion_salida, detail.notas || null]
-        );
-      }
+      await client.query(
+        `INSERT INTO entrega_detalle (entrega_id, articulo_id, condicion_salida, notas)
+         SELECT $1, * FROM unnest($2::uuid[], $3::text[], $4::text[])`,
+        [
+          entregaId,
+          normalizedDetails.map((d) => d.articulo_id),
+          normalizedDetails.map((d) => d.condicion_salida),
+          normalizedDetails.map((d) => d.notas || null),
+        ]
+      );
 
       await writeAuditEvent({
         client,
@@ -724,16 +730,28 @@ class EntregasService {
       for (const articuloId of uniqueIds) {
         if (!isUuid(articuloId))
           throw buildError(`ID inválido: ${articuloId}`, 400, 'DETAIL_ARTICLE_INVALID');
+      }
 
-        const { rows: artRows } = await client.query(
-          `SELECT id, estado, usuario_actual_id, COALESCE(nro_serie, nombre, 'artículo') AS label
-           FROM articulo WHERE id = $1 FOR UPDATE`,
-          [articuloId]
-        );
-        if (!artRows.length)
+      const { rows: artRows } = await client.query(
+        `SELECT id, estado, usuario_actual_id, COALESCE(nro_serie, nombre, 'artículo') AS label
+         FROM articulo WHERE id = ANY($1::uuid[]) FOR UPDATE`,
+        [uniqueIds]
+      );
+      const artMap = new Map(artRows.map((r) => [r.id, r]));
+
+      const { rows: auRows } = await client.query(
+        `SELECT articulo_id FROM asignacion_usuario
+         WHERE articulo_id = ANY($1::uuid[]) AND estado = 'activa'
+         FOR UPDATE`,
+        [uniqueIds]
+      );
+      const auSet = new Set(auRows.map((r) => r.articulo_id));
+
+      for (const articuloId of uniqueIds) {
+        const art = artMap.get(articuloId);
+        if (!art)
           throw buildError(`Artículo ${articuloId} no encontrado`, 404, 'ASSET_NOT_FOUND');
 
-        const art = artRows[0];
         if (art.estado !== 'asignado')
           throw buildError(
             `El artículo "${art.label}" no está asignado`,
@@ -744,14 +762,7 @@ class EntregasService {
             `El artículo "${art.label}" no está asignado al usuario origen`,
             409, 'ASSET_WRONG_LOCATION'
           );
-
-        const { rows: auRows } = await client.query(
-          `SELECT id FROM asignacion_usuario
-           WHERE articulo_id = $1 AND estado = 'activa'
-           LIMIT 1 FOR UPDATE`,
-          [articuloId]
-        );
-        if (!auRows.length)
+        if (!auSet.has(articuloId))
           throw buildError(
             `El artículo "${art.label}" no tiene asignación activa`,
             409, 'NO_ACTIVE_ASSIGNMENT'
@@ -781,13 +792,16 @@ class EntregasService {
       );
       const entregaId = entRows[0].id;
 
-      for (const det of detalles) {
-        await client.query(
-          `INSERT INTO entrega_detalle (entrega_id, articulo_id, condicion_salida, notas)
-           VALUES ($1, $2, $3, $4)`,
-          [entregaId, det.articulo_id, det.condicion_salida, det.notas]
-        );
-      }
+      await client.query(
+        `INSERT INTO entrega_detalle (entrega_id, articulo_id, condicion_salida, notas)
+         SELECT $1, * FROM unnest($2::uuid[], $3::text[], $4::text[])`,
+        [
+          entregaId,
+          detalles.map((d) => d.articulo_id),
+          detalles.map((d) => d.condicion_salida),
+          detalles.map((d) => d.notas),
+        ]
+      );
 
       await writeAuditEvent({
         client,
@@ -808,7 +822,7 @@ class EntregasService {
     } catch (err) {
       await client.query('ROLLBACK');
       if (uploadedEvidenceUrl) {
-        try { await deleteFileByUrl(uploadedEvidenceUrl); } catch (_) {}
+        try { await deleteFileByUrl(uploadedEvidenceUrl); } catch { /* ignore */ }
       }
       throw err;
     } finally {

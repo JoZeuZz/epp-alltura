@@ -141,13 +141,13 @@ class DevolucionesService {
 
     const normalized = [];
     const selectedCustodiaIds = new Set();
+    const orderedIds = [];
 
     for (const detail of detalles) {
       const custodiaId = String(detail?.custodia_id || '').trim();
       if (!isUuid(custodiaId)) {
         throw buildError('custodia_id inválido en detalle de devolución', 400, 'DETAIL_CUSTODIA_INVALID');
       }
-
       if (selectedCustodiaIds.has(custodiaId)) {
         throw buildError(
           'No puedes repetir la misma custodia en más de un ítem',
@@ -156,27 +156,33 @@ class DevolucionesService {
         );
       }
       selectedCustodiaIds.add(custodiaId);
+      orderedIds.push(custodiaId);
+    }
 
-      const custodyResult = await client.query(
-        `SELECT ca.id, ca.articulo_id, ca.trabajador_id, ca.proyecto_id, ca.estado, ca.entrega_id,
-                COALESCE(a.nro_serie, a.nombre, 'artículo') AS label
-         FROM custodia_activo ca
-         JOIN articulo a ON a.id = ca.articulo_id
-         WHERE ca.id = $1
-           AND ca.estado = 'activa'
-         FOR UPDATE`,
-        [custodiaId]
-      );
+    const { rows: custodyRows } = await client.query(
+      `SELECT ca.id, ca.articulo_id, ca.trabajador_id, ca.proyecto_id, ca.estado, ca.entrega_id,
+              COALESCE(a.nro_serie, a.nombre, 'artículo') AS label
+       FROM custodia_activo ca
+       JOIN articulo a ON a.id = ca.articulo_id
+       WHERE ca.id = ANY($1::uuid[])
+         AND ca.estado = 'activa'
+       FOR UPDATE`,
+      [orderedIds]
+    );
+    const custodiaMap = new Map(custodyRows.map((r) => [r.id, r]));
 
-      if (!custodyResult.rows.length) {
+    for (let i = 0; i < detalles.length; i++) {
+      const detail = detalles[i];
+      const custodiaId = orderedIds[i];
+      const custody = custodiaMap.get(custodiaId);
+
+      if (!custody) {
         throw buildError(
           'La custodia no está activa o no existe',
           400,
           'NO_ACTIVE_CUSTODY'
         );
       }
-
-      const custody = custodyResult.rows[0];
       if (custody.trabajador_id !== trabajadorId) {
         throw buildError(
           `El artículo "${custody.label}" no pertenece al trabajador seleccionado`,
@@ -476,21 +482,19 @@ class DevolucionesService {
 
       const devolucionId = devolucionResult.rows[0].id;
 
-      for (const detail of normalizedDetails) {
-        await client.query(
-          `INSERT INTO devolucion_detalle
-             (devolucion_id, custodia_id, articulo_id, condicion_entrada, disposicion, notas)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [
-            devolucionId,
-            detail.custodia_id,
-            detail.articulo_id,
-            detail.condicion_entrada,
-            detail.disposicion,
-            detail.notas || null,
-          ]
-        );
-      }
+      await client.query(
+        `INSERT INTO devolucion_detalle
+           (devolucion_id, custodia_id, articulo_id, condicion_entrada, disposicion, notas)
+         SELECT $1, * FROM unnest($2::uuid[], $3::uuid[], $4::text[], $5::text[], $6::text[])`,
+        [
+          devolucionId,
+          normalizedDetails.map((d) => d.custodia_id),
+          normalizedDetails.map((d) => d.articulo_id),
+          normalizedDetails.map((d) => d.condicion_entrada),
+          normalizedDetails.map((d) => d.disposicion),
+          normalizedDetails.map((d) => d.notas || null),
+        ]
+      );
 
       await writeAuditEvent({
         client,
