@@ -50,10 +50,10 @@ const gcsPrefix = (process.env.GCS_PREFIX || '').replace(/^\/+|\/+$/g, '');
 
 const isGcsUrl = (imageUrl) => imageUrl.includes('storage.googleapis.com');
 
-const signedUrlTtlMs = parseInt(process.env.GCS_SIGNED_URL_TTL_MS || '2592000000', 10); // 30 days default
+const signedUrlTtlMs = parseInt(process.env.GCS_SIGNED_URL_TTL_MS || '604800000', 10); // 7 days default
 const signedUrlsEnabled = (process.env.GCS_SIGNED_URLS || 'true').toLowerCase() !== 'false';
 const proxyEnabled = (process.env.GCS_IMAGE_PROXY || 'true').toLowerCase() !== 'false';
-const proxyTokenTtlSeconds = parseInt(process.env.IMAGE_PROXY_TTL_SECONDS || '2592000', 10); // 30 days default
+const proxyTokenTtlSeconds = parseInt(process.env.IMAGE_PROXY_TTL_SECONDS || '604800', 10); // 7 days default
 const proxySecret = process.env.IMAGE_PROXY_SECRET || process.env.JWT_SECRET || '';
 const losslessCompressionEnabled =
   (process.env.IMAGE_LOSSLESS_COMPRESSION || 'true').toLowerCase() !== 'false';
