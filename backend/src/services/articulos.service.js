@@ -21,8 +21,21 @@ const TRANSICIONES_DIRECTAS = {
 const CODIGO_PREFIX = { epp: 'EPP', herramienta: 'HRR', equipo: 'EQP' };
 
 async function generateCodigo(client, tipo) {
-  const { rows } = await client.query('SELECT nextval($1) AS val', [`seq_codigo_${tipo}`]);
-  return `${CODIGO_PREFIX[tipo]}-${String(rows[0].val).padStart(5, '0')}`;
+  const prefix = CODIGO_PREFIX[tipo];
+  if (!prefix) throw buildError(`Tipo de artículo inválido: ${tipo}`, 400, 'INVALID_TIPO');
+  // Serializa la asignación dentro de la familia; el lock se libera al fin de la transacción.
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`codigo_${tipo}`]);
+  const { rows } = await client.query(
+    `SELECT COALESCE(MIN(n), 1) AS next
+       FROM generate_series(1, (SELECT COUNT(*) + 1 FROM articulo WHERE tipo = $1)) AS n
+      WHERE NOT EXISTS (
+        SELECT 1 FROM articulo
+         WHERE tipo = $1
+           AND codigo = $2 || '-' || LPAD(n::text, 5, '0')
+      )`,
+    [tipo, prefix]
+  );
+  return `${prefix}-${String(rows[0].next).padStart(5, '0')}`;
 }
 
 function validateEspecialidades(especialidades) {
@@ -538,4 +551,5 @@ class ArticulosService {
   }
 }
 
-module.exports = { ArticulosService };
+// generateCodigo se exporta para pruebas unitarias (es interna, no parte de la API pública).
+module.exports = { ArticulosService, generateCodigo };

@@ -27,7 +27,7 @@ jest.mock('../../lib/logger', () => ({
 const db = require('../../db');
 const { uploadFile, deleteFileByUrl } = require('../../lib/googleCloud');
 const { logger } = require('../../lib/logger');
-const { ArticulosService } = require('../../services/articulos.service');
+const { ArticulosService, generateCodigo } = require('../../services/articulos.service');
 
 const BODEGA_ID = '22222222-2222-4222-8222-222222222222';
 const ARTICULO_ID = '11111111-1111-4111-8111-111111111111';
@@ -63,7 +63,8 @@ describe('ArticulosService.create', () => {
 
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return {};
-      if (/nextval/.test(sql)) return { rows: [{ val: '7' }] };
+      if (/pg_advisory_xact_lock/.test(sql)) return { rows: [] };
+      if (/generate_series/.test(sql)) return { rows: [{ next: 7 }] };
       if (/FROM bodegas/.test(sql)) return { rows: [{ id: BODEGA_ID }] };
       if (/INSERT INTO articulo\s*\n?\s*\(tipo/.test(sql) || /INSERT INTO articulo/.test(sql)) {
         return { rows: [{ id: ARTICULO_ID }] };
@@ -96,7 +97,8 @@ describe('ArticulosService.create', () => {
 
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'ROLLBACK') return {};
-      if (/nextval/.test(sql)) return { rows: [{ val: '1' }] };
+      if (/pg_advisory_xact_lock/.test(sql)) return { rows: [] };
+      if (/generate_series/.test(sql)) return { rows: [{ next: 1 }] };
       if (/FROM bodegas/.test(sql)) return { rows: [{ id: BODEGA_ID }] };
       if (/INSERT INTO articulo\s*\n?\s*\(tipo/.test(sql) || /INSERT INTO articulo/.test(sql)) {
         throw new Error('db failed');
@@ -126,7 +128,8 @@ describe('ArticulosService.create', () => {
 
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'ROLLBACK') return {};
-      if (/nextval/.test(sql)) return { rows: [{ val: '1' }] };
+      if (/pg_advisory_xact_lock/.test(sql)) return { rows: [] };
+      if (/generate_series/.test(sql)) return { rows: [{ next: 1 }] };
       if (/FROM bodegas/.test(sql)) return { rows: [{ id: BODEGA_ID }] };
       if (/INSERT INTO articulo/.test(sql)) throw new Error('db failed');
       return { rows: [] };
@@ -153,7 +156,8 @@ describe('ArticulosService.create', () => {
 
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'ROLLBACK') return {};
-      if (/nextval/.test(sql)) return { rows: [{ val: '1' }] };
+      if (/pg_advisory_xact_lock/.test(sql)) return { rows: [] };
+      if (/generate_series/.test(sql))        return { rows: [{ next: 1 }] };
       if (/FROM bodegas/.test(sql)) return { rows: [] };
       return { rows: [] };
     });
@@ -370,7 +374,8 @@ describe('ArticulosService.create — foto optional', () => {
 
     const client = makeClient(async (sql) => {
       if (sql === 'BEGIN' || sql === 'COMMIT' || sql === 'ROLLBACK') return {};
-      if (/nextval/.test(sql)) return { rows: [{ val: '42' }] };
+      if (/pg_advisory_xact_lock/.test(sql)) return { rows: [] };
+      if (/generate_series/.test(sql))        return { rows: [{ next: 42 }] };
       if (/FROM bodegas/.test(sql)) return { rows: [{ id: BODEGA_ID }] };
       if (/INSERT INTO articulo/.test(sql)) return { rows: [{ id: ARTICULO_ID }] };
       if (/INSERT INTO articulo_especialidad/.test(sql)) return { rows: [] };
@@ -461,5 +466,59 @@ describe('ArticulosService.cambiarEstado', () => {
     await expect(
       ArticulosService.cambiarEstado(ARTICULO_ID, { nuevo_estado: 'mantencion' }, 'user-1')
     ).rejects.toMatchObject({ statusCode: 422, code: 'ACTIVE_CUSTODY_EXISTS' });
+  });
+});
+
+describe('generateCodigo', () => {
+  function makeGapClient(minNext) {
+    const calls = [];
+    const client = {
+      query: jest.fn(async (sql, params) => {
+        calls.push({ sql, params });
+        if (/pg_advisory_xact_lock/.test(sql)) return { rows: [] };
+        if (/generate_series/.test(sql)) return { rows: [{ next: minNext }] };
+        return { rows: [] };
+      }),
+    };
+    return { client, calls };
+  }
+
+  it('toma un advisory lock por familia antes de calcular el hueco', async () => {
+    const { client } = makeGapClient(1);
+    await generateCodigo(client, 'epp');
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining('pg_advisory_xact_lock'),
+      ['codigo_epp']
+    );
+  });
+
+  it('formatea el código con el prefijo de la familia y pad 5 desde el MIN libre', async () => {
+    const { client } = makeGapClient(7);
+    const codigo = await generateCodigo(client, 'epp');
+    expect(codigo).toBe('EPP-00007');
+  });
+
+  it('usa el prefijo correcto para herramienta y equipo', async () => {
+    const { client: c1 } = makeGapClient(3);
+    expect(await generateCodigo(c1, 'herramienta')).toBe('HRR-00003');
+    const { client: c2 } = makeGapClient(12);
+    expect(await generateCodigo(c2, 'equipo')).toBe('EQP-00012');
+  });
+
+  it('consulta el menor hueco filtrando por tipo y formato de código', async () => {
+    const { client, calls } = makeGapClient(1);
+    await generateCodigo(client, 'epp');
+    const gapCall = calls.find((c) => /generate_series/.test(c.sql));
+    expect(gapCall).toBeDefined();
+    expect(gapCall.sql).toMatch(/NOT EXISTS/);
+    expect(gapCall.params).toEqual(['epp', 'EPP']);
+  });
+
+  it('lanza INVALID_TIPO para una familia desconocida', async () => {
+    const { client } = makeGapClient(1);
+    await expect(generateCodigo(client, 'inexistente')).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'INVALID_TIPO',
+    });
   });
 });
