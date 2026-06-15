@@ -8,3 +8,5 @@ export * from './notificaciones';
 export * from './trabajadores';
 export * from './plantillas';
 export * from './asignaciones';
+
+export * from './facturas';
