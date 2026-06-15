@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import Modal from '../Modal';
 import ProveedorCreateModal from './ProveedorCreateModal';
 import FotoEvidenciaUpload from './FotoEvidenciaUpload';
+import FacturaUpload from './FacturaUpload';
+import type { FacturaAnalysis } from '../../services/api/facturas';
 import {
   updateArticulo,
   addCertificacion,
@@ -45,6 +47,7 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
   const [proveedorId,  setProveedorId]  = useState(activo.proveedor_id ?? '');
   const [valor,        setValor]        = useState(activo.valor != null ? String(activo.valor) : '');
   const [facturaFile,  setFacturaFile]  = useState<File | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<FacturaAnalysis | null>(null);
 
   const [manualTab,  setManualTab]  = useState<'file' | 'url'>('url');
   const [manualFile, setManualFile] = useState<File | null>(null);
@@ -138,6 +141,18 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
     );
   };
 
+  const handleAnalysis = (result: FacturaAnalysis | null) => {
+    setAnalysisResult(result);
+    if (result) {
+      if (result.proveedor_id) setProveedorId(result.proveedor_id);
+      if (result.fecha_compra) setFechaCompra(result.fecha_compra);
+      if (result.valor !== null) setValor(String(result.valor));
+      if (result.proveedor_creado) {
+        queryClient.invalidateQueries({ queryKey: ['proveedores'] });
+      }
+    }
+  };
+
   const inputCls = 'w-full rounded-md border border-edge px-3 py-2 text-sm focus:ring-2 focus:ring-primary-blue focus:outline-none';
   const sectionCls = 'space-y-3';
   const labelCls = 'block text-sm font-medium text-content-secondary mb-1';
@@ -185,21 +200,61 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
         {/* COMPRA */}
         <section className={sectionCls}>
           <h4 className={sectionTitleCls}>Compra</h4>
+
+          <FacturaUpload
+            articuloNombre={nombre}
+            value={facturaFile}
+            onChange={setFacturaFile}
+            onAnalysis={handleAnalysis}
+            existingUrl={activo.factura_url ?? undefined}
+          />
+
+          {analysisResult?.extractado_ok && (
+            <div className="bg-green-50 border border-green-300 rounded-lg px-3 py-2 text-xs text-green-800 leading-relaxed">
+              <strong>✓ Datos extraídos de la factura:</strong>{' '}
+              {analysisResult.proveedor_nombre && <span>{analysisResult.proveedor_nombre} · </span>}
+              {analysisResult.fecha_compra && <span>{analysisResult.fecha_compra} · </span>}
+              {analysisResult.valor !== null
+                ? <span>${analysisResult.valor.toLocaleString('es-CL')}</span>
+                : <span className="italic text-green-700">Precio no detectado — completá el valor manualmente.</span>
+              }
+              {analysisResult.proveedor_creado && (
+                <span className="block mt-1 text-green-700">Proveedor nuevo creado en la base de datos.</span>
+              )}
+              <span className="block mt-1 text-green-600 italic">Podés editar los campos si algo no es correcto.</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Fecha de compra</label>
-              <input type="date" value={fechaCompra} onChange={e => setFechaCompra(e.target.value)} className={inputCls} />
+              <input
+                type="date"
+                value={fechaCompra}
+                onChange={e => setFechaCompra(e.target.value)}
+                className={`${inputCls} ${analysisResult?.fecha_compra ? 'border-green-400' : ''}`}
+              />
             </div>
             <div>
               <label className={labelCls}>Valor (CLP)</label>
-              <input type="number" min={0} step={1} value={valor}
-                onChange={e => setValor(e.target.value)} className={inputCls} />
+              <input
+                type="number"
+                min={0}
+                step={1}
+                value={valor}
+                onChange={e => setValor(e.target.value)}
+                className={`${inputCls} ${analysisResult?.valor !== null && analysisResult?.valor !== undefined ? 'border-green-400' : ''}`}
+              />
             </div>
           </div>
           <div>
             <label className={labelCls}>Proveedor</label>
             <div className="flex gap-2">
-              <select value={proveedorId} onChange={e => setProveedorId(e.target.value)} className={`${inputCls} flex-1`}>
+              <select
+                value={proveedorId}
+                onChange={e => setProveedorId(e.target.value)}
+                className={`${inputCls} flex-1 ${analysisResult?.proveedor_id ? 'border-green-400' : ''}`}
+              >
                 <option value="">Sin proveedor</option>
                 {proveedores.map(p => (
                   <option key={p.id} value={p.id}>{p.nombre}</option>
@@ -210,18 +265,6 @@ const EditarActivoModal: React.FC<Props> = ({ activo, onClose, onSuccess }) => {
                 + Nuevo
               </button>
             </div>
-          </div>
-          <div>
-            <label className={labelCls}>Factura (reemplazar PDF)</label>
-            {activo.factura_url && (
-              <a href={activo.factura_url} target="_blank" rel="noopener noreferrer"
-                className="block text-xs text-primary-blue hover:underline mb-1">
-                ↓ Ver factura actual
-              </a>
-            )}
-            <input type="file" accept=".pdf,application/pdf"
-              onChange={e => setFacturaFile(e.target.files?.[0] ?? null)}
-              className={fileCls} />
           </div>
         </section>
 
