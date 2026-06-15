@@ -17,8 +17,8 @@ module.exports = {
     extend: {
       colors: {
         // ── Legacy tokens — backward-compat, keep existing class names working ─
-        'primary-blue':  '#1E2A4A',
-        'dark-blue':     '#1E2A4A',
+        'primary-blue':  '#2A64A4',  // brand blue — action buttons, CTA
+        'dark-blue':     '#1E2A4A',  // brand navy — backgrounds, shell
         'neutral-gray':  '#6B7280',
         'light-gray-bg': '#F9FAFB',
 
@@ -26,10 +26,10 @@ module.exports = {
         // bg-primary · text-primary · border-primary
         // bg-primary-hover · bg-primary-light · bg-primary-dark
         primary: {
-          DEFAULT: 'var(--c-primary)',        // #1E2A4A — brand navy, 13.0:1 on white ✓ AAA
-          hover:   'var(--c-primary-hover)',  // #2A3C66 — lighter navy hover/pressed
+          DEFAULT: 'var(--c-primary)',        // #2A64A4 — brand blue, action buttons ✓ AA
+          hover:   'var(--c-primary-hover)',  // #1D4E8A — darker blue hover/pressed
           light:   'var(--c-primary-light)',  // #EBF3FC — selections, highlights
-          dark:    'var(--c-primary-dark)',   // #141E34 — deeper navy, hover text
+          dark:    'var(--c-primary-dark)',   // #14396E — deep blue, heading on light bg
         },
 
         // ── Semantic: Surfaces ────────────────────────────────────────────────

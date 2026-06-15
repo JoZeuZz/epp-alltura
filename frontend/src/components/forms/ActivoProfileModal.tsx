@@ -255,7 +255,7 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={() => workflows.deleteMutation.mutate()}
         title="Eliminar artículo permanentemente"
-        message={`¿Eliminar "${profile?.nombre}" (${profile?.codigo})? Se borrarán el registro, su foto, factura, manual y todas las certificaciones en el bucket. El historial de movimientos y asignaciones también se eliminará en cascada. Esta acción es irreversible.`}
+        message={`¿Eliminar "${profile?.nombre}" (${profile?.codigo})? Se borrarán el registro, su foto, factura, manual y todas las certificaciones. El historial de movimientos y asignaciones también se eliminará. Esta acción es irreversible.`}
         confirmText="Sí, eliminar todo"
         variant="danger"
       />
