@@ -1,5 +1,9 @@
 -- Reuso de huecos + renumeración 1..N por familia.
--- El runner aplica este archivo dentro de una sola transacción (BEGIN/COMMIT).
+-- El runner (backend/src/scripts/migrate.js, auto-aplicado al arrancar el backend)
+-- ejecuta el bloque -- UP dentro de una sola transacción (BEGIN/COMMIT), por lo que
+-- SET CONSTRAINTS ... DEFERRED aplica y la unicidad se valida al COMMIT.
+
+-- UP
 
 -- 1. Hacer el constraint unico DEFERRABLE para permitir renumerar sin colisiones transitorias.
 ALTER TABLE articulo DROP CONSTRAINT IF EXISTS articulo_codigo_key;
@@ -29,3 +33,8 @@ UPDATE articulo a
 DROP SEQUENCE IF EXISTS seq_codigo_epp;
 DROP SEQUENCE IF EXISTS seq_codigo_herramienta;
 DROP SEQUENCE IF EXISTS seq_codigo_equipo;
+
+-- DOWN
+-- Migración intencionalmente irreversible: la renumeración descarta los códigos
+-- antiguos (no se conservan), por lo que un rollback no puede restaurarlos.
+-- Sin SQL en este bloque, migrate.js rechaza el rollback con un mensaje explícito.
