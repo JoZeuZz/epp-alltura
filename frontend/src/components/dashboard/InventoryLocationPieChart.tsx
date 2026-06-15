@@ -58,7 +58,7 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onLocati
     );
   }
 
-  if (locationData.length < 2) {
+  if (locationData.length === 0) {
     return (
       <div className="bg-white rounded-lg border border-gray-100 shadow-sm p-5 flex items-center justify-center h-40">
         <p className="text-sm text-gray-400">
@@ -100,6 +100,7 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onLocati
           const anchor = lbl.x >= CX ? 'start' : 'end';
           const pct = Math.round((s.count / total) * 100);
 
+          const isFull = s.endDeg - s.startDeg >= 359.9;
           return (
             <g
               key={s.name}
@@ -111,19 +112,34 @@ const InventoryLocationPieChart: React.FC<Props> = ({ items, isLoading, onLocati
               onMouseEnter={() => setHovered(s.index)}
               onMouseLeave={() => setHovered(null)}
             >
-              <path
-                d={slicePath(s.startDeg, s.endDeg)}
-                fill={s.color}
-                stroke="white"
-                strokeWidth="2.5"
-                strokeLinejoin="round"
-                style={{
-                  filter: isActive
-                    ? `brightness(1.12) drop-shadow(0 4px 12px ${s.color}55)`
-                    : undefined,
-                  transition: 'filter 0.18s ease',
-                }}
-              />
+              {isFull ? (
+                <circle
+                  cx={CX} cy={CY} r={R}
+                  fill={s.color}
+                  stroke="white"
+                  strokeWidth="2.5"
+                  style={{
+                    filter: isActive
+                      ? `brightness(1.12) drop-shadow(0 4px 12px ${s.color}55)`
+                      : undefined,
+                    transition: 'filter 0.18s ease',
+                  }}
+                />
+              ) : (
+                <path
+                  d={slicePath(s.startDeg, s.endDeg)}
+                  fill={s.color}
+                  stroke="white"
+                  strokeWidth="2.5"
+                  strokeLinejoin="round"
+                  style={{
+                    filter: isActive
+                      ? `brightness(1.12) drop-shadow(0 4px 12px ${s.color}55)`
+                      : undefined,
+                    transition: 'filter 0.18s ease',
+                  }}
+                />
+              )}
               <line
                 x1={c1.x.toFixed(2)} y1={c1.y.toFixed(2)}
                 x2={c2.x.toFixed(2)} y2={c2.y.toFixed(2)}
