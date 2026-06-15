@@ -154,11 +154,6 @@ CREATE TABLE IF NOT EXISTS articulo_plantilla_certificacion (
   creado_en    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Sequences para codigo unico por tipo (reemplaza deriveCodigo)
-CREATE SEQUENCE IF NOT EXISTS seq_codigo_epp        START 1;
-CREATE SEQUENCE IF NOT EXISTS seq_codigo_herramienta START 1;
-CREATE SEQUENCE IF NOT EXISTS seq_codigo_equipo      START 1;
-
 -- articulo = physical object (EPP, herramienta, or equipo); one row per physical unit
 CREATE TABLE IF NOT EXISTS articulo (
   id                    UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
