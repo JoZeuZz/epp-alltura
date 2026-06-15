@@ -4,7 +4,7 @@ const { ArticulosService } = require('../services/articulos.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
 const ExcelJS = require('exceljs');
-const { bufferInforme, drawSectionLabel, drawTableHeader, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
+const { bufferInforme, drawSectionLabel, PRIMARY_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
 
 class ArticulosController {
   static async list(req, res, next) {
@@ -58,32 +58,67 @@ class ArticulosController {
 
         drawSectionLabel(doc, `${label} — ${items.length} artículo(s)`);
 
-        const TABLE_WIDTH = 515;
-        drawTableHeader(doc, TABLE_WIDTH);
+        // Tabla manual (coords absolutas) para alinear header y filas — mismo
+        // patrón que exportInventarioPdf. Evita el desfase de doc.table() respecto
+        // a una banda de header dibujada por separado.
+        const COLS = [
+          { x: 40,  w: 60,  label: 'Código',       value: (a) => a.codigo ?? '—' },
+          { x: 100, w: 140, label: 'Nombre',       value: (a) => a.nombre ?? '—' },
+          { x: 240, w: 100, label: 'Marca/Modelo', value: (a) => [a.marca, a.modelo].filter(Boolean).join(' · ') || '—' },
+          { x: 340, w: 70,  label: 'Estado',       value: (a) => ESTADO_LABEL[a.estado] ?? a.estado ?? '—' },
+          { x: 410, w: 100, label: 'Ubicación',    value: (a) => a.bodega_nombre ?? a.proyecto_nombre ?? '—' },
+          { x: 510, w: 45,  label: 'Valor',        value: (a) => (a.valor > 0 ? `$${a.valor.toLocaleString('es-CL')}` : '—') },
+        ];
+        const ROW_H = 18;
+        const HEADER_H = 20;
 
-        const headers = ['Código', 'Nombre', 'Marca/Modelo', 'Estado', 'Ubicación', 'Valor'];
-        const rows = items.map((a) => [
-          a.codigo ?? '—',
-          a.nombre ?? '—',
-          [a.marca, a.modelo].filter(Boolean).join(' · ') || '—',
-          ESTADO_LABEL[a.estado] ?? a.estado,
-          a.bodega_nombre ?? a.proyecto_nombre ?? '—',
-          a.valor > 0 ? `$${a.valor.toLocaleString('es-CL')}` : '—',
-        ]);
+        const drawHeader = (y) => {
+          doc.save().rect(40, y, 515, HEADER_H).fill(PRIMARY_BLUE).restore();
+          COLS.forEach((col) => {
+            doc.save()
+               .font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF')
+               .text(col.label, col.x + 4, y + 6, { width: col.w - 8, lineBreak: false })
+               .restore();
+          });
+        };
 
-        await doc.table({ headers, rows }, {
-          columnsSize: [60, 140, 100, 70, 100, 45],
-          prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8).fillColor('#FFFFFF'),
-          prepareRow: (row, indexColumn, indexRow, rectRow) => {
-            if (indexColumn === 0 && indexRow % 2 !== 0 && rectRow) {
-              doc.save()
-                 .rect(rectRow.x, rectRow.y, rectRow.width, rectRow.height)
-                 .fill('#F0F4FA')
-                 .restore();
-            }
-            doc.font('Helvetica').fontSize(8).fillColor(BODY_TEXT);
-          },
+        let hdrY = doc.y;
+        drawHeader(hdrY);
+        let rowY = hdrY + HEADER_H;
+
+        items.forEach((a, idx) => {
+          const pageBottom = doc.page.height - doc.page.margins.bottom - 10;
+          if (rowY + ROW_H > pageBottom) {
+            doc.addPage();
+            rowY = doc.y;
+            drawHeader(rowY);
+            rowY += HEADER_H;
+          }
+
+          if (idx % 2 !== 0) {
+            doc.save().rect(40, rowY, 515, ROW_H).fill('#F0F4FA').restore();
+          }
+
+          COLS.forEach((col) => {
+            doc.save()
+               .font('Helvetica').fontSize(8).fillColor(BODY_TEXT)
+               .text(String(col.value(a)), col.x + 4, rowY + 5, {
+                 width: col.w - 8,
+                 lineBreak: false,
+                 ellipsis: true,
+               })
+               .restore();
+          });
+
+          rowY += ROW_H;
         });
+
+        // Bottom separator
+        doc.save()
+           .moveTo(40, rowY).lineTo(555, rowY)
+           .lineWidth(0.3).strokeColor('#CCCCCC').stroke()
+           .restore();
+        doc.y = rowY;
 
         doc.moveDown(0.3);
         doc.fontSize(8).fillColor(MUTED_GRAY)

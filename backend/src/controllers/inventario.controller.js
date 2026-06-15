@@ -1,7 +1,7 @@
 const InventarioService = require('../services/inventario.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
-const { bufferInforme, drawSectionLabel, drawTableHeader, PRIMARY_BLUE, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
+const { bufferInforme, drawSectionLabel, PRIMARY_BLUE, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
 
 class InventarioController {
   static async getActivos(req, res, next) {
@@ -287,32 +287,68 @@ class InventarioController {
         if (profile.timeline && profile.timeline.length > 0) {
           doc.moveDown(0.7);
           drawSectionLabel(doc, 'Historial de Movimientos');
-          const TABLE_WIDTH = 515;
-          drawTableHeader(doc, TABLE_WIDTH);
-          const movHeaders = ['Tipo', 'Fecha', 'Origen', 'Destino', 'Responsable'];
-          const movRows = profile.timeline.slice(0, 50).map((m) => [
-            m.tipo ?? '—',
-            m.fecha_movimiento ? new Date(m.fecha_movimiento).toLocaleDateString('es-CL') : '—',
-            m.bodega_origen_nombre ?? m.proyecto_origen_nombre ?? '—',
-            m.bodega_destino_nombre ?? m.proyecto_destino_nombre ?? '—',
-            m.responsable_email ?? '—',
-          ]);
-          await doc.table(
-            { headers: movHeaders, rows: movRows },
-            {
-              columnsSize: [70, 70, 105, 105, 165],
-              prepareHeader: () => doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#FFFFFF'),
-              prepareRow: (row, indexColumn, indexRow, rectRow) => {
-                if (indexColumn === 0 && indexRow % 2 !== 0 && rectRow) {
-                  doc.save()
-                     .rect(rectRow.x, rectRow.y, rectRow.width, rectRow.height)
-                     .fill('#F0F4FA')
-                     .restore();
-                }
-                doc.font('Helvetica').fontSize(7.5).fillColor(BODY_TEXT);
-              },
+
+          // Tabla manual (coords absolutas) para alinear header y filas — mismo
+          // patrón que exportInventarioPdf. Evita el desfase de doc.table() respecto
+          // a una banda de header dibujada por separado.
+          const MOV_COLS = [
+            { x: 40,  w: 70,  label: 'Tipo',        value: (m) => m.tipo ?? '—' },
+            { x: 110, w: 70,  label: 'Fecha',       value: (m) => (m.fecha_movimiento ? new Date(m.fecha_movimiento).toLocaleDateString('es-CL') : '—') },
+            { x: 180, w: 105, label: 'Origen',      value: (m) => m.bodega_origen_nombre ?? m.proyecto_origen_nombre ?? '—' },
+            { x: 285, w: 105, label: 'Destino',     value: (m) => m.bodega_destino_nombre ?? m.proyecto_destino_nombre ?? '—' },
+            { x: 390, w: 165, label: 'Responsable', value: (m) => m.responsable_email ?? '—' },
+          ];
+          const MOV_ROW_H = 18;
+          const MOV_HEADER_H = 20;
+
+          const drawMovHeader = (y) => {
+            doc.save().rect(40, y, 515, MOV_HEADER_H).fill(PRIMARY_BLUE).restore();
+            MOV_COLS.forEach((col) => {
+              doc.save()
+                 .font('Helvetica-Bold').fontSize(7.5).fillColor('#FFFFFF')
+                 .text(col.label, col.x + 4, y + 6, { width: col.w - 8, lineBreak: false })
+                 .restore();
+            });
+          };
+
+          let movHdrY = doc.y;
+          drawMovHeader(movHdrY);
+          let movRowY = movHdrY + MOV_HEADER_H;
+
+          profile.timeline.slice(0, 50).forEach((m, idx) => {
+            const pageBottom = doc.page.height - doc.page.margins.bottom - 10;
+            if (movRowY + MOV_ROW_H > pageBottom) {
+              doc.addPage();
+              movRowY = doc.y;
+              drawMovHeader(movRowY);
+              movRowY += MOV_HEADER_H;
             }
-          );
+
+            if (idx % 2 !== 0) {
+              doc.save().rect(40, movRowY, 515, MOV_ROW_H).fill('#F0F4FA').restore();
+            }
+
+            MOV_COLS.forEach((col) => {
+              doc.save()
+                 .font('Helvetica').fontSize(7.5).fillColor(BODY_TEXT)
+                 .text(String(col.value(m)), col.x + 4, movRowY + 5, {
+                   width: col.w - 8,
+                   lineBreak: false,
+                   ellipsis: true,
+                 })
+                 .restore();
+            });
+
+            movRowY += MOV_ROW_H;
+          });
+
+          // Bottom separator
+          doc.save()
+             .moveTo(40, movRowY).lineTo(555, movRowY)
+             .lineWidth(0.3).strokeColor('#CCCCCC').stroke()
+             .restore();
+          doc.y = movRowY;
+
           doc.moveDown(0.3);
           doc.fontSize(8).fillColor(MUTED_GRAY)
              .text(`Total: ${profile.timeline.length} movimiento(s)`, { align: 'right' });
