@@ -20,6 +20,8 @@ import {
 } from '../services/apiService';
 import ProveedorCreateModal from './forms/ProveedorCreateModal';
 import FotoEvidenciaUpload from './forms/FotoEvidenciaUpload';
+import FacturaUpload from './forms/FacturaUpload';
+import type { FacturaAnalysis } from '../services/api/facturas';
 import { PlantillaCreateModal, PlantillaEditModal } from './forms';
 import { useFormErrors } from '../hooks/useFormErrors';
 import ErrorAlert from './ui/ErrorAlert';
@@ -93,6 +95,7 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
   const [fotoFile,    setFotoFile]    = useState<File | null>(null);
   const [fotoError,   setFotoError]   = useState<string | null>(null);
   const [facturaFile, setFacturaFile] = useState<File | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<FacturaAnalysis | null>(null);
   const [manualFile,  setManualFile]  = useState<File | null>(null);
   const [certFiles,   setCertFiles]   = useState<File[]>([]);
   const [manualTab,   setManualTab]   = useState<'file' | 'url'>('file');
@@ -142,7 +145,7 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
       queryClient.invalidateQueries({ queryKey: ['articulos'] });
       reset();
       clearError();
-      setFotoFile(null); setFotoError(null); setFacturaFile(null); setManualFile(null); setCertFiles([]);
+      setFotoFile(null); setFotoError(null); setFacturaFile(null); setManualFile(null); setCertFiles([]); setAnalysisResult(null);
       setHasVenc(false);
       onClose();
       onSuccess?.(articulo);
@@ -183,6 +186,18 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
       }
     } catch {
       toast.error('No se pudo cargar la plantilla');
+    }
+  };
+
+  const handleAnalysis = (result: FacturaAnalysis | null) => {
+    setAnalysisResult(result);
+    if (result) {
+      if (result.proveedor_id) setValue('proveedor_id', result.proveedor_id);
+      if (result.fecha_compra) setValue('fecha_compra', result.fecha_compra);
+      if (result.valor !== null) setValue('valor', String(result.valor));
+      if (result.proveedor_creado) {
+        queryClient.invalidateQueries({ queryKey: ['proveedores'] });
+      }
     }
   };
 
@@ -321,14 +336,47 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
         <section className="space-y-3">
           <h4 className={sectionTitleCls}>Compra</h4>
 
+          <FacturaUpload
+            articuloNombre={watch('nombre') ?? ''}
+            value={facturaFile}
+            onChange={setFacturaFile}
+            onAnalysis={handleAnalysis}
+          />
+
+          {analysisResult?.extractado_ok && (
+            <div className="bg-green-50 border border-green-300 rounded-lg px-3 py-2 text-xs text-green-800 leading-relaxed">
+              <strong>✓ Datos extraídos de la factura:</strong>{' '}
+              {analysisResult.proveedor_nombre && <span>{analysisResult.proveedor_nombre} · </span>}
+              {analysisResult.fecha_compra && <span>{analysisResult.fecha_compra} · </span>}
+              {analysisResult.valor !== null
+                ? <span>${analysisResult.valor.toLocaleString('es-CL')}</span>
+                : <span className="italic text-green-700">Precio no detectado — completá el valor manualmente.</span>
+              }
+              {analysisResult.proveedor_creado && (
+                <span className="block mt-1 text-green-700">Proveedor nuevo creado en la base de datos.</span>
+              )}
+              <span className="block mt-1 text-green-600 italic">Podés editar los campos si algo no es correcto.</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Fecha de compra</label>
-              <input {...register('fecha_compra')} type="date" className={inputCls} />
+              <input
+                {...register('fecha_compra')}
+                type="date"
+                className={`${inputCls} ${analysisResult?.fecha_compra ? 'border-green-400' : ''}`}
+              />
             </div>
             <div>
               <label className={labelCls}>Valor (CLP) *</label>
-              <input {...register('valor')} type="number" min={0} className={inputCls} placeholder="0" />
+              <input
+                {...register('valor')}
+                type="number"
+                min={0}
+                className={`${inputCls} ${analysisResult?.valor !== null && analysisResult?.valor !== undefined ? 'border-green-400' : ''}`}
+                placeholder="0"
+              />
               {errors.valor && <p className="text-red-500 text-xs mt-1">{errors.valor.message}</p>}
             </div>
           </div>
@@ -336,7 +384,10 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
           <div>
             <label className={labelCls}>Proveedor</label>
             <div className="flex gap-2">
-              <select {...register('proveedor_id')} className={`${inputCls} flex-1`}>
+              <select
+                {...register('proveedor_id')}
+                className={`${inputCls} flex-1 ${analysisResult?.proveedor_id ? 'border-green-400' : ''}`}
+              >
                 <option value="">Sin proveedor</option>
                 {proveedores.map(p => (
                   <option key={p.id} value={p.id}>{p.nombre}</option>
@@ -350,19 +401,6 @@ export function ArticuloCreateModal({ tipo, bodegas, isOpen, onClose, onSuccess 
                 + Nuevo
               </button>
             </div>
-          </div>
-
-          <div>
-            <label className={labelCls}>
-              Factura{' '}
-              <span className="text-xs text-content-muted font-normal">(PDF, opcional)</span>
-            </label>
-            <input
-              type="file"
-              accept=".pdf,application/pdf"
-              onChange={(e) => setFacturaFile(e.target.files?.[0] ?? null)}
-              className={fileCls}
-            />
           </div>
         </section>
 
