@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { lazy } from 'react';
+import { lazy, useEffect } from 'react';
 import { createBrowserRouter, redirect } from 'react-router-dom';
 import AppLayout from '../layouts/AppLayout';
 import type { NavItem } from '@jozeuzz/alltura-ui';
@@ -248,13 +248,32 @@ async function dashboardLoader() {
   return { user, summary, stock, movimientosActivo, alertas };
 }
 
+// Bloquea scroll del body mientras el shell autenticado está montado.
+// Previene doble scroll (body + main) sin afectar login ni PublicSignPage.
+function BodyScrollLock() {
+  useEffect(() => {
+    const html = document.documentElement;
+    const saved = html.style.overflow;
+    html.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    return () => {
+      html.style.overflow = saved;
+      document.body.style.overflow = '';
+    };
+  }, []);
+  return null;
+}
+
 function RootLayout() {
   return (
-    <AppLayout
-      navItems={navItems}
-      logoSrc={logoWhite}
-      notificationBell={<NotificationBell variant="dark" />}
-    />
+    <>
+      <BodyScrollLock />
+      <AppLayout
+        navItems={navItems}
+        logoSrc={logoWhite}
+        notificationBell={<NotificationBell variant="dark" />}
+      />
+    </>
   );
 }
 

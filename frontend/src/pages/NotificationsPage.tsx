@@ -59,9 +59,9 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="h-full flex flex-col max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto space-y-0">
       {/* Header */}
-      <div className="px-4 sm:px-4 pt-3 sm:pt-8 pb-3 sm:pb-6 flex-shrink-0">
+      <div className="pt-3 sm:pt-8 pb-3 sm:pb-6">
         <h1 className="text-xl sm:text-3xl font-bold text-gray-900">Notificaciones</h1>
         <p className="text-xs sm:text-base text-gray-500 mt-1">
           Mantente al día con las actualizaciones de tus proyectos
@@ -69,7 +69,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* Filters & Actions */}
-      <div className="px-4 mb-3 sm:mb-6 space-y-2 sm:space-y-0 flex-shrink-0" data-tour="notifications-filters">
+      <div className="mb-3 sm:mb-6 space-y-2 sm:space-y-0" data-tour="notifications-filters">
         {/* Filters */}
         <div className="bg-gray-100 p-1 rounded-lg inline-flex w-full sm:w-auto">
           <button
@@ -113,8 +113,8 @@ export default function NotificationsPage() {
         )}
       </div>
 
-      {/* Notifications List - Scrollable */}
-      <div className="flex-1 overflow-y-auto px-4" data-tour="notifications-list">
+      {/* Notifications List */}
+      <div className="px-4" data-tour="notifications-list">
         {loading ? (
         <div className="flex justify-center items-center py-12">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
@@ -164,9 +164,9 @@ export default function NotificationsPage() {
         )}
       </div>
 
-      {/* Footer fijo - Paginación y Limpiar */}
+      {/* Footer - Paginación y Limpiar */}
       {!loading && notifications.length > 0 && (
-        <div className="flex-shrink-0 border-t border-gray-200 bg-white">
+        <div className="border-t border-gray-200 mt-4">
           {/* Paginación */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 px-4 py-3 border-b border-gray-100">

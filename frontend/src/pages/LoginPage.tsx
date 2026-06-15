@@ -71,7 +71,7 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center font-sans">
+    <div className="min-h-dvh bg-gray-100 flex items-center justify-center font-sans">
       <div className="w-full max-w-md p-8 space-y-8 bg-dark-blue text-white rounded-lg shadow-lg mx-4">
         <div className="text-center">
           <img src={logoWhite} alt="Alltura Logo" className="mx-auto h-12 w-auto mb-6" />
