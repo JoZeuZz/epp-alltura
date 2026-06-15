@@ -12,6 +12,8 @@ import {
 import { PlantillaCreateModal } from './PlantillaCreateModal';
 import { useFormErrors } from '../../hooks/useFormErrors';
 import ErrorAlert from '../ui/ErrorAlert';
+import FacturaUpload from './FacturaUpload';
+import type { FacturaAnalysis } from '../../services/api/facturas';
 
 interface Props {
   tipo: ArticuloTipo;
@@ -25,7 +27,9 @@ interface Row extends BatchInstancia {
 }
 
 let _rowId = 0;
-const newRow = (valor = 0): Row => ({ _id: ++_rowId, valor, nro_serie: '', fecha_vencimiento: '' });
+const newRow = (valor = 0, proveedor_id = '', fecha_compra = ''): Row => ({
+  _id: ++_rowId, valor, nro_serie: '', fecha_vencimiento: '', proveedor_id, fecha_compra,
+});
 
 const TIPO_LABELS: Record<ArticuloTipo, string> = { epp: 'EPP', herramienta: 'Herramienta', equipo: 'Equipo' };
 
@@ -36,6 +40,10 @@ export function ArticuloBatchModal({ tipo, bodegas, isOpen, onClose }: Props) {
   const [bodegaId, setBodegaId] = useState('');
   const [valorDefault, setValorDefault] = useState(0);
   const [fotoFile, setFotoFile] = useState<File | null>(null);
+  const [facturaFile,        setFacturaFile]        = useState<File | null>(null);
+  const [analysisResult,     setAnalysisResult]     = useState<FacturaAnalysis | null>(null);
+  const [proveedorIdDefault, setProveedorIdDefault] = useState('');
+  const [fechaCompraDefault, setFechaCompraDefault] = useState('');
   const [rows, setRows] = useState<Row[]>(() => [newRow()]);
   const [showPlantillaCreate, setShowPlantillaCreate] = useState(false);
   const { error, handleError, clearError } = useFormErrors();
@@ -46,11 +54,23 @@ export function ArticuloBatchModal({ tipo, bodegas, isOpen, onClose }: Props) {
     enabled: isOpen,
   });
 
+  const handleAnalysis = (result: FacturaAnalysis | null) => {
+    setAnalysisResult(result);
+    if (result) {
+      if (result.valor !== null) setValorDefault(result.valor);
+      if (result.proveedor_id) setProveedorIdDefault(result.proveedor_id);
+      if (result.fecha_compra) setFechaCompraDefault(result.fecha_compra);
+      if (result.proveedor_creado) {
+        queryClient.invalidateQueries({ queryKey: ['proveedores'] });
+      }
+    }
+  };
+
   const addRows = useCallback(
     (n: number) => {
-      setRows((prev) => [...prev, ...Array.from({ length: n }, () => newRow(valorDefault))]);
+      setRows((prev) => [...prev, ...Array.from({ length: n }, () => newRow(valorDefault, proveedorIdDefault, fechaCompraDefault))]);
     },
-    [valorDefault],
+    [valorDefault, proveedorIdDefault, fechaCompraDefault],
   );
 
   const updateRow = (id: number, field: keyof Row, value: string | number) => {
@@ -86,6 +106,10 @@ export function ArticuloBatchModal({ tipo, bodegas, isOpen, onClose }: Props) {
       setBodegaId('');
       setRows([newRow()]);
       setFotoFile(null);
+      setFacturaFile(null);
+      setAnalysisResult(null);
+      setProveedorIdDefault('');
+      setFechaCompraDefault('');
       onClose();
     },
     onError: (err: unknown) => {
@@ -157,18 +181,40 @@ export function ArticuloBatchModal({ tipo, bodegas, isOpen, onClose }: Props) {
             </select>
           </div>
 
-          {/* Valor default */}
-          <div>
-            <label className="block text-sm font-medium text-content-secondary mb-1">
-              Valor por defecto (CLP)
-            </label>
-            <input
-              type="number"
-              min={0}
-              className={inputCls}
-              value={valorDefault}
-              onChange={(e) => setValorDefault(Number(e.target.value))}
+          {/* Factura + Valor default */}
+          <div className="space-y-3">
+            <FacturaUpload
+              articuloNombre={plantillas.find(p => p.id === plantillaId)?.nombre ?? ''}
+              value={facturaFile}
+              onChange={setFacturaFile}
+              onAnalysis={handleAnalysis}
             />
+            {analysisResult?.extractado_ok && (
+              <div className="bg-green-50 border border-green-300 rounded-lg px-3 py-2 text-xs text-green-800">
+                <strong>✓ Datos extraídos:</strong>{' '}
+                {analysisResult.proveedor_nombre && <span>{analysisResult.proveedor_nombre} · </span>}
+                {analysisResult.fecha_compra && <span>{analysisResult.fecha_compra} · </span>}
+                {analysisResult.valor !== null
+                  ? <span>${analysisResult.valor.toLocaleString('es-CL')}</span>
+                  : <span className="italic text-green-700">Precio no detectado.</span>
+                }
+                {analysisResult.proveedor_creado && (
+                  <span className="block mt-1 text-green-700">Proveedor nuevo creado en la base de datos.</span>
+                )}
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-content-secondary mb-1">
+                Valor por defecto (CLP)
+              </label>
+              <input
+                type="number"
+                min={0}
+                className={`${inputCls} ${analysisResult?.valor !== null && analysisResult?.valor !== undefined ? 'border-green-400' : ''}`}
+                value={valorDefault}
+                onChange={(e) => setValorDefault(Number(e.target.value))}
+              />
+            </div>
           </div>
 
           {/* Foto compartida */}
@@ -196,7 +242,7 @@ export function ArticuloBatchModal({ tipo, bodegas, isOpen, onClose }: Props) {
               type="button"
               disabled={!plantillaId || !bodegaId}
               onClick={() => {
-                setRows([newRow(valorDefault)]);
+                setRows([newRow(valorDefault, proveedorIdDefault, fechaCompraDefault)]);
                 setStep(2);
               }}
               className="px-4 py-2 text-sm text-white bg-primary rounded-md hover:bg-primary-hover disabled:opacity-50"
