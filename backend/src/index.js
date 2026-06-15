@@ -41,6 +41,7 @@ const firmasRoutes = require('./routes/firmas.routes');
 const inventarioRoutes = require('./routes/inventario.routes');
 const proveedoresRoutes = require('./routes/proveedores.routes');
 const plantillasRoutes = require('./routes/plantillas.routes');
+const facturaRoutes = require('./routes/facturaParser.routes');
 const healthRoutes = require('./routes/health');
 
 const { Pool } = require('pg');
@@ -188,6 +189,7 @@ app.use('/api/firmas', firmasRoutes);
 app.use('/api/inventario', inventarioRoutes);
 app.use('/api/proveedores', proveedoresRoutes);
 app.use('/api/plantillas', plantillasRoutes);
+app.use('/api/facturas', facturaRoutes);
 app.use('/health', healthRoutes);
 
 // Endpoint para métricas del cliente (performance monitoring)
