@@ -1,7 +1,7 @@
 const InventarioService = require('../services/inventario.service');
 const { logger } = require('../lib/logger');
 const { sendSuccess } = require('../lib/apiResponse');
-const { bufferInforme, drawSectionLabel, PRIMARY_BLUE, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
+const { bufferInforme, drawSectionLabel, drawTableHeader, PRIMARY_BLUE, DARK_BLUE, BODY_TEXT, MUTED_GRAY } = require('../lib/pdfGenerator');
 
 class InventarioController {
   static async getActivos(req, res, next) {

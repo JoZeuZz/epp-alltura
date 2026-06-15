@@ -72,6 +72,27 @@ describe('GET /api/inventario/activos/:id/pdf', () => {
     expect(res.headers['content-disposition']).toMatch(/attachment/);
   });
 
+  it('returns 200 with application/pdf when the activo has movement history', async () => {
+    // El historial de movimientos dispara drawTableHeader (rama timeline.length > 0).
+    InventarioService.getActivoProfile.mockResolvedValue({
+      ...MOCK_PROFILE,
+      timeline: [
+        {
+          tipo: 'entrada',
+          fecha_movimiento: new Date().toISOString(),
+          bodega_origen_nombre: null,
+          bodega_destino_nombre: 'Bodega Central',
+          responsable_email: 'admin@example.com',
+        },
+      ],
+    });
+    const app = buildApp();
+    const res = await request(app)
+      .get(`/api/inventario/activos/${MOCK_PROFILE.id}/pdf`);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/application\/pdf/);
+  });
+
   it('returns 401 without token', async () => {
     authMiddleware.mockImplementationOnce((_req, res, _next) => {
       res.status(401).json({ success: false, message: 'No autorizado' });
