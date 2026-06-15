@@ -26,10 +26,10 @@ module.exports = {
         // bg-primary · text-primary · border-primary
         // bg-primary-hover · bg-primary-light · bg-primary-dark
         primary: {
-          DEFAULT: 'var(--c-primary)',        // #2A64A4 — brand blue, action buttons ✓ AA
-          hover:   'var(--c-primary-hover)',  // #1D4E8A — darker blue hover/pressed
+          DEFAULT: 'var(--c-primary)',        // #1E2A4A — brand navy (shell/nav) ✓ AAA
+          hover:   'var(--c-primary-hover)',  // #2A3C66 — lighter navy hover/pressed
           light:   'var(--c-primary-light)',  // #EBF3FC — selections, highlights
-          dark:    'var(--c-primary-dark)',   // #14396E — deep blue, heading on light bg
+          dark:    'var(--c-primary-dark)',   // #141E34 — deeper navy, hover text
         },
 
         // ── Semantic: Surfaces ────────────────────────────────────────────────

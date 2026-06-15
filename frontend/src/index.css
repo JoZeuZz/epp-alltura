@@ -14,10 +14,10 @@
 @layer base {
   :root {
     /* ── Primary palette ──────────────────────────────────────── */
-    --c-primary:       #2A64A4;  /*  5.02:1 on white ✓ WCAG AA  — brand blue (action buttons) */
-    --c-primary-hover: #1D4E8A;  /* darker blue — hover/pressed state         */
+    --c-primary:       #1E2A4A;  /* 13.0:1 on white ✓ WCAG AAA — brand navy (shell/nav)  */
+    --c-primary-hover: #2A3C66;  /* lighter navy — hover/pressed state        */
     --c-primary-light: #EBF3FC;  /* selections, active row bg                 */
-    --c-primary-dark:  #14396E;  /* deep blue — active/heading on light bg    */
+    --c-primary-dark:  #141E34;  /* deeper navy — hover text, headings        */
 
     /* ── Surfaces ─────────────────────────────────────────────── */
     --c-surface:         #FFFFFF;
