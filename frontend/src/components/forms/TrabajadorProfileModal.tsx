@@ -10,6 +10,7 @@ import {
 } from '../../services/apiService';
 import ActaDetailModal from './ActaDetailModal';
 import AlertaDevolucionBadge from '../AlertaDevolucionBadge';
+import Avatar from '../Avatar';
 
 const formatDate = (dateStr: string | null | undefined) => {
   if (!dateStr) return '—';
@@ -171,6 +172,13 @@ const TrabajadorProfileModal: React.FC<Props> = ({ trabajadorId, onClose, onOpen
         <div className="space-y-5">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+            <Avatar
+              fotoUrl={profile.foto_url}
+              nombre={`${profile.nombres} ${profile.apellidos}`}
+              size="lg"
+              variant="medium"
+              className="flex-shrink-0"
+            />
             <div className="flex-1 min-w-0">
               <h2 className="text-lg font-bold text-content-primary truncate">
                 {profile.nombres} {profile.apellidos}
