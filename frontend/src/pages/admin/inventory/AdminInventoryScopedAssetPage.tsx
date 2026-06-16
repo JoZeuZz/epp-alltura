@@ -115,6 +115,7 @@ const AdminInventoryScopedAssetPage: React.FC<AdminInventoryScopedAssetPageProps
               onClick={() => setShowCreate(true)}
               className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-primary-blue text-sm text-white bg-primary-blue hover:bg-blue-700 transition-colors min-h-[44px]"
               aria-label={`Nuevo ${copy.tipo}`}
+              data-tour="admin-inventory-new-article"
             >
               + Nuevo {copy.tipo === 'epp' ? 'EPP' : copy.tipo}
             </button>

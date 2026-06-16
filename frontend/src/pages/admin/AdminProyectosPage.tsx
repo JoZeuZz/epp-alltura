@@ -441,8 +441,11 @@ const AdminProyectosPage: React.FC = () => {
       key: 'id',
       header: 'Acciones',
       hideOnMobile: true,
-      render: (_v, p) => (
-        <div className="flex gap-2 flex-wrap">
+      render: (_v, p, index) => (
+        <div
+          className="flex gap-2 flex-wrap"
+          {...(index === 0 ? { 'data-tour': 'admin-proyectos-row-actions' } : {})}
+        >
           <button
             onClick={() => { setEditTarget(p); setModalOpen(true); }}
             className="px-3 py-1 text-xs rounded-md bg-primary-blue text-white hover:bg-blue-700 transition-colors min-h-[32px]"

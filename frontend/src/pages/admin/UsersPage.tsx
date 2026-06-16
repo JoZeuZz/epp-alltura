@@ -401,10 +401,13 @@ const UsersPage: React.FC = () => {
         header: '',
         align: 'right',
         hideOnMobile: true,
-        render: (_v, row) => {
+        render: (_v, row, index) => {
           const isSelf = currentUser?.id === row.id;
           return (
-            <div className="flex justify-end gap-2">
+            <div
+              className="flex justify-end gap-2"
+              {...(index === 0 ? { 'data-tour': 'admin-users-row-actions' } : {})}
+            >
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); openEditModal(row); }}

@@ -81,7 +81,7 @@ const AdminProyectoDetailPage: React.FC = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6" data-tour="proyecto-detail-root">
       {/* Breadcrumb */}
       <div className="flex items-center gap-3">
         <button

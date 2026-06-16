@@ -494,8 +494,11 @@ const AdminTrabajadoresPage: React.FC = () => {
       key: 'id',
       header: 'Acciones',
       hideOnMobile: true,
-      render: (_v, t) => (
-        <div className="flex gap-2 flex-wrap">
+      render: (_v, t, index) => (
+        <div
+          className="flex gap-2 flex-wrap"
+          {...(index === 0 ? { 'data-tour': 'admin-trabajadores-row-actions' } : {})}
+        >
           <button
             onClick={() => setProfileId(t.id)}
             className="px-3 py-1 text-xs rounded-md bg-gray-50 text-blue-700 hover:bg-blue-50 border border-blue-200 transition-colors min-h-[32px]"
