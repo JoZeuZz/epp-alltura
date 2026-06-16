@@ -13,8 +13,6 @@ import UploadProgress, { UploadStage } from '../components/UploadProgress';
 import { uploadWithProgress } from '../services/apiService';
 import {
   processImageFile,
-  formatBytes,
-  ImageProcessingResult,
   ALLOWED_IMAGE_ACCEPT,
 } from '../utils/imageProcessing';
 
@@ -46,7 +44,6 @@ const ProfilePage: React.FC = () => {
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>(user?.profile_picture_url || '');
-  const [imageMeta, setImageMeta] = useState<ImageProcessingResult | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [uploadStage, setUploadStage] = useState<UploadStage>('idle');
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -81,13 +78,11 @@ const ProfilePage: React.FC = () => {
       setIsProcessingImage(true);
       const processed = await processImageFile(file, { maxSizeMB: 1, maxWidthOrHeight: 1024 });
       setImageFile(processed.file);
-      setImageMeta(processed);
       setImagePreview(URL.createObjectURL(processed.file));
     } catch (error) {
       console.error('Error compressing image:', error);
       toast.error('Error al procesar la imagen.');
       setImageFile(null);
-      setImageMeta(null);
       setImagePreview(user?.profile_picture_url || '');
     } finally {
       setIsProcessingImage(false);
@@ -176,13 +171,19 @@ const ProfilePage: React.FC = () => {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Profile Picture */}
           <div className="flex flex-col items-center space-y-3 pb-6 border-b border-gray-200" data-tour="profile-picture">
-            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden ring-4 ring-gray-100">
+            <label
+              htmlFor="profile-picture-upload"
+              aria-label="Cambiar foto de perfil"
+              className={`w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden ring-4 ring-gray-100 ${
+                isLocked ? 'cursor-default' : 'cursor-pointer hover:ring-blue-100'
+              }`}
+            >
               {imagePreview ? (
                 <img src={imagePreview} alt="Vista previa" className="w-full h-full object-cover" />
               ) : (
                 <UserIcon className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400" />
               )}
-            </div>
+            </label>
             <label
               htmlFor="profile-picture-upload"
               className="cursor-pointer bg-white py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
@@ -198,13 +199,6 @@ const ProfilePage: React.FC = () => {
               onChange={handleImageChange} 
               disabled={isLocked}
             />
-            {imageMeta && (
-              <p className="text-xs text-gray-500">
-                {imageMeta.wasCompressed
-                  ? `Optimizada: ${formatBytes(imageMeta.originalBytes)} → ${formatBytes(imageMeta.processedBytes)}`
-                  : `Tamaño: ${formatBytes(imageMeta.originalBytes)}`}
-              </p>
-            )}
             {isProcessingImage && (
               <p className="text-xs text-gray-500">Procesando imagen...</p>
             )}
