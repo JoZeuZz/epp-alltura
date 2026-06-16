@@ -1,6 +1,6 @@
 'use strict';
 
-const pdfParse = require('pdf-parse');
+const { PDFParse } = require('pdf-parse');
 const db = require('../db');
 const { logger } = require('../lib/logger');
 
@@ -33,8 +33,13 @@ function parseChileanNumber(str) {
 async function extractText(filePath) {
   const fs = require('fs');
   const buffer = fs.readFileSync(filePath);
-  const data = await pdfParse(buffer);
-  return data.text || '';
+  const parser = new PDFParse({ data: buffer });
+  try {
+    const result = await parser.getText();
+    return result.text || '';
+  } finally {
+    await parser.destroy();
+  }
 }
 
 function extractProveedorNombre(text) {
@@ -43,11 +48,19 @@ function extractProveedorNombre(text) {
 }
 
 function extractProveedorRut(text) {
-  const senorPos = text.toUpperCase().indexOf('SEÑOR');
-  const searchText = senorPos > 0 ? text.slice(0, senorPos) : text;
-  const match = searchText.match(/R\.U\.T\.?\s*:?\s*(\d{1,2}\.\d{3}\.\d{3}-\s*[\dKk])/i);
-  if (!match) return null;
-  return normalizeRut(match[1]);
+  // El primer "R.U.T.:" tras "SEÑOR(ES)" pertenece al comprador. El RUT del
+  // proveedor (emisor) aparece más abajo, justo antes de la tabla de items —
+  // por eso se toma la ÚLTIMA ocurrencia previa al header de la tabla.
+  const tableHeaderPos = text.search(/Descripci[oó]n\s+Cantidad\s+Precio/i);
+  const searchText = tableHeaderPos > 0 ? text.slice(0, tableHeaderPos) : text;
+  const regex = /R\.U\.T\.?\s*:?\s*(\d{1,2}\.\d{3}\.\d{3}-\s*[\dKk])/gi;
+  let match;
+  let last = null;
+  while ((match = regex.exec(searchText)) !== null) {
+    last = match[1];
+  }
+  if (!last) return null;
+  return normalizeRut(last);
 }
 
 function extractFechaCompra(text) {
