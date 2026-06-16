@@ -6,9 +6,12 @@ import { extractApiError } from '../../lib/apiError';
 import Modal from '../../components/Modal';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import TrabajadorProfileModal from '../../components/forms/TrabajadorProfileModal';
+import TrabajadorFotoInput from '../../components/forms/TrabajadorFotoInput';
+import Avatar from '../../components/Avatar';
 import { ResponsiveTable, type TableColumn } from '../../components/layout';
 import { useGet } from '../../hooks';
-import { post, put } from '../../services/apiService';
+import { put } from '../../services/apiService';
+import { createTrabajador, updateTrabajador } from '../../services/api/trabajadores';
 import { isValidRut, normalizeRut } from '../../utils/rutUtils';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -98,7 +101,7 @@ const estadoBadge = (estado: string) =>
 interface TrabajadorFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (values: TrabajadorFormValues) => Promise<void>;
+  onSubmit: (values: TrabajadorFormValues, foto: File | null) => Promise<void>;
   isSubmitting: boolean;
   mode: 'create' | 'edit';
   initialValues?: Trabajador | null;
@@ -114,12 +117,14 @@ const TrabajadorFormModal: React.FC<TrabajadorFormModalProps> = ({
 }) => {
   const [values, setValues] = useState<TrabajadorFormValues>(INITIAL_FORM);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [fotoFile, setFotoFile] = useState<File | null>(null);
   const isEdit = mode === 'edit';
 
   React.useEffect(() => {
     if (isOpen) {
       setValues(mapTrabajadorToForm(initialValues));
       setErrors({});
+      setFotoFile(null);
     }
   }, [isOpen, initialValues]);
 
@@ -136,7 +141,7 @@ const TrabajadorFormModal: React.FC<TrabajadorFormModalProps> = ({
       return;
     }
     try {
-      await onSubmit(values);
+      await onSubmit(values, fotoFile);
     } catch (err: unknown) {
       const { message } = extractApiError(err);
       toast.error(message);
@@ -155,6 +160,11 @@ const TrabajadorFormModal: React.FC<TrabajadorFormModalProps> = ({
       title={isEdit ? 'Editar Trabajador' : 'Nuevo Trabajador'}
     >
       <form onSubmit={handleSubmit} className="space-y-4 p-1">
+        <TrabajadorFotoInput
+          value={fotoFile}
+          previewUrl={initialValues?.foto_url ?? null}
+          onChange={setFotoFile}
+        />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* RUT */}
           <div>
@@ -342,7 +352,8 @@ const AdminTrabajadoresPage: React.FC = () => {
 
   // ── Mutación crear ────────────────────────────────────────────────────────
   const createMutation = useMutation({
-    mutationFn: (payload: TrabajadorFormValues) => post<Trabajador>('/trabajadores', payload),
+    mutationFn: ({ payload, foto }: { payload: TrabajadorFormValues; foto: File | null }) =>
+      createTrabajador(payload, foto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       toast.success('Trabajador creado correctamente.');
@@ -356,8 +367,8 @@ const AdminTrabajadoresPage: React.FC = () => {
 
   // ── Mutación actualizar ───────────────────────────────────────────────────
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: TrabajadorFormValues }) =>
-      put<Trabajador>(`/trabajadores/${id}`, payload),
+    mutationFn: ({ id, payload, foto }: { id: string; payload: TrabajadorFormValues; foto: File | null }) =>
+      updateTrabajador(id, payload, foto),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QUERY_KEY] });
       toast.success('Trabajador actualizado correctamente.');
@@ -400,13 +411,13 @@ const AdminTrabajadoresPage: React.FC = () => {
     setModalOpen(true);
   };
 
-  const handleFormSubmit = async (values: TrabajadorFormValues) => {
+  const handleFormSubmit = async (values: TrabajadorFormValues, foto: File | null) => {
     setIsSubmitting(true);
     try {
       if (editTarget) {
-        await updateMutation.mutateAsync({ id: editTarget.id, payload: values });
+        await updateMutation.mutateAsync({ id: editTarget.id, payload: values, foto });
       } else {
-        await createMutation.mutateAsync(values);
+        await createMutation.mutateAsync({ payload: values, foto });
       }
     } finally {
       setIsSubmitting(false);
@@ -424,11 +435,14 @@ const AdminTrabajadoresPage: React.FC = () => {
       key: 'nombres',
       header: 'Trabajador',
       render: (_v, t) => (
-        <div>
-          <p className="font-medium text-dark-blue text-sm">
-            {t.nombres} {t.apellidos}
-          </p>
-          <p className="text-neutral-gray text-xs">RUT: {t.rut ?? '-'}</p>
+        <div className="flex items-center gap-3">
+          <Avatar fotoUrl={t.foto_url} nombre={`${t.nombres} ${t.apellidos}`} size="sm" />
+          <div>
+            <p className="font-medium text-dark-blue text-sm">
+              {t.nombres} {t.apellidos}
+            </p>
+            <p className="text-neutral-gray text-xs">RUT: {t.rut ?? '-'}</p>
+          </div>
         </div>
       ),
     },
