@@ -4,6 +4,7 @@ const TrabajadoresController = require('../controllers/trabajadores.controller')
 const { authMiddleware } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roles');
 const { rut: rutValidator } = require('../lib/validation');
+const { imageUpload, validateImageMagic, parseMultipartPayload } = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -58,6 +59,9 @@ router.post(
   '/',
   authMiddleware,
   checkRole(['admin', 'supervisor']),
+  imageUpload.single('foto'),
+  parseMultipartPayload,
+  validateImageMagic,
   validateBody(trabajadorCreateSchema),
   TrabajadoresController.create
 );
@@ -65,6 +69,9 @@ router.put(
   '/:id',
   authMiddleware,
   checkRole(['admin', 'supervisor']),
+  imageUpload.single('foto'),
+  parseMultipartPayload,
+  validateImageMagic,
   validateBody(trabajadorUpdateSchema),
   TrabajadoresController.update
 );

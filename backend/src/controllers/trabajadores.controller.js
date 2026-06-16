@@ -25,7 +25,7 @@ class TrabajadoresController {
 
   static async create(req, res, next) {
     try {
-      const data = await TrabajadoresService.create(req.body);
+      const data = await TrabajadoresService.create(req.body, req.file);
       return sendSuccess(res, { status: 201, message: 'Trabajador creado correctamente', data });
     } catch (error) {
       logger.error('Error creating trabajador:', error);
@@ -35,7 +35,7 @@ class TrabajadoresController {
 
   static async update(req, res, next) {
     try {
-      const data = await TrabajadoresService.update(req.params.id, req.body);
+      const data = await TrabajadoresService.update(req.params.id, req.body, req.file);
       return sendSuccess(res, { message: 'Trabajador actualizado correctamente', data });
     } catch (error) {
       logger.error('Error updating trabajador:', error);
