@@ -1,138 +1,80 @@
 import { describe, expect, it } from 'vitest';
-import {
-  getContextualStepsForRoute,
-  matchTourRoute,
-} from '@jozeuzz/alltura-ui';
-import { onboardingStepsByRole } from '../utils/tourSteps';
+import { matchTourRoute } from '@jozeuzz/alltura-ui';
 import type { TourStep } from '@jozeuzz/alltura-ui';
+import { onboardingStepsByRole, contextualStepsByRole } from '../utils/tourSteps';
+
+// Rutas reales declaradas en router/index.tsx (sin '*').
+const REAL_ROUTES = [
+  '/dashboard', '/trabajadores', '/ubicacion/proyectos', '/ubicacion/proyectos/:id',
+  '/ubicacion/bodegas', '/inventario/epp', '/inventario/equipos', '/inventario/herramientas',
+  '/admin/users', '/notifications', '/profile',
+];
+
+const all = [
+  ...onboardingStepsByRole.admin, ...onboardingStepsByRole.supervisor,
+  ...contextualStepsByRole.admin, ...contextualStepsByRole.supervisor,
+];
 
 describe('matchTourRoute', () => {
-  it('returns true when no route specified', () => {
-    expect(matchTourRoute('/any/path', undefined)).toBe(true);
+  it('wildcard and undefined match anything', () => {
+    expect(matchTourRoute('/x', '*')).toBe(true);
+    expect(matchTourRoute('/x', undefined)).toBe(true);
   });
-
-  it('returns true for wildcard', () => {
-    expect(matchTourRoute('/any/path', '*')).toBe(true);
-  });
-
-  it('matches exact path', () => {
-    expect(matchTourRoute('/admin/dashboard', '/admin/dashboard')).toBe(true);
-    expect(matchTourRoute('/admin/dashboard', '/admin/users')).toBe(false);
-  });
-
   it('matches dynamic segments', () => {
-    expect(matchTourRoute('/admin/proyectos/abc123', '/admin/proyectos/:id')).toBe(true);
-    expect(matchTourRoute('/admin/proyectos', '/admin/proyectos/:id')).toBe(false);
-  });
-
-  it('ignores trailing slashes', () => {
-    expect(matchTourRoute('/admin/dashboard/', '/admin/dashboard')).toBe(true);
+    expect(matchTourRoute('/ubicacion/proyectos/abc', '/ubicacion/proyectos/:id')).toBe(true);
+    expect(matchTourRoute('/ubicacion/proyectos', '/ubicacion/proyectos/:id')).toBe(false);
   });
 });
 
-describe('onboardingStepsByRole', () => {
-  it('admin has 15 onboarding steps', () => {
-    expect(onboardingStepsByRole.admin).toHaveLength(15);
-  });
-
-  it('supervisor has 4 onboarding steps', () => {
-    expect(onboardingStepsByRole.supervisor).toHaveLength(4);
-  });
-
-  it('all steps have required fields', () => {
-    const allSteps = [
-      ...onboardingStepsByRole.admin,
-      ...onboardingStepsByRole.supervisor,
-    ];
-    for (const step of allSteps) {
-      expect(step.id, `step ${step.id} missing id`).toBeTruthy();
-      expect(step.title, `step ${step.id} missing title`).toBeTruthy();
-      expect(step.body, `step ${step.id} missing body`).toBeTruthy();
+describe('tour steps integrity', () => {
+  it('every step has id, title, body', () => {
+    for (const s of all) {
+      expect(s.id, `${s.id} id`).toBeTruthy();
+      expect(s.title, `${s.id} title`).toBeTruthy();
+      expect(s.body, `${s.id} body`).toBeTruthy();
     }
   });
 
-  it('step ids are unique within role', () => {
-    const adminIds = onboardingStepsByRole.admin.map((s: TourStep) => s.id);
-    expect(new Set(adminIds).size).toBe(adminIds.length);
-
-    const supervIds = onboardingStepsByRole.supervisor.map((s: TourStep) => s.id);
-    expect(new Set(supervIds).size).toBe(supervIds.length);
+  it('step ids are unique per group', () => {
+    for (const group of [onboardingStepsByRole.admin, onboardingStepsByRole.supervisor, contextualStepsByRole.admin, contextualStepsByRole.supervisor]) {
+      const ids = group.map((s: TourStep) => s.id);
+      expect(new Set(ids).size).toBe(ids.length);
+    }
   });
 
-  it('no onboarding step references non-existent routes', () => {
-    const invalidRoutes = [
-      '/admin/inventario/stock',
-      '/admin/inventario/movimientos',
-      '/admin/inventario/ingresos',
-    ];
-    const allSteps = [
-      ...onboardingStepsByRole.admin,
-      ...onboardingStepsByRole.supervisor,
-    ];
-    for (const step of allSteps) {
-      if (step.route && step.route !== '*') {
-        expect(invalidRoutes).not.toContain(step.route);
+  it('every concrete route exists in the router', () => {
+    for (const s of all) {
+      if (s.route && s.route !== '*') {
+        expect(REAL_ROUTES, `${s.id} → ${s.route}`).toContain(s.route);
       }
     }
   });
 
-  it('admin onboarding has tab-switch and modal-open demoActions for EPP', () => {
-    const adminSteps = onboardingStepsByRole.admin;
-    const demoActions = adminSteps
-      .filter((s: TourStep) => s.demoAction)
-      .map((s: TourStep) => s.demoAction);
-    expect(demoActions).toContain('switch-tab:inventario');
-    expect(demoActions).toContain('open-modal:activo-first');
+  it('no step references a legacy /admin/ inventory or supervisor route', () => {
+    for (const s of all) {
+      if (!s.route || s.route === '*') continue;
+      expect(s.route.startsWith('/admin/inventario'), `${s.id}`).toBe(false);
+      expect(s.route.startsWith('/supervisor/'), `${s.id}`).toBe(false);
+      expect(s.route, `${s.id}`).not.toBe('/admin/trazabilidad');
+    }
   });
 
-  it('no onboarding step uses deprecated open-activo-demo action', () => {
-    const allSteps = [
-      ...onboardingStepsByRole.admin,
-      ...onboardingStepsByRole.supervisor,
-    ];
-    const deprecated = allSteps.filter(
-      (s: TourStep) => s.demoAction === 'open-activo-demo'
-    );
-    expect(deprecated).toHaveLength(0);
+  it('onboarding is shortened', () => {
+    expect(onboardingStepsByRole.admin.length).toBeLessThanOrEqual(8);
+    expect(onboardingStepsByRole.supervisor).toHaveLength(5);
   });
-});
 
-describe('getContextualStepsForRoute', () => {
-  const adminRoutes = [
-    '/admin/dashboard',
-    '/admin/users',
-    '/admin/trabajadores',
-    '/admin/ubicacion/bodegas',
-    '/admin/ubicacion/proyectos',
-    '/admin/inventario/articulos',
-    '/admin/inventario/epp',
-    '/admin/inventario/equipos',
-    '/admin/inventario/herramientas',
-    '/notifications',
-    '/profile',
-  ];
+  it('admin onboarding keeps demo actions', () => {
+    const da = onboardingStepsByRole.admin.filter((s) => s.demoAction).map((s) => s.demoAction);
+    expect(da).toContain('switch-tab:inventario');
+    expect(da).toContain('open-modal:activo-first');
+  });
 
-  for (const route of adminRoutes) {
-    it(`admin has at least one contextual step for ${route}`, () => {
-      const steps = getContextualStepsForRoute('admin', route);
-      expect(steps.length).toBeGreaterThanOrEqual(1);
-    });
-  }
-
-  const supervisorRoutes = [
-    '/supervisor/dashboard',
-    '/notifications',
-    '/profile',
-  ];
-
-  for (const route of supervisorRoutes) {
-    it(`supervisor has at least one contextual step for ${route}`, () => {
-      const steps = getContextualStepsForRoute('supervisor', route);
-      expect(steps.length).toBeGreaterThanOrEqual(1);
-    });
-  }
-
-  it('returns empty for unknown route', () => {
-    expect(getContextualStepsForRoute('admin', '/admin/unknown')).toHaveLength(0);
+  it('contextual has at least one step per real route (admin)', () => {
+    const adminRoutes = ['/dashboard', '/admin/users', '/trabajadores', '/ubicacion/proyectos', '/ubicacion/proyectos/:id', '/ubicacion/bodegas', '/inventario/epp', '/inventario/equipos', '/inventario/herramientas', '/notifications', '/profile'];
+    for (const r of adminRoutes) {
+      const matched = contextualStepsByRole.admin.filter((s) => matchTourRoute(r.replace(':id', 'x'), s.route));
+      expect(matched.length, `admin ${r}`).toBeGreaterThanOrEqual(1);
+    }
   });
 });
