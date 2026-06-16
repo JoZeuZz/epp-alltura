@@ -1,5 +1,6 @@
 const db = require('../db');
 const { buildError } = require('../lib/errors');
+const { uploadFile } = require('../lib/googleCloud');
 const PersonaModel = require('../models/persona');
 const TrabajadorModel = require('../models/trabajador');
 const { normalizeRut } = require('../lib/rut');
@@ -38,12 +39,13 @@ class TrabajadoresService {
     return rows[0];
   }
 
-  static async create(data) {
+  static async create(data, file = null) {
     const client = await db.pool.connect();
 
     try {
       await client.query('BEGIN');
       let personaId = data.persona_id || null;
+      const fotoUrl = file ? (await uploadFile(file, { folder: 'trabajadores/fotos' })).url : null;
 
       if (!personaId) {
         if (!data.rut || !data.nombres || !data.apellidos) {
@@ -64,14 +66,14 @@ class TrabajadoresService {
 
         const personaResult = await client.query(
           `
-          INSERT INTO persona (rut, nombres, apellidos, telefono, email, estado)
-          VALUES ($1, $2, $3, $4, $5, 'activo')
+          INSERT INTO persona (rut, nombres, apellidos, telefono, email, foto_url, estado)
+          VALUES ($1, $2, $3, $4, $5, $6, 'activo')
           RETURNING id
           `,
-          [data.rut, data.nombres, data.apellidos, data.telefono || null, data.email || null]
+          [data.rut, data.nombres, data.apellidos, data.telefono || null, data.email || null, fotoUrl]
         );
         personaId = personaResult.rows[0].id;
-      } else if (data.rut || data.nombres || data.apellidos || data.telefono || data.email) {
+      } else if (data.rut || data.nombres || data.apellidos || data.telefono || data.email || fotoUrl) {
         await client.query(
           `
           UPDATE persona
@@ -80,8 +82,9 @@ class TrabajadoresService {
             nombres = COALESCE($2, nombres),
             apellidos = COALESCE($3, apellidos),
             telefono = COALESCE($4, telefono),
-            email = COALESCE($5, email)
-          WHERE id = $6
+            email = COALESCE($5, email),
+            foto_url = COALESCE($6, foto_url)
+          WHERE id = $7
           `,
           [
             data.rut || null,
@@ -89,6 +92,7 @@ class TrabajadoresService {
             data.apellidos || null,
             data.telefono || null,
             data.email || null,
+            fotoUrl,
             personaId,
           ]
         );
@@ -130,7 +134,7 @@ class TrabajadoresService {
     }
   }
 
-  static async update(id, data) {
+  static async update(id, data, file = null) {
     const existing = await TrabajadorModel.findById(id);
     if (!existing) {
       const error = new Error('Trabajador not found');
@@ -141,8 +145,9 @@ class TrabajadoresService {
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
+      const fotoUrl = file ? (await uploadFile(file, { folder: 'trabajadores/fotos' })).url : null;
 
-      if (data.rut || data.nombres || data.apellidos || data.telefono || data.email || data.persona_estado) {
+      if (data.rut || data.nombres || data.apellidos || data.telefono || data.email || data.persona_estado || fotoUrl) {
         // Normalizar RUT si viene en la actualización
         if (data.rut) data.rut = normalizeRut(data.rut);
         await client.query(
@@ -154,8 +159,9 @@ class TrabajadoresService {
             apellidos = COALESCE($3, apellidos),
             telefono = COALESCE($4, telefono),
             email = COALESCE($5, email),
-            estado = COALESCE($6, estado)
-          WHERE id = $7
+            estado = COALESCE($6, estado),
+            foto_url = COALESCE($7, foto_url)
+          WHERE id = $8
           `,
           [
             data.rut || null,
@@ -164,6 +170,7 @@ class TrabajadoresService {
             data.telefono || null,
             data.email || null,
             data.persona_estado || null,
+            fotoUrl,
             existing.persona_id,
           ]
         );
