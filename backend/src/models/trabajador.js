@@ -38,7 +38,7 @@ class TrabajadorModel {
     }
 
     let query = `
-      SELECT t.*, p.rut, p.nombres, p.apellidos
+      SELECT t.*, p.rut, p.nombres, p.apellidos, p.foto_url
       FROM trabajador t
       INNER JOIN persona p ON p.id = t.persona_id
     `;

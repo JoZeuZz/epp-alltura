@@ -20,7 +20,8 @@ class TrabajadoresService {
         p.nombres,
         p.apellidos,
         p.telefono,
-        p.email
+        p.email,
+        p.foto_url
       FROM trabajador t
       INNER JOIN persona p ON p.id = t.persona_id
       WHERE t.id = $1
