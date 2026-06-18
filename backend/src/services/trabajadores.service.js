@@ -39,7 +39,7 @@ class TrabajadoresService {
     return rows[0];
   }
 
-  static async create(data, file = null) {
+  static async create(data, file = null, userId = null) {
     const client = await db.pool.connect();
 
     try {
@@ -121,9 +121,9 @@ class TrabajadoresService {
         entidadTipo: 'trabajador',
         entidadId: nuevoId,
         accion: 'crear',
-        usuarioId: null,
+        usuarioId: userId,
         diff: { cargo: data.cargo || null },
-      }).catch((err) => logger.warn('Audit trabajador crear failed', { error: err.message }));
+      });
       await client.query('COMMIT');
       return this.getById(nuevoId);
     } catch (error) {
@@ -134,7 +134,7 @@ class TrabajadoresService {
     }
   }
 
-  static async update(id, data, file = null) {
+  static async update(id, data, file = null, userId = null) {
     const existing = await TrabajadorModel.findById(id);
     if (!existing) {
       const error = new Error('Trabajador not found');
@@ -205,9 +205,9 @@ class TrabajadoresService {
         entidadTipo: 'trabajador',
         entidadId: id,
         accion: 'actualizar',
-        usuarioId: null,
+        usuarioId: userId,
         diff: { cargo: data.cargo, estado: data.estado },
-      }).catch((err) => logger.warn('Audit trabajador actualizar failed', { id, error: err.message }));
+      });
       await client.query('COMMIT');
       return this.getById(id);
     } catch (error) {
@@ -218,7 +218,7 @@ class TrabajadoresService {
     }
   }
 
-  static async remove(id) {
+  static async remove(id, userId = null) {
     const existing = await TrabajadorModel.findById(id);
     if (!existing) {
       const error = new Error('Trabajador not found');
@@ -249,7 +249,7 @@ class TrabajadoresService {
       entidadTipo: 'trabajador',
       entidadId: id,
       accion: 'eliminar',
-      usuarioId: null,
+      usuarioId: userId,
       diff: { estado: 'inactivo' },
     }).catch((err) => logger.warn('Audit trabajador eliminar failed', { id, error: err.message }));
     return { id, estado: 'inactivo' };

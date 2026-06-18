@@ -60,7 +60,8 @@ describe('Proyectos API — campo sitio', () => {
     expect(res.body.data.sitio).toBe('Faena El Teniente');
     expect(res.body.data).not.toHaveProperty('ciudad');
     expect(ProyectosService.create).toHaveBeenCalledWith(
-      expect.objectContaining({ sitio: 'Faena El Teniente' })
+      expect.objectContaining({ sitio: 'Faena El Teniente' }),
+      'user-1'
     );
     expect(ProyectosService.create).not.toHaveBeenCalledWith(
       expect.objectContaining({ ciudad: expect.anything() })

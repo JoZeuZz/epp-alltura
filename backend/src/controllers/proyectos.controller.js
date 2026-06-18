@@ -25,7 +25,7 @@ class ProyectosController {
 
   static async create(req, res, next) {
     try {
-      const data = await ProyectosService.create(req.body);
+      const data = await ProyectosService.create(req.body, req.user.id);
       return sendSuccess(res, { status: 201, message: 'Proyecto creado correctamente', data });
     } catch (error) {
       logger.error('Error creating proyecto:', error);
@@ -35,7 +35,7 @@ class ProyectosController {
 
   static async update(req, res, next) {
     try {
-      const { data, warnings } = await ProyectosService.update(req.params.id, req.body);
+      const { data, warnings } = await ProyectosService.update(req.params.id, req.body, req.user.id);
       const responseData = warnings.length ? { ...data, warnings } : data;
       return sendSuccess(res, { message: 'Proyecto actualizado correctamente', data: responseData });
     } catch (error) {
@@ -46,7 +46,7 @@ class ProyectosController {
 
   static async remove(req, res, next) {
     try {
-      const data = await ProyectosService.remove(req.params.id);
+      const data = await ProyectosService.remove(req.params.id, req.user.id);
       return sendSuccess(res, { message: 'Proyecto desactivado correctamente', data });
     } catch (error) {
       logger.error('Error deleting proyecto:', error);

@@ -34,13 +34,17 @@ describe('TrabajadoresService without login linkage', () => {
       .spyOn(TrabajadoresService, 'getById')
       .mockResolvedValue({ id: 'trabajador-1', persona_id: 'persona-1' });
 
-    await TrabajadoresService.create({
-      rut: '12.345.678-5',
-      nombres: 'Ana',
-      apellidos: 'Rojas',
-      cargo: 'Maestra',
-      usuario_id: 'usuario-legacy',
-    });
+    await TrabajadoresService.create(
+      {
+        rut: '12.345.678-5',
+        nombres: 'Ana',
+        apellidos: 'Rojas',
+        cargo: 'Maestra',
+        usuario_id: 'usuario-legacy',
+      },
+      null,
+      'usuario-actor-1'
+    );
 
     const trabajadorInsertSql = mockClient.query.mock.calls[2][0];
     const trabajadorInsertParams = mockClient.query.mock.calls[2][1];
@@ -48,6 +52,40 @@ describe('TrabajadoresService without login linkage', () => {
     expect(trabajadorInsertSql).not.toContain('usuario_id');
     expect(trabajadorInsertParams).not.toContain('usuario-legacy');
     expect(getByIdSpy).toHaveBeenCalledWith('trabajador-1');
+
+    // Audit debe registrarse contra usuario autenticado (auditoria.usuario_id NOT NULL)
+    const auditInsertSql = mockClient.query.mock.calls[3][0];
+    const auditInsertParams = mockClient.query.mock.calls[3][1];
+    expect(auditInsertSql).toContain('INSERT INTO auditoria');
+    expect(auditInsertParams).toContain('usuario-actor-1');
+  });
+
+  it('rejects (no silent rollback) when audit insert fails inside the transaction', async () => {
+    const mockClient = {
+      query: jest
+        .fn()
+        .mockResolvedValueOnce(undefined) // BEGIN
+        .mockResolvedValueOnce({ rows: [{ id: 'persona-1' }] }) // INSERT persona
+        .mockResolvedValueOnce({ rows: [{ id: 'trabajador-1' }] }) // INSERT trabajador
+        .mockRejectedValueOnce(new Error('null value in column "usuario_id"')) // INSERT auditoria
+        .mockResolvedValueOnce(undefined), // ROLLBACK
+      release: jest.fn(),
+    };
+
+    db.pool.connect.mockResolvedValue(mockClient);
+    PersonaModel.findByRut.mockResolvedValue(null);
+
+    await expect(
+      TrabajadoresService.create(
+        { rut: '12.345.678-5', nombres: 'Ana', apellidos: 'Rojas' },
+        null,
+        'usuario-actor-1'
+      )
+    ).rejects.toThrow();
+
+    const calls = mockClient.query.mock.calls.map((c) => c[0]);
+    expect(calls).toContain('ROLLBACK');
+    expect(calls).not.toContain('COMMIT');
   });
 });
 

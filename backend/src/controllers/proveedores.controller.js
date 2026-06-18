@@ -15,7 +15,7 @@ class ProveedoresController {
 
   static async create(req, res, next) {
     try {
-      const data = await ProveedoresService.create(req.body);
+      const data = await ProveedoresService.create(req.body, req.user.id);
       return sendSuccess(res, { status: 201, message: 'Proveedor creado correctamente', data });
     } catch (error) {
       logger.error('Error creating proveedor:', error);
@@ -25,7 +25,7 @@ class ProveedoresController {
 
   static async remove(req, res, next) {
     try {
-      const data = await ProveedoresService.remove(req.params.id);
+      const data = await ProveedoresService.remove(req.params.id, req.user.id);
       return sendSuccess(res, { message: 'Proveedor desactivado correctamente', data });
     } catch (error) {
       logger.error('Error removing proveedor:', error);

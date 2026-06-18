@@ -30,14 +30,14 @@ class ProyectosService {
     return proyecto;
   }
 
-  static async create(data) {
+  static async create(data, userId = null) {
     validateDates(data);
     const result = await ProyectoModel.create(data);
     await writeAuditEvent({
       entidadTipo: 'proyecto',
       entidadId: result.id,
       accion: 'crear',
-      usuarioId: null,
+      usuarioId: userId,
       diff: { nombre: result.nombre },
     }).catch((err) => logger.warn('Audit proyecto crear failed', { id: result.id, error: err.message }));
     return result;
@@ -55,7 +55,7 @@ class ProyectosService {
     return rows.map((r) => r.id);
   }
 
-  static async update(id, data) {
+  static async update(id, data, userId = null) {
     const current = await ProyectoModel.findById(id);
     if (!current) throw buildError('Proyecto no encontrado', 404);
     validateDates(data, current);
@@ -96,14 +96,14 @@ class ProyectosService {
       entidadTipo: 'proyecto',
       entidadId: id,
       accion: 'actualizar',
-      usuarioId: null,
+      usuarioId: userId,
       diff: data,
     }).catch((err) => logger.warn('Audit proyecto actualizar failed', { id, error: err.message }));
 
     return { data: updated, warnings };
   }
 
-  static async remove(id) {
+  static async remove(id, userId = null) {
     const existing = await ProyectoModel.findById(id);
     if (!existing) throw buildError('Proyecto no encontrado', 404);
 
@@ -124,7 +124,7 @@ class ProyectosService {
       entidadTipo: 'proyecto',
       entidadId: id,
       accion: 'eliminar',
-      usuarioId: null,
+      usuarioId: userId,
       diff: { estado: 'inactivo' },
     }).catch((err) => logger.warn('Audit proyecto eliminar failed', { id, error: err.message }));
     return result;

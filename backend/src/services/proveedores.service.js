@@ -30,7 +30,7 @@ class ProveedoresService {
     return rows;
   }
 
-  static async create(payload) {
+  static async create(payload, userId = null) {
     const existing = await db.query('SELECT id FROM proveedor WHERE nombre = $1 LIMIT 1', [payload.nombre]);
     if (existing.rows.length) {
       throw buildError('Ya existe un proveedor con ese nombre', 400);
@@ -55,13 +55,13 @@ class ProveedoresService {
       entidadTipo: 'proveedor',
       entidadId: rows[0].id,
       accion: 'crear',
-      usuarioId: null,
+      usuarioId: userId,
       diff: { nombre: rows[0].nombre },
     }).catch((err) => logger.warn('Audit proveedor crear failed', { id: rows[0].id, error: err.message }));
     return rows[0];
   }
 
-  static async remove(id) {
+  static async remove(id, userId = null) {
     const existing = await db.query('SELECT id FROM proveedor WHERE id = $1 LIMIT 1', [id]);
     if (!existing.rows.length) {
       throw buildError('Proveedor no encontrado', 404, 'PROVEEDOR_NOT_FOUND');
@@ -87,7 +87,7 @@ class ProveedoresService {
       entidadTipo: 'proveedor',
       entidadId: id,
       accion: 'eliminar',
-      usuarioId: null,
+      usuarioId: userId,
       diff: { estado: 'inactivo' },
     }).catch((err) => logger.warn('Audit proveedor eliminar failed', { id, error: err.message }));
     return { id, estado: 'inactivo' };
