@@ -150,3 +150,26 @@ export const firmarEntregaDispositivo = (
     })
     .then((res) => res.data);
 };
+
+/**
+ * Returns all entregas in borrador or pendiente_firma states.
+ * Used by EntregasPendientesFirmaPage and dashboard KPI navigation.
+ */
+export const getEntregasPendientesFirma = () =>
+  get<EntregaRow[]>('/entregas', { estado_in: 'borrador,pendiente_firma' });
+
+/**
+ * Returns borrador/pendiente_firma entregas that contain a specific articulo.
+ * Used by ActivoProfileModal to show "Operación pendiente" block.
+ */
+export const getEntregasPendientesByArticulo = (articuloId: string) =>
+  get<EntregaRow[]>('/entregas', {
+    estado_in: 'borrador,pendiente_firma',
+    articulo_id: articuloId,
+  });
+
+/**
+ * Cancels a delivery. Only allowed for borrador or pendiente_firma states.
+ */
+export const anularEntrega = (id: string, motivo?: string) =>
+  post<EntregaRow>(`/entregas/${id}/anular`, { motivo: motivo ?? null });
