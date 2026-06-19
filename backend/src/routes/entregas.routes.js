@@ -60,7 +60,9 @@ const listQuerySchema = Joi.object({
   estado: Joi.string()
     .trim()
     .valid('borrador', 'pendiente_firma', 'confirmada', 'anulada', 'revertida_admin'),
+  estado_in: Joi.string().trim().pattern(/^[a-z_,]+$/).optional(),
   trabajador_id: uuid,
+  articulo_id: uuid,
 });
 
 const anularSchema = Joi.object({

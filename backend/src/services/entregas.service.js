@@ -365,6 +365,28 @@ class EntregasService {
       conditions.push(`e.trabajador_id = $${values.length}`);
     }
 
+    if (filters?.estado_in) {
+      const estados = String(filters.estado_in)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (estados.length) {
+        values.push(estados);
+        conditions.push(`e.estado = ANY($${values.length}::text[])`);
+      }
+    }
+
+    if (filters?.articulo_id) {
+      values.push(String(filters.articulo_id));
+      conditions.push(
+        `EXISTS (
+           SELECT 1 FROM entrega_detalle ed_f
+           WHERE ed_f.entrega_id = e.id
+             AND ed_f.articulo_id = $${values.length}::uuid
+         )`
+      );
+    }
+
     let query = `SELECT
       e.id,
       e.creado_por_usuario_id,

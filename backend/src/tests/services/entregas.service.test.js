@@ -171,6 +171,29 @@ describe('EntregasService.confirm', () => {
   });
 });
 
+describe('EntregasService.list — new filters', () => {
+  beforeEach(() => {
+    db.query.mockResolvedValue({ rows: [] });
+  });
+
+  test('estado_in passes array to ANY($n::text[])', async () => {
+    await EntregasService.list({ estado_in: 'borrador,pendiente_firma' });
+    const sql = db.query.mock.calls[0][0];
+    expect(sql).toMatch(/e\.estado = ANY\(/);
+  });
+
+  test('articulo_id adds EXISTS subquery', async () => {
+    await EntregasService.list({ articulo_id: ARTICULO_ID });
+    const sql = db.query.mock.calls[0][0];
+    expect(sql).toMatch(/EXISTS.*entrega_detalle/s);
+  });
+
+  test('empty list returned when db has no rows', async () => {
+    const result = await EntregasService.list({ estado_in: 'borrador' });
+    expect(result).toEqual([]);
+  });
+});
+
 describe('EntregasService.anular', () => {
   test('entrega borrador → estado anulada, escribe audit event, COMMIT', async () => {
     const client = makeClient(async (sql) => {
