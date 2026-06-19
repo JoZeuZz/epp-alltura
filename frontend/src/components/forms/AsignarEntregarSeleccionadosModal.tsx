@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Modal } from '@jozeuzz/alltura-ui';
 import toast from 'react-hot-toast';
 import {
   assignArticulosToUsuario,
@@ -164,33 +165,14 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="modal-asignar-title"
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Entregar / asignar ${articuloIds.length} artículo${articuloIds.length !== 1 ? 's' : ''}`}
+      mobileFullscreen
     >
-      <div className="bg-white rounded-lg border border-gray-200 w-full max-w-md shadow-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 id="modal-asignar-title" className="font-semibold text-dark-blue">
-            Entregar / asignar {articuloIds.length} artículo{articuloIds.length !== 1 ? 's' : ''}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-blue rounded"
-            aria-label="Cerrar modal"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
           {articuloLabels.length > 0 && (
             <div className="text-xs text-gray-500 bg-gray-50 rounded p-2 max-h-20 overflow-y-auto">
               {articuloLabels.slice(0, 5).join(', ')}{articuloLabels.length > 5 ? ` y ${articuloLabels.length - 5} más` : ''}
@@ -389,9 +371,8 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
               {isSubmitting ? 'Procesando…' : destType === 'trabajador' ? 'Crear entrega' : 'Asignar'}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 };
 
