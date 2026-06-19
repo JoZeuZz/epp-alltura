@@ -52,6 +52,7 @@ function makeHappyCreateClient() {
     if (/FROM proyectos/.test(sql)) return { rows: [{ id: PROYECTO_ID, estado: 'activo' }] };
     if (/FROM articulo/.test(sql)) return { rows: [{ id: ARTICULO_ID, estado: 'en_stock', bodega_actual_id: BODEGA_ID, label: 'Casco' }] };
     if (/FROM custodia_activo/.test(sql)) return { rows: [] };
+    if (/borrador.*pendiente_firma|pendiente_firma.*borrador/.test(sql)) return { rows: [] };
     if (/INSERT INTO entrega\b/.test(sql)) return { rows: [{ id: ENTREGA_ID }] };
     if (/INSERT INTO entrega_detalle/.test(sql)) return { rows: [] };
     if (/FROM entrega e/.test(sql)) return { rows: [HEADER_ROW] };
@@ -218,5 +219,61 @@ describe('EntregasService.anular', () => {
     );
     const sqls = client.query.mock.calls.map(([q]) => q.trim());
     expect(sqls[sqls.length - 1]).toBe('COMMIT');
+  });
+});
+
+describe('EntregasService.create — deduplication', () => {
+  const EXISTING_ENTREGA_ID = 'b1111111-1111-4111-8111-111111111111';
+
+  function makeDedupClient(duplicateFound) {
+    return makeClient(async (sql) => {
+      if (/BEGIN|ROLLBACK/.test(sql)) return { rows: [] };
+      if (/FROM trabajador/.test(sql)) return { rows: [{ id: WORKER_ID, estado: 'activo', persona_estado: 'activo' }] };
+      if (/FROM bodegas/.test(sql)) return { rows: [{ id: BODEGA_ID, estado: 'activo' }] };
+      if (/FROM proyectos/.test(sql)) return { rows: [{ id: PROYECTO_ID, estado: 'activo' }] };
+      if (/FROM articulo/.test(sql)) return { rows: [{ id: ARTICULO_ID, estado: 'en_stock', bodega_actual_id: BODEGA_ID, label: 'Casco' }] };
+      if (/FROM custodia_activo/.test(sql)) return { rows: [] };
+      // Dedup query: matches borrador/pendiente_firma check
+      if (/borrador.*pendiente_firma|pendiente_firma.*borrador/.test(sql)) {
+        return duplicateFound
+          ? { rows: [{ id: EXISTING_ENTREGA_ID }] }
+          : { rows: [] };
+      }
+      // _getByIdWithClient queries (called when duplicate found)
+      if (/FROM entrega e/.test(sql)) return { rows: [{ ...HEADER_ROW, id: EXISTING_ENTREGA_ID }] };
+      if (/FROM entrega_detalle ed/.test(sql)) return { rows: [] };
+      return { rows: [] };
+    });
+  }
+
+  test('duplicate found → throws DELIVERY_DRAFT_EXISTS (409) with existing_entrega', async () => {
+    const client = makeDedupClient(true);
+    db.pool.connect.mockResolvedValue(client);
+
+    const err = await EntregasService.create(PAYLOAD, USER_ID).catch((e) => e);
+
+    expect(err.code).toBe('DELIVERY_DRAFT_EXISTS');
+    expect(err.statusCode).toBe(409);
+    expect(err.data).toMatchObject({ existing_entrega: expect.objectContaining({ id: EXISTING_ENTREGA_ID }) });
+    const sqls = client.query.mock.calls.map(([q]) => q.trim());
+    expect(sqls).toContain('ROLLBACK');
+  });
+
+  test('no duplicate → proceeds normally (INSERT called)', async () => {
+    const client = makeDedupClient(false);
+    // Override INSERT + _getByIdWithClient (needed after dedup returns empty)
+    const origImpl = client.query.getMockImplementation();
+    client.query.mockImplementation(async (sql) => {
+      if (/INSERT INTO entrega\b/.test(sql)) return { rows: [{ id: ENTREGA_ID }] };
+      if (/INSERT INTO entrega_detalle/.test(sql)) return { rows: [] };
+      if (/borrador.*pendiente_firma|pendiente_firma.*borrador/.test(sql)) return { rows: [] };
+      if (/FROM entrega e/.test(sql)) return { rows: [HEADER_ROW] };
+      if (/FROM entrega_detalle ed/.test(sql)) return { rows: [] };
+      return origImpl(sql);
+    });
+    db.pool.connect.mockResolvedValue(client);
+
+    const result = await EntregasService.create(PAYLOAD, USER_ID);
+    expect(result.id).toBe(ENTREGA_ID);
   });
 });

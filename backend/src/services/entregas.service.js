@@ -262,6 +262,57 @@ class EntregasService {
     return resolveHeaderImages(row);
   }
 
+  /**
+   * Checks whether a borrador/pendiente_firma entrega already exists for the
+   * same trabajador + proyecto + origen + fecha_devolucion + exact article set.
+   *
+   * @param client                   DB client inside open transaction
+   * @param trabajadorId             UUID
+   * @param proyectoDestinoId        UUID
+   * @param bodegaOrigenId           UUID | null  (null when path is usuario→trabajador)
+   * @param usuarioOrigenId          UUID | null  (null when path is bodega→trabajador)
+   * @param fechaDevolucionEsperada  ISO date string 'YYYY-MM-DD' | null
+   * @param articuloIds              UUID[]
+   * Returns the existing entrega id, or null.
+   */
+  static async _findDuplicateDraft(
+    client,
+    trabajadorId,
+    proyectoDestinoId,
+    bodegaOrigenId,
+    usuarioOrigenId,
+    fechaDevolucionEsperada,
+    articuloIds
+  ) {
+    const count = articuloIds.length;
+    const fechaNorm = fechaDevolucionEsperada
+      ? String(fechaDevolucionEsperada).slice(0, 10)
+      : null;
+
+    const { rows } = await client.query(
+      `SELECT e.id
+       FROM entrega e
+       WHERE e.trabajador_id = $1
+         AND e.proyecto_destino_id = $2
+         AND e.estado IN ('borrador', 'pendiente_firma')
+         AND (e.bodega_origen_id IS NOT DISTINCT FROM $3::uuid)
+         AND (e.usuario_origen_id IS NOT DISTINCT FROM $4::uuid)
+         AND (
+           e.fecha_devolucion_esperada::date IS NOT DISTINCT FROM $5::date
+         )
+         AND (
+           SELECT COUNT(*) FROM entrega_detalle ed WHERE ed.entrega_id = e.id
+         ) = $6
+         AND (
+           SELECT COUNT(*) FROM entrega_detalle ed2
+           WHERE ed2.entrega_id = e.id AND ed2.articulo_id = ANY($7::uuid[])
+         ) = $6
+       LIMIT 1`,
+      [trabajadorId, proyectoDestinoId, bodegaOrigenId, usuarioOrigenId, fechaNorm, count, articuloIds]
+    );
+    return rows.length ? rows[0].id : null;
+  }
+
   static async create(payload, userId, imageFile = null) {
     let uploadedEvidenceUrl = null;
     if (imageFile) {
@@ -284,6 +335,27 @@ class EntregasService {
         payload.detalles,
         payload.ubicacion_origen_id
       );
+
+      // Anti-duplicado
+      const dupId = await this._findDuplicateDraft(
+        client,
+        payload.trabajador_id,
+        payload.ubicacion_destino_id,
+        payload.ubicacion_origen_id,   // bodega_origen_id
+        null,                           // usuario_origen_id (not applicable)
+        payload.fecha_devolucion_esperada ?? null,
+        normalizedDetails.map((d) => d.articulo_id)
+      );
+      if (dupId) {
+        const existing = await this._getByIdWithClient(client, dupId);
+        const err = buildError(
+          'Ya existe una entrega pendiente de firma con los mismos artículos. Retoma la firma.',
+          409,
+          'DELIVERY_DRAFT_EXISTS',
+          { existing_entrega: existing }
+        );
+        throw err;
+      }
 
       const entregaResult = await client.query(
         `INSERT INTO entrega (
@@ -791,6 +863,27 @@ class EntregasService {
           );
 
         detalles.push({ articulo_id: articuloId, condicion_salida: 'ok', notas: null });
+      }
+
+      // Anti-duplicado
+      const dupIdFromUsuario = await this._findDuplicateDraft(
+        client,
+        trabajador_id,
+        proyecto_destino_id,
+        null,                              // bodega_origen_id (not applicable)
+        usuario_origen_id,
+        fecha_devolucion_esperada ?? null,
+        detalles.map((d) => d.articulo_id)
+      );
+      if (dupIdFromUsuario) {
+        const existing = await this._getByIdWithClient(client, dupIdFromUsuario);
+        const err = buildError(
+          'Ya existe una entrega pendiente de firma con los mismos artículos. Retoma la firma.',
+          409,
+          'DELIVERY_DRAFT_EXISTS',
+          { existing_entrega: existing }
+        );
+        throw err;
       }
 
       // Create entrega with usuario_origen_id (no bodega_origen_id)
