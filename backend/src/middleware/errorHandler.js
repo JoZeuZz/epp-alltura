@@ -196,7 +196,7 @@ const errorHandler = (err, req, res, _next) => {
   const response = {
     success: false,
     message: errorResponse.message,
-    data: null,
+    data: err.data ?? null,
     errors,
     requestId: req.requestId,
     ...(errorResponse.fieldErrors && { fieldErrors: errorResponse.fieldErrors }),
