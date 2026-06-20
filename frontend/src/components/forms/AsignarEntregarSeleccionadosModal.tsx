@@ -9,8 +9,10 @@ import {
   type AssignArticulosPayload,
   type DeliverAssignedPayload,
   type EntregaCreatePayload,
+  type EntregaRow,
 } from '../../services/apiService';
 import { useGet } from '../../hooks';
+import EntregaFirmaModal from './EntregaFirmaModal';
 
 interface TrabajadorOption { id: string; nombres: string; apellidos: string; rut: string; }
 interface UbicacionOption { id: string; nombre: string; }
@@ -43,6 +45,7 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
   const [bodegaOrigenEntregaId, setBodegaOrigenEntregaId] = useState('');
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [resumeEntrega, setResumeEntrega] = useState<EntregaRow | null>(null);
 
   const { data: trabajadores = [] } = useGet<TrabajadorOption[]>(['trabajadores'], '/trabajadores');
   const { data: proyectos = [] } = useGet<UbicacionOption[]>(['proyectos-activos'], '/proyectos?estado=activo');
@@ -62,20 +65,38 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
   };
 
   // From user custody → worker (POST /asignaciones-usuario/entregar-a-trabajador)
+  const extractDuplicateDraft = (err: unknown): EntregaRow | null => {
+    const e = err as {
+      response?: {
+        data?: {
+          code?: string;
+          data?: { existing_entrega?: EntregaRow };
+        };
+      };
+    };
+    if (e?.response?.data?.code === 'DELIVERY_DRAFT_EXISTS') {
+      return e?.response?.data?.data?.existing_entrega ?? null;
+    }
+    return null;
+  };
+
+  // From user custody → worker (POST /asignaciones-usuario/entregar-a-trabajador)
   const deliverFromUsuarioMutation = useMutation({
     mutationFn: ({ fotoFile: file, ...p }: DeliverAssignedPayload & { fotoFile: File }) =>
       deliverAssignedArticulosToTrabajador(p, file),
     onSuccess: (data) => {
-      const entregaId: string | undefined = (data as { id?: string })?.id;
-      toast.success(
-        `Entrega creada (ID: ${entregaId ? entregaId.slice(0, 8) : '?'}). Ve a Entregas para completar la firma del trabajador.`,
-        { duration: 6000 }
-      );
+      const created = data as EntregaRow;
+      setResumeEntrega(created);
       void queryClient.invalidateQueries({ queryKey: ['mis-asignaciones'] });
       void queryClient.invalidateQueries({ queryKey: ['articulos'] });
-      onClose();
     },
     onError: (err: unknown) => {
+      const dup = extractDuplicateDraft(err);
+      if (dup) {
+        toast('Ya existe una entrega pendiente con estos artículos.', { icon: 'ℹ️' });
+        setResumeEntrega(dup);
+        return;
+      }
       const e = err as { response?: { data?: { message?: string } }; message?: string };
       toast.error(e?.response?.data?.message ?? e?.message ?? 'Error al crear entrega');
     },
@@ -86,15 +107,17 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
     mutationFn: ({ payload, fotoFile: file }: { payload: EntregaCreatePayload; fotoFile: File }) =>
       createEntrega(payload, file),
     onSuccess: (data) => {
-      const entregaId: string | undefined = (data as { id?: string })?.id;
-      toast.success(
-        `Entrega creada (ID: ${entregaId ? entregaId.slice(0, 8) : '?'}). Ve a Entregas para completar la firma del trabajador.`,
-        { duration: 6000 }
-      );
+      const created = data as EntregaRow;
+      setResumeEntrega(created);
       void queryClient.invalidateQueries({ queryKey: ['articulos'] });
-      onClose();
     },
     onError: (err: unknown) => {
+      const dup = extractDuplicateDraft(err);
+      if (dup) {
+        toast('Ya existe una entrega pendiente con estos artículos.', { icon: 'ℹ️' });
+        setResumeEntrega(dup);
+        return;
+      }
       const e = err as { response?: { data?: { message?: string } }; message?: string };
       toast.error(e?.response?.data?.message ?? e?.message ?? 'Error al crear entrega');
     },
@@ -372,6 +395,22 @@ const AsignarEntregarSeleccionadosModal: React.FC<Props> = ({
             </button>
           </div>
       </form>
+      {resumeEntrega && (
+        <EntregaFirmaModal
+          isOpen
+          onClose={() => setResumeEntrega(null)}
+          entrega={resumeEntrega}
+          alreadySigned={Boolean(resumeEntrega.firmado_en || resumeEntrega.firma_imagen_url)}
+          onCompleted={() => {
+            setResumeEntrega(null);
+            toast.success('Entrega completada.');
+            void queryClient.invalidateQueries({ queryKey: ['mis-asignaciones'] });
+            void queryClient.invalidateQueries({ queryKey: ['articulos'] });
+            void queryClient.invalidateQueries({ queryKey: ['entregas-pendientes-firma'] });
+            onClose();
+          }}
+        />
+      )}
     </Modal>
   );
 };
