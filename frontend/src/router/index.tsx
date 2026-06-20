@@ -118,6 +118,9 @@ const AdminInventoryHerramientasPage = lazy(
 const AdminProyectosPage = lazy(() => import('../pages/admin/AdminProyectosPage'));
 const AdminProyectoDetailPage = lazy(() => import('../pages/admin/AdminProyectoDetailPage'));
 const AdminBodegasPage = lazy(() => import('../pages/admin/AdminBodegasPage'));
+const EntregasPendientesFirmaPage = lazy(
+  () => import('../pages/admin/EntregasPendientesFirmaPage')
+);
 type RouteRole = 'admin' | 'supervisor';
 
 function normalizeRole(role?: string | null): RouteRole | '' {
@@ -329,6 +332,11 @@ export const router = createBrowserRouter([
         path: 'ubicacion/bodegas',
         loader: requireRole(['admin', 'supervisor']),
         element: <AdminBodegasPage />,
+      },
+      {
+        path: 'entregas/pendientes-firma',
+        loader: requireRole(['admin', 'supervisor']),
+        element: <EntregasPendientesFirmaPage />,
       },
       {
         path: 'inventario',
