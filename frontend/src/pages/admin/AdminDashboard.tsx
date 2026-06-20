@@ -442,7 +442,8 @@ const AdminDashboard: React.FC = () => {
               <MetricCard title="Activos Asignados"        value={activos.asignado || 0} icon={IconUserCheck} colorClass="text-info"
                 subtitle={activos.total > 0 ? `de ${activos.total} totales` : undefined} />
               <MetricCard title="Entregas pend. firma"     value={pendFirma}             icon={IconClipboard}
-                colorClass={pendFirma > 0 ? 'text-warning' : 'text-content-muted'} />
+                colorClass={pendFirma > 0 ? 'text-warning' : 'text-content-muted'}
+                to="/entregas/pendientes-firma" />
               <MetricCard title="Firmas (últimos 30 días)" value={firmas.firmadas_30d || 0} icon={IconPen}    colorClass="text-success" />
             </div>
 
