@@ -7,6 +7,7 @@ import { useActivoWorkflows } from '../../hooks/useActivoWorkflows';
 import {
   getActivoProfile,
   getEntregaById,
+  getEntregasPendientesByArticulo,
   type Articulo,
   type EntregaRow,
   type ActivoProfileResponse,
@@ -147,6 +148,18 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
   const hasInProgressEntrega = inProgressEntrega?.estado === 'borrador';
   const inProgressSigned = Boolean(inProgressEntrega?.firmado_en || inProgressEntrega?.firma_imagen_url);
 
+  const { data: pendingEntregas = [] } = useQuery<EntregaRow[]>({
+    queryKey: ['activo-profile', activoId, 'pending-entregas'],
+    queryFn: () => getEntregasPendientesByArticulo(activoId),
+    enabled: !!activoId && !workflows.subModal,
+    staleTime: 30_000,
+  });
+
+  const pendingEntrega = pendingEntregas[0] ?? null;
+  const pendingIsSigned = Boolean(
+    pendingEntrega?.firmado_en || pendingEntrega?.firma_imagen_url
+  );
+
   if (workflows.subModal && profile) {
     return (
       <ActivoSubModals
@@ -194,6 +207,31 @@ const ActivoProfileModal: React.FC<Props> = ({ activoId, onClose, onRefresh }) =
                   className="inline-flex items-center px-3 py-2 rounded-md bg-primary text-white text-sm font-medium hover:bg-primary-hover transition-colors"
                 >
                   {inProgressSigned ? 'Reintentar confirmación' : 'Reanudar firma'}
+                </button>
+              </div>
+            </section>
+          )}
+
+          {pendingEntrega && !hasInProgressEntrega && (
+            <section className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <h4 className="text-sm font-semibold text-amber-900">Operación pendiente</h4>
+              <p className="mt-1 text-xs text-amber-800">
+                Entrega {pendingEntrega.estado === 'pendiente_firma' ? 'pendiente de firma' : 'en borrador'}
+                {' '}— ID: {pendingEntrega.id.slice(0, 8)}
+                {pendingEntrega.creado_en
+                  ? ` · Creada: ${new Date(pendingEntrega.creado_en).toLocaleDateString('es-CL')}`
+                  : ''}
+              </p>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    workflows.setDraftEntrega(pendingEntrega);
+                    workflows.setSubModal('firmar-entrega');
+                  }}
+                  className="inline-flex items-center px-3 py-2 rounded-md bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition-colors"
+                >
+                  {pendingIsSigned ? 'Confirmar entrega' : 'Reanudar firma'}
                 </button>
               </div>
             </section>
