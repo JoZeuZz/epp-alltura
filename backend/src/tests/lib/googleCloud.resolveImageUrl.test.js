@@ -59,6 +59,17 @@ describe('googleCloud.resolveImageUrl', () => {
     expect(payload.o).toBe('images/helmet.jpg');
   });
 
+  it('drops and warns on a non-string (object) value instead of leaking it to the client', async () => {
+    process.env.IMAGE_STORAGE_PROVIDER = 'local';
+
+    const { logger } = require('../../lib/logger');
+    const { resolveImageUrl } = require('../../lib/googleCloud');
+
+    // simulates a runtime payload where an image field arrives as an object
+    await expect(resolveImageUrl({ url: '/api/image-proxy?token=x' })).resolves.toBeNull();
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('valor no-string'));
+  });
+
   it('returns raw image URL when proxy token cannot be created', async () => {
     process.env.IMAGE_STORAGE_PROVIDER = 'local';
     delete process.env.IMAGE_PROXY_SECRET;

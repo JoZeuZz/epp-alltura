@@ -7,7 +7,7 @@ import {
   type EntregaRow,
   type DevolucionRow,
 } from '../../services/apiService';
-import { buildImageUrl } from '../../utils/image';
+import { buildImageUrl, DEFAULT_IMAGE_PLACEHOLDER } from '../../utils/image';
 
 interface Props {
   type: 'entrega' | 'devolucion';
@@ -99,7 +99,7 @@ function EntregaDetail({ data, onDownload, isPdfLoading }: { data: EntregaRow; o
         <section>
           <h4 className="text-xs font-semibold text-content-muted uppercase tracking-wide mb-2">Foto de evidencia</h4>
           <img
-            src={buildImageUrl(data.evidencia_foto_url, 'medium') || data.evidencia_foto_url}
+            src={buildImageUrl(data.evidencia_foto_url, 'medium') || DEFAULT_IMAGE_PLACEHOLDER}
             alt="Evidencia de entrega"
             className="max-h-48 w-full object-contain rounded-lg border border-edge"
             loading="lazy"
@@ -113,7 +113,7 @@ function EntregaDetail({ data, onDownload, isPdfLoading }: { data: EntregaRow; o
         {data.firma_imagen_url ? (
           <>
             <img
-              src={buildImageUrl(data.firma_imagen_url, 'medium') || data.firma_imagen_url}
+              src={buildImageUrl(data.firma_imagen_url, 'medium') || DEFAULT_IMAGE_PLACEHOLDER}
               alt="Firma del receptor"
               className="max-h-24 object-contain rounded border border-edge"
               loading="lazy"
@@ -210,7 +210,7 @@ function DevolucionDetail({ data, onDownload, isPdfLoading }: { data: Devolucion
         <section>
           <h4 className="text-xs font-semibold text-content-muted uppercase tracking-wide mb-2">Foto de evidencia</h4>
           <img
-            src={buildImageUrl(data.evidencia_foto_url, 'medium') || data.evidencia_foto_url}
+            src={buildImageUrl(data.evidencia_foto_url, 'medium') || DEFAULT_IMAGE_PLACEHOLDER}
             alt="Evidencia de devolución"
             className="max-h-48 w-full object-contain rounded-lg border border-edge"
             loading="lazy"
@@ -224,7 +224,7 @@ function DevolucionDetail({ data, onDownload, isPdfLoading }: { data: Devolucion
         {data.firma_imagen_url ? (
           <>
             <img
-              src={buildImageUrl(data.firma_imagen_url, 'medium') || data.firma_imagen_url}
+              src={buildImageUrl(data.firma_imagen_url, 'medium') || DEFAULT_IMAGE_PLACEHOLDER}
               alt="Firma del trabajador"
               className="max-h-24 object-contain rounded border border-edge"
               loading="lazy"

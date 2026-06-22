@@ -429,6 +429,17 @@ const createLocalProxyToken = (imageUrl) => {
 const resolveImageUrl = async (imageUrl) => {
   if (!imageUrl) return imageUrl;
 
+  // Defensive: only string urls are valid. A non-string (object/array) here would
+  // serialize to the client and reach <img src> as "[object Object]", producing a
+  // bogus relative GET (e.g. /inventario/[object Object]). Drop it and log the
+  // offender so the upstream field can be identified.
+  if (typeof imageUrl !== 'string') {
+    let preview;
+    try { preview = JSON.stringify(imageUrl); } catch { preview = String(imageUrl); }
+    logger.warn(`resolveImageUrl recibió valor no-string (${typeof imageUrl}): ${preview?.slice(0, 200)}`);
+    return null;
+  }
+
   if (resolvedProvider !== 'gcs') {
     const token = createLocalProxyToken(imageUrl);
     if (token) {

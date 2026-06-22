@@ -4,6 +4,7 @@ export const DEFAULT_IMAGE_PLACEHOLDER =
   'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="600" height="400"%3E%3Crect fill="%23e5e7eb" width="100%25" height="100%25"/%3E%3Ctext fill="%239ca3af" font-family="sans-serif" font-size="20" font-weight="bold" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3EImagen no disponible%3C/text%3E%3C/svg%3E';
 
 export const appendQueryParam = (url: string, key: string, value: string) => {
+  if (typeof url !== 'string') return '';
   try {
     const isAbsolute = /^https?:\/\//i.test(url);
     const parsed = new URL(url, isAbsolute ? undefined : window.location.origin);
@@ -15,7 +16,10 @@ export const appendQueryParam = (url: string, key: string, value: string) => {
 };
 
 export const buildImageUrl = (url?: string | null, size: ImageSize = 'full') => {
-  if (!url) return '';
+  // Defensive: runtime payloads sometimes deliver an object where a string url
+  // is typed. Without this guard the object reaches <img src> as "[object Object]",
+  // which the browser resolves as a relative URL (e.g. /inventario/[object Object]).
+  if (!url || typeof url !== 'string') return '';
   if (size === 'full') return url;
 
   try {
