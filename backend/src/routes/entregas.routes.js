@@ -66,7 +66,12 @@ const listQuerySchema = Joi.object({
 });
 
 const anularSchema = Joi.object({
-  motivo: Joi.string().trim().max(1000).allow('', null),
+  // DB constraint chk_entrega_motivo_anulacion exige motivo no vacío (>= 5 chars)
+  motivo: Joi.string().trim().min(5).max(1000).required().messages({
+    'any.required': 'El motivo de anulación es obligatorio.',
+    'string.empty': 'El motivo de anulación es obligatorio.',
+    'string.min': 'El motivo de anulación debe tener al menos 5 caracteres.',
+  }),
 });
 
 router.get(

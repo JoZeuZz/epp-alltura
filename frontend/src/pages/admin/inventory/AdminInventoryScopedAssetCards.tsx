@@ -79,7 +79,7 @@ const ArticuloCard: React.FC<{
       )}
       {/* Header */}
       <div className={`flex items-start gap-3 ${isSelectMode ? 'pl-6' : ''}`}>
-        {articulo.foto_url ? (
+        {buildImageUrl(articulo.foto_url, 'thumb') ? (
           <img
             src={buildImageUrl(articulo.foto_url, 'thumb')}
             alt={articulo.nombre}

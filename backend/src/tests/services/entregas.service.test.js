@@ -220,6 +220,22 @@ describe('EntregasService.anular', () => {
     const sqls = client.query.mock.calls.map(([q]) => q.trim());
     expect(sqls[sqls.length - 1]).toBe('COMMIT');
   });
+
+  test('motivo ausente/corto → 400 DELIVERY_CANCEL_REASON_REQUIRED, no UPDATE', async () => {
+    const client = makeClient(async (sql) => {
+      if (/BEGIN|COMMIT|ROLLBACK/.test(sql)) return { rows: [] };
+      if (/FROM entrega\n/.test(sql)) return { rows: [{ id: ENTREGA_ID, estado: 'borrador' }] };
+      return { rows: [] };
+    });
+    db.pool.connect.mockResolvedValue(client);
+
+    await expect(
+      EntregasService.anular(ENTREGA_ID, { motivo: '  ' }, USER_ID)
+    ).rejects.toMatchObject({ statusCode: 400, code: 'DELIVERY_CANCEL_REASON_REQUIRED' });
+
+    const sqls = client.query.mock.calls.map(([q]) => q.trim());
+    expect(sqls.some((q) => /UPDATE entrega/.test(q))).toBe(false);
+  });
 });
 
 describe('EntregasService.create — deduplication', () => {

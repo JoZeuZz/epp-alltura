@@ -977,12 +977,23 @@ class EntregasService {
         return await this._getByIdWithClient(client, id);
       }
 
+      // DB constraint chk_entrega_motivo_anulacion exige motivo >= 5 chars.
+      // Validamos aquí para devolver 400 limpio en vez de un 500 de Postgres.
+      const motivo = typeof payload?.motivo === 'string' ? payload.motivo.trim() : '';
+      if (motivo.length < 5) {
+        throw buildError(
+          'El motivo de anulación es obligatorio (mínimo 5 caracteres).',
+          400,
+          'DELIVERY_CANCEL_REASON_REQUIRED'
+        );
+      }
+
       await client.query(
         `UPDATE entrega
          SET estado = 'anulada',
              motivo_anulacion = $2
          WHERE id = $1`,
-        [id, payload?.motivo || null]
+        [id, motivo]
       );
 
       await writeAuditEvent({

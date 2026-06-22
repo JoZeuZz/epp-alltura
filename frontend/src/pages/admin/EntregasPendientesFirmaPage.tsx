@@ -63,9 +63,13 @@ const EntregasPendientesFirmaPage: React.FC = () => {
 
   const handleAnularConfirm = async () => {
     if (!anularTarget) return;
+    if (anularMotivo.trim().length < 5) {
+      toast.error('Indica un motivo de anulación (mínimo 5 caracteres).');
+      return;
+    }
     setIsAnulando(true);
     try {
-      await anularEntrega(anularTarget.id, anularMotivo.trim() || undefined);
+      await anularEntrega(anularTarget.id, anularMotivo.trim());
       toast.success('Entrega anulada.');
       setAnularTarget(null);
       setAnularMotivo('');
@@ -237,14 +241,14 @@ const EntregasPendientesFirmaPage: React.FC = () => {
           variant="danger"
           onConfirm={() => void handleAnularConfirm()}
           onClose={() => setAnularTarget(null)}
-          confirmDisabled={isAnulando}
+          confirmDisabled={isAnulando || anularMotivo.trim().length < 5}
         >
           <div className="mt-3">
             <label
               htmlFor="motivo-anulacion"
               className="block text-sm font-medium text-gray-700 mb-1"
             >
-              Motivo (opcional)
+              Motivo (obligatorio, mín. 5 caracteres)
             </label>
             <textarea
               id="motivo-anulacion"
