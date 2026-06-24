@@ -1,7 +1,20 @@
+const validator = require('validator');
+
+const normalizeLegacyHtmlEntities = (value) => {
+  if (typeof value === 'string') return validator.unescape(value);
+  if (Array.isArray(value)) return value.map(normalizeLegacyHtmlEntities);
+  if (value && value.constructor === Object) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, normalizeLegacyHtmlEntities(entry)])
+    );
+  }
+  return value;
+};
+
 const buildSuccessResponse = (message, data = null) => ({
   success: true,
   message,
-  data,
+  data: normalizeLegacyHtmlEntities(data),
   errors: [],
 });
 

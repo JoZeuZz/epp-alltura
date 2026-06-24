@@ -18,13 +18,26 @@
  * - OWASP XSS Prevention: https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html
  */
 
-const createDOMPurify = require('isomorphic-dompurify');
+const domPurifyModule = require('isomorphic-dompurify');
 const mongoSanitize = require('express-mongo-sanitize');
 const validator = require('validator');
 const { logger } = require('../lib/logger');
 
 // Inicializar DOMPurify para uso en servidor
-const DOMPurify = createDOMPurify();
+const DOMPurify = typeof domPurifyModule.sanitize === 'function'
+  ? domPurifyModule
+  : domPurifyModule();
+
+const DOMPURIFY_TEXT_CONFIG = {
+  ALLOWED_TAGS: [],
+  ALLOWED_ATTR: [],
+};
+
+const sanitizePlainText = (value) => {
+  const normalized = validator.unescape(value);
+  const withoutHTML = DOMPurify.sanitize(normalized, DOMPURIFY_TEXT_CONFIG);
+  return validator.unescape(withoutHTML);
+};
 
 /**
  * Configuración de DOMPurify
@@ -128,8 +141,8 @@ const sanitizeValue = (value, options = {}) => {
     const config = richHTML ? DOMPURIFY_RICH_CONFIG : DOMPURIFY_CONFIG;
     sanitized = DOMPurify.sanitize(sanitized, config);
   } else {
-    // Si no se permite HTML, escapar caracteres especiales
-    sanitized = validator.escape(sanitized);
+    // Texto plano: remover HTML activo sin persistir entidades de salida.
+    sanitized = sanitizePlainText(sanitized);
   }
 
   return sanitized;
@@ -659,4 +672,8 @@ const createFieldSanitizer = (fieldConfig) => {
 
 module.exports = {
   sanitizeStrict,
+  sanitizeRichHTML,
+  sanitizeMongoOnly,
+  validateIDParam,
+  createFieldSanitizer,
 };
