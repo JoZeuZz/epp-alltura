@@ -172,8 +172,6 @@ const sanitizeObject = (obj, options = {}) => {
         });
       }
       
-      // Escapar HTML en la clave
-      sanitizedKey = validator.escape(sanitizedKey);
       sanitized[sanitizedKey] = sanitizeValue(value, options);
     }
     return sanitized;
